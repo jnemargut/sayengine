@@ -4,3 +4,4 @@ apps/view/dist/
 *.log
 .DS_Store
 .bettercompact/
+.scratch/

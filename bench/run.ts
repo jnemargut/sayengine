@@ -1,7 +1,10 @@
 // Reference-solution benchmark: proves the engine can express each benchmark task and that
 // checks behave. (The AI benchmark — Claude Code driving /studio — is described in bench/TASKS.md.)
 // Run: npm run bench
-import { initKernel, Studio, toGLB, toSTL } from '../packages/core/src/index.ts';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { initKernel, Studio, MemoryAssets, toGLB, toSTL } from '../packages/core/src/index.ts';
 
 await initKernel();
 
@@ -132,6 +135,101 @@ const tasks: Task[] = [
       const stl = toSTL(doc.objectOrder.map((id) => ({ obj: doc.objects[id], res: s.evaluate(doc.objects[id]) })));
       const n = new DataView(stl.buffer).getUint32(80, true);
       return n > 12 && stl.length === 84 + 50 * n ? null : 'bad STL';
+    },
+  },
+  {
+    name: '9. Materials: walnut seat, black-metal legs, carried into the GLB',
+    run: (_s, step) => {
+      buildStool(step);
+      step('set-material', { part: 'leg*', preset: 'black-metal' });
+    },
+    expect: (s) => {
+      const doc = s.doc();
+      const glb = toGLB(doc.objectOrder.map((id) => ({ obj: doc.objects[id], res: s.evaluate(doc.objects[id]) })));
+      const json = JSON.parse(new TextDecoder().decode(glb.subarray(20, 20 + new DataView(glb.buffer, glb.byteOffset).getUint32(12, true))));
+      const metal = json.materials.find((m: any) => m.name === 'black-metal');
+      const wood = json.materials.find((m: any) => m.name === 'walnut');
+      if (!metal || !wood) return `materials in GLB: ${json.materials.map((m: any) => m.name).join(', ')}`;
+      return metal.pbrMetallicRoughness.metallicFactor > 0.5 && wood.extras?.woodGrain ? allPass(s) : 'PBR values missing';
+    },
+  },
+  {
+    name: '10. Scene: a vase on the stool stays on it when the stool gets taller',
+    run: (_s, step) => {
+      buildStool(step);
+      step('new-object', { name: 'Vase', type: 'vase', material: 'glazed-ceramic', color: '#2f5d62' });
+      step('add-op', { id: 'body', op: 'revolve', args: { curve: true, profile: [[0, 0], [0.06, 0], [0.09, 0.1], [0.04, 0.25], [0.05, 0.28], [0.044, 0.28], [0.034, 0.25], [0.084, 0.1], [0.054, 0.006], [0, 0.006]] } });
+      step('place-object', { object: 'vase', relation: 'on', target: 'walnut-stool' });
+      step('set-param', { object: 'walnut-stool', name: 'seatH', value: 0.6 });
+    },
+    expect: (s) => {
+      const y = s.evaluate(s.doc().objects.vase).bbox!.min[1];
+      return Math.abs(y - 0.6) > 0.001 ? `vase base at ${y}, seat at 0.6` : allPass(s);
+    },
+  },
+  {
+    name: '11. Arrange: four linked stools around a round table, then make them all taller',
+    run: (_s, step) => {
+      step('new-object', { name: 'Table', type: 'table', material: 'oak' });
+      step('add-op', { id: 'top', op: 'cylinder', part: 'top', output: false, args: { r: 0.5, h: 0.035, at: [0, 0.705, 0] } });
+      step('add-op', { id: 'post', op: 'cylinder', part: 'leg', output: false, args: { r: 0.04, h: 0.71 } });
+      step('add-op', { id: 'foot', op: 'cylinder', part: 'leg-foot', output: false, args: { r: 0.25, h: 0.03 } });
+      step('add-op', { id: 'table', op: 'union', inputs: ['top', 'post', 'foot'], output: true });
+      buildStool(step);
+      step('duplicate-object', { object: 'walnut-stool', count: 3 });
+      step('arrange', { objects: ['walnut-stool', 'walnut-stool-2', 'walnut-stool-3', 'walnut-stool-4'], around: 'table', radius: 0.62, start: 45 });
+      step('set-param', { object: 'walnut-stool', name: 'seatH', value: 0.5 });
+    },
+    expect: (s) => {
+      const doc = s.doc();
+      for (const id of ['walnut-stool', 'walnut-stool-2', 'walnut-stool-3', 'walnut-stool-4']) {
+        const b = s.evaluate(doc.objects[id]).bbox!;
+        const r = Math.hypot((b.min[0] + b.max[0]) / 2, (b.min[2] + b.max[2]) / 2);
+        if (Math.abs(r - 0.62) > 0.003) return `${id} at radius ${r.toFixed(3)}`;
+        if (Math.abs(b.max[1] - 0.5) > 0.001) return `${id} did not follow the original (${b.max[1]})`;
+      }
+      return allPass(s);
+    },
+  },
+  {
+    name: '12. Hand edits from the view: drag the vase across the seat, drag a part, scrub a param',
+    run: (s, step) => {
+      buildStool(step);
+      step('new-object', { name: 'Vase', type: 'vase', material: 'glazed-ceramic' });
+      step('add-op', { id: 'body', op: 'cylinder', args: { r: 0.05, h: 0.2 } });
+      step('place-object', { object: 'vase', relation: 'on', target: 'walnut-stool' });
+      const human = (t: string, a: object) => { const r = s.call(t, a, 'human'); if (!r.ok) throw new Error(`${t}: ${r.error}`); return r; };
+      human('drag-object', { object: 'vase', by: [0.06, 0.04] });
+      human('drag-part', { object: 'walnut-stool', part: 'seat', by: [0, 0, 0.01] });
+      human('set-param', { object: 'walnut-stool', name: 'seatH', value: 0.47 });
+    },
+    expect: (s) => {
+      const log = s.log('main', 3);
+      if (log.some((c) => c.author !== 'human')) return 'hand edits should be human steps';
+      const p = s.doc().objects.vase.place as any;
+      if (p?.kind !== 'on' || p.offset?.[0] !== 0.06) return `vase relation lost: ${JSON.stringify(p)}`;
+      return allPass(s);
+    },
+  },
+  {
+    name: '13. Import: an STL scan as a measurable reference (left out of export)',
+    run: (s, step) => {
+      buildStool(step);
+      const doc = s.doc();
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-import-'));
+      fs.writeFileSync(path.join(dir, 'scan.stl'), toSTL([{ obj: doc.objects['walnut-stool'], res: s.evaluate(doc.objects['walnut-stool']) }]));
+      (s as any).assets = new MemoryAssets(dir);
+      step('import', { file: 'scan.stl' });
+      step('move-object', { object: 'scan', position: [0.8, 0, 0] });
+    },
+    expect: (s) => {
+      const info: any = s.call('inspect', { object: 'scan' }).result;
+      const h = info.bbox.max[1] - info.bbox.min[1];
+      if (Math.abs(h - 0.45) > 0.001) return `scan height ${h}`;
+      const doc = s.doc();
+      const glb = toGLB(doc.objectOrder.map((id) => ({ obj: doc.objects[id], res: s.evaluate(doc.objects[id]) })));
+      const json = JSON.parse(new TextDecoder().decode(glb.subarray(20, 20 + new DataView(glb.buffer, glb.byteOffset).getUint32(12, true))));
+      return json.nodes.length === 1 ? allPass(s) : 'reference was exported';
     },
   },
 ];

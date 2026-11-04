@@ -7,3 +7,7 @@ export * from './tools.ts';
 export * from './codeview.ts';
 export * from './export.ts';
 export * from './studio.ts';
+export * from './materials.ts';
+export * from './assets.ts';
+export * from './importers.ts';
+export * from './scene.ts';

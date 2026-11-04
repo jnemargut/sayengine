@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { runSandboxed } from './sandbox.ts';
-import { initKernel, Studio, toGLB, toOBJ, toSTL, TOOLS, type RepoData } from '../../core/src/index.ts';
+import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, type RepoData } from '../../core/src/index.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
@@ -22,7 +22,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
   fs.mkdirSync(path.join(stateDir, 'exports'), { recursive: true });
   const repoFile = path.join(stateDir, 'repo.json');
   const data: RepoData | undefined = fs.existsSync(repoFile) ? JSON.parse(fs.readFileSync(repoFile, 'utf8')) : undefined;
-  const studio = new Studio(data);
+  const studio = new Studio(data, { assets: new DirAssets(path.join(stateDir, 'assets'), dir) });
   studio.onPersist = (d) => {
     const tmp = repoFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(d));
@@ -76,7 +76,9 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const reply = await new Promise<any>((resolve) => {
           const t = setTimeout(() => { pendingRenders.delete(id); resolve({ error: 'view did not answer within 20 s' }); }, 20000);
           pendingRenders.set(id, (m) => { clearTimeout(t); resolve(m); });
-          view.send(JSON.stringify({ type: 'render', id, views, labels: args.labels !== false, object: args.object, proposal: args.proposal }));
+          const style = args.style === 'presentation' ? 'presentation' : 'labeled';
+          const viewsFinal = style === 'presentation' && !args.views ? ['hero'] : views;
+          view.send(JSON.stringify({ type: 'render', id, views: viewsFinal, style, size: Math.min(2400, Math.max(256, Number(args.size) || (style === 'presentation' ? 1600 : 768))), labels: style === 'labeled' && args.labels !== false, object: args.object, proposal: args.proposal }));
         });
         if (reply.error) return { ok: false, tool: name, error: reply.error };
         const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -85,21 +87,25 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           fs.writeFileSync(f, Buffer.from(img.data.replace(/^data:image\/png;base64,/, ''), 'base64'));
           return f;
         });
-        return { ok: true, tool: name, result: { images: files, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
+        return { ok: true, tool: name, result: args.style === 'presentation'
+          ? { images: files, note: 'Presentation render: materials, environment light and soft shadows, no labels. Read it to judge the look; share the PNG.' }
+          : { images: files, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
       }
       case 'export': {
         const doc = studio.doc();
         const ids = args.object ? [studio.findObject(doc, args.object).id] : doc.objectOrder;
         const items = ids.map((id) => ({ obj: doc.objects[id], res: studio.evaluate(doc.objects[id]) }));
         const bad = items.filter((i) => !i.res.ok).map((i) => i.obj.name);
+        const opts = { includeReferences: !!args.includeReferences };
+        const refs = items.filter((i) => i.obj.role === 'reference' && !opts.includeReferences).map((i) => i.obj.name);
         const fmt = (args.format ?? 'glb').toLowerCase();
         const base = args.object ? ids[0] : 'scene';
         const out = args.out ? path.resolve(dir, args.out) : path.join(stateDir, 'exports', `${base}.${fmt}`);
-        if (fmt === 'glb') fs.writeFileSync(out, toGLB(items));
-        else if (fmt === 'obj') fs.writeFileSync(out, toOBJ(items));
-        else if (fmt === 'stl') fs.writeFileSync(out, toSTL(items));
+        if (fmt === 'glb') fs.writeFileSync(out, toGLB(items, opts));
+        else if (fmt === 'obj') fs.writeFileSync(out, toOBJ(items, opts));
+        else if (fmt === 'stl') fs.writeFileSync(out, toSTL(items, opts));
         else return { ok: false, tool: name, error: 'format must be glb, obj or stl' };
-        return { ok: true, tool: name, result: { file: out, objects: ids.length - bad.length, skipped: bad } };
+        return { ok: true, tool: name, result: { file: out, objects: ids.length - bad.length - refs.length, skipped: bad, ...(refs.length ? { referencesLeftOut: refs } : {}) } };
       }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
@@ -137,6 +143,29 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         return json(200, d ?? studio.call(tool, args, author));
       }
       if (url.pathname === '/api/state') return json(200, studio.snapshot());
+      if (url.pathname.startsWith('/assets/')) {
+        const id = url.pathname.slice(8);
+        let bytes: Uint8Array;
+        try { bytes = studio.assets.get(id); } catch { res.writeHead(404); return res.end('no such asset'); }
+        const ext = id.split('.').pop();
+        res.writeHead(200, { 'content-type': ext === 'png' ? 'image/png' : ext === 'jpg' ? 'image/jpeg' : 'application/octet-stream', 'cache-control': 'max-age=31536000, immutable' });
+        return res.end(bytes);
+      }
+      if (req.method === 'POST' && url.pathname === '/api/upload') {
+        // drag-and-drop from the view: save under .studio/uploads, then import as the human
+        const name = path.basename(url.searchParams.get('name') ?? 'upload');
+        if (!formatOf(name)) return json(400, { ok: false, error: 'drop a .stl, .obj, .glb, .png or .jpg file' });
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const c of req) { size += c.length; if (size > 200e6) return json(413, { ok: false, error: 'file larger than 200 MB' }); chunks.push(c as Buffer); }
+        const up = path.join(stateDir, 'uploads');
+        fs.mkdirSync(up, { recursive: true });
+        const file = path.join(up, name);
+        fs.writeFileSync(file, Buffer.concat(chunks));
+        const args: any = { file };
+        if (/\.(png|jpe?g)$/i.test(name)) { args.plane = url.searchParams.get('plane') ?? 'front'; args.size = Number(url.searchParams.get('size') ?? 1); }
+        return json(200, studio.call('import', args, 'human'));
+      }
       if (url.pathname === '/api/health') return json(200, { ok: true, dir });
       if (req.method === 'POST' && url.pathname === '/api/shutdown') {
         json(200, { ok: true, stopped: true });
@@ -165,6 +194,18 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
       if (m.type === 'call') {
         const r = studio.call(m.tool, m.args ?? {}, 'human');
         ws.send(JSON.stringify({ type: 'call-result', id: m.id, result: r }));
+      } else if (m.type === 'preview') {
+        // live slider scrubbing: evaluate params on a scratch copy of the active branch, no commit
+        try {
+          const h = studio.history;
+          const doc = m.branch && m.branch !== 'main' && h.data.proposals[m.branch] ? h.proposalDoc(h.proposal(m.branch)) : m.branch === 'main' ? h.mainDoc() : h.activeDoc();
+          const o = studio.findObject(doc, m.object);
+          for (const [k, v] of Object.entries(m.params ?? {})) if (o.params[k] && typeof v === 'number') o.params[k] = { ...o.params[k], value: v };
+          studio.resolve(doc);
+          ws.send(JSON.stringify({ type: 'preview', id: m.id, objects: studio.pack(doc) }));
+        } catch (e: any) {
+          ws.send(JSON.stringify({ type: 'preview', id: m.id, error: e.message }));
+        }
       } else if (m.type === 'select') {
         selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, time: new Date().toISOString() } : null;
       } else if (m.type === 'render-result') {

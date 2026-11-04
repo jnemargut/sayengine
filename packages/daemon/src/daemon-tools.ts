@@ -15,18 +15,20 @@ export const DAEMON_TOOLS: DaemonTool[] = [
   },
   {
     name: 'render',
-    description: 'Ask the open browser view to render labeled images: --views front,side,top,iso,back --labels true --object <id> --proposal p1. Returns PNG paths you can Read, plus a legend mapping the numbered dots to parts.',
+    description: 'Ask the open browser view to render images. Default (--style labeled): --views front,side,top,iso,back with numbered part labels and edges; returns PNG paths you can Read plus a legend. --style presentation: a finished-looking image (materials, environment light, soft shadows, no labels) from a 3/4 "hero" camera, 1600 px; use it when the human wants to see or share the result. --object <id>, --proposal p1, --size px.',
     flags: {
       type: 'object', properties: {
-        views: { anyOf: [{ type: 'string', description: 'comma-separated, e.g. "front,side,iso"' }, { type: 'array', items: { type: 'string', enum: ['front', 'side', 'top', 'iso', 'back'] } }] },
+        views: { anyOf: [{ type: 'string', description: 'comma-separated, e.g. "front,side,iso" (presentation: "hero,front")' }, { type: 'array', items: { type: 'string', enum: ['front', 'side', 'top', 'iso', 'back', 'hero', 'low'] } }] },
+        style: { type: 'string', enum: ['labeled', 'presentation'], default: 'labeled' },
+        size: { type: 'number', description: 'image width in px (labeled 768, presentation 1600)' },
         labels: { type: 'boolean', default: true }, object: { type: 'string' }, proposal: { type: 'string' },
       },
     },
   },
   {
     name: 'export',
-    description: 'Write GLB, OBJ or STL (mm, Z-up for printing): --format glb|obj|stl [--object id] [--out path]. Uses the active branch.',
-    flags: { type: 'object', properties: { format: { type: 'string', enum: ['glb', 'obj', 'stl'], default: 'glb' }, object: { type: 'string' }, out: { type: 'string' } } },
+    description: 'Write GLB (PBR materials per part), OBJ or STL (mm, Z-up for printing): --format glb|obj|stl [--object id] [--out path]. Uses the active branch. Imported references are left out unless --include-references true.',
+    flags: { type: 'object', properties: { format: { type: 'string', enum: ['glb', 'obj', 'stl'], default: 'glb' }, object: { type: 'string' }, out: { type: 'string' }, includeReferences: { type: 'boolean', default: false } } },
   },
   {
     name: 'run',

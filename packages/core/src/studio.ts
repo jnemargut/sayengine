@@ -1,7 +1,11 @@
 // Studio: the headless engine facade. One instance per project. DOM-free.
 import { History, getAt, setAt, type Change, type Commit, type RepoData } from './history.ts';
-import { evaluateObject, type EvalResult } from './kernel.ts';
+import { evaluateObject, overlapVolume, setMeshLoader, supportOf, type EvalResult } from './kernel.ts';
 import { runChecks, type CheckResult } from './checks.ts';
+import { MemoryAssets, type AssetStore } from './assets.ts';
+import { parseMesh, type MeshFormat, type RawMesh } from './importers.ts';
+import { fillInstances, solvePlacements, describePlacement } from './scene.ts';
+import { materialForPart, resolveMaterial } from './materials.ts';
 import { codeView } from './codeview.ts';
 import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
@@ -23,19 +27,51 @@ export interface Activity { time: string; author: string; tool: string; args: st
 
 const clone = <T>(x: T): T => structuredClone(x);
 
+/** Tools that change an object's geometry/params/materials — not allowed on a linked copy. */
+const SOURCE_ONLY = new Set(['set-param', 'set-params', 'add-op', 'set-op', 'remove-op', 'set-output', 'add-rule', 'set-material']);
+
 export class Studio {
   history: History;
   activity: Activity[] = [];
+  assets: AssetStore;
   private evalCache = new Map<string, EvalResult>();
+  private overlapCache = new Map<string, number>();
+  private meshCache = new Map<string, RawMesh>();
+  private resolveErrors = new WeakMap<SceneDoc, Record<string, string>>();
   private listeners = new Set<() => void>();
   onPersist?: (data: RepoData) => void;
 
-  constructor(data?: RepoData) { this.history = new History(data); }
+  constructor(data?: RepoData, opts: { assets?: AssetStore } = {}) {
+    this.history = new History(data);
+    this.assets = opts.assets ?? new MemoryAssets();
+    setMeshLoader((a) => {
+      const key = JSON.stringify(a);
+      let m = this.meshCache.get(key);
+      if (!m) {
+        const asset = String(a.asset);
+        m = parseMesh(this.assets.get(asset), (a.format as MeshFormat) ?? (asset.split('.').pop() as MeshFormat), { units: a.units as any, up: a.up as any, scale: a.scale as number | undefined, center: a.center as boolean | undefined });
+        if (this.meshCache.size > 20) this.meshCache.delete(this.meshCache.keys().next().value!);
+        this.meshCache.set(key, m);
+      }
+      return m;
+    });
+  }
+
+  /** Fill linked copies and solve placement relations (positions of placed objects are derived). */
+  resolve(doc: SceneDoc): SceneDoc {
+    const errors: Record<string, string> = {};
+    fillInstances(doc, errors);
+    solvePlacements(doc, (o) => this.evaluate(o), errors);
+    this.resolveErrors.set(doc, errors);
+    return doc;
+  }
+  mainDoc(): SceneDoc { return this.resolve(this.history.mainDoc()); }
+  proposalDoc(p: any): SceneDoc { return this.resolve(this.history.proposalDoc(p)); }
 
   onChange(fn: () => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   private emit() { this.onPersist?.(this.history.data); for (const fn of this.listeners) fn(); }
 
-  doc(): SceneDoc { return this.history.activeDoc(); }
+  doc(): SceneDoc { return this.resolve(this.history.activeDoc()); }
 
   findObject(doc: SceneDoc, ref?: string): SceneObject {
     if (!ref) {
@@ -50,7 +86,7 @@ export class Studio {
   }
 
   evaluate(obj: SceneObject): EvalResult {
-    const key = JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position]);
+    const key = this.evalKey(obj);
     let r = this.evalCache.get(key);
     if (!r) {
       r = evaluateObject(obj);
@@ -60,10 +96,64 @@ export class Studio {
     return r;
   }
 
+  evalKey(obj: SceneObject): string {
+    return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0]);
+  }
+
   checks(id: string, doc = this.doc()): CheckResult[] {
     const o = doc.objects[id];
     if (!o) throw new Error(`no object "${id}"`);
-    return runChecks(o, this.evaluate(o));
+    const r = this.evaluate(o);
+    if (o.role === 'reference') {
+      return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
+    }
+    return [...runChecks(o, r), ...this.sceneChecks(o, doc)];
+  }
+
+  /** Checks that involve other objects: placement solved, resting on its support, no overlaps. */
+  sceneChecks(o: SceneObject, doc: SceneDoc): CheckResult[] {
+    const out: CheckResult[] = [];
+    const errors = this.resolveErrors.get(doc) ?? {};
+    const name = (id: string) => doc.objects[id]?.name ?? id;
+    if (errors[o.id]) out.push({ id: 'placement', label: 'Placement', pass: false, detail: errors[o.id] });
+    const r = this.evaluate(o);
+    if (!r.ok) return out;
+    if (o.place?.kind === 'on' && !errors[o.id] && doc.objects[o.place.target]) {
+      const base = this.evaluate(doc.objects[o.place.target]);
+      const s = supportOf(r, base);
+      const pct = Math.round(s.fraction * 100);
+      out.push({
+        id: 'restsOn', label: `Rests on ${name(o.place.target)}`, pass: s.fraction >= 0.5,
+        detail: s.fraction >= 0.5 ? `${pct}% of its base sits on ${name(o.place.target)}'s top surface`
+          : s.samples === 0 ? 'no base found' : `only ${pct}% of its base is over ${name(o.place.target)}'s top surface — it would tip or float (the top may be dished or narrower than the base; adjust the offset)`,
+      });
+    }
+    const hits: string[] = [];
+    for (const id of doc.objectOrder) {
+      const other = doc.objects[id];
+      if (id === o.id || !other || other.role === 'reference') continue;
+      const v = this.overlap(o, other);
+      if (v > 1e-7) hits.push(`${other.name} by ${(v * 1e6).toFixed(1)} cm³`);
+    }
+    if (doc.objectOrder.filter((id) => doc.objects[id]?.role !== 'reference').length > 1) {
+      out.push({
+        id: 'noOverlap', label: 'Clear of other objects', pass: hits.length === 0,
+        detail: hits.length ? `overlaps ${hits.join(', ')} — move it (place-object / move-object) so they only touch` : 'touches but does not pass through any other object',
+      });
+    }
+    return out;
+  }
+
+  private overlap(a: SceneObject, b: SceneObject): number {
+    const ka = this.evalKey(a), kb = this.evalKey(b);
+    const key = ka < kb ? ka + '|' + kb : kb + '|' + ka;
+    let v = this.overlapCache.get(key);
+    if (v === undefined) {
+      v = overlapVolume(this.evaluate(a), this.evaluate(b));
+      if (this.overlapCache.size > 400) this.overlapCache.delete(this.overlapCache.keys().next().value!);
+      this.overlapCache.set(key, v);
+    }
+    return v;
   }
 
   call(name: string, rawArgs: unknown = {}, author = 'claude'): CallResult {
@@ -79,6 +169,16 @@ export class Studio {
     }
     const args = parsed.data;
     const draft = this.doc();
+    if (SOURCE_ONLY.has(name)) {
+      try {
+        const o = this.findObject(draft, (args as any).object);
+        if (o.instanceOf) {
+          const error = `${o.name} is a linked copy of ${draft.objects[o.instanceOf]?.name ?? o.instanceOf}: edit "${o.instanceOf}" (every copy follows), or run "studio unlink --object ${o.id}" first`;
+          this.addActivity({ author, tool: name, args: argStr, ok: false, error });
+          return { ok: false, tool: name, branch, error };
+        }
+      } catch { /* the tool reports a missing object itself */ }
+    }
     const changes: Change[] = [];
     let summary = '';
     const ctx: ToolCtx = {
@@ -104,6 +204,16 @@ export class Studio {
       const c = this.history.record(author, name, summary || name, changes, args);
       const touched = new Set(changes.filter((x) => x.path[0] === 'objects' && x.path[1]).map((x) => x.path[1]));
       const doc = this.doc();
+      // objects placed on / linked to a touched object move with it: report their checks too
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const id of doc.objectOrder) {
+          const o = doc.objects[id];
+          if (touched.has(id) || !o) continue;
+          if ((o.place && touched.has(o.place.target)) || (o.instanceOf && touched.has(o.instanceOf))) { touched.add(id); grew = true; }
+        }
+      }
       const checks: CallResult['checks'] = {};
       for (const id of touched) {
         if (!doc.objects[id]) continue;
@@ -138,9 +248,14 @@ export class Studio {
       objects: doc.objectOrder.map((id) => {
         const o = doc.objects[id];
         const r = this.evaluate(o);
-        const cs = runChecks(o, r);
+        const cs = this.checks(id, doc);
         return {
           id, name: o.name, type: o.semanticType, ops: o.opOrder.length,
+          ...(o.role === 'reference' ? { role: 'reference' } : {}),
+          ...(o.instanceOf ? { linkedCopyOf: o.instanceOf } : {}),
+          position: o.position.map((v) => +v.toFixed(4)), ...(o.rotation ? { rotation: +o.rotation.toFixed(2) } : {}),
+          ...(o.place ? { placement: describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) } : {}),
+          material: o.material.name,
           params: Object.fromEntries(Object.entries(o.params).map(([k, p]) => [k, p.value])),
           size: r.bbox ? r.bbox.max.map((v, i) => +(v - r.bbox!.min[i]).toFixed(4)) : null,
           checks: `${cs.filter((c) => c.pass).length}/${cs.length} pass`,
@@ -156,12 +271,16 @@ export class Studio {
     const r = this.evaluate(o);
     const r4 = (v: number[]) => v.map((x) => +x.toFixed(4));
     return {
-      id, name: o.name, type: o.semanticType, description: o.description, material: o.material, position: o.position,
+      id, name: o.name, type: o.semanticType, description: o.description,
+      material: resolveMaterial(o.material), partMaterials: o.partMaterials,
+      position: o.position, rotation: o.rotation ?? 0,
+      placement: o.place ? { ...o.place, description: describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) } : null,
+      linkedCopyOf: o.instanceOf, role: o.role ?? 'model', reference: o.reference,
       params: o.params, output: o.output, code: codeView(o),
       parts: r.parts.map((p) => ({ name: p.name, min: r4(p.bbox.min), max: r4(p.bbox.max), ops: p.ops })),
       bbox: r.bbox ? { min: r4(r.bbox.min), max: r4(r.bbox.max) } : null,
       stats: { triangles: r.triangles, components: r.components, volume_m3: +r.volume.toFixed(6), genus: r.genus },
-      checks: runChecks(o, r),
+      checks: this.checks(id, doc),
       error: r.error,
     };
   }
@@ -188,7 +307,7 @@ export class Studio {
       if (field === 'ops' && key) ops.add(key);
       else if (field === 'params' && key) {
         for (const id of o.opOrder) if (referencedParams(o.ops[id]?.args).has(key)) ops.add(id);
-      } else if (!field || field === 'material' || field === 'position' || field === 'output' || field === 'opOrder') {
+      } else if (!field || ['material', 'partMaterials', 'position', 'rotation', 'place', 'output', 'opOrder', 'instanceOf'].includes(field)) {
         out[oid] = ['*'];
         continue;
       }
@@ -202,7 +321,7 @@ export class Studio {
   proposalsInfo(all = false) {
     const h = this.history;
     return Object.values(h.data.proposals).filter((p) => all || p.status === 'open').map((p) => {
-      const preview = h.proposalDoc(p);
+      const preview = this.proposalDoc(p);
       const steps = h.steps(p);
       const checks: Record<string, CheckResult[]> = {};
       for (const id of preview.objectOrder) checks[id] = this.checks(id, preview);
@@ -221,31 +340,56 @@ export class Studio {
     });
   }
 
-  /** Everything the browser view needs (meshes base64-encoded). */
-  snapshot() {
-    const h = this.history;
+  /** One document's objects, packed for the view (meshes base64-encoded). */
+  pack(doc: SceneDoc) {
     const b64 = (a: ArrayBufferView) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
-    const pack = (doc: SceneDoc) => doc.objectOrder.map((id) => {
+    return doc.objectOrder.map((id) => {
       const o = doc.objects[id];
       const r = this.evaluate(o);
       return {
-        id, name: o.name, type: o.semanticType, material: o.material,
+        id, name: o.name, type: o.semanticType, material: resolveMaterial(o.material),
         params: o.params, code: codeView(o), ok: r.ok, error: r.error,
         positions: b64(r.positions), indices: b64(r.indices),
-        parts: r.parts.map((p) => ({ name: p.name, ranges: p.ranges, bbox: p.bbox, ops: p.ops })),
-        bbox: r.bbox, checks: runChecks(o, r),
+        parts: r.parts.map((p) => ({ name: p.name, ranges: p.ranges, bbox: p.bbox, ops: p.ops, material: materialForPart(o, p.name), drag: o.instanceOf ? 'object' : this.partDragTarget(o, p.name).kind })),
+        bbox: r.bbox, checks: this.checks(id, doc),
+        position: o.position, rotation: o.rotation ?? 0,
+        placement: o.place ? describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) : null,
+        linkedCopyOf: o.instanceOf ?? null, role: o.role ?? 'model', reference: o.reference ?? null,
       };
     });
-    const main = h.mainDoc();
+  }
+
+  /**
+   * What dragging a part in the view should edit: the `at` of the op that made it (when nothing
+   * after it rotates, scales or copies it), otherwise the whole object.
+   */
+  partDragTarget(o: SceneObject, part: string): { kind: 'op'; op: string } | { kind: 'object'; reason: string } {
+    if (/#/.test(part)) return { kind: 'object', reason: `${part} is one of several copies made by one op` };
+    const r = this.evaluate(o);
+    const p = r.parts.find((x) => x.name === part);
+    if (!p) return { kind: 'object', reason: `no part "${part}"` };
+    if (r.parts.filter((x) => !x.name.startsWith('~')).length === 1) return { kind: 'object', reason: `${part} is the whole object` };
+    const creators = p.ops.filter((id) => o.ops[id] && !o.ops[id].inputs?.length);
+    if (creators.length !== 1) return { kind: 'object', reason: `${part} is built from several ops` };
+    const MOVES = new Set(['rotate', 'scale', 'mirror', 'placeAt', 'array', 'hull']);
+    if (p.ops.some((id) => o.ops[id] && MOVES.has(o.ops[id].op))) return { kind: 'object', reason: `${part} is rotated, scaled or copied after it is made` };
+    if (o.ops[creators[0]].op === 'mesh') return { kind: 'object', reason: 'imported mesh' };
+    return { kind: 'op', op: creators[0] };
+  }
+
+  /** Everything the browser view needs (meshes base64-encoded). */
+  snapshot() {
+    const h = this.history;
+    const main = this.mainDoc();
     const open = Object.values(h.data.proposals).filter((p) => p.status === 'open');
     return {
       active: h.data.active,
       mainHead: h.data.mainHead,
       commitCount: Object.keys(h.data.commits).length,
-      main: pack(main),
+      main: this.pack(main),
       proposals: this.proposalsInfo(false).map((info) => ({
         ...info,
-        objects: pack(h.proposalDoc(open.find((p) => p.id === info.id)!)),
+        objects: this.pack(this.proposalDoc(open.find((p) => p.id === info.id)!)),
       })),
       history: this.log('main', 12),
       activity: this.activity.slice(-40),

@@ -142,5 +142,16 @@ code { font-family:var(--font-mono); font-size:var(--text-xs); background:var(--
 .thumb { flex:0 0 auto; border:1px solid var(--color-200); background:var(--color-50); border-radius:var(--radius-sm); padding:3px; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--color-600); font-size:var(--text-xs); }
 .thumb img { width:64px; height:64px; border-radius:6px; display:block; }
 .thumb.on { border-color:var(--color-800); box-shadow:0 0 0 1px var(--color-800); color:var(--color-900); font-weight:600; }
+.vp-sep { width:1px; background:var(--color-300); margin:2px 4px; }
+.tree .obj.sel { color:var(--accent-sage-ink); }
+.tree .obj.ref { color:var(--color-600); font-weight:500; }
+.tree .obj.ref i { background:var(--accent-blue); }
+.tree .tag { font-style:normal; font-size:11px; font-weight:500; color:var(--color-500); background:var(--color-100); border-radius:999px; padding:0 8px; margin-left:auto; }
+.tree .swatch { width:10px; height:10px; border-radius:3px; flex-shrink:0; align-self:center; border:1px solid var(--color-300); }
+.fl.you .who { color:var(--accent-caramel); font-weight:600; }
+.step.you .who { color:var(--accent-caramel); }
+.commit.you { border:1px solid var(--accent-caramel); }
+.drop-hint { position:absolute; inset:var(--space-3); border:2px dashed var(--accent-sage); border-radius:var(--radius-md); display:none; align-items:center; justify-content:center; font-size:var(--text-sm); color:var(--accent-sage-ink); background:var(--color-50); opacity:.92; z-index:4; pointer-events:none; }
+.viewport.drop .drop-hint { display:flex; }
 .check.pend { background:var(--color-100); color:var(--color-600); }
 .check.pend i { background:var(--color-400); }

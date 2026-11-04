@@ -23,6 +23,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 7 | `/studio show me two seat options for the stool` *(after task 1)* | two proposals, compared as thumbnails in the review panel; you commit one |
 | 8 | Click one leg in the view, then `/studio make this leg's foot narrower` | Claude calls `studio selection`, edits the right op/param, in a proposal |
 | 9 | `/studio export the stool for 3D printing` | an .stl in `.studio/exports/` that a slicer opens at the right size (mm) |
+| 10 | `/studio make the seat walnut and the legs black metal, then show me a nice render` *(after task 1)* | per-part materials; Claude uses `render --style presentation` and Reads it; GLB export has both materials |
+| 11 | `/studio put a ceramic vase on the stool` *(after task 1)* | `place-object --relation on`; "Rests on" and "Clear of other objects" pass; then `/studio make the stool bar height` keeps the vase on it |
+| 12 | `/studio make a round dining table with four of these stools around it` *(after task 1)* | linked copies + `arrange --around`; all checks pass; changing the original stool changes all four |
+| 13 | In the view: drag the vase across the seat, scrub seatH, then `/studio what did I change?` | your steps show as "you"; Claude reads `studio log` and describes them without reverting them |
+| 14 | Drop any STL on the view (e.g. the one from task 9), then `/studio make a stool the same height as that scan` | the scan imports as a reference; Claude measures it with `inspect` and matches its height within 1 cm |
 
 ## What to record (from `node bench/score.ts`)
 

@@ -1,13 +1,21 @@
-// Asset export: GLB (glTF 2.0 binary), OBJ and binary STL. Flat-shaded, one mesh per object.
+// Asset export: GLB (glTF 2.0 binary, PBR materials per part), OBJ and binary STL.
+// Reference objects (imports) are skipped unless includeReferences is set.
 import type { EvalResult } from './kernel.ts';
-import type { SceneObject } from './types.ts';
+import type { Material, SceneObject } from './types.ts';
+import { materialForPart } from './materials.ts';
 
-function flatten(res: EvalResult) {
-  const n = res.indices.length;
+type Item = { obj: SceneObject; res: EvalResult };
+export interface ExportOpts { includeReferences?: boolean }
+const usable = (items: Item[], o: ExportOpts = {}) => items.filter((i) => i.res.ok && (o.includeReferences || i.obj.role !== 'reference'));
+
+function flatten(res: EvalResult, tris?: number[]) {
+  const sel = tris ?? Array.from({ length: res.indices.length / 3 }, (_, i) => i);
+  const n = sel.length * 3;
   const pos = new Float32Array(n * 3);
   const nor = new Float32Array(n * 3);
   for (let t = 0; t < n; t += 3) {
-    const v = [0, 1, 2].map((k) => res.indices[t + k]);
+    const tri = sel[t / 3] * 3;
+    const v = [0, 1, 2].map((k) => res.indices[tri + k]);
     const p = v.map((i) => [res.positions[i * 3], res.positions[i * 3 + 1], res.positions[i * 3 + 2]]);
     const ux = p[1][0] - p[0][0], uy = p[1][1] - p[0][1], uz = p[1][2] - p[0][2];
     const vx = p[2][0] - p[0][0], vy = p[2][1] - p[0][1], vz = p[2][2] - p[0][2];
@@ -28,27 +36,60 @@ function hexToLinear(hex: string): [number, number, number] {
   return c.map((x) => (x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4))) as [number, number, number];
 }
 
-export function toGLB(items: Array<{ obj: SceneObject; res: EvalResult }>): Uint8Array {
+/** glTF material from a resolved PBR material (clearcoat / transmission / ior as KHR extensions). */
+function gltfMaterial(m: Material, used: Set<string>) {
+  const out: any = {
+    name: m.name,
+    pbrMetallicRoughness: { baseColorFactor: [...hexToLinear(m.color), m.opacity ?? 1], metallicFactor: m.metalness ?? 0, roughnessFactor: m.roughness ?? 0.6 },
+    extras: m.grain ? { woodGrain: m.grain } : undefined,
+  };
+  if ((m.opacity ?? 1) < 1) out.alphaMode = 'BLEND';
+  const ext: any = {};
+  if (m.clearcoat) { ext.KHR_materials_clearcoat = { clearcoatFactor: m.clearcoat, clearcoatRoughnessFactor: m.clearcoatRoughness ?? 0.1 }; used.add('KHR_materials_clearcoat'); }
+  if (m.transmission) { ext.KHR_materials_transmission = { transmissionFactor: m.transmission }; used.add('KHR_materials_transmission'); }
+  if (m.ior) { ext.KHR_materials_ior = { ior: m.ior }; used.add('KHR_materials_ior'); }
+  if (m.thickness && m.transmission) { ext.KHR_materials_volume = { thicknessFactor: m.thickness }; used.add('KHR_materials_volume'); }
+  if (Object.keys(ext).length) out.extensions = ext;
+  return out;
+}
+
+export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
   const buffers: Uint8Array[] = [];
   let offset = 0;
   const bufferViews: any[] = [], accessors: any[] = [], meshes: any[] = [], nodes: any[] = [], materials: any[] = [];
-  for (const { obj, res } of items) {
-    if (!res.ok) continue;
-    const { pos, nor } = flatten(res);
-    const add = (arr: Float32Array) => {
-      const bytes = new Uint8Array(arr.buffer.slice(0));
-      bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length, target: 34962 });
-      buffers.push(bytes);
-      offset += bytes.length;
-      return bufferViews.length - 1;
-    };
-    let min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-    for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], pos[i + k]); max[k] = Math.max(max[k], pos[i + k]); }
-    const pv = add(pos), nv = add(nor);
-    accessors.push({ bufferView: pv, componentType: 5126, count: pos.length / 3, type: 'VEC3', min, max });
-    accessors.push({ bufferView: nv, componentType: 5126, count: nor.length / 3, type: 'VEC3' });
-    materials.push({ name: obj.material.name, pbrMetallicRoughness: { baseColorFactor: [...hexToLinear(obj.material.color), 1], metallicFactor: 0, roughnessFactor: obj.material.roughness ?? 0.6 } });
-    meshes.push({ name: obj.name, primitives: [{ attributes: { POSITION: accessors.length - 2, NORMAL: accessors.length - 1 }, material: materials.length - 1 }] });
+  const matIndex = new Map<string, number>();
+  const used = new Set<string>();
+  const add = (arr: Float32Array) => {
+    const bytes = new Uint8Array(arr.buffer.slice(0));
+    bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length, target: 34962 });
+    buffers.push(bytes);
+    offset += bytes.length;
+    return bufferViews.length - 1;
+  };
+  for (const { obj, res } of usable(items, opts)) {
+    // group the object's triangles by the material their part resolves to
+    const groups = new Map<string, { mat: Material; tris: number[] }>();
+    const parts = res.parts.length ? res.parts : [{ name: obj.output ?? 'object', ranges: [[0, res.indices.length / 3]] as Array<[number, number]> }];
+    for (const p of parts) {
+      const m = materialForPart(obj, p.name.startsWith('~') ? obj.output ?? '' : p.name);
+      const key = JSON.stringify(m);
+      const g = groups.get(key) ?? { mat: m, tris: [] };
+      for (const [start, count] of p.ranges) for (let t = start; t < start + count; t++) g.tris.push(t);
+      groups.set(key, g);
+    }
+    const primitives: any[] = [];
+    for (const [key, g] of groups) {
+      if (!g.tris.length) continue;
+      const { pos, nor } = flatten(res, g.tris);
+      const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], pos[i + k]); max[k] = Math.max(max[k], pos[i + k]); }
+      const pv = add(pos), nv = add(nor);
+      accessors.push({ bufferView: pv, componentType: 5126, count: pos.length / 3, type: 'VEC3', min, max });
+      accessors.push({ bufferView: nv, componentType: 5126, count: nor.length / 3, type: 'VEC3' });
+      if (!matIndex.has(key)) { materials.push(gltfMaterial(g.mat, used)); matIndex.set(key, materials.length - 1); }
+      primitives.push({ attributes: { POSITION: accessors.length - 2, NORMAL: accessors.length - 1 }, material: matIndex.get(key) });
+    }
+    meshes.push({ name: obj.name, primitives });
     nodes.push({ name: obj.name, mesh: meshes.length - 1, extras: { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])) } });
   }
   const bin = new Uint8Array(offset);
@@ -56,6 +97,7 @@ export function toGLB(items: Array<{ obj: SceneObject; res: EvalResult }>): Uint
   for (const b of buffers) { bin.set(b, o); o += b.length; }
   const gltf = {
     asset: { version: '2.0', generator: 'ai-3d-studio' },
+    ...(used.size ? { extensionsUsed: [...used] } : {}),
     scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }], nodes, meshes, materials, accessors, bufferViews,
     buffers: [{ byteLength: bin.length }],
   };
@@ -74,11 +116,10 @@ export function toGLB(items: Array<{ obj: SceneObject; res: EvalResult }>): Uint
   return out;
 }
 
-export function toOBJ(items: Array<{ obj: SceneObject; res: EvalResult }>): string {
+export function toOBJ(items: Item[], opts: ExportOpts = {}): string {
   const lines = ['# ai-3d-studio export'];
   let base = 1;
-  for (const { obj, res } of items) {
-    if (!res.ok) continue;
+  for (const { obj, res } of usable(items, opts)) {
     lines.push(`o ${obj.name.replace(/\s+/g, '_')}`);
     for (let i = 0; i < res.positions.length; i += 3) lines.push(`v ${res.positions[i]} ${res.positions[i + 1]} ${res.positions[i + 2]}`);
     for (let t = 0; t < res.indices.length; t += 3) lines.push(`f ${res.indices[t] + base} ${res.indices[t + 1] + base} ${res.indices[t + 2] + base}`);
@@ -88,8 +129,8 @@ export function toOBJ(items: Array<{ obj: SceneObject; res: EvalResult }>): stri
 }
 
 /** Binary STL in millimetres, Z-up (what slicers expect). Objects are merged. */
-export function toSTL(items: Array<{ obj: SceneObject; res: EvalResult }>): Uint8Array {
-  const ok = items.filter((i) => i.res.ok);
+export function toSTL(items: Item[], opts: ExportOpts = {}): Uint8Array {
+  const ok = usable(items, opts).filter((i) => i.res.manifold !== false || opts.includeReferences);
   const tris = ok.reduce((n, i) => n + i.res.indices.length / 3, 0);
   const buf = new ArrayBuffer(84 + tris * 50);
   const dv = new DataView(buf);

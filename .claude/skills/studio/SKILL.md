@@ -1,11 +1,11 @@
 ---
 name: studio
-description: Model 3D objects in the AI-first studio — create, modify, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, or export a 3D object (furniture, props, vases, buildings, parts) in this project.
+description: Model 3D objects and small scenes in the AI-first studio — create, modify, give materials, arrange, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches, drags and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, furnish, arrange, render, import a reference for, or export a 3D object (furniture, props, vases, buildings, parts) in this project.
 ---
 
 # /studio — model in the AI-first 3D studio
 
-You drive a headless modeling engine with the `./studio` CLI (run from the project root). The human watches a live view at **http://localhost:4517**, clicks parts to point at them, and reviews your proposals change by change there. Every action is a typed tool call that becomes one commit in a branching history — nothing is ever lost.
+You drive a headless modeling engine with the `./studio` CLI (run from the project root). The human watches a live view at **http://localhost:4517**, clicks parts to point at them, drags objects and scrubs params by hand, and reviews your proposals change by change there. Every action (theirs or yours) is a typed tool call that becomes one commit in a branching history — nothing is ever lost.
 
 The user's request: **$ARGUMENTS**
 
@@ -15,6 +15,7 @@ The user's request: **$ARGUMENTS**
 2. `./studio scene` — see what exists. Never recreate something that's there; modify it.
 3. `./studio ops` once per session — the op vocabulary, anchors and tips.
 4. If the request says "this", "that", "the selected …", or names no part: `./studio selection` — what the human clicked, with its size and the ops that made it.
+5. The human edits too. Steps by `human` in `./studio log` / `proposals` are theirs (drags, slider changes, dropped files): build on them, don't revert them.
 
 ## How models are built
 
@@ -22,12 +23,29 @@ The user's request: **$ARGUMENTS**
 - **Parametric** — every meaningful dimension is a named param (`set-params`), referenced in op args as `"$name"`, so "make the legs thinner" is one `set-param`.
 - **Construction** — typed ops via `add-op` / `set-op`:
   - Primitives: `box` (centered at `at`), `roundedBox` (box with rounded edges — prefer it for seats, tops, cushions), `cylinder` (Y-up, base at `at`, `r1`/`r2` for tapers), `sphere`.
-  - Profiles: `extrude` — a floor-plane polygon `[[x,z],…]` pushed up by `h` (shaped tops, brackets, floor plans; `scaleTop` tapers, `twist` twists). `revolve` — a lathe from `[[radius,y],…]` (vases, bowls, turned legs, lamp bases). Profiles accept param expressions.
+  - Profiles: `extrude` — a floor-plane polygon `[[x,z],…]` pushed up by `h` (shaped tops, brackets, floor plans; `scaleTop` tapers, `twist` twists). `revolve` — a lathe from `[[radius,y],…]` (vases, bowls, turned legs, lamp bases). Profiles accept param expressions. Add `"curve": true` for flowing outlines: a smooth spline through your points, sharp turns (lip, foot) stay sharp — a few points then look hand-thrown, not faceted.
   - Modifiers: `smooth` (subdivision for organic shapes; `levels` 1–3, edges sharper than `sharpAngle` stay creased), `round` (rounds every edge by `r` but grows the shape by `r`), `trim` (keep one side of a plane; default cuts flat at the floor).
   - Transforms, booleans (`union`, `difference`, `intersect`, `hull`), instancers `placeAt` (a part on a named anchor of another op: `corners:bottom`, `center:top`, `edges:bottom`…, with `inset` and `splay`) and `array`.
   - Model a part once at the origin, then `placeAt` it. Never reference faces by number.
 - `./studio add-op --help` prints the full schema and op reference. Op arguments always go inside `--args '{…}'`.
 - Units: **meters and degrees**. Y is up, floor is y = 0. Dining seat ≈ 0.45 m, table ≈ 0.75 m, bar stool ≈ 0.75 m, door ≈ 2.0 × 0.9 m.
+
+## Materials
+
+- Give every object a real material: `new-object … --material walnut` (a preset), or later `set-material --preset oak`. Presets (`./studio materials`): walnut, oak, maple, ash (procedural wood grain), painted-wood, glazed-ceramic, matte-ceramic, terracotta, brushed-metal, black-metal, brass, plastic, glass, concrete, fabric.
+- Colour-able presets (painted-wood, glazed-ceramic, plastic, fabric): add `--color "#2f5d62"`. Any field overrides the preset (`--roughness`, `--metalness`, `--clearcoat`, `--transmission`).
+- Mixed materials: `set-material --part "leg*" --preset black-metal` changes just those parts (globs match `leg#1…leg#4`). Part names come from `--part` on add-op, so name parts by what they are.
+- GLB export carries the materials (PBR, per part).
+
+## Scenes: several objects
+
+- Never compute positions by hand from bounding boxes. Use relations — they re-solve when anything changes size:
+  - `place-object --object vase --relation on --target "Walnut stool"` (centred on top; `--offset '[dx,dz]'` to shift it)
+  - `--relation next-to --side left|right|front|back --gap 0.1`, `--relation under` (centred under, on the floor), `--relation align --axis x|z --edge min|center|max`, `--relation free` (drop the relation).
+- Sets of the same thing: `duplicate-object --object stool --count 3` makes **linked copies** (edit the original — all follow; `unlink` to customise one), then `arrange --objects '["stool","stool-2","stool-3","stool-4"]' --around table --radius 0.62 --start 45` (or `--along table --side front --spacing 0.5`). Objects face the target; an object's front is +Z.
+- `move-object --position … --rotation deg` puts something at absolute coordinates (and drops its relation).
+- New objects start clear to the right of the scene, so building one never collides with another.
+- Scene checks: **Clear of other objects** (nothing passes through anything) and **Rests on X** (for `on`: at least half its base sits on X's top surface). Fix them like any other failing check.
 
 ## The loop — numbers rule, pictures advise
 
@@ -35,6 +53,7 @@ For every step:
 1. Make one meaningful change (one tool call = one reviewable step). Use `--label` on `set-op` / `set-params` to say *why* in plain words — the human reads it in the review panel.
 2. Read the `checks` in the result. **If anything fails, fix it before moving on.** Checks are the authority on anything measurable — never argue with them from a picture.
 3. At milestones (object roughly complete, before handing a proposal to the human, or when the request is about style or proportion): `./studio render --views front,side,iso`, then **Read the PNG files it returns**. Numbered dots match the `legend`; failing parts are red. Use images for "does it look like what was asked", not for measurements. If render says no view is connected, carry on with checks and `inspect`, and mention the view isn't open.
+4. When the human wants to *see* or *share* the result ("show me", "render it nicely", end of a big piece of work): `./studio render --style presentation` (materials, soft shadows, studio backdrop, no labels; `--views hero,low,front`). Read it before you hand it over.
 
 Common fixes:
 - Splayed legs: length `"($seatH - $seatT) / cos($legSplay)"`, then wrap the final union in `trim` (default = floor plane) so the feet sit flat: `add-op --id flat --op trim --inputs '["stool"]' --output true`.
@@ -49,6 +68,13 @@ Common fixes:
 - Alternatives ("show me three backrests") → one proposal per alternative: `propose`, edit, `switch --branch main`, `propose` again… The view shows each as a thumbnail to compare side by side.
 - After review, `./studio proposals` shows what the human kept or undid; continue from there.
 - `./studio undo` reverts the last step on the active branch (as a new commit).
+
+## References (imports)
+
+- `./studio import --file scan.stl` (or .obj/.glb): a translucent reference object, not exported. Measure it with `inspect --object <id>` and model around it. STL defaults to mm, Z-up; OBJ/GLB to metres, Y-up — override with `--units`, `--up`, `--scale`.
+- A watertight import can be cut or joined: `add-op --op mesh --args '{"asset":"<id from import>","format":"stl","units":"mm","up":"z"}'` inside your object.
+- `./studio import --file sketch.png --plane front --size 0.6` puts an image behind the model (front/side/top, width in m); front/side renders include it, so model until the outline matches it.
+- The human can also drop files on the view; they show up as `human` import steps.
 
 ## Code mode (loops, many similar parts)
 
@@ -75,14 +101,24 @@ Common fixes:
 
 ## Example: "/studio make a ceramic vase"
 
-A real vessel is hollow: trace the outside up, then the inside back down (wall thickness `$t`), in one revolve profile.
+A real vessel is hollow: trace the outside up, then the inside back down (wall thickness `$t`), in one revolve profile. `curve: true` makes the silhouette flow.
 
 ```bash
-./studio new-object --name "Vase" --type vase --material ceramic --color "#c9b8a3"
+./studio new-object --name "Vase" --type vase --material glazed-ceramic --color "#2f5d62"
 ./studio set-params --values '{"h":0.32,"t":0.006,"rBase":0.07,"rBelly":0.11,"rNeck":0.045,"rLip":0.055}' --label "32 cm vase, 6 mm wall"
-./studio add-op --id body --op revolve --args '{"profile":[[0,0],["$rBase",0],["$rBelly","$h*0.38"],["$rNeck","$h*0.86"],["$rLip","$h"],["$rLip - $t","$h"],["$rNeck - $t","$h*0.86"],["$rBelly - $t","$h*0.38"],["$rBase - $t","$t"],[0,"$t"]]}'
-./studio add-op --id vase --op smooth --inputs '["body"]' --args '{"levels":2,"sharpAngle":80}' --output true
+./studio add-op --id vase --op revolve --args '{"curve":true,"profile":[[0,0],["$rBase",0],["$rBelly","$h*0.38"],["$rNeck","$h*0.86"],["$rLip","$h"],["$rLip - $t","$h"],["$rNeck - $t","$h*0.86"],["$rBelly - $t","$h*0.38"],["$rBase - $t","$t"],[0,"$t"]]}'
 ./studio add-rule --rule '{"kind":"aboveFloor"}'
+```
+
+## Example: "/studio put the vase on the stool and make four of them around a table"
+
+```bash
+./studio place-object --object vase --relation on --target "Walnut stool"
+./studio set-material --object walnut-stool --part "leg*" --preset black-metal
+./studio duplicate-object --object walnut-stool --count 3
+./studio arrange --objects '["walnut-stool","walnut-stool-2","walnut-stool-3","walnut-stool-4"]' --around table --radius 0.62 --start 45
+./studio check                                   # Clear of other objects, Rests on Walnut stool
+./studio render --style presentation             # then Read it
 ```
 
 ## Rules

@@ -5,6 +5,7 @@
 import Module from 'manifold-3d';
 import { num, vec3, type ParamValues } from './expr.ts';
 import type { SceneObject, OpNode } from './types.ts';
+import type { RawMesh } from './importers.ts';
 
 type V3 = [number, number, number];
 export interface BBox { min: V3; max: V3 }
@@ -30,6 +31,16 @@ export interface EvalResult {
   genus: number;
   triangles: number;
   unusedOps: string[];
+  manifold?: boolean;              // false for an imported mesh that isn't watertight (shown, not usable in booleans)
+}
+
+/** Imported meshes are resolved through this hook (the Studio wires it to its asset store). */
+type MeshLoader = (args: Record<string, unknown>) => RawMesh;
+let meshLoader: MeshLoader | null = null;
+export function setMeshLoader(fn: MeshLoader | null) { meshLoader = fn; }
+class NotManifold extends Error {
+  raw: RawMesh; part: string;
+  constructor(raw: RawMesh, part: string) { super('imported mesh is not a closed manifold'); this.raw = raw; this.part = part; }
 }
 
 let wasm: any = null;
@@ -133,10 +144,11 @@ export function evaluateObject(obj: SceneObject): EvalResult {
     const profile = (k: string, min: number): Array<[number, number]> => {
       const raw = A[k];
       if (!Array.isArray(raw) || raw.length < min) throw new Error(`${node.op} needs ${k}: at least ${min} [a,b] points`);
-      return raw.map((pt: any, i: number) => {
+      const pts = raw.map((pt: any, i: number) => {
         if (!Array.isArray(pt) || pt.length !== 2) throw new Error(`${k}[${i}] must be a [a,b] pair`);
-        return [num(pt[0], params, `${id}.${k}[${i}][0]`), num(pt[1], params, `${id}.${k}[${i}][1]`)];
+        return [num(pt[0], params, `${id}.${k}[${i}][0]`), num(pt[1], params, `${id}.${k}[${i}][1]`)] as [number, number];
       });
+      return A.curve ? curveProfile(pts, A.curve === true ? 55 : Number(A.curve), 10, node.op === 'revolve') : pts;
     };
     const need = (n: number) => { if (ins.length < n) throw new Error(`${node.op} needs ${n} input(s)`); };
     let out: Val;
@@ -162,6 +174,22 @@ export function evaluateObject(obj: SceneObject): EvalResult {
           if (!(r > 0)) throw new Error('sphere needs r > 0');
           const m = keep(Manifold.sphere(r, P('segments', SEGMENTS))).translate(V('at', [0, 0, 0]));
           out = original(keep(m), node.part ?? id, id);
+          break;
+        }
+        case 'mesh': {
+          // An imported mesh (studio import): args.asset + units/up/scale/center.
+          if (!meshLoader) throw new Error('no asset store available for mesh ops');
+          if (!A.asset) missing('asset');
+          const raw = meshLoader(A);
+          const mesh = new wasm.Mesh({ numProp: 3, vertProperties: raw.positions, triVerts: raw.indices });
+          let m: any;
+          try { m = keep(new Manifold(mesh)); } catch { m = null; }
+          if (!m || m.status() !== 'NoError' || m.isEmpty()) {
+            if (obj.output === id) throw new NotManifold(raw, node.part ?? id);
+            throw new Error(`mesh "${id}" (${A.asset}) is not a closed, watertight solid, so it can't be used in booleans — use it as a reference only`);
+          }
+          const at = V('at', [0, 0, 0]);
+          out = original(keep(m.translate(at)), node.part ?? id, id);
           break;
         }
         case 'roundedBox': {
@@ -217,7 +245,8 @@ export function evaluateObject(obj: SceneObject): EvalResult {
           for (let i = 0; i < prof.length; i++) { const [a, b] = prof[i], [c, d] = prof[(i + 1) % prof.length]; area += a * d - c * b; }
           if (Math.abs(area) < 1e-12) throw new Error('revolve profile has zero area');
           if (area < 0) prof = prof.reverse();
-          const m0 = keep(Manifold.revolve([prof], P('segments', SEGMENTS), P('degrees', 360)));
+          // lathe surfaces are big, smooth and often glossy: twice the usual segments so glaze doesn't show facets
+          const m0 = keep(Manifold.revolve([prof], P('segments', SEGMENTS * 2), P('degrees', 360)));
           const m = keep(keep(m0.rotate([-90, 0, 0])).translate(V('at', [0, 0, 0])));
           out = original(m, node.part ?? id, id);
           break;
@@ -367,13 +396,9 @@ export function evaluateObject(obj: SceneObject): EvalResult {
     const mesh = res.m.getMesh();
     const np = mesh.numProp;
     const nv = mesh.vertProperties.length / np;
-    const [ox, oy, oz] = obj.position;
     const positions = new Float32Array(nv * 3);
-    for (let i = 0; i < nv; i++) {
-      positions[i * 3] = mesh.vertProperties[i * np] + ox;
-      positions[i * 3 + 1] = mesh.vertProperties[i * np + 1] + oy;
-      positions[i * 3 + 2] = mesh.vertProperties[i * np + 2] + oz;
-    }
+    for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) positions[i * 3 + k] = mesh.vertProperties[i * np + k];
+    placeVerts(positions, obj);
     const indices = new Uint32Array(mesh.triVerts);
     const partMap = new Map<string, PartInfo>();
     const runIndex: Uint32Array = mesh.runIndex, runId: Uint32Array = mesh.runOriginalID;
@@ -399,8 +424,7 @@ export function evaluateObject(obj: SceneObject): EvalResult {
     const comps = res.m.decompose();
     const components = comps.length;
     comps.forEach((c: any) => c.delete());
-    const b = res.m.isEmpty() ? null : boxOf(res.m);
-    if (b) { b.min = [b.min[0] + ox, b.min[1] + oy, b.min[2] + oz]; b.max = [b.max[0] + ox, b.max[1] + oy, b.max[2] + oz]; }
+    const b = res.m.isEmpty() ? null : boundsOf(positions);
     return {
       ok: status === 'NoError' && !res.m.isEmpty(),
       error: res.m.isEmpty() ? 'result is empty (did a difference remove everything?)' : status !== 'NoError' ? status : undefined,
@@ -411,8 +435,134 @@ export function evaluateObject(obj: SceneObject): EvalResult {
       unusedOps: obj.opOrder.filter((id) => !reached.has(id)),
     };
   } catch (e: any) {
+    if (e instanceof NotManifold) {
+      const positions = new Float32Array(e.raw.positions);
+      placeVerts(positions, obj);
+      const b = boundsOf(positions);
+      const n = e.raw.indices.length / 3;
+      return {
+        ok: true, positions, indices: e.raw.indices, bbox: b, status: 'NotManifold', components: 0, volume: 0, genus: 0,
+        triangles: n, parts: [{ name: e.part, ranges: [[0, n]], bbox: b, ops: [obj.output!] }], unusedOps: [], manifold: false,
+      };
+    }
     return empty({ error: e.message ?? String(e), errorOp: e.op, status: 'Error' });
   } finally {
     for (const m of made) { try { m.delete(); } catch { /* already freed */ } }
   }
+}
+
+/**
+ * Smooth a closed polygon profile with a centripetal Catmull-Rom spline through its points.
+ * Points where the outline turns more than `cornerDeg` stay sharp (a vase's lip and base), and
+ * segments lying on the axis (both ends at a = 0) stay straight.
+ */
+export function curveProfile(pts: Array<[number, number]>, cornerDeg = 55, sub = 10, lathe = false): Array<[number, number]> {
+  const n = pts.length;
+  if (n < 3) return pts;
+  const turn = (i: number) => {
+    const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n];
+    const u = [b[0] - a[0], b[1] - a[1]], v = [c[0] - b[0], c[1] - b[1]];
+    const lu = Math.hypot(u[0], u[1]), lv = Math.hypot(v[0], v[1]);
+    if (!lu || !lv) return 180;
+    return (Math.acos(Math.max(-1, Math.min(1, (u[0] * v[0] + u[1] * v[1]) / (lu * lv)))) * 180) / Math.PI;
+  };
+  const corner = pts.map((p, i) => turn(i) > cornerDeg || (lathe && p[0] === 0));
+  if (!corner.some(Boolean)) corner[0] = true;
+  const start = corner.indexOf(true);
+  const out: Array<[number, number]> = [];
+  // walk chains corner → corner
+  let i = start;
+  do {
+    let j = (i + 1) % n;
+    const chain = [pts[i]];
+    while (!corner[j]) { chain.push(pts[j]); j = (j + 1) % n; }
+    chain.push(pts[j]);
+    const onAxis = lathe && chain.length === 2 && chain[0][0] === 0 && chain[1][0] === 0;
+    if (chain.length === 2 || onAxis) out.push(chain[0]);
+    else {
+      const P = [[2 * chain[0][0] - chain[1][0], 2 * chain[0][1] - chain[1][1]], ...chain, [2 * chain[chain.length - 1][0] - chain[chain.length - 2][0], 2 * chain[chain.length - 1][1] - chain[chain.length - 2][1]]];
+      for (let s = 1; s < P.length - 2; s++) {
+        const [p0, p1, p2, p3] = [P[s - 1], P[s], P[s + 1], P[s + 2]];
+        const d = (a: number[], b: number[]) => Math.max(1e-9, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])));
+        const t1 = d(p0, p1), t2 = t1 + d(p1, p2), t3 = t2 + d(p2, p3);
+        for (let q = 0; q < sub; q++) {
+          const t = t1 + ((t2 - t1) * q) / sub;
+          const L = (a: number[], b: number[], ta: number, tb: number) => [((tb - t) * a[0] + (t - ta) * b[0]) / (tb - ta), ((tb - t) * a[1] + (t - ta) * b[1]) / (tb - ta)];
+          const A1 = L(p0, p1, 0, t1), A2 = L(p1, p2, t1, t2), A3 = L(p2, p3, t2, t3);
+          const B1 = L(A1, A2, 0, t2), B2 = L(A2, A3, t1, t3);
+          const C = L(B1, B2, t1, t2);
+          out.push([lathe ? Math.max(0, C[0]) : C[0], C[1]]);
+        }
+      }
+    }
+    i = j;
+  } while (i !== start);
+  return out;
+}
+
+/** Object transform: rotate about Y (degrees) around the object's origin, then move to its position. */
+function placeVerts(p: Float32Array, obj: Pick<SceneObject, 'position' | 'rotation'>) {
+  const [ox, oy, oz] = obj.position;
+  const t = ((obj.rotation ?? 0) * Math.PI) / 180;
+  const c = Math.cos(t), s = Math.sin(t);
+  for (let i = 0; i < p.length; i += 3) {
+    const x = p[i], z = p[i + 2];
+    p[i] = (t ? c * x + s * z : x) + ox;
+    p[i + 1] += oy;
+    p[i + 2] = (t ? -s * x + c * z : z) + oz;
+  }
+}
+
+function boundsOf(p: Float32Array): BBox {
+  const min: V3 = [Infinity, Infinity, Infinity], max: V3 = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { const v = p[i + k]; if (v < min[k]) min[k] = v; if (v > max[k]) max[k] = v; }
+  return { min, max };
+}
+
+/** Volume shared by two evaluated objects (world space), in m³. 0 when they only touch. */
+export function overlapVolume(a: EvalResult, b: EvalResult): number {
+  if (!wasm || !a.ok || !b.ok || a.manifold === false || b.manifold === false || !a.bbox || !b.bbox) return 0;
+  for (let k = 0; k < 3; k++) if (a.bbox.max[k] <= b.bbox.min[k] || b.bbox.max[k] <= a.bbox.min[k]) return 0;
+  const made: any[] = [];
+  try {
+    const mk = (r: EvalResult) => { const m = new wasm.Manifold(new wasm.Mesh({ numProp: 3, vertProperties: r.positions, triVerts: r.indices })); made.push(m); return m; };
+    const i = wasm.Manifold.intersection(mk(a), mk(b));
+    made.push(i);
+    return Math.max(0, i.volume());
+  } catch { return 0; } finally { for (const m of made) { try { m.delete(); } catch { /* freed */ } } }
+}
+
+/**
+ * How well `top` rests on `base`: the share of top's lowest vertices that sit over an upward-facing
+ * triangle of base at the same height (within tol), plus the vertical gap between them.
+ */
+export function supportOf(top: EvalResult, base: EvalResult, tol = 0.002): { fraction: number; gap: number; samples: number } {
+  if (!top.bbox || !base.bbox) return { fraction: 0, gap: Infinity, samples: 0 };
+  const y0 = top.bbox.min[1];
+  const bottom: number[] = [];
+  for (let i = 0; i < top.positions.length; i += 3) if (top.positions[i + 1] - y0 < 0.001) bottom.push(i);
+  const step = Math.max(1, Math.floor(bottom.length / 400));
+  const pts = bottom.filter((_, k) => k % step === 0).map((i) => [top.positions[i], top.positions[i + 2]]);
+  const P = base.positions, I = base.indices;
+  const tris: number[][] = [];
+  let bestGap = Infinity;
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    const ny = (P[b + 2] - P[a + 2]) * (P[c] - P[a]) - (P[b] - P[a]) * (P[c + 2] - P[a + 2]);
+    if (ny <= 0) continue; // must face up
+    const ymax = Math.max(P[a + 1], P[b + 1], P[c + 1]), ymin = Math.min(P[a + 1], P[b + 1], P[c + 1]);
+    const g = y0 - ymax;
+    if (Math.abs(g) < Math.abs(bestGap)) bestGap = g;
+    if (ymin > y0 + tol || ymax < y0 - tol) continue;
+    tris.push([P[a], P[a + 2], P[b], P[b + 2], P[c], P[c + 2]]);
+  }
+  const inside = (x: number, z: number, t: number[]) => {
+    const d = (x1: number, z1: number, x2: number, z2: number) => (x - x2) * (z1 - z2) - (x1 - x2) * (z - z2);
+    const d1 = d(t[0], t[1], t[2], t[3]), d2 = d(t[2], t[3], t[4], t[5]), d3 = d(t[4], t[5], t[0], t[1]);
+    const eps = 1e-9;
+    return !((d1 < -eps || d2 < -eps || d3 < -eps) && (d1 > eps || d2 > eps || d3 > eps));
+  };
+  let ok = 0;
+  for (const [x, z] of pts) if (tris.some((t) => inside(x, z, t))) ok++;
+  return { fraction: pts.length ? ok / pts.length : 0, gap: bestGap, samples: pts.length };
 }

@@ -24,13 +24,17 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 
 | | |
 |---|---|
-| **Build** | Boxes, rounded boxes, cylinders (tapered), spheres; `extrude` any polygon along x/y/z (tops, gables, brackets); `revolve` a profile (vases, bowls, turned legs); `smooth` (subdivision), `round` (fillet every edge), `trim` (cut flat at the floor); booleans, hull, mirror; `placeAt` named anchors with splay; `array`. Every dimension is a named, editable parameter. |
+| **Build** | Boxes, rounded boxes, cylinders (tapered), spheres; `extrude` any polygon along x/y/z (tops, gables, brackets); `revolve` a profile (vases, bowls, turned legs), with `curve: true` for a smooth spline outline; `smooth` (subdivision), `round` (fillet every edge), `trim` (cut flat at the floor); booleans, hull, mirror; `placeAt` named anchors with splay; `array`. Every dimension is a named, editable parameter. |
+| **Materials** | PBR presets: walnut, oak, maple, ash (procedural wood grain, no UVs), painted wood, glazed and matte ceramic, terracotta, brushed and black metal, brass, plastic, glass, concrete, fabric. Per object or per part (`set-material --part "leg*" --preset black-metal`); any value can be overridden. Exported to GLB as glTF PBR (clearcoat, transmission, IOR). |
+| **Arrange** | Relations that re-solve when sizes change: `place-object` on / under / next to / aligned with another object; `arrange` objects around or along one; linked copies (`duplicate-object`) that follow the original. Scene checks: nothing passes through anything; things placed on something actually rest on its top. |
 | **Check** | Watertight, one connected piece, legs grounded, nothing below the floor, custom range rules. In-progress states show as *pending* rather than failures. |
-| **Look** | `studio render` asks the open view for labeled front/side/top/3-4 images with crease edges, which Claude reads. |
+| **Look** | `studio render` asks the open view for labeled front/side/top/3-4 images with crease edges, which Claude reads. `--style presentation` makes a finished image to show people: materials under studio light, soft contact shadows, a seamless backdrop. The viewport uses the same lighting. |
 | **Point** | Click any part in the viewport. The inspector shows its size and the ops that made it, and `studio selection` hands it to Claude ("make *this* thinner"). |
+| **Edit by hand** | Scrub a parameter slider and the model updates live; releasing commits one step. Drag an object with the gizmo (Move: on the floor; Turn: about Y), or drag a part whose position is its own. A placed object keeps its relation: dragging the vase along the seat changes its offset and it stays on the stool. Your edits appear as "you" steps next to Claude's, in proposals too. |
 | **Review** | AI edits to existing things arrive as proposals: hover a change to highlight it, hold Space for "before", Keep/Undo each change, compare alternatives as thumbnails, then Commit. |
 | **Script** | `studio run --code "…"` runs JavaScript in a QuickJS WebAssembly sandbox (no filesystem or network, 5 s, 64 MB); every call is still a normal commit. |
-| **Export** | GLB, OBJ, STL (mm, Z-up for slicers). |
+| **Import** | `studio import` (or drop a file on the view): STL/OBJ/GLB become translucent, measurable reference objects (watertight ones can be cut or joined with a `mesh` op); PNG/JPG become a backdrop plane (front/side/top) that renders include, so Claude can model to match a sketch. References are never exported. |
+| **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). |
 | **Other agents** | `studio mcp` serves the same tools over MCP: `claude mcp add studio -- node /path/to/AI3DModel/packages/cli/studio.ts mcp`. |
 | **Theme** | Light/dark follows your OS; the header button cycles auto → light → dark. |
 
@@ -38,11 +42,11 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 
 | Path | What |
 |---|---|
-| `packages/core` | DOM-free engine: scene IR (`types.ts`), branching change log (`history.ts`), op graph on Manifold (`kernel.ts`), checks (`checks.ts`), the one typed tool registry (`tools.ts`), `Studio` facade, GLB/OBJ/STL export |
+| `packages/core` | DOM-free engine: scene IR (`types.ts`), branching change log (`history.ts`), op graph on Manifold (`kernel.ts`), checks (`checks.ts`), placement relations and linked copies (`scene.ts`), material presets (`materials.ts`), importers and asset store (`importers.ts`, `assets.ts`), the one typed tool registry (`tools.ts`), `Studio` facade, GLB/OBJ/STL export |
 | `packages/daemon` | Owns the Studio, persists `.studio/repo.json`, serves the view, relays renders and selection, code-mode sandbox (`sandbox.ts`) |
 | `packages/cli` | `studio.ts` (the CLI the skill calls; generated from the registry; JSON out; did-you-mean on bad commands/flags) + `client.ts` |
 | `packages/mcp` | MCP stdio adapter generated from the same registry |
-| `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking + checks · inspector · Claude Code feed + review · history |
+| `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking, gizmo and drop-to-import · inspector with live sliders · Claude Code feed + review · history. `look.ts` holds the shared look (PBR materials, wood-grain shader, environment light, shadows) |
 | `.claude/skills/studio/SKILL.md` | The `/studio` playbook Claude Code follows |
 | `bench/` | `run.ts` reference solutions (8 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
 | `.decisions/` | The 10 architecture decisions, live preview, design tokens (light + dark), implementation plan |
@@ -56,13 +60,15 @@ Environment: `STUDIO_PORT` (default 4517), `STUDIO_DIR` (default: current folder
 ## Tests
 
 ```bash
-npm test        # 22 unit tests: engine, ops, checks, export, sandbox, CLI, MCP, view focus
-npm run bench   # reference solutions for the 8 benchmark tasks
+npm test        # 36 tests: engine, ops, checks, materials, scenes, drags, imports, export, daemon, sandbox, CLI, MCP, view focus
+npm run bench   # reference solutions for the 13 benchmark tasks
 ```
 
 ## Known limitations
 
 - **No B-rep/CAD kernel.** Fillets are mesh-based (`roundedBox`, `round`); there is no STEP export. OCCT stays behind the kernel interface for when precision CAD is needed.
+- **Materials are looks, not textures.** Wood grain is procedural (no UVs, no image textures); exported GLBs carry PBR values and the grain parameters in `extras`, not baked textures.
+- **Relations are one per object** (on / next to / around…). Chains work (a glass on a tray on a table); two simultaneous constraints on one object do not.
 - **No face-level poly editing** (select a face, extrude, inset, bevel). Shapes come from typed ops and profiles; `smooth` covers organic forms. Sculpting, UVs, rigging and animation are out of scope for this version.
 - Renders need the browser view open: the daemon asks the view to draw them.
 - One daemon per port. Running `studio` in a second project while another daemon holds the port gives a clear error; set `STUDIO_PORT` per project.

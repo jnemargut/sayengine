@@ -18,6 +18,7 @@ export const OP_NAMES = [
   'union', 'difference', 'intersect', 'hull',
   'placeAt', 'array',
   'round', 'smooth', 'trim',
+  'mesh',
 ] as const;
 export type OpName = (typeof OP_NAMES)[number];
 
@@ -35,7 +36,36 @@ export type Rule =
   | { kind: 'range'; expr: string; min: number; max: number; label?: string }
   | { kind: 'aboveFloor'; label?: string };
 
-export interface Material { name: string; color: string; roughness?: number }
+/** PBR material. `name` is a preset (see materials.ts) or a custom label; explicit fields override the preset. */
+export interface Material {
+  name: string;
+  color: string;
+  roughness?: number;
+  metalness?: number;
+  clearcoat?: number;            // glaze / lacquer layer 0..1
+  clearcoatRoughness?: number;
+  transmission?: number;         // glass 0..1
+  ior?: number;
+  thickness?: number;            // m, for transmission
+  opacity?: number;
+  grain?: WoodGrain | null;      // procedural wood grain (no UVs needed)
+}
+export interface WoodGrain { color2: string; scale: number; contrast: number }
+
+/** Where an object sits, relative to another object. Re-solved whenever either one changes. */
+export type Placement =
+  | { kind: 'on'; target: string; offset?: [number, number] }
+  | { kind: 'under'; target: string; offset?: [number, number] }
+  | { kind: 'nextTo'; target: string; side: 'left' | 'right' | 'front' | 'back'; gap: number; offset?: [number, number] }
+  | { kind: 'align'; target: string; axis: 'x' | 'z'; edge: 'min' | 'center' | 'max'; offset?: [number, number] }
+  | { kind: 'around'; target: string; index: number; count: number; radius?: number; start?: number; face?: Facing; rotate?: number; offset?: [number, number] }
+  | { kind: 'along'; target: string; index: number; count: number; side: 'left' | 'right' | 'front' | 'back'; spacing?: number; gap?: number; face?: Facing; rotate?: number; offset?: [number, number] };
+export type Facing = 'target' | 'away' | 'none';
+
+/** Imported reference: a mesh to model around, or an image backdrop to model to match. */
+export type Reference =
+  | { kind: 'mesh'; asset: string; file: string; format: string; manifold?: boolean }
+  | { kind: 'image'; asset: string; file: string; plane: 'front' | 'side' | 'top'; width: number; height: number; at: [number, number, number]; opacity: number };
 
 export interface SceneObject {
   id: string;
@@ -47,7 +77,13 @@ export interface SceneObject {
   opOrder: string[];
   output: string | null;
   material: Material;
+  partMaterials?: Array<{ parts: string; material: Material }>; // glob → material; later entries win
   position: [number, number, number];
+  rotation?: number;             // degrees about Y, around the object's origin
+  place?: Placement;             // relation to another object (position is then derived)
+  instanceOf?: string;           // linked copy: geometry, params and materials come from this object
+  role?: 'model' | 'reference';  // references are shown translucent and excluded from export/overlap checks
+  reference?: Reference;
   rules: Rule[];
 }
 
@@ -69,5 +105,6 @@ export const DEFAULT_RULES: Record<string, Rule[]> = {
   table: [{ kind: 'grounded', parts: 'leg*' }, { kind: 'connected' }, { kind: 'aboveFloor' }],
   bench: [{ kind: 'grounded', parts: 'leg*' }, { kind: 'connected' }, { kind: 'aboveFloor' }],
   shelf: [{ kind: 'connected' }, { kind: 'aboveFloor' }],
+  reference: [],
   default: [{ kind: 'connected' }],
 };
