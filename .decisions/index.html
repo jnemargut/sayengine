@@ -49,7 +49,7 @@ a.decision-item:hover { border-color: #23466f; }
     <p class="project-description">AI-First 3D Studio — a 3D creation environment where AI agents and humans share the same typed modeling tools.</p>
   </header>
   <div class="progress-section">
-    <div class="progress-label"><span>10 of 10 decisions made</span><span>100%</span></div>
+    <div class="progress-label"><span>18 of 18 decisions made</span><span>100%</span></div>
     <div class="progress-bar"><span class="progress-fill" style="width:100%"></span></div>
   </div>
   <div class="decision-list">
@@ -112,6 +112,54 @@ a.decision-item:hover { border-color: #23466f; }
       <div class="decision-info"><h3>First build sequence</h3>
         <div class="decision-meta"><span class="badge interaction">Planning</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option B — Thin vertical slice, then thicken</span></span></div>
         <p class="decision-summary">Six horizontal phases, a thin vertical slice, benchmark-first, or engine-first.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-011-toolset-shape.html" class="decision-item resolved">
+      <div class="decision-number-badge">11</div>
+      <div class="decision-info"><h3>Shape of the game toolset</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option C — Asset forge + a real engine</span></span></div>
+        <p class="decision-summary">One studio grows, a family of studios, asset forge + a real engine, or an AI-first engine.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-012-art-style.html" class="decision-item resolved">
+      <div class="decision-number-badge">12</div>
+      <div class="decision-info"><h3>Target art style</h3>
+        <div class="decision-meta"><span class="badge visual">Visual</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option E — Low-poly + baked procedural materials</span></span></div>
+        <p class="decision-summary">Low-poly palette, hand-painted, stylized PBR, or realistic. Decides whether sculpting and UVs are needed.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-013-game-engine.html" class="decision-item resolved">
+      <div class="decision-number-badge">13</div>
+      <div class="decision-info"><h3>Game targets: Godot + three.js</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Two targets, one asset contract</span></span></div>
+        <p class="decision-summary">How Godot (standalone) and three.js (web) share assets, checks and the /game skill.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-014-character-shape.html" class="decision-item resolved">
+      <div class="decision-number-badge">14</div>
+      <div class="decision-info"><h3>How characters get their shape</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Parametric character kits</span></span></div>
+        <p class="decision-summary">Parametric kits, sculpt mode, AI-generated + cleanup, or Blender hand-off.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-015-uv-texturing.html" class="decision-item resolved">
+      <div class="decision-number-badge">15</div>
+      <div class="decision-info"><h3>How studio materials become game textures</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Auto-unwrap + bake per asset</span></span></div>
+        <p class="decision-summary">Per-asset auto-unwrap + bake, a shared atlas, porting shaders, or a hero/atlas split.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-016-rigging-animation.html" class="decision-item resolved">
+      <div class="decision-number-badge">16</div>
+      <div class="decision-info"><h3>Where animation comes from</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option B — Parametric motion in the studio</span></span></div>
+        <p class="decision-summary">Clip library + IK, parametric motion, AI text-to-motion, or a keyframe timeline.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-017-game-ready-checks.html" class="decision-item resolved">
+      <div class="decision-number-badge">17</div>
+      <div class="decision-info"><h3>Game-ready checks and export profiles</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Live game checks + round-trip test</span></span></div>
+        <p class="decision-summary">Live checks + round-trip, export gate, engine-side, or file validation only.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-018-first-game-milestone.html" class="decision-item resolved">
+      <div class="decision-number-badge">18</div>
+      <div class="decision-info"><h3>First game-shaped milestone</h3>
+        <div class="decision-meta"><span class="badge interaction">Planning</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Walk around a tiny diorama</span></span></div>
+        <p class="decision-summary">Tiny diorama, props first, character first, or a complete tiny game.</p></div>
       <span class="arrow-icon">→</span></a>
   </div>
   <p class="footer-note">To change a decision, respond with: "for decision-1 I want Option B instead"</p>

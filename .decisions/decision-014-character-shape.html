@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 14: How Characters Get Their Shape — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.fig { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.fig svg { display:block; width:100%; height:auto; }
+.fig-cap { font-size:0.62rem; color:#64748b; padding:5px 10px; border-top:1px solid #f1f5f9; }
+.pipe { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+.pipe-title { width:100%; font-size:0.58rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#94a3b8; }
+.step { font-size:0.62rem; font-weight:600; padding:3px 8px; border-radius:6px; background:white; border:1.5px solid #cbd5e1; color:#334155; }
+.step.have { border-color:#1d6f80; color:#1d6f80; }
+.step.ai-ok { border-color:#2c6e48; color:#2c6e48; border-style:dashed; }
+.step.hard { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.pipe-key { font-size:0.58rem; color:#64748b; width:100%; }
+.pipe-key b.h { color:#1d6f80; } .pipe-key b.o { color:#2c6e48; } .pipe-key b.x { color:#a83a32; }
+.say { width:100%; background:#1f2a37; color:#d7e3ee; border-radius:8px; padding:7px 10px; font-family:'SF Mono', monospace; font-size:0.6rem; line-height:1.55; white-space:pre-wrap; }
+.say .c { color:#8da2b5; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 14 of 18 · Game tools phase</span>
+  <h1>How Characters Get Their Shape</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    This is your sculpting question. Characters are the hardest asset: they have to look right, bend at the joints without tearing, and carry a skeleton that both Godot and three.js understand (decision 13). How the shape gets made decides almost everything about rigging and animation (decision 16). Your choices so far point one way: low-poly with baked materials (12), everything checkable by Claude, and an import feature being built right now that can bring in outside meshes and reference images.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: rig comes free with the shape</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Parametric Character Kits</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 150" role="img" aria-label="Three low-poly characters from the same kit with different proportions, sharing one skeleton">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <line x1="0" y1="132" x2="300" y2="132" stroke="#d9d3c6"/>
+          <g transform="translate(60,0)">
+            <polygon points="-9,24 9,24 11,42 -11,42" fill="#e3b48a"/><polygon points="-16,46 16,46 13,82 -13,82" fill="#4f7aa8"/>
+            <polygon points="-16,48 -24,78 -19,80 -11,52" fill="#4f7aa8"/><polygon points="16,48 24,78 19,80 11,52" fill="#4f7aa8"/>
+            <polygon points="-12,84 -2,84 -3,130 -12,130" fill="#3b4656"/><polygon points="2,84 12,84 12,130 3,130" fill="#3b4656"/>
+          </g>
+          <g transform="translate(150,0)">
+            <polygon points="-11,36 11,36 13,56 -13,56" fill="#c98f62"/><polygon points="-22,60 22,60 18,92 -18,92" fill="#a8574f"/>
+            <polygon points="-22,62 -30,88 -24,90 -15,66" fill="#a8574f"/><polygon points="22,62 30,88 24,90 15,66" fill="#a8574f"/>
+            <polygon points="-15,94 -3,94 -4,130 -15,130" fill="#4a3d36"/><polygon points="3,94 15,94 15,130 4,130" fill="#4a3d36"/>
+          </g>
+          <g transform="translate(240,0)">
+            <polygon points="-12,62 12,62 13,82 -13,82" fill="#e8c4a0"/><polygon points="-13,86 13,86 11,108 -11,108" fill="#6b9a5b"/>
+            <polygon points="-13,88 -18,104 -14,106 -9,92" fill="#6b9a5b"/><polygon points="13,88 18,104 14,106 9,92" fill="#6b9a5b"/>
+            <polygon points="-10,110 -2,110 -2,130 -10,130" fill="#3b4656"/><polygon points="2,110 10,110 10,130 2,130" fill="#3b4656"/>
+          </g>
+          <g stroke="#b86e0a" stroke-width="1.2" fill="#b86e0a" opacity="0.85">
+            <line x1="60" y1="33" x2="60" y2="80"/><line x1="60" y1="50" x2="78" y2="76"/><line x1="60" y1="50" x2="42" y2="76"/><line x1="60" y1="82" x2="67" y2="128"/><line x1="60" y1="82" x2="53" y2="128"/>
+            <circle cx="60" cy="50" r="1.6"/><circle cx="60" cy="82" r="1.6"/><circle cx="67" cy="128" r="1.6"/><circle cx="53" cy="128" r="1.6"/>
+          </g>
+          <text x="150" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">same kit · height, build, head size are settings · same skeleton (orange)</text>
+        </svg>
+        <div class="fig-cap">Illustration. One humanoid template, three sets of settings.</div>
+      </div>
+      <div class="say"><span class="c"># what you'd type</span>
+/studio make a stocky blacksmith, short, big arms, leather apron</div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per character</span>
+        <span class="step have">Pick template</span><span class="step ai-ok">Set proportions</span><span class="step ai-ok">Add parts (hair, apron, tools)</span><span class="step have">Skeleton + weights come with it</span><span class="step have">Pose checks</span>
+        <span class="pipe-key"><b class="h">Have it / built once</b> · <b class="o">AI does well</b> · <b class="x">AI struggles</b></span>
+      </div>
+    </div>
+    <div class="option-summary">
+      Characters are built like the stool: a template body (humanoid first, then a four-legged one) whose height, build and head size are settings, plus parts like hair, clothes and tools added as ops. Joint edge loops, skeleton and skin weights are designed once per template, so every character Claude makes is born rigged, bends cleanly, and uses bone names Godot and three.js retarget automatically. The import feature adds a hybrid: bring in an AI-generated or sketched reference, and Claude fits the kit's settings to match it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Low-poly game characters, many of them</li>
+        <li>Every character must animate reliably</li>
+        <li>"Make him taller" stays one setting</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Characters can look samey without strong parts</li>
+        <li>Each new body type is a template to build</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Sculpt Mode in the Studio</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 150" role="img" aria-label="A smooth blobby creature built from blended shapes, with a brush cursor">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <line x1="0" y1="132" x2="300" y2="132" stroke="#d9d3c6"/>
+          <g fill="#8fb36a">
+            <ellipse cx="140" cy="88" rx="44" ry="30"/><circle cx="182" cy="62" r="22"/><ellipse cx="112" cy="118" rx="9" ry="14"/><ellipse cx="160" cy="118" rx="9" ry="14"/><ellipse cx="98" cy="80" rx="14" ry="8" transform="rotate(-25 98 80)"/>
+          </g>
+          <circle cx="188" cy="57" r="3.5" fill="#2b2b2b"/>
+          <circle cx="222" cy="44" r="12" fill="none" stroke="#a83a32" stroke-width="1.5" stroke-dasharray="3 2"/>
+          <line x1="230" y1="36" x2="252" y2="18" stroke="#a83a32" stroke-width="2"/>
+          <text x="150" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">blend shapes, push and pull · then retopology + rigging still needed</text>
+        </svg>
+        <div class="fig-cap">Illustration. Freeform shapes from blended blobs (signed-distance shapes).</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per character</span>
+        <span class="step ai-ok">Blend shapes</span><span class="step hard">Sculpt detail</span><span class="step hard">Low-poly retopology</span><span class="step hard">Place skeleton</span><span class="step hard">Paint weights</span>
+      </div>
+    </div>
+    <div class="option-summary">
+      Add a sculpting mode: blend smooth shapes together and push and pull the surface. Manifold, the studio's geometry engine, can already turn blended-shape descriptions into meshes, so creatures and blobby forms are within reach. But a sculpt gives a dense mesh with no joint loops, so every character still needs retopology, skeleton placement and weight painting, the steps where AI output most needs a person. Brush-based sculpting is also a human activity; Claude can't push a brush well.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Organic creatures and one-off hero shapes</li>
+        <li>You enjoy sculpting by hand</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Rigging becomes manual for every character</li>
+        <li>Off-style for low-poly; big new tool to build</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">AI-Generated, Then Cleaned Up</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 150" role="img" aria-label="A dense triangulated character mesh next to an arrow labelled cleanup">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <line x1="0" y1="132" x2="300" y2="132" stroke="#d9d3c6"/>
+          <g stroke="#7c8794" stroke-width="0.5" fill="#d7c3a9">
+            <path d="M92 22 l14 0 l4 18 l-22 0z"/><path d="M78 44 l42 0 l-4 40 l-34 0z"/><path d="M84 86 l12 0 l0 44 l-12 0z"/><path d="M102 86 l12 0 l0 44 l-12 0z"/>
+            <path d="M78 46 l-10 32 l6 2 l8 -28z"/><path d="M120 46 l10 32 l-6 2 l-8 -28z"/>
+          </g>
+          <g stroke="#7c8794" stroke-width="0.4">
+            <path d="M80 50 L118 60 M80 60 L118 50 M80 70 L118 80 M82 80 L116 70 M84 95 L96 105 M84 115 L96 105 M102 95 L114 120 M102 120 L114 95 M92 26 L106 38 M106 26 L92 38"/>
+          </g>
+          <text x="99" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">~300k triangles, no joint loops</text>
+          <path d="M140 80 h40" stroke="#a83a32" stroke-width="2" marker-end="url(#ah)"/>
+          <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6z" fill="#a83a32"/></marker></defs>
+          <text x="160" y="72" font-size="8" fill="#a83a32" text-anchor="middle" font-family="-apple-system, sans-serif">retopo + auto-rig</text>
+          <g transform="translate(225,0)"><polygon points="-9,24 9,24 11,42 -11,42" fill="#d7c3a9"/><polygon points="-16,46 16,46 13,82 -13,82" fill="#b89a74"/><polygon points="-12,84 -2,84 -3,130 -12,130" fill="#8a7358"/><polygon points="2,84 12,84 12,130 3,130" fill="#8a7358"/></g>
+          <text x="225" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">if cleanup succeeds</text>
+        </svg>
+        <div class="fig-cap">Illustration. A generator's dense mesh, then automated cleanup.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per character</span>
+        <span class="step ai-ok">Prompt / image</span><span class="step have">Import</span><span class="step hard">Retopology to low-poly</span><span class="step hard">Auto-rig</span><span class="step hard">Fix weights</span>
+      </div>
+    </div>
+    <div class="option-summary">
+      Type a prompt or give an image to a generator like Meshy or Tripo, then import the result and clean it up automatically. It gives the most variety the fastest, and the import feature being built covers the first step. But generators produce hundreds of thousands of triangles with no edge flow; auto-riggers misplace bones on stylized proportions; and you depend on a paid service. Some open models (Hunyuan3D) aren't licensed for use in the EU or UK.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You need lots of varied characters quickly</li>
+        <li>Background characters that barely animate</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Cleanup and rigging fail on stylized shapes</li>
+        <li>Paid service dependency; licence limits</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Hand Off to Blender</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 150" role="img" aria-label="Studio and an external 3D app passing a character file back and forth">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <rect x="22" y="40" width="96" height="70" rx="8" fill="white" stroke="#1d6f80" stroke-width="2"/>
+          <text x="70" y="70" font-size="10" fill="#1d6f80" text-anchor="middle" font-weight="700" font-family="-apple-system, sans-serif">Studio</text>
+          <text x="70" y="86" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">props, checks, review</text>
+          <rect x="182" y="40" width="96" height="70" rx="8" fill="#f1f5f9" stroke="#475569" stroke-width="2"/>
+          <text x="230" y="70" font-size="10" fill="#0f172a" text-anchor="middle" font-weight="700" font-family="-apple-system, sans-serif">Blender</text>
+          <text x="230" y="86" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">sculpt, rig, weights</text>
+          <path d="M122 66 h54" stroke="#94a3b8" stroke-width="2" marker-end="url(#ah2)"/><path d="M178 86 h-54" stroke="#94a3b8" stroke-width="2" marker-end="url(#ah2)"/>
+          <defs><marker id="ah2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6z" fill="#94a3b8"/></marker></defs>
+          <text x="150" y="132" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">Claude drives Blender via MCP · review happens outside the studio</text>
+        </svg>
+        <div class="fig-cap">Illustration. Characters made in Blender, props in the studio.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per character</span>
+        <span class="step ai-ok">Claude scripts Blender</span><span class="step hard">Sculpt / model</span><span class="step ai-ok">Auto weights</span><span class="step hard">Fix by hand</span><span class="step have">Import back</span>
+      </div>
+    </div>
+    <div class="option-summary">
+      Characters get made in Blender, which has every tool, and Claude drives it through Blender MCP (the biggest agent-for-3D project, 33k stars). The studio imports the finished character for checks and export. It needs no new studio tools, but it's the "AI uses Blender" model you set out to replace: no settings-driven characters, no branching review, and Blender's own learning curve when something goes wrong.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>One or two hero characters with special needs</li>
+        <li>You already know Blender</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Leaves the AI-first studio for the hardest assets</li>
+        <li>Review and undo happen outside your history</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Kits are how you get a hundred reliable characters, and also how you get a hundred characters that look related. Templates take real up-front work: a humanoid template with clean joint loops and good weights is days of careful design, and every new body type (a bird, a snake, a robot) is another one. A designer who wants one memorable, odd-shaped hero will hit the kit's limits. If varied, surprising characters matter more than reliable animation, a hybrid of C for shapes plus A's skeleton is worth considering, accepting that cleanup sometimes fails.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Low-poly characters (decision 12) with simple, readable shapes. Kits fit this best.</li>
+    <li>Animation reliability matters more than one-off shape variety: the rig comes free with every kit character.</li>
+    <li>Templates use standard humanoid bone names and a T-pose, so Godot's retargeter and three.js's retarget helpers map them with no manual setup (decision 16).</li>
+    <li>The import feature becomes a reference path: an AI-generated or sketched shape guides the kit's settings, without being used as the final mesh.</li>
+    <li>Blender (D) stays an escape hatch for a rare hero character, not the pipeline.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>MakeHuman/MPFB's base mesh, shape targets and proxies are CC0, so characters made from them can ship in closed games. That makes "a kit with known topology and a known skeleton" legally clean to build on or learn from. <a class="cite" href="https://static.makehumancommunity.org/mpfb/faq/use_in_closed_source.html">MPFB FAQ</a></li>
+    <li>Manifold, the studio's geometry engine, can turn blended-shape (signed-distance) descriptions into meshes. Blobby bodies or a basic sculpt mode need no new library. <a class="cite" href="https://manifoldcad.org/jsdocs/index.html">manifold-3d</a></li>
+    <li>AI generators output hundreds of thousands of triangles with no edge flow; most sources say retopology and rigging still need a person. Vendor low-poly modes claim big reductions, unverified. <a class="cite" href="https://levelup.gitconnected.com/building-game-ready-3d-assets-fast-the-best-ai-generators-for-production-workflows-in-2026-f1f725ff5df0">gitconnected</a></li>
+    <li>Meshy's auto-rig misplaces bones if the model isn't in a T- or A-pose and deforms badly on proportions far from human, a risk for stylized characters. <a class="cite" href="https://docs.meshy.ai/en/webapp/guides/3d-model/rigging">Meshy docs</a></li>
+    <li>Hunyuan3D's community licence excludes the EU, UK and South Korea. <a class="cite" href="https://huggingface.co/tencent/Hunyuan3D-2/blob/main/LICENSE">Hunyuan3D licence</a></li>
+    <li>Blender MCP is the largest agent-for-3D project (about 33k stars). Community servers expose automatic weights. <a class="cite" href="https://github.com/ahujasid/blender-mcp">blender-mcp</a> <a class="cite" href="https://glama.ai/mcp/servers/ArkSentinel/super-blender-mcp/tools/rig_parent_to_armature">Glama</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>Generative-AI vendors say prompt-to-character with auto-rigging is ready for games. Technical artists say generated meshes still need retopology and weight fixes before they animate well, especially for stylized proportions. For low-poly characters you can describe with settings, kits sidestep the argument. For characters you can't, the vendors' tools are the faster start but the riskier finish.</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Parametric kits</th><th class="col-b">B: Sculpt mode</th><th class="col-c">C: AI-generated + cleanup</th><th class="col-d">D: Blender hand-off</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Rigged out of the box</td><td class="col-pick col-chosen">Yes, every time</td><td>No</td><td>Sometimes (auto-rig)</td><td>Manual / semi-auto</td></tr>
+        <tr><td>Claude can do it alone</td><td class="col-pick col-chosen">Yes</td><td>Shapes yes, detail no</td><td>Until cleanup fails</td><td>Partly</td></tr>
+        <tr><td>Shape variety</td><td class="col-pick col-chosen">Medium (per template + parts)</td><td>High</td><td>Highest</td><td>Highest</td></tr>
+        <tr><td>Fits low-poly style</td><td class="col-pick col-chosen">Natively</td><td>Poorly</td><td>With low-poly modes</td><td>Yes</td></tr>
+        <tr><td>"Make him taller" later</td><td class="col-pick col-chosen">One setting</td><td>Re-sculpt</td><td>Regenerate</td><td>Edit in Blender</td></tr>
+        <tr><td>Reviewable in your history</td><td class="col-pick col-chosen">Yes</td><td>Yes</td><td>Import step only</td><td>No</td></tr>
+        <tr><td>Up-front work</td><td class="col-pick col-chosen">One template per body type</td><td>A sculpt tool</td><td>Import + cleanup pipeline</td><td>Little</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: add C or D for special cases</td><td>High</td><td>Medium</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option A but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-14 I want Option C instead"</strong></p>
+</div>
+
+</body>
+</html>

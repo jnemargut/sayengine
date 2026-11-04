@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 13: Game Targets (Godot + three.js) — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.confidence-badge.lean { background:#b86e0a; }
+.split { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.lane { background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px; display:flex; flex-direction:column; gap:5px; }
+.lane-h { font-size:0.6rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; text-align:center; }
+.lane-h.g { color:#1d6f80; } .lane-h.w { color:#4b3a8c; }
+.chip { font-size:0.62rem; font-weight:600; padding:4px 7px; border-radius:6px; text-align:center; line-height:1.3; border:1.5px solid #cbd5e1; color:#334155; background:white; }
+.chip.g { border-color:#1d6f80; color:#1d6f80; }
+.chip.w { border-color:#4b3a8c; color:#4b3a8c; }
+.chip.shared { border-color:#2c6e48; color:#2c6e48; background:#edf6f0; }
+.chip.build { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.chip.weak { border-color:#b86e0a; color:#8a5208; border-style:dashed; }
+.shared-bar { width:100%; background:#edf6f0; border:1.5px solid #2c6e48; border-radius:10px; padding:7px 9px; display:flex; flex-direction:column; gap:4px; }
+.shared-bar .lane-h { color:#2c6e48; }
+.shared-row { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+.arr { text-align:center; color:#94a3b8; font-size:0.85rem; line-height:1; }
+.key { font-size:0.58rem; color:#64748b; text-align:center; }
+.key b.s { color:#2c6e48; } .key b.b { color:#a83a32; } .key b.k { color:#8a5208; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 13 of 18 · Game tools phase · revised</span>
+  <h1>Game Targets: Godot for Games, three.js for the Web</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You want to make standalone games in Godot and web apps or browser games in three.js, choosing per project. Good news: the studio already exports glTF, which both load natively, and your baked-material choice (decision 12) produces plain textures that look the same in both. So the real question is how much is shared between the two targets and how much is built twice. That covers assets, material presets, skeletons and animations, checks, level layouts, game code, and the <code>/game</code> skill Claude uses to run and test each one. Each card shows what's shared (green), what you build (red), and where it's weak (amber).
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: share assets, not engines</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Two Targets, One Asset Contract</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="shared-bar">
+        <span class="lane-h">Shared: made once in the studio</span>
+        <div class="shared-row"><span class="chip shared">glTF + baked textures</span><span class="chip shared">Material presets</span><span class="chip shared">Humanoid skeleton + clips</span><span class="chip shared">Game-ready checks</span></div>
+      </div>
+      <div class="arr">↓ studio export --target godot | web</div>
+      <div class="split">
+        <div class="lane">
+          <span class="lane-h g">Godot: standalone games</span>
+          <span class="chip g">Import script keeps materials</span>
+          <span class="chip g">GDScript game code</span>
+          <span class="chip g">Jolt physics · IK · retarget</span>
+          <span class="chip g">/game → godot CLI</span>
+        </div>
+        <div class="lane">
+          <span class="lane-h w">three.js: web apps + browser games</span>
+          <span class="chip w">GLTFLoader, as-is</span>
+          <span class="chip w">TypeScript game code</span>
+          <span class="chip w">Rapier physics</span>
+          <span class="chip w">/game → headless Chrome</span>
+        </div>
+      </div>
+      <div class="key"><b class="s">green</b> shared · blue/purple per target</div>
+    </div>
+    <div class="option-summary">
+      The studio is the single source for everything visual: shapes, baked materials, skeletons, animation clips and checks. Export takes a target flag and writes what each side wants: a Godot import script so materials survive reimport, or plain glTF for three.js. Game code is written per project in that engine's own language, which is fine because a web app and a Steam game are different programs anyway. The <code>/game</code> skill gets two back ends with the same commands (run, screenshot, play-test).
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Each project is clearly one or the other</li>
+        <li>You want to reuse assets across both freely</li>
+        <li>Each engine is used the way it's meant to be</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two run/test back ends to maintain</li>
+        <li>Shaders (toon, outlines) written twice</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Godot for Both (Web Export)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="shared-bar">
+        <span class="lane-h">Shared: everything</span>
+        <div class="shared-row"><span class="chip shared">Assets</span><span class="chip shared">Game code</span><span class="chip shared">Shaders</span><span class="chip shared">One /game back end</span></div>
+      </div>
+      <div class="arr">↓ godot --export-release</div>
+      <div class="split">
+        <div class="lane">
+          <span class="lane-h g">Desktop / Steam</span>
+          <span class="chip g">Native build</span>
+        </div>
+        <div class="lane">
+          <span class="lane-h g">Web</span>
+          <span class="chip weak">Multi-MB engine download</span>
+          <span class="chip weak">Game-shaped, not app-shaped</span>
+          <span class="chip weak">Hard to mix with web UI</span>
+        </div>
+      </div>
+      <div class="key"><b class="k">amber</b> = weak spot</div>
+    </div>
+    <div class="option-summary">
+      One engine, one language, one way to test. Godot can export to the web, so browser games work. But the web build ships the whole engine to the browser, so the first load is slow, and it behaves like a game in a box, not a web page. If "web app" means a site with normal UI, links, forms and a 3D view inside (like the studio itself), Godot is the wrong tool for that half.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"Web" means browser versions of your games</li>
+        <li>You want the simplest possible setup</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Poor fit for real web apps</li>
+        <li>Slow first load on the web</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">three.js for Both (Desktop Wrapper)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="shared-bar">
+        <span class="lane-h">Shared: everything, same stack as the studio</span>
+        <div class="shared-row"><span class="chip shared">Assets</span><span class="chip shared">TypeScript code</span><span class="chip shared">Shaders</span><span class="chip shared">headless Chrome tests</span></div>
+      </div>
+      <div class="arr">↓ build</div>
+      <div class="split">
+        <div class="lane">
+          <span class="lane-h w">Web</span>
+          <span class="chip w">Native, small, instant</span>
+        </div>
+        <div class="lane">
+          <span class="lane-h w">Desktop / Steam</span>
+          <span class="chip build">Electron/Tauri wrapper</span>
+          <span class="chip build">Your own game loop, scenes, save, audio</span>
+          <span class="chip weak">No level editor</span>
+        </div>
+      </div>
+      <div class="key"><b class="b">red</b> = you build it</div>
+    </div>
+    <div class="option-summary">
+      Everything in the stack Claude already drives: TypeScript, three.js, headless Chrome. It's great for web apps and quick browser games. For standalone games you wrap it in a desktop shell (Electron or Tauri) and write the game systems a real engine would give you: scene management, saving, audio, input mapping, a level editor. That's the "own runtime" path you passed on in decision 11, coming back through the side door.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Mostly web, with the occasional small desktop game</li>
+        <li>Maximum reuse of the studio's own code</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Bigger standalone games need engine work you build</li>
+        <li>Fewer game-specific tools and examples</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Two Targets + a Portable Game Format</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="shared-bar">
+        <span class="lane-h">Shared: assets and the game description</span>
+        <div class="shared-row"><span class="chip shared">Assets + clips</span><span class="chip shared">Levels / scenes</span><span class="chip build">Behaviours (spawn, collect, door…)</span><span class="chip build">Compiler to each engine</span></div>
+      </div>
+      <div class="arr">↓ compile</div>
+      <div class="split">
+        <div class="lane">
+          <span class="lane-h g">Godot</span>
+          <span class="chip build">Generated .tscn + GDScript</span>
+        </div>
+        <div class="lane">
+          <span class="lane-h w">three.js</span>
+          <span class="chip build">Generated TS runtime</span>
+        </div>
+      </div>
+      <div class="key"><b class="b">red</b> = you build it</div>
+    </div>
+    <div class="option-summary">
+      Go one step further: the studio also stores levels and simple game behaviours in its own format (with the same branching review), and compiles a project to either engine. Make a level once and ship it as both a browser demo and a Steam game. It's the most AI-first idea here, since the whole game becomes reviewable studio records. But that compiler is a cross-engine runtime, which is exactly what engines are, so it's a big new project.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The same game ships to web and desktop</li>
+        <li>You want levels reviewable like the stool</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>A compiler to two engines is engine-scale work</li>
+        <li>Lowest common denominator of both engines</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Option A doubles the parts Claude has to be good at. That's two game languages (GDScript and TypeScript), two physics systems, two ways to run and screenshot a game, and toon or outline shaders written twice. Agents already fail most at engine-specific structure: in one Godot benchmark the best agent passed only 54% of tasks. Doubling the engines doubles that surface. If most of what you'll make is web, Option C keeps one stack Claude already handles well; if most is games, B keeps one engine and accepts a weaker web story.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Projects are usually one or the other (a web app or a standalone game), rarely the same game on both.</li>
+    <li>"Web app" means a real site with normal UI and a 3D view inside, which is three.js's strength and Godot's weak spot.</li>
+    <li>Shared assets carry the most value: shapes, baked materials (decision 12, E) and humanoid skeletons all travel as glTF. three.js loads them as-is; Godot gets an import script so studio-owned materials survive reimport.</li>
+    <li>Option D stays possible later: if you keep wanting the same level in both, add the portable format then.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Godot is the leading engine for Claude-driven standalone games. Its scenes and scripts are plain text, it has a real command line for import, scripts and export, and it took 47% of GMTK Game Jam 2026 entries. <a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html">Godot docs</a> <a class="cite" href="https://gameworldobserver.com/2026/07/29/unity-is-no-longer-the-leader-godot-has-become-the-most-popular-engine-at-gmtk-game-jam-2026">Game World Observer</a></li>
+    <li>three.js is about 170 kB gzipped, and its GLTFLoader is the reference glTF implementation, with full skins, morphs and animations. Driving it with headless Chrome is the same setup that tested the studio's own view. <a class="cite" href="https://www.utsubo.com/blog/threejs-vs-babylonjs-vs-playcanvas-comparison">Utsubo</a> <a class="cite" href="https://microlink.io/blog/webgl-without-a-gpu">Microlink</a></li>
+    <li>Godot's glTF reimport drops material edits made inside Godot. With the studio owning materials and an import script on the Godot side, nothing is edited in Godot, so nothing is lost. <a class="cite" href="https://godotforums.org/d/30560-mesh-loses-material-overrides-everytime-it-is-updated-externally-or-re-imported">Godot forums</a></li>
+    <li>Godot 4.4–4.6 added retargeting, spring bones and IK. three.js has <code>SkeletonUtils.retarget</code> and CPU bone transforms, which are enough for automated pose tests on both sides. <a class="cite" href="https://godotengine.org/article/inverse-kinematics-returns-to-godot-4-6/">Godot blog</a> <a class="cite" href="https://threejs.org/docs/pages/SkinnedMesh.html">three.js docs</a></li>
+    <li>AI agents do much better on game tasks when they can see the running game: screenshots raised one model from 41% to 52% on Godot tasks. Both back ends of <code>/game</code> need a screenshot path. <a class="cite" href="https://arxiv.org/html/2602.11103">GameDevBench</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>"Pick one engine and master it" is standard indie advice, because context switching is expensive. The counter-argument here is that the expensive, AI-hard parts (assets, materials, rigs, checks) are made once in the studio and shared. What stays per engine is ordinary code, which Claude writes in either language. The deciding factor is how often the same project needs both targets: rarely means A, often means D.</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Two targets, one asset contract</th><th class="col-b">B: Godot for both</th><th class="col-c">C: three.js for both</th><th class="col-d">D: + portable game format</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Standalone / Steam games</td><td class="col-pick col-chosen">Strong (Godot)</td><td>Strong</td><td>Weak (wrapper + your systems)</td><td>Strong, once compiled</td></tr>
+        <tr><td>Real web apps</td><td class="col-pick col-chosen">Strong (three.js)</td><td>Weak</td><td>Strong</td><td>Strong</td></tr>
+        <tr><td>Assets shared</td><td class="col-pick col-chosen">All</td><td>All</td><td>All</td><td>All + levels</td></tr>
+        <tr><td>Game code shared</td><td class="col-pick col-chosen">No (per project anyway)</td><td>Yes</td><td>Yes</td><td>Partly (behaviours)</td></tr>
+        <tr><td>Claude must master</td><td class="col-pick col-chosen">2 engines</td><td>1 engine</td><td>1 stack (already does)</td><td>2 engines + a compiler</td></tr>
+        <tr><td>New work to start</td><td class="col-pick col-chosen">2 export targets + 2 /game back ends</td><td>1 export + 1 back end</td><td>1 back end + desktop wrapper</td><td>A + format + compiler</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: drop a target any time</td><td>Medium: web apps need rework</td><td>High for big desktop games</td><td>High: format becomes load-bearing</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option D but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-13 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

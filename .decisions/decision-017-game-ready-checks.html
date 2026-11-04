@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 17: Game-Ready Checks — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fdf6e9; color:#8a5208; }
+.panel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:9px 11px; display:flex; flex-direction:column; gap:6px; }
+.panel-h { font-size:0.6rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#64748b; display:flex; justify-content:space-between; }
+.chk { display:flex; align-items:center; gap:7px; font-size:0.66rem; color:#334155; }
+.chk i { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.chk.ok i { background:#2c6e48; } .chk.bad i { background:#a83a32; } .chk.pend i { background:#b86e0a; } .chk.off i { background:#cbd5e1; }
+.chk.bad { color:#7d2a24; font-weight:600; }
+.chk.off { color:#94a3b8; }
+.when { font-size:0.62rem; color:#475569; background:#f1f5f9; border-radius:6px; padding:5px 8px; }
+.when b { color:#0f172a; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 17 of 18 · Game tools phase</span>
+  <h1>Game-Ready Checks and Export Profiles</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Today's checks catch furniture problems: floating legs, separate pieces, things below the floor. Games add new rules. Triangle and texture budgets, a collision shape for physics, simpler versions for distance (LODs), bone and weight limits, and proof that the file imports cleanly into Godot and three.js. The question is when those rules run and who owns them. Run them on every step, the way the stool's checks do, and Claude fixes problems while it works. Run them only at export, or leave them to each engine, and problems surface late.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: same loop as the stool</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Live Game Checks + Round-Trip Test</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h"><span>Checks · Blacksmith · profile: godot-desktop</span><span>after every step</span></div>
+        <div class="chk ok"><i></i>Triangles 2,840 / 5,000</div>
+        <div class="chk bad"><i></i>Texture 2048 px over budget (1024) → bake smaller</div>
+        <div class="chk ok"><i></i>Bones 24 / 64 · max 4 weights per vertex</div>
+        <div class="chk ok"><i></i>Collision capsule generated, fits body</div>
+        <div class="chk ok"><i></i>LOD 1 and 2 generated (50%, 20%)</div>
+        <div class="chk pend"><i></i>Round-trip: import in Godot + three.js on export</div>
+      </div>
+      <div class="when"><b>When:</b> budgets on every step · engine round-trip on every export</div>
+    </div>
+    <div class="option-summary">
+      Each object gets a game profile (for example "godot-desktop" or "web-mobile") that adds budget rules, which show up as checks after every change, exactly like "legs grounded". Collision shapes and LODs are generated as ops, so they update when the shape changes and are reviewable. On export, the file is imported headlessly into Godot and loaded in three.js; any warning fails the export. Claude sees a broken budget the moment it happens and fixes it in the same loop.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Claude builds most assets; it needs fast feedback</li>
+        <li>Two targets with different budgets</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Round-trip needs Godot installed for export</li>
+        <li>More checks = slower steps on big assets</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Gate at Export Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h"><span>studio export --target godot</span><span>at export</span></div>
+        <div class="chk ok"><i></i>Generate collision + LODs</div>
+        <div class="chk bad"><i></i>FAIL: triangles 9,200 / 5,000</div>
+        <div class="chk bad"><i></i>FAIL: texture over budget</div>
+        <div class="chk off"><i></i>Export stopped. Fix and re-export.</div>
+      </div>
+      <div class="when"><b>When:</b> only when you export</div>
+    </div>
+    <div class="option-summary">
+      Modeling stays exactly as it is today. When you export for a game, the exporter generates collision and LODs, checks every budget, and refuses to export if anything fails. It's simpler and keeps the modeling loop fast. But Claude learns about a budget problem only at the end, often after many steps built on the problem, and generated collision and LODs aren't visible or reviewable in the studio.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Most work isn't for games</li>
+        <li>You export rarely</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Late surprises; rework after many steps</li>
+        <li>Collision/LODs hidden from review</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Let Each Engine Handle It</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h"><span>Engine import</span><span>in each engine</span></div>
+        <div class="chk ok"><i></i>Godot: auto LODs + collision on import</div>
+        <div class="chk off"><i></i>three.js: none built in; write your own</div>
+        <div class="chk pend"><i></i>Budgets: per-project scripts</div>
+        <div class="chk off"><i></i>Studio sees nothing</div>
+      </div>
+      <div class="when"><b>When:</b> after the asset leaves the studio</div>
+    </div>
+    <div class="option-summary">
+      Export raw assets and let each engine prepare them. Godot can generate LODs and collision shapes at import, so there's nothing to build for that side. But three.js has no equivalent, so the two targets drift apart, and the studio, where Claude works and where you review, never sees whether an asset is game-ready. It's the "numbers rule" idea abandoned at the last step.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Godot-only projects</li>
+        <li>Least studio work</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two targets behave differently</li>
+        <li>Claude can't see or fix budget problems</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Validate Files Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h"><span>Khronos glTF validator</span><span>at export</span></div>
+        <div class="chk ok"><i></i>File structure valid</div>
+        <div class="chk ok"><i></i>Joints match bind matrices</div>
+        <div class="chk off"><i></i>No budgets</div>
+        <div class="chk off"><i></i>No collision, no LODs</div>
+      </div>
+      <div class="when"><b>When:</b> at export, file format only</div>
+    </div>
+    <div class="option-summary">
+      Run the official glTF validator on every export and stop there. It catches broken files, mismatched skeletons and bad weights, and costs almost nothing to add. But it says nothing about whether an asset is right for a game, whether it's too heavy, has no collision, or has no distance versions. A minimum floor, not a game pipeline.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Early experiments</li>
+        <li>As a baseline inside any other option</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Valid but unplayable assets pass</li>
+        <li>Collision and LODs left to you</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Live game checks make every step heavier and noisier. A prop that's mid-build will fail its triangle budget long before it's finished, the same "everything is failing" problem the studio had before checks learned to say "in progress". And the engine round-trip ties export to having Godot installed and running headless, which is one more moving part to break. If most of what you make in the next months isn't headed for a game, B keeps the studio fast and moves all of this to the moment it matters.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Game checks only apply to objects with a game profile; furniture renders and other non-game work stay as they are.</li>
+    <li>Budget checks use the existing "pending" state while an object is still being built, so they don't shout mid-build.</li>
+    <li>Collision shapes and LODs are generated ops (hull/box/capsule; simplified copies), so they're reviewable and update with the shape.</li>
+    <li>The Khronos glTF validator (Option D) runs inside the export in every case.</li>
+    <li>Godot is installed on the machine that exports for Godot; three.js round-trips use the headless Chrome the studio already uses.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>The Khronos validator flags joint/weight inconsistencies; glTF needs skin joints to match their bind matrices, and allows 4 influences per weight set. <a class="cite" href="https://github.khronos.org/glTF-Tutorials/gltfTutorial/gltfTutorial_019_SimpleSkin.html">Khronos</a></li>
+    <li>Asset pipelines break at the hand-off: Godot drops materials on reimport, Unity silently strips texture features, Unreal mishandles skinned meshes. An automated import test catches these before you do. <a class="cite" href="https://godotforums.org/d/30560-mesh-loses-material-overrides-everytime-it-is-updated-externally-or-re-imported">Godot forums</a> <a class="cite" href="https://forums.unrealengine.com/t/gltf-animation-export-appears-to-be-broken/785884">Unreal forums</a></li>
+    <li>Godot's command line can import a project headlessly and quit (<code>--headless --import</code>). That's the round-trip test's engine half. <a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html">Godot docs</a></li>
+    <li>An agent that can verify its own output does much better. In the studio's own benchmark runs, checks caught the collapsed roof and the separate pieces; the window overlapping the door was caught only by a render. <a class="cite" href="../bench/TASKS.md">bench/TASKS.md</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Live + round-trip</th><th class="col-b">B: Export gate</th><th class="col-c">C: Engine handles it</th><th class="col-d">D: Validate files only</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Claude sees problems</td><td class="col-pick col-chosen">On the step that causes them</td><td>At export</td><td>Never (in the engine)</td><td>Only broken files</td></tr>
+        <tr><td>Collision + LODs</td><td class="col-pick col-chosen">Generated ops, reviewable</td><td>Generated at export</td><td>Godot yes, three.js no</td><td>None</td></tr>
+        <tr><td>Both targets consistent</td><td class="col-pick col-chosen">Yes (profiles)</td><td>Yes</td><td>No</td><td>N/A</td></tr>
+        <tr><td>Catches import breakage</td><td class="col-pick col-chosen">Yes (round-trip)</td><td>No</td><td>When you open the engine</td><td>Partly</td></tr>
+        <tr><td>Studio speed</td><td class="col-pick col-chosen">Slightly slower steps</td><td>Unchanged</td><td>Unchanged</td><td>Unchanged</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: profiles are opt-in</td><td>Low</td><td>Low</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-17 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

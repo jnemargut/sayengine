@@ -1,106 +1,745 @@
 {
-  "projectName": "AI-First 3D Studio",
-  "projectDescription": "A new general-purpose 3D creation environment where AI agents create, inspect, modify, validate and revise scenes through a typed modeling API, and humans direct and directly edit everything.",
-  "createdAt": "2026-11-03",
-  "context": { "target": "general", "architecture": "new", "output": "all", "hardware": "M2 MacBook Air 8GB",
-    "userWorkflow": "Stated 2026-11-03 at Decision 9: user drives modeling from VS Code / Claude Code; the website is a live view (watch, inspect, review), not the primary input surface." },
-  "decisions": [
-    {"id":1,"slug":"app-runtime","title":"Where the app runs","category":"technical","stakes":"high","reversibility":"one-way","status":"chosen",
-     "chosenOption":"A","chosenTitle":"Headless core + browser first (Electron later)","decidedAt":"2026-11-03",
-     "htmlFile":"decision-001-app-runtime.html",
-     "options":{"A":"Headless core + browser first (Electron later)","B":"Tauri 2 desktop","C":"Electron from day one","D":"Fully native (Rust + wgpu)"},
-     "recommended":"A","confidence":"strong",
-     "caseAgainst":"General-purpose production work is desktop-class (multi-GB scenes, native FBX/USD SDKs, real folders); browser limits (4GB WASM, Chromium-only folder access) may bake in; if an installer is needed within ~3 months, Electron from day one avoids a migration.",
-     "assumptions":["Prototype ~6 weeks, scenes well under 4GB","Chromium acceptable for real file workflow","Engine package enforced DOM-free from commit one"],
-     "tripwires":["Need native SDKs (FBX, USD C++) or scenes approach 2-3GB -> wrap in Electron"],
-     "sources":["https://web.dev/blog/webgpu-supported-major-browsers","https://bugs.webkit.org/show_bug.cgi?id=299237","https://v2.tauri.app/develop/tests/webdriver/","https://betterstack.com/community/guides/scaling-nodejs/tauri-vs-electron-vs-deno-vs-electrobun/","https://v8.dev/blog/4gb-wasm-memory","https://spidermonkey.dev/blog/2025/01/15/is-memory64-actually-worth-using.html","https://web.dev/articles/files/open-a-directory","https://manifoldcad.org/jsdocs/documents/Get_Started.html","https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/"]},
-    {"id":2,"slug":"scene-change-model","title":"Scene source of truth & change model","category":"technical","stakes":"high","reversibility":"one-way","status":"chosen",
-     "chosenOption":"B","chosenTitle":"Records + branching change log","decidedAt":"2026-11-03",
-     "htmlFile":"decision-002-scene-change-model.html",
-     "options":{"A":"Simple store + undo stack","B":"Records + branching change log (patch transactions, content-addressed mesh blobs)","C":"CRDT document (Loro)","D":"OpenUSD layers as the model"},
-     "recommended":"B","confidence":"strong",
-     "caseAgainst":"Building a mini version-control system before proposals are proven; event-sourcing replay/migration tax; Loro gives fork/checkout/merge for free; Option A suffices for weeks 1-2.",
-     "assumptions":["Edits flow through one validated typed-tool pipeline","Proposals/variants are a core differentiator","Meshes stored by content hash; snapshots every N commits"],
-     "tripwires":["Need simultaneous same-object multi-agent edits with auto-merge -> put Loro under the same record API"],
-     "sources":["https://www.figma.com/blog/how-figmas-multiplayer-technology-works/","https://tldraw.dev/docs/sync","https://www.onshape.com/en/blog/under-the-hood-how-collaboration-works","https://github.com/immerjs/immer/blob/main/docs/patches.md","https://loro.dev/blog/v1.0","https://automerge.org/blog/automerge-3/","https://vivianvoss.net/blog/the-event-sourcing-tax","https://engine.needle.tools/docs/cloud/openusd","https://tldraw.dev/starter-kits/agent"]},
-    {"id":3,"slug":"construction-model","title":"Construction model","category":"technical","stakes":"high","reversibility":"one-way","status":"chosen",
-     "chosenOption":"D","chosenTitle":"Typed op graph + code view","decidedAt":"2026-11-03",
-     "htmlFile":"decision-003-construction-model.html",
-     "options":{"A":"Modifier stack","B":"Visual node graph","C":"CAD feature tree","D":"Typed op graph + code view (named params, named anchors)"},
-     "recommended":"D","confidence":"strong",
-     "caseAgainst":"Designing a language + editor is where solo projects die; benchmark geometric correctness ~0.35 regardless of format; much general-purpose content (characters, sculpts) isn't parametric, so a modifier stack might ship faster.",
-     "assumptions":["Start with 15-25 ops, grow from benchmark failures","editableMesh escape-hatch op","Named anchors/datums, never face indices","Node view can be layered later"],
-     "tripwires":["If >40% of benchmark objects need raw mesh escapes, add a modifier-stack layer for mesh objects"],
-     "sources":["https://arxiv.org/html/2606.11152v2","https://ar5iv.labs.arxiv.org/html/2410.05340","https://arxiv.org/html/2406.00144v1","https://arxiv.org/html/2508.08228v1","https://arxiv.org/abs/2402.01030","https://docs.zoo.dev/research/zookeeper","https://github.com/Adam-CAD/CADAM","https://wiki.freecad.org/Topological_naming_problem/en"]},
-    {"id":4,"slug":"geometry-kernel","title":"Geometry kernel strategy","category":"technical","stakes":"high","reversibility":"one-way","status":"chosen",
-     "chosenOption":"C","chosenTitle":"Kernel interface, three engines (staged)","decidedAt":"2026-11-03",
-     "htmlFile":"decision-004-geometry-kernel.html",
-     "options":{"A":"Manifold only","B":"OpenCascade-first (B-rep)","C":"Kernel interface: Manifold + TS half-edge EditMesh + OpenSubdiv, OCCT lazy later","D":"Rust geometry core -> WASM"},
-     "recommended":"C","confidence":"strong",
-     "caseAgainst":"Three kernels = three failure modes and buggy seams; mesh->B-rep is not recoverable; hand-written half-edge is subtle; Manifold-only for months proves the AI loop first.",
-     "assumptions":["Weeks 1-3 Manifold only behind the interface","Explicit conversion ops with validity checks","All kernels in a Worker (browser) / in-process (Node)"],
-     "tripwires":["Manifold boolean artifacts in >5% of benchmark runs -> mesh-repair pass or OCCT booleans for those ops"],
-     "sources":["https://github.com/elalish/manifold","https://www.npmjs.com/package/manifold-3d","https://developer.blender.org/docs/release_notes/4.5/modeling/","https://github.com/donalffons/opencascade.js","https://github.com/sgenoud/replicad","https://github.com/andymai/occt-wasm","https://github.com/bitbybit-dev/bitbybit","https://github.com/ricosjp/truck"]},
-    {"id":5,"slug":"ai-interface","title":"How AI models talk to the app","category":"technical","stakes":"high","reversibility":"one-way","status":"chosen",
-     "chosenOption":"custom","chosenTitle":"Claude Code skill (/studio) -> studio CLI generated from the zod registry -> engine daemon; browser is a live view; MCP adapter optional later","decidedAt":"2026-11-03",
-     "reasoning":"User wants to interact via a Claude Code skill, like /x-decide; the website is just the view.",
-     "history":[
-       {"date":"2026-11-03","change":"Chose C (one registry, two doors)."},
-       {"date":"2026-11-03","change":"User workflow note: drive from VS Code / Claude Code; website is just the view -> MCP primary, in-app agent deferred."},
-       {"date":"2026-11-03","change":"Changed to custom: interact via a Claude Code skill. Registry now emits a CLI (primary) + optional MCP adapter; in-app agent dropped; run_script becomes `studio run file.ts`."}],
-     "downstreamImpacts":["D6: renders produced by the view on request from the daemon; CLI returns image paths Claude Code reads","D8: right panel = Claude Code activity feed + review instead of chat","D9: Keep/Undo in the view and via `studio keep/undo/commit`","D10: first slice = /studio makes a stool that appears in the view"],
-     "htmlFile":"decision-005-ai-interface.html",
-     "options":{"A":"MCP server only","B":"Built-in agent only","C":"One zod tool registry exposed as MCP + in-app agent (AI SDK 6), run_script code mode later","D":"Code mode only (sandboxed run_script)"},
-     "recommended":"C","confidence":"strong",
-     "caseAgainst":"Two surfaces to maintain; MCP door serves developers not novices; code-mode evidence (Anthropic, Cloudflare, CodeAct) suggests starting with code could be more efficient.",
-     "assumptions":["Tools grouped in modes, <=~20 visible, tool search beyond","Structured results + actionable validation errors","run_script only in QuickJS-WASM, produces commits only","MCP door initially for dev/benchmarks"],
-     "tripwires":[">15 tool calls per benchmark task or token budget exceeded -> promote run_script to default"],
-     "sources":["https://www.anthropic.com/engineering/code-execution-with-mcp","https://www.anthropic.com/engineering/advanced-tool-use","https://blog.cloudflare.com/code-mode/","https://arxiv.org/abs/2505.03275","https://github.com/ahujasid/blender-mcp","https://app.opencve.io/cve/CVE-2026-10688","https://tldraw.dev/starter-kits/agent","https://vercel.com/blog/ai-sdk-6","https://zod.dev/json-schema"]},
-    {"id":6,"slug":"ai-perception","title":"AI perception loop","category":"technical","stakes":"high","reversibility":"two-way","status":"chosen",
-     "chosenOption":"C","chosenTitle":"Checks (authority) + labeled views at milestones","decidedAt":"2026-11-03",
-     "htmlFile":"decision-006-ai-perception.html",
-     "options":{"A":"Structured diagnostics only","B":"Rendered views only","C":"Deterministic checks (authority) + labeled separate views at milestones","D":"Separate critic agent"},
-     "recommended":"C","confidence":"strong",
-     "caseAgainst":"Visual feedback gains are modest (~18% in CADCodeVerify; ground-truth solver beat it); images cost 5-10x tokens; headless rendering is fiddly; Option A alone is a leaner start.",
-     "assumptions":["Checks every commit; images at milestones or on demand","Persistent render page, never fresh browser per frame","Rules attach to semantic types, grow from benchmark failures","Critic added later, different model family, gated on checks"],
-     "tripwires":["Visual checks change outcome in <10% of benchmark runs after 2 weeks -> images on-demand only"],
-     "sources":["https://arxiv.org/html/2410.05340","https://arxiv.org/abs/2407.06581","https://arxiv.org/abs/2506.21458","https://arxiv.org/pdf/2406.12742","https://arxiv.org/abs/2310.11441","https://arxiv.org/html/2504.01786","https://arxiv.org/abs/2404.13076","https://zoo.dev/blog/announcing-zookeeper","https://tldraw.dev/docs/ai","https://platform.claude.com/docs/en/build-with-claude/vision"]},
-    {"id":7,"slug":"visual-direction","title":"Visual direction of the workspace","category":"visual","stakes":"med","reversibility":"two-way","status":"chosen",
-     "chosenOption":"A","chosenTitle":"Soft Premium (Quiet Studio)","decidedAt":"2026-11-03","tokens":["tokens.css","tokens.json"],
-     "htmlFile":"decision-007-visual-direction.html",
-     "options":{"A":"Soft Premium (Instrument Sans, stone + sage)","B":"Technical Documentary (IBM Plex Sans/Mono, slate)","C":"Kinetic Modern dark (Space Grotesk + Manrope, navy + lime)","D":"Editorial Print (Fraunces + Source Serif 4, paper + brick)"},
-     "recommended":"A","confidence":"lean",
-     "tossUpWith":"B","tiebreaker":"First 50 users are AI devs via Claude Code -> B; designers who never learned Blender -> A",
-     "caseAgainst":"3D tools default dark for glare/long sessions; early adopters likely technical (fits B).",
-     "assumptions":["North-star user is the creative director","Neutral viewport surround","Dark variant ships later via tokens","Technical depth one click away"],
-     "tripwires":["Repeated dark-mode requests or 'too soft for real work' -> ship dark variant first"],
-     "fontNote":"Library body face Inter replaced with deliberate per-tradition faces"},
-    {"id":8,"slug":"workspace-layout","title":"Workspace layout","category":"ia","stakes":"med","reversibility":"two-way","status":"chosen",
-     "chosenOption":"A","chosenTitle":"Docked panels","decidedAt":"2026-11-03","overrodeRecommendation":true,"dissent":false,
-     "note":"User chose A over a LEAN recommendation of B; design effort shifts to Decision 9 (review UX).",
-     "htmlFile":"decision-008-workspace-layout.html",
-     "options":{"A":"Docked panels","B":"Viewport stage (floating contextual cards, AI command bar, history scrubber, dock toggle)","C":"Variant canvas","D":"Director's split (committed | proposal)"},
-     "recommended":"B","confidence":"lean","tossUpWith":"C","tiebreaker":"If exploring many variants is the core loop, Variant Canvas (C) — or as the Proposals tab inside B",
-     "caseAgainst":"Floating contextual UI is harder to build well; docked panels ship in days and free effort for review UX.",
-     "assumptions":["Dock-panels toggle from day one","Floating cards avoid selection bounds","Variant canvas as secondary Proposals mode","Review style settled in Decision 9"],
-     "tripwires":["Testers spend more time moving cards than modeling -> default to docked"]},
-    {"id":9,"slug":"change-review","title":"How AI changes are reviewed","category":"interaction","stakes":"high","reversibility":"two-way","status":"chosen",
-     "chosenOption":"D","chosenTitle":"Change-by-change review","decidedAt":"2026-11-03",
-     "workflowNote":"Review UI lives in the web view's right panel; Claude Code can also keep/undo via MCP tools (keep_change, undo_change, commit_proposal).",
-     "htmlFile":"decision-009-change-review.html",
-     "options":{"A":"Ghost overlay","B":"Swap cards","C":"Branch timeline","D":"Change-by-change review (semantic change list, per-change Keep/Undo, viewport highlight, before/after flip)"},
-     "recommended":"D","confidence":"strong",
-     "caseAgainst":"Turns a visual craft into reading a diff; dependent changes need rules and re-checks; granularity is overhead if most proposals are cohesive.",
-     "assumptions":["AI groups changes into named meaningful steps","B's cards as tabs for multiple alternatives","Dependent changes linked; checks re-run after partial keep","Nothing deleted — archived branches"],
-     "tripwires":["Whole-proposal accept/discard >90% of the time -> collapse list behind details toggle"],
-     "sources":["https://forum.cursor.com/t/bring-back-per-change-apply-inline-diff-review-you-re-throwing-away-your-best-ux-advantage/160856","https://forum.figma.com/report-a-problem-6/figma-make-just-deleted-90-of-my-project-2-weeks-of-work-gone-cannot-be-reverted-48358","https://www.onshape.com/en/resource-center/tech-tips/tech-tip-a-guide-to-successful-merging-in-onshape"]},
-    {"id":10,"slug":"build-sequence","title":"First build sequence","category":"interaction","stakes":"high","reversibility":"two-way","status":"chosen",
-     "chosenOption":"B","chosenTitle":"Thin vertical slice, then thicken","decidedAt":"2026-11-03","reasoning":"User: 'Just build it all out' — recommendation applied.",
-     "htmlFile":"decision-010-build-sequence.html",
-     "options":{"A":"Six horizontal layers","B":"Thin vertical slice (stool via /studio by end of week 2), then thicken","C":"Benchmark-first","D":"Engine-first, view last"},
-     "recommended":"B","confidence":"strong",
-     "caseAgainst":"Slices tempt corner-cutting in one-way-door foundations; 'thicken later' often means never. Mitigation: real Scene IR/commit format and anchors from day one.",
-     "assumptions":["Week 1 uses real Scene IR + commit format","Stool benchmark is slice acceptance test; harness week 3","Prototype estimates, ~full-time with Claude Code","Week-2 view = bare Three.js page over websocket"],
-     "tripwires":["Stool not appearing end-to-end by day 12 -> stop features, cut scope"]}
-  ]
+ "projectName": "AI-First 3D Studio",
+ "projectDescription": "A new general-purpose 3D creation environment where AI agents create, inspect, modify, validate and revise scenes through a typed modeling API, and humans direct and directly edit everything.",
+ "createdAt": "2026-11-03",
+ "context": {
+  "target": "general",
+  "architecture": "new",
+  "output": "all",
+  "hardware": "M2 MacBook Air 8GB",
+  "userWorkflow": "Stated 2026-11-03 at Decision 9: user drives modeling from VS Code / Claude Code; the website is a live view (watch, inspect, review), not the primary input surface."
+ },
+ "decisions": [
+  {
+   "id": 1,
+   "slug": "app-runtime",
+   "title": "Where the app runs",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Headless core + browser first (Electron later)",
+   "decidedAt": "2026-11-03",
+   "htmlFile": "decision-001-app-runtime.html",
+   "options": {
+    "A": "Headless core + browser first (Electron later)",
+    "B": "Tauri 2 desktop",
+    "C": "Electron from day one",
+    "D": "Fully native (Rust + wgpu)"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "General-purpose production work is desktop-class (multi-GB scenes, native FBX/USD SDKs, real folders); browser limits (4GB WASM, Chromium-only folder access) may bake in; if an installer is needed within ~3 months, Electron from day one avoids a migration.",
+   "assumptions": [
+    "Prototype ~6 weeks, scenes well under 4GB",
+    "Chromium acceptable for real file workflow",
+    "Engine package enforced DOM-free from commit one"
+   ],
+   "tripwires": [
+    "Need native SDKs (FBX, USD C++) or scenes approach 2-3GB -> wrap in Electron"
+   ],
+   "sources": [
+    "https://web.dev/blog/webgpu-supported-major-browsers",
+    "https://bugs.webkit.org/show_bug.cgi?id=299237",
+    "https://v2.tauri.app/develop/tests/webdriver/",
+    "https://betterstack.com/community/guides/scaling-nodejs/tauri-vs-electron-vs-deno-vs-electrobun/",
+    "https://v8.dev/blog/4gb-wasm-memory",
+    "https://spidermonkey.dev/blog/2025/01/15/is-memory64-actually-worth-using.html",
+    "https://web.dev/articles/files/open-a-directory",
+    "https://manifoldcad.org/jsdocs/documents/Get_Started.html",
+    "https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/"
+   ]
+  },
+  {
+   "id": 2,
+   "slug": "scene-change-model",
+   "title": "Scene source of truth & change model",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "B",
+   "chosenTitle": "Records + branching change log",
+   "decidedAt": "2026-11-03",
+   "htmlFile": "decision-002-scene-change-model.html",
+   "options": {
+    "A": "Simple store + undo stack",
+    "B": "Records + branching change log (patch transactions, content-addressed mesh blobs)",
+    "C": "CRDT document (Loro)",
+    "D": "OpenUSD layers as the model"
+   },
+   "recommended": "B",
+   "confidence": "strong",
+   "caseAgainst": "Building a mini version-control system before proposals are proven; event-sourcing replay/migration tax; Loro gives fork/checkout/merge for free; Option A suffices for weeks 1-2.",
+   "assumptions": [
+    "Edits flow through one validated typed-tool pipeline",
+    "Proposals/variants are a core differentiator",
+    "Meshes stored by content hash; snapshots every N commits"
+   ],
+   "tripwires": [
+    "Need simultaneous same-object multi-agent edits with auto-merge -> put Loro under the same record API"
+   ],
+   "sources": [
+    "https://www.figma.com/blog/how-figmas-multiplayer-technology-works/",
+    "https://tldraw.dev/docs/sync",
+    "https://www.onshape.com/en/blog/under-the-hood-how-collaboration-works",
+    "https://github.com/immerjs/immer/blob/main/docs/patches.md",
+    "https://loro.dev/blog/v1.0",
+    "https://automerge.org/blog/automerge-3/",
+    "https://vivianvoss.net/blog/the-event-sourcing-tax",
+    "https://engine.needle.tools/docs/cloud/openusd",
+    "https://tldraw.dev/starter-kits/agent"
+   ]
+  },
+  {
+   "id": 3,
+   "slug": "construction-model",
+   "title": "Construction model",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "D",
+   "chosenTitle": "Typed op graph + code view",
+   "decidedAt": "2026-11-03",
+   "htmlFile": "decision-003-construction-model.html",
+   "options": {
+    "A": "Modifier stack",
+    "B": "Visual node graph",
+    "C": "CAD feature tree",
+    "D": "Typed op graph + code view (named params, named anchors)"
+   },
+   "recommended": "D",
+   "confidence": "strong",
+   "caseAgainst": "Designing a language + editor is where solo projects die; benchmark geometric correctness ~0.35 regardless of format; much general-purpose content (characters, sculpts) isn't parametric, so a modifier stack might ship faster.",
+   "assumptions": [
+    "Start with 15-25 ops, grow from benchmark failures",
+    "editableMesh escape-hatch op",
+    "Named anchors/datums, never face indices",
+    "Node view can be layered later"
+   ],
+   "tripwires": [
+    "If >40% of benchmark objects need raw mesh escapes, add a modifier-stack layer for mesh objects"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2606.11152v2",
+    "https://ar5iv.labs.arxiv.org/html/2410.05340",
+    "https://arxiv.org/html/2406.00144v1",
+    "https://arxiv.org/html/2508.08228v1",
+    "https://arxiv.org/abs/2402.01030",
+    "https://docs.zoo.dev/research/zookeeper",
+    "https://github.com/Adam-CAD/CADAM",
+    "https://wiki.freecad.org/Topological_naming_problem/en"
+   ]
+  },
+  {
+   "id": 4,
+   "slug": "geometry-kernel",
+   "title": "Geometry kernel strategy",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "C",
+   "chosenTitle": "Kernel interface, three engines (staged)",
+   "decidedAt": "2026-11-03",
+   "htmlFile": "decision-004-geometry-kernel.html",
+   "options": {
+    "A": "Manifold only",
+    "B": "OpenCascade-first (B-rep)",
+    "C": "Kernel interface: Manifold + TS half-edge EditMesh + OpenSubdiv, OCCT lazy later",
+    "D": "Rust geometry core -> WASM"
+   },
+   "recommended": "C",
+   "confidence": "strong",
+   "caseAgainst": "Three kernels = three failure modes and buggy seams; mesh->B-rep is not recoverable; hand-written half-edge is subtle; Manifold-only for months proves the AI loop first.",
+   "assumptions": [
+    "Weeks 1-3 Manifold only behind the interface",
+    "Explicit conversion ops with validity checks",
+    "All kernels in a Worker (browser) / in-process (Node)"
+   ],
+   "tripwires": [
+    "Manifold boolean artifacts in >5% of benchmark runs -> mesh-repair pass or OCCT booleans for those ops"
+   ],
+   "sources": [
+    "https://github.com/elalish/manifold",
+    "https://www.npmjs.com/package/manifold-3d",
+    "https://developer.blender.org/docs/release_notes/4.5/modeling/",
+    "https://github.com/donalffons/opencascade.js",
+    "https://github.com/sgenoud/replicad",
+    "https://github.com/andymai/occt-wasm",
+    "https://github.com/bitbybit-dev/bitbybit",
+    "https://github.com/ricosjp/truck"
+   ]
+  },
+  {
+   "id": 5,
+   "slug": "ai-interface",
+   "title": "How AI models talk to the app",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "custom",
+   "chosenTitle": "Claude Code skill (/studio) -> studio CLI generated from the zod registry -> engine daemon; browser is a live view; MCP adapter optional later",
+   "decidedAt": "2026-11-03",
+   "reasoning": "User wants to interact via a Claude Code skill, like /x-decide; the website is just the view.",
+   "history": [
+    {
+     "date": "2026-11-03",
+     "change": "Chose C (one registry, two doors)."
+    },
+    {
+     "date": "2026-11-03",
+     "change": "User workflow note: drive from VS Code / Claude Code; website is just the view -> MCP primary, in-app agent deferred."
+    },
+    {
+     "date": "2026-11-03",
+     "change": "Changed to custom: interact via a Claude Code skill. Registry now emits a CLI (primary) + optional MCP adapter; in-app agent dropped; run_script becomes `studio run file.ts`."
+    }
+   ],
+   "downstreamImpacts": [
+    "D6: renders produced by the view on request from the daemon; CLI returns image paths Claude Code reads",
+    "D8: right panel = Claude Code activity feed + review instead of chat",
+    "D9: Keep/Undo in the view and via `studio keep/undo/commit`",
+    "D10: first slice = /studio makes a stool that appears in the view"
+   ],
+   "htmlFile": "decision-005-ai-interface.html",
+   "options": {
+    "A": "MCP server only",
+    "B": "Built-in agent only",
+    "C": "One zod tool registry exposed as MCP + in-app agent (AI SDK 6), run_script code mode later",
+    "D": "Code mode only (sandboxed run_script)"
+   },
+   "recommended": "C",
+   "confidence": "strong",
+   "caseAgainst": "Two surfaces to maintain; MCP door serves developers not novices; code-mode evidence (Anthropic, Cloudflare, CodeAct) suggests starting with code could be more efficient.",
+   "assumptions": [
+    "Tools grouped in modes, <=~20 visible, tool search beyond",
+    "Structured results + actionable validation errors",
+    "run_script only in QuickJS-WASM, produces commits only",
+    "MCP door initially for dev/benchmarks"
+   ],
+   "tripwires": [
+    ">15 tool calls per benchmark task or token budget exceeded -> promote run_script to default"
+   ],
+   "sources": [
+    "https://www.anthropic.com/engineering/code-execution-with-mcp",
+    "https://www.anthropic.com/engineering/advanced-tool-use",
+    "https://blog.cloudflare.com/code-mode/",
+    "https://arxiv.org/abs/2505.03275",
+    "https://github.com/ahujasid/blender-mcp",
+    "https://app.opencve.io/cve/CVE-2026-10688",
+    "https://tldraw.dev/starter-kits/agent",
+    "https://vercel.com/blog/ai-sdk-6",
+    "https://zod.dev/json-schema"
+   ]
+  },
+  {
+   "id": 6,
+   "slug": "ai-perception",
+   "title": "AI perception loop",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "C",
+   "chosenTitle": "Checks (authority) + labeled views at milestones",
+   "decidedAt": "2026-11-03",
+   "htmlFile": "decision-006-ai-perception.html",
+   "options": {
+    "A": "Structured diagnostics only",
+    "B": "Rendered views only",
+    "C": "Deterministic checks (authority) + labeled separate views at milestones",
+    "D": "Separate critic agent"
+   },
+   "recommended": "C",
+   "confidence": "strong",
+   "caseAgainst": "Visual feedback gains are modest (~18% in CADCodeVerify; ground-truth solver beat it); images cost 5-10x tokens; headless rendering is fiddly; Option A alone is a leaner start.",
+   "assumptions": [
+    "Checks every commit; images at milestones or on demand",
+    "Persistent render page, never fresh browser per frame",
+    "Rules attach to semantic types, grow from benchmark failures",
+    "Critic added later, different model family, gated on checks"
+   ],
+   "tripwires": [
+    "Visual checks change outcome in <10% of benchmark runs after 2 weeks -> images on-demand only"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2410.05340",
+    "https://arxiv.org/abs/2407.06581",
+    "https://arxiv.org/abs/2506.21458",
+    "https://arxiv.org/pdf/2406.12742",
+    "https://arxiv.org/abs/2310.11441",
+    "https://arxiv.org/html/2504.01786",
+    "https://arxiv.org/abs/2404.13076",
+    "https://zoo.dev/blog/announcing-zookeeper",
+    "https://tldraw.dev/docs/ai",
+    "https://platform.claude.com/docs/en/build-with-claude/vision"
+   ]
+  },
+  {
+   "id": 7,
+   "slug": "visual-direction",
+   "title": "Visual direction of the workspace",
+   "category": "visual",
+   "stakes": "med",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Soft Premium (Quiet Studio)",
+   "decidedAt": "2026-11-03",
+   "tokens": [
+    "tokens.css",
+    "tokens.json"
+   ],
+   "htmlFile": "decision-007-visual-direction.html",
+   "options": {
+    "A": "Soft Premium (Instrument Sans, stone + sage)",
+    "B": "Technical Documentary (IBM Plex Sans/Mono, slate)",
+    "C": "Kinetic Modern dark (Space Grotesk + Manrope, navy + lime)",
+    "D": "Editorial Print (Fraunces + Source Serif 4, paper + brick)"
+   },
+   "recommended": "A",
+   "confidence": "lean",
+   "tossUpWith": "B",
+   "tiebreaker": "First 50 users are AI devs via Claude Code -> B; designers who never learned Blender -> A",
+   "caseAgainst": "3D tools default dark for glare/long sessions; early adopters likely technical (fits B).",
+   "assumptions": [
+    "North-star user is the creative director",
+    "Neutral viewport surround",
+    "Dark variant ships later via tokens",
+    "Technical depth one click away"
+   ],
+   "tripwires": [
+    "Repeated dark-mode requests or 'too soft for real work' -> ship dark variant first"
+   ],
+   "fontNote": "Library body face Inter replaced with deliberate per-tradition faces"
+  },
+  {
+   "id": 8,
+   "slug": "workspace-layout",
+   "title": "Workspace layout",
+   "category": "ia",
+   "stakes": "med",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Docked panels",
+   "decidedAt": "2026-11-03",
+   "overrodeRecommendation": true,
+   "dissent": false,
+   "note": "User chose A over a LEAN recommendation of B; design effort shifts to Decision 9 (review UX).",
+   "htmlFile": "decision-008-workspace-layout.html",
+   "options": {
+    "A": "Docked panels",
+    "B": "Viewport stage (floating contextual cards, AI command bar, history scrubber, dock toggle)",
+    "C": "Variant canvas",
+    "D": "Director's split (committed | proposal)"
+   },
+   "recommended": "B",
+   "confidence": "lean",
+   "tossUpWith": "C",
+   "tiebreaker": "If exploring many variants is the core loop, Variant Canvas (C) \u2014 or as the Proposals tab inside B",
+   "caseAgainst": "Floating contextual UI is harder to build well; docked panels ship in days and free effort for review UX.",
+   "assumptions": [
+    "Dock-panels toggle from day one",
+    "Floating cards avoid selection bounds",
+    "Variant canvas as secondary Proposals mode",
+    "Review style settled in Decision 9"
+   ],
+   "tripwires": [
+    "Testers spend more time moving cards than modeling -> default to docked"
+   ]
+  },
+  {
+   "id": 9,
+   "slug": "change-review",
+   "title": "How AI changes are reviewed",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "D",
+   "chosenTitle": "Change-by-change review",
+   "decidedAt": "2026-11-03",
+   "workflowNote": "Review UI lives in the web view's right panel; Claude Code can also keep/undo via MCP tools (keep_change, undo_change, commit_proposal).",
+   "htmlFile": "decision-009-change-review.html",
+   "options": {
+    "A": "Ghost overlay",
+    "B": "Swap cards",
+    "C": "Branch timeline",
+    "D": "Change-by-change review (semantic change list, per-change Keep/Undo, viewport highlight, before/after flip)"
+   },
+   "recommended": "D",
+   "confidence": "strong",
+   "caseAgainst": "Turns a visual craft into reading a diff; dependent changes need rules and re-checks; granularity is overhead if most proposals are cohesive.",
+   "assumptions": [
+    "AI groups changes into named meaningful steps",
+    "B's cards as tabs for multiple alternatives",
+    "Dependent changes linked; checks re-run after partial keep",
+    "Nothing deleted \u2014 archived branches"
+   ],
+   "tripwires": [
+    "Whole-proposal accept/discard >90% of the time -> collapse list behind details toggle"
+   ],
+   "sources": [
+    "https://forum.cursor.com/t/bring-back-per-change-apply-inline-diff-review-you-re-throwing-away-your-best-ux-advantage/160856",
+    "https://forum.figma.com/report-a-problem-6/figma-make-just-deleted-90-of-my-project-2-weeks-of-work-gone-cannot-be-reverted-48358",
+    "https://www.onshape.com/en/resource-center/tech-tips/tech-tip-a-guide-to-successful-merging-in-onshape"
+   ]
+  },
+  {
+   "id": 10,
+   "slug": "build-sequence",
+   "title": "First build sequence",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "B",
+   "chosenTitle": "Thin vertical slice, then thicken",
+   "decidedAt": "2026-11-03",
+   "reasoning": "User: 'Just build it all out' \u2014 recommendation applied.",
+   "htmlFile": "decision-010-build-sequence.html",
+   "options": {
+    "A": "Six horizontal layers",
+    "B": "Thin vertical slice (stool via /studio by end of week 2), then thicken",
+    "C": "Benchmark-first",
+    "D": "Engine-first, view last"
+   },
+   "recommended": "B",
+   "confidence": "strong",
+   "caseAgainst": "Slices tempt corner-cutting in one-way-door foundations; 'thicken later' often means never. Mitigation: real Scene IR/commit format and anchors from day one.",
+   "assumptions": [
+    "Week 1 uses real Scene IR + commit format",
+    "Stool benchmark is slice acceptance test; harness week 3",
+    "Prototype estimates, ~full-time with Claude Code",
+    "Week-2 view = bare Three.js page over websocket"
+   ],
+   "tripwires": [
+    "Stool not appearing end-to-end by day 12 -> stop features, cut scope"
+   ]
+  },
+  {
+   "id": 11,
+   "slug": "toolset-shape",
+   "title": "Shape of the game toolset",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "C",
+   "chosenTitle": "Asset forge + a real engine",
+   "htmlFile": "decision-011-toolset-shape.html",
+   "options": {
+    "A": "One studio grows into a game maker (own browser runtime)",
+    "B": "Family of studios on a shared core + own web runtime",
+    "C": "Asset forge (this studio) + a real engine via a /game bridge skill",
+    "D": "Build an AI-first game engine"
+   },
+   "recommended": "C",
+   "confidence": "strong",
+   "caseAgainst": "Splits the world at the asset hand-off where pipelines break (materials on reimport, skinned animation), and engine-side edits lose the studio's branching review.",
+   "assumptions": [
+    "Goal is making games, not selling an engine",
+    "Studio's edge is checked, reviewable asset making",
+    "Target engine drivable headless from CLI",
+    "Hand-off owned by a checked export contract with round-trip tests"
+   ],
+   "tripwires": [
+    "Round-trip export tests fail repeatedly for skinned characters -> reconsider B for characters",
+    "You find yourself wanting to sell the engine -> revisit D"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2602.11103",
+    "https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor",
+    "https://about.roblox.com/newsroom/2026/04/roblox-studio-going-agentic",
+    "https://80.lv/articles/the-blender-game-engine-is-dead/",
+    "https://www.cgchannel.com/2017/12/autodesk-discontinues-stingray/"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 12,
+   "slug": "art-style",
+   "title": "Target art style",
+   "category": "visual",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "E",
+   "chosenTitle": "Low-poly + baked procedural materials",
+   "htmlFile": "decision-012-art-style.html",
+   "options": {
+    "A": "Low-poly, palette + material presets (PBR values travel in glTF)",
+    "B": "Hand-painted stylized",
+    "C": "Stylized PBR",
+    "D": "Realistic",
+    "E": "Low-poly + procedural materials auto-baked to textures on export (auto-UV)"
+   },
+   "recommended": "A",
+   "confidence": "lean",
+   "caseAgainst": "Crowded look; and with A alone the studio\u2019s procedural grain/glaze won\u2019t show in-game until the bake (E) exists. Pick E now if the game must match the studio from day one.",
+   "assumptions": [
+    "Solo/tiny team, Claude does most asset work",
+    "Palette + one shading model gives a recognizable look",
+    "Game-pipeline default, not a limit on the studio's prop materials"
+   ],
+   "tripwires": [
+    "Playtesters call the look generic -> add toon/outline shader and art-direct palette before considering B",
+    "Characters feel lifeless -> revisit for characters only"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2604.23629v2",
+    "https://80.lv/articles/elevating-gradient-texturing-to-a-standard-workflow-in-blender",
+    "https://www.strayspark.studio/blog/generative-3d-tools-comparison-meshy-rodin-tripo-csm-2026"
+   ],
+   "history": [
+    {
+     "at": "2026-11-04",
+     "change": "User asked whether in-progress materials work was considered; added material presets to A, added option E (baked procedural materials), recommendation A\u2192E path, confidence strong\u2192lean."
+    }
+   ],
+   "decidedAt": "2026-11-04",
+   "dissent": false,
+   "reasoning": "User picked E (game should match the studio\u2019s materials) over the lean recommendation A\u2192E path."
+  },
+  {
+   "id": 13,
+   "slug": "game-engine",
+   "title": "Game targets: Godot for games, three.js for the web",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Two targets (Godot + three.js), one asset contract",
+   "htmlFile": "decision-013-game-engine.html",
+   "options": {
+    "A": "Two targets (Godot standalone, three.js web), one shared asset contract; /game with two back ends",
+    "B": "Godot for both (web export)",
+    "C": "three.js for both (desktop wrapper)",
+    "D": "Two targets + a portable game/level format compiled to each"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Doubles what Claude must master (two languages, physics, run/screenshot paths, shaders written twice) where agents already fail most.",
+   "assumptions": [
+    "Projects are usually one target, rarely both",
+    "Web app = real site with UI + 3D view",
+    "Assets, baked materials, humanoid skeletons travel as glTF; Godot import script keeps studio-owned materials",
+    "D can be added later"
+   ],
+   "tripwires": [
+    "Same game wanted on both targets 2+ times -> add portable level format (D)",
+    "Shader/physics duplication eats more time than assets save -> narrow to one target per year"
+   ],
+   "sources": [
+    "https://gameworldobserver.com/2026/07/29/unity-is-no-longer-the-leader-godot-has-become-the-most-popular-engine-at-gmtk-game-jam-2026",
+    "https://newsletter.gamediscover.co/p/hows-pc-game-engine-usage-changing",
+    "https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html",
+    "https://docs.unity3d.com/Packages/com.unity.cloud.gltfast@6.0/manual/features.html"
+   ],
+   "history": [
+    {
+     "at": "2026-11-04",
+     "change": "User wants Godot for standalone games and three.js for web apps; options rewritten from single-engine choice to dual-target strategies."
+    }
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 14,
+   "slug": "character-shape",
+   "title": "How characters get their shape",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Parametric character kits",
+   "htmlFile": "decision-014-character-shape.html",
+   "options": {
+    "A": "Parametric character kits (template body + parts; skeleton/weights built once per template; import as reference)",
+    "B": "Sculpt mode in the studio (SDF blends + brush)",
+    "C": "AI-generated (Meshy/Tripo) then automated cleanup",
+    "D": "Hand off to Blender via Blender MCP"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Kits can look samey; each new body type is days of template work; odd-shaped heroes hit kit limits. C-shapes + A-skeleton hybrid if variety matters more.",
+   "assumptions": [
+    "Low-poly characters",
+    "Animation reliability > one-off variety",
+    "Standard humanoid bone names, T-pose",
+    "Import used as reference to fit kit params",
+    "Blender as escape hatch"
+   ],
+   "tripwires": [
+    "Users/you reject characters as samey after 10+ made -> add C-shaped parts or hybrid",
+    "Need a body type the kit can't cover 3+ times -> build template or use D"
+   ],
+   "sources": [
+    "https://static.makehumancommunity.org/mpfb/faq/use_in_closed_source.html",
+    "https://manifoldcad.org/jsdocs/index.html",
+    "https://docs.meshy.ai/en/webapp/guides/3d-model/rigging",
+    "https://huggingface.co/tencent/Hunyuan3D-2/blob/main/LICENSE"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 15,
+   "slug": "uv-texturing",
+   "title": "How studio materials become game textures",
+   "category": "technical",
+   "stakes": "med",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Auto-unwrap + bake per asset",
+   "htmlFile": "decision-015-uv-texturing.html",
+   "options": {
+    "A": "Auto-unwrap (xatlas) + GPU bake per asset, with density/padding/stretch checks",
+    "B": "One shared material atlas (trim sheet)",
+    "C": "No bake: port procedural shaders to each engine",
+    "D": "Unique bake for heroes, atlas for the rest"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Unique textures add up (memory on web/older hardware); auto-unwrap seams are least reliable on characters.",
+   "assumptions": [
+    "Early projects are small",
+    "Bake reuses the studio's material shader, lighting-free",
+    "Kit characters use template seams",
+    "Atlas mode added when texture budget check fails"
+   ],
+   "tripwires": [
+    "A project's texture budget check fails -> add atlas mode (becomes D)"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2604.23629v2",
+    "https://www.tripo3d.ai/blog/explore/texture-baking-from-ai-high-poly-to-low-poly",
+    "https://80.lv/articles/elevating-gradient-texturing-to-a-standard-workflow-in-blender"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 16,
+   "slug": "rigging-animation",
+   "title": "Where animation comes from",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "B",
+   "chosenTitle": "Parametric motion in the studio (clips for one-off actions)",
+   "htmlFile": "decision-016-rigging-animation.html",
+   "options": {
+    "A": "Clip library retargeted to kit skeleton + engine IK",
+    "B": "Parametric motion ops in the studio (walk/run/idle from settings)",
+    "C": "AI text-to-motion",
+    "D": "Keyframe timeline in the studio"
+   },
+   "recommended": "A",
+   "confidence": "lean",
+   "caseAgainst": "Near toss-up with B: A breaks the 'every change is one reviewable setting' promise for motion. Tiebreaker: ship a playable character soon -> A; extend parametric philosophy to motion -> B.",
+   "assumptions": [
+    "T-pose, standard humanoid names, <=4 weights, transforms applied",
+    "CC0/affordable clip library exists, licences checked",
+    "B planned as second step",
+    "All clips pass pose checks"
+   ],
+   "tripwires": [
+    "Asking for motion tweaks that clips can't express 3+ times -> start B"
+   ],
+   "sources": [
+    "https://godotengine.org/article/inverse-kinematics-returns-to-godot-4-6/",
+    "https://docs.godotengine.org/en/4.6/tutorials/assets_pipeline/retargeting_3d_skeletons.html",
+    "https://github.com/Tencent-Hunyuan/HY-Motion-1.0",
+    "https://threejs.org/docs/pages/SkinnedMesh.html"
+   ],
+   "decidedAt": "2026-11-04",
+   "dissent": false,
+   "reasoning": "User chose B over the lean A: extend the everything-is-a-setting idea to motion; library clips remain for attacks/emotes."
+  },
+  {
+   "id": 17,
+   "slug": "game-ready-checks",
+   "title": "Game-ready checks and export profiles",
+   "category": "technical",
+   "stakes": "med",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Live game checks + round-trip test",
+   "htmlFile": "decision-017-game-ready-checks.html",
+   "options": {
+    "A": "Live game-profile checks every step + generated collision/LOD ops + engine round-trip on export",
+    "B": "Gate at export only",
+    "C": "Let each engine handle it",
+    "D": "Validate files only (Khronos)"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Heavier, noisier steps; mid-build budget failures; export depends on headless Godot.",
+   "assumptions": [
+    "Checks only for objects with a game profile",
+    "Budgets use pending state mid-build",
+    "Collision/LODs are generated ops",
+    "Khronos validator always runs",
+    "Godot installed on exporting machine"
+   ],
+   "tripwires": [
+    "Steps noticeably slower on big assets -> move heavy checks (round-trip) to export only"
+   ],
+   "sources": [
+    "https://github.khronos.org/glTF-Tutorials/gltfTutorial/gltfTutorial_019_SimpleSkin.html",
+    "https://docs.godotengine.org/en/stable/tutorials/editor/command_line_tutorial.html"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 18,
+   "slug": "first-game-milestone",
+   "title": "First game-shaped milestone",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Walk around a tiny diorama",
+   "htmlFile": "decision-018-first-game-milestone.html",
+   "options": {
+    "A": "Walk around a tiny diorama (thin slice through all new parts, wk 5)",
+    "B": "Props pipeline first, characters later",
+    "C": "Character first, web only",
+    "D": "A complete tiny game (wk 8-9)"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Eight rough new parts at once make failures hard to localize; a rough kit template may teach wrong rigging lessons.",
+   "assumptions": [
+    "~full-time with Claude Code",
+    "In-flight materials/scenes/drag/import finished first",
+    "Each part ships tests + bench task 10-14",
+    "D is next milestone"
+   ],
+   "tripwires": [
+    "Character not walking in Godot by end of week 5 -> stop features, cut scope"
+   ],
+   "sources": [
+    "https://arxiv.org/html/2602.11103"
+   ],
+   "decidedAt": "2026-11-04"
+  }
+ ],
+ "phases": [
+  {
+   "name": "Game tools",
+   "decisions": "11-18",
+   "startedAt": "2026-11-04"
+  }
+ ]
 }

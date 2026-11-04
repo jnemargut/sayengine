@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 15: How Materials Become Textures — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fdf6e9; color:#8a5208; }
+.fig { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.fig svg { display:block; width:100%; height:auto; }
+.fig-cap { font-size:0.62rem; color:#64748b; padding:5px 10px; border-top:1px solid #f1f5f9; }
+.facts { width:100%; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.fact { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; }
+.fact b { display:block; font-size:0.74rem; color:#0f172a; }
+.fact span { font-size:0.58rem; color:#64748b; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 15 of 18 · Game tools phase</span>
+  <h1>How Studio Materials Become Game Textures</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Decision 12 settled the big question: games should look like the studio, with wood grain and glaze baked into textures, and nothing painted by hand. What's left is how. A texture needs UVs, which say where each part of the surface sits on the flat image. The studio has to create those automatically, bake each material in, and check the result. The options trade texture memory, uniqueness and the amount of new code. This one is easy to change later, because export is the only place it lives.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: unique, automatic, checkable</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Auto-Unwrap + Bake per Asset</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 130" role="img" aria-label="A stool's parts unwrapped into islands on one texture square, with wood grain baked in">
+          <defs><pattern id="g1" width="24" height="5" patternUnits="userSpaceOnUse"><rect width="24" height="5" fill="#8a5a3c"/><path d="M0 2 Q6 1 12 2 T24 2" stroke="#6b4a33" stroke-width="0.8" fill="none"/></pattern></defs>
+          <rect width="300" height="130" fill="#f4f1ea"/>
+          <g transform="translate(18,14)"><polygon points="20,40 70,20 120,40 70,60" fill="#8a5a3c" stroke="#6b4a33"/><polygon points="20,40 70,60 70,66 20,46" fill="#6b4a33"/><polygon points="70,60 120,40 120,46 70,66" fill="#5a3d2a"/>
+            <line x1="34" y1="48" x2="30" y2="100" stroke="#6b4a33" stroke-width="5"/><line x1="106" y1="48" x2="110" y2="100" stroke="#5a3d2a" stroke-width="5"/><line x1="70" y1="66" x2="70" y2="106" stroke="#6b4a33" stroke-width="5"/></g>
+          <path d="M150 64 h22" stroke="#94a3b8" stroke-width="2" marker-end="url(#ar)"/><defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6z" fill="#94a3b8"/></marker></defs>
+          <rect x="182" y="10" width="108" height="108" fill="white" stroke="#cbd5e1"/>
+          <rect x="188" y="16" width="62" height="62" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/>
+          <rect x="256" y="16" width="10" height="56" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/><rect x="270" y="16" width="10" height="56" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/>
+          <rect x="256" y="76" width="10" height="36" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/><rect x="270" y="76" width="10" height="36" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/>
+          <rect x="188" y="84" width="62" height="10" fill="url(#g1)" stroke="#1d6f80" stroke-width="1"/>
+          <text x="236" y="126" font-size="7" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">one 512 px texture per asset</text>
+        </svg>
+        <div class="fig-cap">Illustration. Parts unwrapped into islands; grain baked in.</div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>xatlas</b><span>open-source unwrapper; the one Godot uses for lightmaps</span></div>
+        <div class="fact"><b>GPU bake</b><span>in the studio's view, the renderer that already draws the grain</span></div>
+        <div class="fact"><b>~0.3–1 MB</b><span>per prop at 512–1024 px</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      On export, each asset is unwrapped automatically (xatlas, run in the browser), then the studio's own renderer paints each material's grain, glaze and colour into one texture per asset. New checks keep it honest: even texture density, padding around every island so seams don't bleed, and no stretched areas. Every asset gets unique detail, and because the bake uses the same shader as the studio view, the game looks exactly like the studio.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want the game to match the studio</li>
+        <li>Each asset should look individual</li>
+        <li>Works the same for Godot and three.js</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Texture memory grows with asset count</li>
+        <li>Auto-unwrap seams on characters need care</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">One Shared Material Atlas</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 130" role="img" aria-label="A shared texture atlas with tiles for walnut, oak, ceramic, metal, used by many assets">
+          <defs>
+            <pattern id="w" width="20" height="5" patternUnits="userSpaceOnUse"><rect width="20" height="5" fill="#6b4a33"/><path d="M0 2 Q5 1 10 2 T20 2" stroke="#4f3524" stroke-width="0.8" fill="none"/></pattern>
+            <pattern id="o" width="20" height="5" patternUnits="userSpaceOnUse"><rect width="20" height="5" fill="#c9a06b"/><path d="M0 2 Q5 1 10 2 T20 2" stroke="#a9824f" stroke-width="0.8" fill="none"/></pattern>
+          </defs>
+          <rect width="300" height="130" fill="#f4f1ea"/>
+          <g transform="translate(20,12)">
+            <rect width="106" height="106" fill="white" stroke="#cbd5e1"/>
+            <rect x="4" y="4" width="47" height="47" fill="url(#w)"/><rect x="55" y="4" width="47" height="47" fill="url(#o)"/>
+            <rect x="4" y="55" width="47" height="47" fill="#c9b8a3"/><rect x="55" y="55" width="47" height="47" fill="#9aa4ad"/>
+            <text x="27" y="30" font-size="7" fill="white" text-anchor="middle" font-family="-apple-system, sans-serif">walnut</text><text x="78" y="30" font-size="7" fill="#3b2a18" text-anchor="middle" font-family="-apple-system, sans-serif">oak</text>
+            <text x="27" y="81" font-size="7" fill="#3b2a18" text-anchor="middle" font-family="-apple-system, sans-serif">ceramic</text><text x="78" y="81" font-size="7" fill="#1f2a37" text-anchor="middle" font-family="-apple-system, sans-serif">metal</text>
+          </g>
+          <g font-size="8" fill="#334155" font-family="-apple-system, sans-serif">
+            <text x="150" y="36">stool → walnut tile</text><text x="150" y="56">table → oak tile</text><text x="150" y="76">vase → ceramic tile</text><text x="150" y="96">lamp → metal tile</text>
+          </g>
+          <text x="150" y="120" font-size="7" fill="#64748b" font-family="-apple-system, sans-serif">every asset shares one texture</text>
+        </svg>
+        <div class="fig-cap">Illustration. Each preset baked once as a tile; parts point at tiles.</div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>1 texture</b><span>for the whole game</span></div>
+        <div class="fact"><b>Simple UVs</b><span>box projection into a tile</span></div>
+        <div class="fact"><b>Repeats</b><span>same grain on every walnut part</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Bake each material preset once into a tile of one shared texture (a "trim sheet"), and point every part at its tile with simple projection. It uses the least memory, is perfectly consistent, and is how a lot of low-poly games stay tiny. But the grain is identical on every walnut surface, details can't follow a specific shape (like grain running along a curved leg), and tile edges can show on large surfaces.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Huge numbers of assets, small download</li>
+        <li>Mobile or web where memory is tight</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Visible repetition; grain ignores shape</li>
+        <li>Less of the studio look survives</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">No Bake: Port the Shaders</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 130" role="img" aria-label="One material shader translated into three versions for studio, Godot and three.js">
+          <rect width="300" height="130" fill="#f4f1ea"/>
+          <rect x="16" y="44" width="80" height="40" rx="6" fill="white" stroke="#1d6f80" stroke-width="2"/><text x="56" y="68" font-size="9" fill="#1d6f80" text-anchor="middle" font-family="-apple-system, sans-serif">wood grain shader</text>
+          <path d="M100 56 L150 30 M100 64 L150 64 M100 72 L150 98" stroke="#94a3b8" stroke-width="1.5"/>
+          <rect x="154" y="16" width="130" height="26" rx="6" fill="white" stroke="#cbd5e1"/><text x="219" y="33" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">studio view (exists)</text>
+          <rect x="154" y="51" width="130" height="26" rx="6" fill="white" stroke="#a83a32" stroke-dasharray="3 2"/><text x="219" y="68" font-size="8" fill="#a83a32" text-anchor="middle" font-family="-apple-system, sans-serif">Godot shader (rewrite)</text>
+          <rect x="154" y="86" width="130" height="26" rx="6" fill="white" stroke="#a83a32" stroke-dasharray="3 2"/><text x="219" y="103" font-size="8" fill="#a83a32" text-anchor="middle" font-family="-apple-system, sans-serif">three.js game shader (port)</text>
+        </svg>
+        <div class="fig-cap">Illustration. Each material becomes code in every engine.</div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>0 textures</b><span>tiny files</span></div>
+        <div class="fact"><b>Sharp at any size</b><span>no resolution limit</span></div>
+        <div class="fact"><b>×3 shaders</b><span>per material, kept in sync</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Skip textures: rewrite each procedural material as a shader in Godot and in your three.js games, and export only a material name and settings. Files stay tiny and surfaces stay sharp up close. But glTF can't carry custom shaders, so every other tool sees plain colours. Every material exists three times in different shader languages, and every new preset means three implementations to keep identical, which is the duplication decision 13 tried to avoid.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Few materials, huge surfaces (terrain)</li>
+        <li>Very tight download budgets</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Three copies of every material</li>
+        <li>Plain colours in any other tool</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Unique Bake for Heroes, Atlas for the Rest</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="fig">
+        <svg viewBox="0 0 300 130" role="img" aria-label="Characters and key props get their own baked texture, background props share an atlas">
+          <rect width="300" height="130" fill="#f4f1ea"/>
+          <rect x="16" y="18" width="128" height="94" rx="8" fill="white" stroke="#1d6f80" stroke-width="2"/>
+          <text x="80" y="38" font-size="9" fill="#1d6f80" text-anchor="middle" font-weight="700" font-family="-apple-system, sans-serif">Unique bake (A)</text>
+          <text x="80" y="58" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">characters</text><text x="80" y="74" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">hero props</text><text x="80" y="90" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">close-up items</text>
+          <rect x="156" y="18" width="128" height="94" rx="8" fill="white" stroke="#2c6e48" stroke-width="2"/>
+          <text x="220" y="38" font-size="9" fill="#2c6e48" text-anchor="middle" font-weight="700" font-family="-apple-system, sans-serif">Shared atlas (B)</text>
+          <text x="220" y="58" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">crates, rocks, fences</text><text x="220" y="74" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">level kit pieces</text><text x="220" y="90" font-size="8" fill="#334155" text-anchor="middle" font-family="-apple-system, sans-serif">anything repeated</text>
+        </svg>
+        <div class="fig-cap">Illustration. A per-asset setting picks the bake mode.</div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Both</b><span>A and B, chosen per asset</span></div>
+        <div class="fact"><b>Best memory</b><span>for big levels</span></div>
+        <div class="fact"><b>2 paths</b><span>to build and test</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Characters and hero props get A's unique bake. Background pieces and level-kit parts share B's atlas. It's what shipped games end up doing, since memory goes where players look. But it's two export paths to build and test from day one, before you know your asset counts need it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Big levels with many repeated pieces</li>
+        <li>You know the memory budget matters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Twice the export work up front</li>
+        <li>A setting Claude must choose well per asset</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Unique textures per asset add up. A level with 200 props at 1024 px is a few hundred megabytes of texture memory before compression, which is a real problem for web builds (decision 13) and older hardware. Auto-unwrapping is also least reliable on characters: seams can land across a face or a joint, and baked grain can stretch where a kit character bends. If you expect big levels or many browser games, start with D's split, or at least design A so an atlas mode can slot in.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Early projects are small: dozens of assets, not thousands. Memory isn't the first constraint.</li>
+    <li>The bake reuses the studio view's own material shader (from the materials work in progress), so the game and the studio can't drift apart.</li>
+    <li>Kit characters (decision 14) get hand-placed seams from their template, not auto-unwrap, since the template is designed once anyway.</li>
+    <li>Atlas mode (B) is added when a project's texture budget check fails. That's the tripwire, and D is where this ends up.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Turning any 3D object into a production asset needs proper UVs and physically based materials kept separate from baked lighting. The bake should capture material only, not studio lighting. <a class="cite" href="https://arxiv.org/html/2604.23629v2">arXiv 2604.23629</a></li>
+    <li>Lighting baked into AI-made textures "fights the engine's lighting in every scene", and UV seams show up on normal maps. Bakes must be lighting-free with padded islands. <a class="cite" href="https://www.tripo3d.ai/blog/explore/texture-baking-from-ai-high-poly-to-low-poly">Tripo</a></li>
+    <li>The low-poly standard is one material plus a shared palette or gradient atlas. That's Option B's approach, proven in commercial asset packs. <a class="cite" href="https://80.lv/articles/elevating-gradient-texturing-to-a-standard-workflow-in-blender">80.lv</a></li>
+    <li>Unity's glTF importer can silently break normal maps and UV transforms through shader stripping. Keeping textures to plain base colour, roughness and metallic maps is the safest set for both of your targets. <a class="cite" href="https://docs.unity3d.com/Packages/com.unity.cloud.gltfast@6.19/manual/ProjectSetup.html">Unity glTFast</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Auto-unwrap + bake</th><th class="col-b">B: Shared atlas</th><th class="col-c">C: Port shaders</th><th class="col-d">D: Hero bake + atlas</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Game matches studio</td><td class="col-pick col-chosen">Exactly</td><td>Mostly (repeats)</td><td>If ports stay in sync</td><td>Exactly for heroes</td></tr>
+        <tr><td>Texture memory</td><td class="col-pick col-chosen">Grows per asset</td><td>Tiny</td><td>None</td><td>Balanced</td></tr>
+        <tr><td>New code</td><td class="col-pick col-chosen">Unwrap + bake + 3 checks</td><td>Atlas builder + projection</td><td>Every shader ×2 engines</td><td>A + B</td></tr>
+        <tr><td>Works in any glTF tool</td><td class="col-pick col-chosen">Yes</td><td>Yes</td><td>No (plain colours)</td><td>Yes</td></tr>
+        <tr><td>Claude can verify it</td><td class="col-pick col-chosen">Yes: density, padding, stretch</td><td>Yes</td><td>Hard: compare renders per engine</td><td>Yes</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: add atlas mode later</td><td>Low</td><td>Medium</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option D but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-15 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

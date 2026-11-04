@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 18: First Game Milestone — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #e6f3f6; color: #1d6f80; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+/* week timeline */
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 34px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.62rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.66rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-core { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-view { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-ai { background:#fdf6e9; border-left:3px solid #b86e0a; }
+.l-bench { background:#edf6f0; border-left:3px solid #2c6e48; }
+.tl-milestone { font-size:0.66rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.legend { display:flex; gap:10px; flex-wrap:wrap; font-size:0.62rem; color:#475569; }
+.legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+.legend .lc::before { background:#1d6f80; } .legend .lv::before { background:#4b3a8c; } .legend .la::before { background:#b86e0a; } .legend .lb::before { background:#2c6e48; }
+
+
+.l-game { background:#fbecea; border-left:3px solid #a83a32; }
+.legend .lg::before { background:#a83a32; }
+.proof { font-size:0.66rem; color:#0f172a; background:#edf6f0; border:1px solid #b9dcc6; border-radius:8px; padding:6px 9px; line-height:1.45; }
+.proof b { color:#2c6e48; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 18 of 18 · Game tools phase</span>
+  <h1>First Game-Shaped Milestone</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Same question as decision 10, one level up: what's the smallest thing that proves the game toolset works, and in what order do you build toward it? Your picks so far add a lot of new parts: baked materials, auto-unwrap, character kits, motion ops, game profiles with round-trip tests, and a <code>/game</code> skill with Godot and three.js back ends. Each card shows the order and when you'd first see a playable result. Last time, the thin slice won and found a dozen real bugs in its first week.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: thin slice through everything</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Walk Around a Tiny Diorama</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">studio</span><span class="la">AI / skills</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-core">Bake + auto-unwrap · game profile · glTF validator</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-game">/game: Godot import, run, screenshot · three.js viewer</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-core">Humanoid kit template, rough · pose checks</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-ai">Walk + idle motion ops · bake to clips</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-game">Diorama: character walks a path in Godot; same scene on the web</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-bench">Bench tasks 10–14 · fix what they find</span></div>
+        <div class="tl-milestone">First "walk around it" → end of week 5</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> <code>/studio make a blacksmith and a little forge yard</code>, then <code>/game play it in godot</code>. Claude runs it, walks the character to the anvil, screenshots it. Same assets open in a three.js page.</div>
+    </div>
+    <div class="option-summary">
+      One small scene: about ten props with baked materials, one kit character with a parametric walk, a level about the size of a room. Claude builds it, runs it in Godot, walks the character along a path, screenshots it, and opens the same assets in a three.js page. Every new part exists in a rough form by week 5, so the parts get tested against each other early, the same lesson as decision 10.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want proof the whole pipeline fits together</li>
+        <li>Problems between parts show up early</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Everything is rough at first</li>
+        <li>Not yet a game you'd play for fun</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Props Pipeline First</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">studio</span><span class="la">AI / skills</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-core">Bake + auto-unwrap, polished</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-core">Game profiles · collision + LOD ops</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-game">/game for Godot + three.js · round-trip tests</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-game">Static scene: props in both engines</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5–6</span><span class="tl-bar l-core">Character kit begins</span></div>
+        <div class="tl-milestone late">First character moving → week 8+</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> a furnished room exported to Godot and three.js, identical in both, every budget check green. No character yet.</div>
+    </div>
+    <div class="option-summary">
+      Finish the asset pipeline properly before touching characters: bake, profiles, collision, LODs and round-trip tests, proven on props, which are the easy half. By week 4 you have a reliable, polished pipeline for static scenes in both engines. Characters and motion, the riskiest decisions (14 and 16), aren't tested until week 8 or later.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You'll make environment or puzzle games first</li>
+        <li>You prefer finishing one layer at a time</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Riskiest parts proven last</li>
+        <li>Pipeline may need rework for characters</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Character First, Web Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">studio</span><span class="la">AI / skills</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1–2</span><span class="tl-bar l-core">Humanoid kit template, careful</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-ai">Walk, run, idle motion ops</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-core">Pose checks · motion review in the view</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-game">three.js page: character walks</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6+</span><span class="tl-bar l-game">Bake, profiles, Godot later</span></div>
+        <div class="tl-milestone">First walking character → week 5 (web)</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> <code>/studio make his walk heavier</code> changes one setting and the character in the browser walks differently.</div>
+    </div>
+    <div class="option-summary">
+      Attack the hardest, most novel part first: kit characters and parametric motion, shown in a three.js page (no Godot yet). It proves the boldest bets (decisions 14 and 16) early and makes for a great demo. But bake, game profiles and the Godot side wait, so the parts that turn it into a real game pipeline are proven last.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Characters are what you're most excited about</li>
+        <li>You want the boldest bet tested first</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No standalone game until much later</li>
+        <li>Export and Godot surprises come late</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">A Complete Tiny Game</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">studio</span><span class="la">AI / skills</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1–5</span><span class="tl-bar l-core">Everything in A</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6–7</span><span class="tl-bar l-game">Gameplay: collect 10 items, a timer, a goal</span></div>
+        <div class="tl-row"><span class="tl-w">WK 8</span><span class="tl-bar l-game">Menus, sound, export to desktop + web</span></div>
+        <div class="tl-row"><span class="tl-w">WK 9</span><span class="tl-bar l-bench">Play-test agent · polish</span></div>
+        <div class="tl-milestone late">First playable game → week 8–9</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> a two-minute game on itch.io, built mostly by Claude, that a friend can play.</div>
+    </div>
+    <div class="option-summary">
+      Go all the way to a tiny but complete game: a short collect-the-items game with a goal, menus and sound, exported for desktop and the web. It's the most motivating and most honest test; if it's fun and Claude built most of it, the idea works. But it doubles the time to the first proof, and gameplay work (menus, sound) tests the engine more than your studio.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want something to share publicly</li>
+        <li>You learn best by shipping</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Twice as long to first proof</li>
+        <li>Gameplay work tests the engine, not the studio</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Option A puts eight new parts into a rough first version at once: bake, unwrap, profiles, round-trip, two engine back ends, a kit template and motion ops. When something fails in week 5, it may be hard to tell which part is to blame, and a rough kit template might teach the wrong lessons about rigging. If you'd rather each part be solid before it meets the others, B is the safe order. And if a diorama won't keep you motivated, D's finished tiny game is worth the extra weeks.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Week estimates assume roughly full-time work with Claude Code, like the first build.</li>
+    <li>The materials, scenes, drag-to-edit and import features being built now are finished first; the diorama uses scene arrangement and material presets.</li>
+    <li>Each new part ships with tests and a bench task (10–14), as before.</li>
+    <li>Tripwire: if the character doesn't walk in Godot by the end of week 5, stop adding features and cut scope.</li>
+    <li>D (a tiny complete game) is the natural next milestone after A.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>On a benchmark of 132 Godot tasks, the best AI agent passed 54%, doing worst on 3D graphics and animation. A milestone that has Claude run, screenshot and play-test early tests exactly that weak spot. <a class="cite" href="https://arxiv.org/html/2602.11103">GameDevBench</a></li>
+    <li>The first build's thin slice found about a dozen real bugs in a week of self-benchmarking, including the collapsed roof and invisible openings, all caught because the whole loop ran end to end. <a class="cite" href="../bench/TASKS.md">bench/TASKS.md</a></li>
+    <li>Solo developers most often fail by building infrastructure instead of a game. A milestone that ends in something playable guards against that. <a class="cite" href="https://www.gamedeveloper.com/business/why-i-m-not-rolling-my-own-engine">Game Developer</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Tiny diorama</th><th class="col-b">B: Props first</th><th class="col-c">C: Character first</th><th class="col-d">D: Tiny complete game</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>First moving character</td><td class="col-pick col-chosen">Week 5 (Godot + web)</td><td>Week 8+</td><td>Week 5 (web only)</td><td>Week 5</td></tr>
+        <tr><td>First playable game</td><td class="col-pick col-chosen">Walkable scene, wk 5</td><td>Later</td><td>Later</td><td>Week 8–9</td></tr>
+        <tr><td>Riskiest decisions tested</td><td class="col-pick col-chosen">All, roughly, by wk 5</td><td>Last</td><td>First (14, 16)</td><td>All, by wk 5</td></tr>
+        <tr><td>Parts polished early</td><td class="col-pick col-chosen">None (rough)</td><td>Pipeline</td><td>Characters</td><td>None until late</td></tr>
+        <tr><td>Motivation</td><td class="col-pick col-chosen">Good (it walks!)</td><td>Low</td><td>High</td><td>Highest</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: reorder any time</td><td>Low</td><td>Low</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option D but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-18 I want Option D instead"</strong></p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 12: Target Art Style — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #fbeaf0; color: #9b2c55; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.confidence-badge.lean { background:#b86e0a; }
+.option-e .option-label { color: #8a5208; } .comparison-table th.col-e { color: #8a5208; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+/* style samples + pipeline strips */
+.sample { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.sample svg { display:block; width:100%; height:auto; }
+.sample-cap { font-size:0.62rem; color:#64748b; padding:5px 10px; border-top:1px solid #f1f5f9; }
+.pipe { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+.pipe-title { width:100%; font-size:0.58rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#94a3b8; }
+.step { font-size:0.62rem; font-weight:600; padding:3px 8px; border-radius:6px; background:white; border:1.5px solid #cbd5e1; color:#334155; }
+.step.have { border-color:#1d6f80; color:#1d6f80; }
+.step.ai-ok { border-color:#2c6e48; color:#2c6e48; border-style:dashed; }
+.step.hard { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.pipe-key { font-size:0.58rem; color:#64748b; width:100%; }
+.pipe-key b.h { color:#1d6f80; } .pipe-key b.o { color:#2c6e48; } .pipe-key b.x { color:#a83a32; }
+.examples { font-size:0.66rem; color:#475569; }
+.examples b { color:#0f172a; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 12 of 18 · Game tools phase</span>
+  <h1>Target Art Style</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    The look your games aim for decides how much of the classic 3D pipeline you need. A flat-coloured low-poly look needs almost nothing beyond what the studio already does. A realistic look needs sculpting, retopology, UV unwrapping, texture baking and painting, which are the exact steps where AI output still breaks down. You asked whether to take on sculpting and UVs; this decision mostly answers that. Each card shows the same small scene in that style, then the pipeline it requires.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option E"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: start here, upgrade to E</span>
+          <span class="confidence-badge lean">Lean</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Low-Poly, Palette + Material Presets</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="sample">
+        <svg viewBox="0 0 300 170" role="img" aria-label="Low-poly scene: faceted tree, rock and crate in flat colours">
+          <rect width="300" height="170" fill="#cfe3e8"/>
+          <polygon points="0,120 300,108 300,170 0,170" fill="#8fb36a"/>
+          <polygon points="0,120 120,114 60,170 0,170" fill="#7fa45c"/>
+          <polygon points="88,118 96,118 95,86 89,86" fill="#7a5235"/>
+          <polygon points="92,28 62,74 92,66" fill="#4f8a4a"/>
+          <polygon points="92,28 122,74 92,66" fill="#3f7640"/>
+          <polygon points="92,52 56,100 92,92" fill="#5a9952"/>
+          <polygon points="92,52 128,100 92,92" fill="#477f45"/>
+          <polygon points="186,122 204,98 232,102 244,124" fill="#9aa1a8"/>
+          <polygon points="204,98 232,102 222,112 198,112" fill="#b5bcc2"/>
+          <polygon points="244,124 232,102 222,112" fill="#7f868d"/>
+          <polygon points="140,128 168,128 168,104 140,104" fill="#c98a4b"/>
+          <polygon points="140,104 168,104 176,98 148,98" fill="#e0a868"/>
+          <polygon points="168,128 176,121 176,98 168,104" fill="#a86f3a"/>
+        </svg>
+        <div class="sample-cap">Illustration. Flat colours from one palette, visible facets.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per asset</span>
+        <span class="step have">Parametric model</span><span class="step have">Checks</span><span class="step ai-ok">Palette colour + material preset per part</span><span class="step have">glTF export</span>
+        <span class="pipe-key"><b class="h">Have it</b> · <b class="o">AI does well</b> · <b class="x">AI struggles</b></span>
+      </div>
+      <div class="examples">Solo hits: <b>Megabonk</b> (1M copies in 2 weeks), <b>A Short Hike</b>, <b>DeadPoly</b>. ~$10–100 per prop outsourced.</div>
+    </div>
+    <div class="option-summary">
+      Shapes are clean and faceted. Every part takes a colour from one shared palette plus a material preset from the materials work now being built (walnut, glazed ceramic, brushed metal), and its gloss, roughness and metalness carry into the engine through glTF. There's no sculpting, no hand-made UVs, no baking and no texture painting. A hundred AI-made assets still look like one game. The limit: shader-drawn detail like wood grain shows in the studio but not in the game; that's what Option E adds later.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want to ship games solo, soon</li>
+        <li>Consistency across many AI-made assets matters</li>
+        <li>Runs well on modest hardware</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Crowded look on Steam; can read as "asset-flip"</li>
+        <li>Less expressive faces and cloth for characters</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Hand-Painted Stylized</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="sample">
+        <svg viewBox="0 0 300 170" role="img" aria-label="Hand-painted scene: soft rounded tree, rock and crate with painted light">
+          <defs>
+            <linearGradient id="bSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3dcb8"/><stop offset="1" stop-color="#d9e6d6"/></linearGradient>
+            <radialGradient id="bLeaf" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#9fcf6e"/><stop offset="0.6" stop-color="#5f9e4c"/><stop offset="1" stop-color="#3d6e3a"/></radialGradient>
+            <radialGradient id="bRock" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#d7d0c4"/><stop offset="1" stop-color="#8d8579"/></radialGradient>
+            <linearGradient id="bWood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8b475"/><stop offset="1" stop-color="#a7683a"/></linearGradient>
+          </defs>
+          <rect width="300" height="170" fill="url(#bSky)"/>
+          <path d="M0 122 Q150 104 300 116 L300 170 L0 170Z" fill="#9cc078"/>
+          <path d="M0 140 Q90 128 180 146 T300 140 L300 170 L0 170Z" fill="#86ad66"/>
+          <path d="M88 120 Q92 100 90 84 L96 84 Q95 104 100 120Z" fill="#8a5a38"/>
+          <ellipse cx="93" cy="64" rx="38" ry="34" fill="url(#bLeaf)"/>
+          <ellipse cx="74" cy="78" rx="20" ry="16" fill="#5a9648"/>
+          <path d="M80 50 q8 -6 18 -2" stroke="#c7e59c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M184 126 Q188 98 214 98 Q244 100 246 126Z" fill="url(#bRock)"/>
+          <path d="M200 106 q8 -4 16 -2" stroke="#efe9df" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <rect x="140" y="100" width="30" height="28" rx="3" fill="url(#bWood)"/>
+          <path d="M143 108 h24 M143 116 h24" stroke="#8a5530" stroke-width="1.5"/>
+        </svg>
+        <div class="sample-cap">Illustration. Soft painted light and colour drawn into each texture.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per asset</span>
+        <span class="step have">Model</span><span class="step ai-ok">Auto UV unwrap</span><span class="step hard">Paint textures</span><span class="step hard">Keep painting style consistent</span><span class="step have">Export</span>
+      </div>
+      <div class="examples">Seen in: <b>Sea of Thieves</b>-style environments, <b>WoW</b>-like worlds. Mostly painted by artists.</div>
+    </div>
+    <div class="option-summary">
+      Rounder shapes with light, shadow and detail painted into each texture by hand. It's warm and characterful, and it stands out more than low-poly. But every asset needs UVs and a painted texture, and AI texturing is still clearly behind skilled painters at this style; prompts drift toward realism unless you fight them. Consistency across many assets becomes the main job.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Charm and a distinctive look are the selling point</li>
+        <li>You're happy to paint or curate textures</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The step AI is worst at becomes every asset's step</li>
+        <li>Style drift across a large asset set</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Stylized PBR</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="sample">
+        <svg viewBox="0 0 300 170" role="img" aria-label="Stylized PBR scene: smooth chunky tree, glossy rock and crate with realistic lighting">
+          <defs>
+            <linearGradient id="cSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ec5ec"/><stop offset="1" stop-color="#d8eef8"/></linearGradient>
+            <radialGradient id="cLeaf" cx="0.3" cy="0.25" r="0.9"><stop offset="0" stop-color="#8be06a"/><stop offset="0.5" stop-color="#3fa34a"/><stop offset="1" stop-color="#1f5e33"/></radialGradient>
+            <radialGradient id="cRock" cx="0.3" cy="0.25" r="0.9"><stop offset="0" stop-color="#e9eef3"/><stop offset="0.45" stop-color="#9aa6b2"/><stop offset="1" stop-color="#4f5963"/></radialGradient>
+            <linearGradient id="cWood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0a24f"/><stop offset="0.6" stop-color="#b8692c"/><stop offset="1" stop-color="#6e3a17"/></linearGradient>
+            <radialGradient id="cShadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#2f5a2a" stop-opacity="0.45"/><stop offset="1" stop-color="#2f5a2a" stop-opacity="0"/></radialGradient>
+          </defs>
+          <rect width="300" height="170" fill="url(#cSky)"/>
+          <path d="M0 118 Q150 100 300 112 L300 170 L0 170Z" fill="#5fae4e"/>
+          <ellipse cx="96" cy="122" rx="40" ry="7" fill="url(#cShadow)"/>
+          <ellipse cx="212" cy="128" rx="34" ry="6" fill="url(#cShadow)"/>
+          <path d="M87 122 L91 84 L99 84 L103 122Z" fill="#7b4a2a"/>
+          <circle cx="95" cy="60" r="34" fill="url(#cLeaf)"/>
+          <circle cx="72" cy="78" r="18" fill="url(#cLeaf)"/>
+          <circle cx="118" cy="80" r="16" fill="url(#cLeaf)"/>
+          <path d="M184 128 Q186 96 212 94 Q242 96 244 128Z" fill="url(#cRock)"/>
+          <ellipse cx="204" cy="104" rx="8" ry="4" fill="#ffffff" opacity="0.55"/>
+          <rect x="140" y="99" width="30" height="29" rx="4" fill="url(#cWood)"/>
+          <rect x="140" y="99" width="30" height="4" rx="2" fill="#ffd29a" opacity="0.7"/>
+        </svg>
+        <div class="sample-cap">Illustration. Chunky shapes, real light and gloss, many texture maps.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per asset</span>
+        <span class="step have">Model</span><span class="step hard">Sculpt high-poly</span><span class="step hard">Retopology</span><span class="step ai-ok">UVs</span><span class="step hard">Bake normals</span><span class="step ai-ok">PBR textures</span><span class="step have">LODs + export</span>
+      </div>
+      <div class="examples">Seen in: <b>Fortnite</b>, <b>Overwatch</b>, <b>Hi-Fi Rush</b>. Large teams.</div>
+    </div>
+    <div class="option-summary">
+      Chunky, exaggerated shapes lit like the real world, with gloss, roughness and fine bumps from five or so texture maps per asset. It looks modern and expensive. Getting there needs a high-detail sculpt baked onto a simpler mesh, which brings in sculpting, retopology and baking, the three steps where AI output most needs human cleanup. It's mostly made by big studios.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want a premium, current look</li>
+        <li>You'll lean on AI generators plus manual cleanup</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Needs sculpting, retopology and baking tools</li>
+        <li>Asset cost rises sharply; few solo examples</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Realistic</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="sample">
+        <svg viewBox="0 0 300 170" role="img" aria-label="Realistic scene: muted natural tree, weathered rock and crate">
+          <defs>
+            <linearGradient id="dSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9c4cc"/><stop offset="1" stop-color="#e3e1d8"/></linearGradient>
+            <linearGradient id="dGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d7a4c"/><stop offset="1" stop-color="#4a5434"/></linearGradient>
+            <radialGradient id="dLeaf" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#6f8150"/><stop offset="0.6" stop-color="#46582f"/><stop offset="1" stop-color="#2c3920"/></radialGradient>
+            <linearGradient id="dRock" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9a59b"/><stop offset="0.5" stop-color="#7c776c"/><stop offset="1" stop-color="#4e4a42"/></linearGradient>
+            <linearGradient id="dWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a7558"/><stop offset="0.5" stop-color="#6f5d45"/><stop offset="1" stop-color="#54473a"/></linearGradient>
+          </defs>
+          <rect width="300" height="170" fill="url(#dSky)"/>
+          <path d="M0 116 Q150 106 300 112 L300 170 L0 170Z" fill="url(#dGround)"/>
+          <path d="M92 124 C90 108 93 96 91 80 L96 80 C96 96 99 110 99 124Z" fill="#4b3d2e"/>
+          <path d="M93 82 L80 66 M95 86 L110 70" stroke="#4b3d2e" stroke-width="2"/>
+          <ellipse cx="94" cy="56" rx="30" ry="26" fill="url(#dLeaf)"/>
+          <ellipse cx="74" cy="68" rx="18" ry="14" fill="url(#dLeaf)"/>
+          <ellipse cx="114" cy="66" rx="18" ry="15" fill="url(#dLeaf)"/>
+          <ellipse cx="96" cy="44" rx="16" ry="12" fill="#56693a" opacity="0.8"/>
+          <path d="M186 127 L192 108 L206 100 L226 101 L240 112 L245 127Z" fill="url(#dRock)"/>
+          <path d="M200 112 l10 4 l8 -6 M216 120 l9 -3" stroke="#3f3b35" stroke-width="1" fill="none"/>
+          <rect x="140" y="101" width="28" height="27" fill="url(#dWood)"/>
+          <path d="M140 110 h28 M140 119 h28 M147 101 v27 M161 101 v27" stroke="#3e3428" stroke-width="0.8"/>
+        </svg>
+        <div class="sample-cap">Illustration. Real-world colour and wear; scans or detailed textures.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per asset</span>
+        <span class="step hard">Scan or sculpt</span><span class="step hard">Retopology</span><span class="step ai-ok">UVs</span><span class="step hard">Bake</span><span class="step ai-ok">Detailed PBR textures</span><span class="step have">LODs</span><span class="step have">Export</span>
+      </div>
+      <div class="examples">Seen in: AAA games and photoscanned asset libraries. No solo hits found.</div>
+    </div>
+    <div class="option-summary">
+      Real-world colour, wear and detail, usually from photoscans or heavy sculpting plus detailed textures. AI does photoreal surface wear quite well, but the shapes, topology and consistency need a full professional pipeline, and realistic games compete directly with big studios. It's also heavy for an 8 GB laptop and a web-based view.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The game genuinely needs realism (sims, horror)</li>
+        <li>You'll mostly use scanned libraries</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The full classic pipeline, every step</li>
+        <li>Competes head-on with large studios</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+  <article class="option-card option-e chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option E · added after your question</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Low-Poly + Baked Procedural Materials</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="sample">
+        <svg viewBox="0 0 300 170" role="img" aria-label="Low-poly scene with wood grain on the crate and speckle on the rock, baked into textures">
+          <defs>
+            <pattern id="eGrain" width="30" height="6" patternUnits="userSpaceOnUse"><rect width="30" height="6" fill="#c98a4b"/><path d="M0 2 Q8 0 15 2 T30 2" stroke="#a86f3a" stroke-width="0.9" fill="none"/><path d="M0 5 Q10 4 20 5 T30 5" stroke="#b57a40" stroke-width="0.6" fill="none"/></pattern>
+            <pattern id="eGrainTop" width="20" height="5" patternUnits="userSpaceOnUse"><rect width="20" height="5" fill="#e0a868"/><path d="M0 2 Q6 1 10 2 T20 2" stroke="#c98a4b" stroke-width="0.7" fill="none"/></pattern>
+            <pattern id="eSpeck" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#9aa1a8"/><circle cx="2" cy="3" r="0.7" fill="#7f868d"/><circle cx="6" cy="6" r="0.5" fill="#c3c8cd"/></pattern>
+          </defs>
+          <rect width="300" height="170" fill="#cfe3e8"/>
+          <polygon points="0,120 300,108 300,170 0,170" fill="#8fb36a"/>
+          <polygon points="0,120 120,114 60,170 0,170" fill="#7fa45c"/>
+          <polygon points="88,118 96,118 95,86 89,86" fill="#7a5235"/>
+          <polygon points="92,28 62,74 92,66" fill="#4f8a4a"/>
+          <polygon points="92,28 122,74 92,66" fill="#3f7640"/>
+          <polygon points="92,52 56,100 92,92" fill="#5a9952"/>
+          <polygon points="92,52 128,100 92,92" fill="#477f45"/>
+          <polygon points="186,122 204,98 232,102 244,124" fill="url(#eSpeck)"/>
+          <polygon points="204,98 232,102 222,112 198,112" fill="#b5bcc2"/>
+          <polygon points="244,124 232,102 222,112" fill="#7f868d"/>
+          <polygon points="140,128 168,128 168,104 140,104" fill="url(#eGrain)"/>
+          <polygon points="140,104 168,104 176,98 148,98" fill="url(#eGrainTop)"/>
+          <polygon points="168,128 176,121 176,98 168,104" fill="#a86f3a"/>
+        </svg>
+        <div class="sample-cap">Illustration. Same shapes as A; grain and speckle baked into small textures.</div>
+      </div>
+      <div class="pipe">
+        <span class="pipe-title">Pipeline per asset</span>
+        <span class="step have">Parametric model</span><span class="step have">Material preset</span><span class="step ai-ok">Auto UV unwrap</span><span class="step ai-ok">Auto-bake material to texture</span><span class="step have">glTF export</span>
+      </div>
+      <div class="examples">Close to: <b>Valheim</b>-style simple shapes with rich surfaces. Every step automated; nothing painted by hand.</div>
+    </div>
+    <div class="option-summary">
+      Option A's shapes and presets, but the studio's procedural materials (wood grain, glaze variation, stone speckle) get baked into small textures on export, so the game looks like the studio. Unwrapping and baking run automatically, with checks that the bake has no seams or stretching. Claude never paints anything. This is where the materials work pays off in-game. The cost is new export engineering, plus texture memory per asset.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want the game to look like the studio's renders</li>
+        <li>Richer surfaces help low-poly stand out</li>
+        <li>Still no sculpting or painting</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Auto-UV + bake is new, unbuilt work</li>
+        <li>Seams on baked textures need their own checks</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option E"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Low-poly is the safe, popular choice, and that's its weakness. Steam is full of low-poly games, many built from the same asset packs, and players read the look as cheap unless the art direction is strong. Starting with A also means the wood grain and glaze the studio is learning to render won't appear in your games until the bake step (E) exists, so for a while the game will look plainer than the studio. If you'd rather the game match the studio from day one, pick E now and accept that export work comes first. And characters (decision 14) are where low-poly struggles most.</p></section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>You want to ship games solo or with a tiny team, with Claude doing most asset work.</li>
+    <li>A shared palette plus one shading model is enough to give your games a recognizable look, and a toon/outline shader can add character later.</li>
+    <li>The materials work in progress (presets with colour, roughness, metalness, gloss; procedural wood grain) carries partly into games: preset values travel in glTF; shader-drawn grain does not until a bake step exists (Option E).</li>
+    <li>A is chosen so E is a pure upgrade: same shapes, same presets, plus an export step.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>AI 3D generators are strongest at stylized and low-poly work. Meshy has a dedicated Low Poly mode, and Tripo is the usual recommendation for stylized assets. Prompts drift toward realism unless the style is named. <a class="cite" href="https://www.strayspark.studio/blog/generative-3d-tools-comparison-meshy-rodin-tripo-csm-2026">StraySpark</a> <a class="cite" href="https://docs.meshy.ai/ai-texturing">Meshy docs</a></li>
+    <li>Turning any generated object into a game asset still takes retopology, UV layout, material authoring and rigging. Stylized PBR and realistic looks need all of it, plus a high-poly sculpt to bake from. <a class="cite" href="https://arxiv.org/html/2604.23629v2">arXiv 2604.23629</a></li>
+    <li>The standard low-poly method is one material plus a palette or gradient texture, with faces mapped to colour cells. There's no painting, baking or hand UV work, and it maps directly onto a part-by-part model like this studio's. <a class="cite" href="https://80.lv/articles/elevating-gradient-texturing-to-a-standard-workflow-in-blender">80.lv</a></li>
+    <li>Toon shading in Godot is a small shader: stepped light, rim light and outlines, with free versions available. A flat-colour toon look needs no painted textures. <a class="cite" href="https://godotshaders.com/shader/ultimate-toon-shader/">godotshaders</a></li>
+    <li>Low-poly has recent solo hits: Megabonk, a solo 3D low-poly game, sold over 1M copies within two weeks of its 2025 launch. No solo photoreal hits turned up. <a class="cite" href="https://respawn.outlookindia.com/gaming/gaming-guides/megabonk-the-3d-vampire-survivors-like-taking-over-steam">Outlook Respawn</a> <a class="cite" href="https://newsletter.gamediscover.co/p/analysis-how-a-solo-dev-gladiator">GameDiscoverCo</a></li>
+    <li>Keeping one style across many AI-made assets is a known, unsolved problem; vendors offer "match these reference images" features, with no independent benchmarks. A shared palette and shader keeps assets consistent by construction. <a class="cite" href="https://www.sloyd.ai/en/blog/how-to-style-consistent">Sloyd</a> <a class="cite" href="https://arxiv.org/html/2509.12815v1">Hunyuan3D Studio</a></li>
+    <li>Outsourced prop costs run about $10–100 for simple low-poly and rise sharply for PBR. The extra cost comes from the texture maps, sculpts and LODs rather than polygon count. <a class="cite" href="https://rocketbrush.com/blog/3d-prop-object-art-costs-explained">RocketBrush</a> <a class="cite" href="https://info.kaedim3d.com/assets/game-ready">Kaedim</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>Indie-market analysts say a solo developer needs a style that doesn't compete with big studios and survives repetition, which means low-poly or toon. Art directors counter that "low-poly" alone is no longer a style, and that standing out takes a strong palette, lighting and silhouette direction on top. Both point the same way: A, plus a deliberate palette and shader, not default flat colours.</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Low-poly palette</th><th class="col-b">B: Hand-painted</th><th class="col-c">C: Stylized PBR</th><th class="col-d">D: Realistic</th><th class="col-e">E: Low-poly + baked materials</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Sculpting needed</td><td class="col-pick">No</td><td>Rarely</td><td>Yes</td><td>Yes (or scans)</td><td>No</td></tr>
+        <tr><td>UVs + texture work</td><td class="col-pick">Palette only, automatic</td><td>Painted, every asset</td><td>5+ maps, baked</td><td>5+ maps, detailed</td><td>Auto-unwrapped + auto-baked</td></tr>
+        <tr><td>How much AI can do alone</td><td class="col-pick">Nearly all of it</td><td>Shape yes, painting weak</td><td>Needs cleanup at 3 steps</td><td>Needs cleanup everywhere</td><td>All of it, once bake is built</td></tr>
+        <tr><td>Consistency over 100 assets</td><td class="col-pick">By construction</td><td>Hard</td><td>Medium</td><td>Medium (scans help)</td><td>By construction (presets)</td></tr>
+        <tr><td>Solo-dev track record</td><td class="col-pick">Strong (Megabonk, A Short Hike)</td><td>Some</td><td>Rare</td><td>None found</td><td>Valheim-like (small team)</td></tr>
+        <tr><td>Fits the studio today</td><td class="col-pick">Yes: palette + presets per part</td><td>Needs UV + paint tools</td><td>Needs sculpt, retopo, bake</td><td>Needs the full pipeline</td><td>Needs auto-UV + bake on export</td></tr>
+        <tr><td>Stands out on Steam</td><td class="col-pick">Only with strong direction</td><td>Yes</td><td>Yes, if quality holds</td><td>Hard vs AAA</td><td>Better than A</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick">Low: E adds on top; shapes and presets stay</td><td>High: repaint every asset</td><td>High: tooling built for one look</td><td>Very high</td><td>Low: drop the bake, fall back to A</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-12 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

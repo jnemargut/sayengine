@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 11: Shape of the Game Toolset — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+/* architecture diagrams */
+.arch { width:100%; display:flex; flex-direction:column; gap:6px; align-items:stretch; }
+.arch-row { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+.box { background:white; border:2px solid #e2e8f0; border-radius:8px; padding:6px 10px; font-size:0.68rem; font-weight:600; color:#334155; text-align:center; line-height:1.3; }
+.box small { display:block; font-weight:500; color:#64748b; font-size:0.6rem; }
+.box.you { border-color:#b86e0a; color:#8a5208; }
+.box.ai { border-color:#4b3a8c; color:#4b3a8c; }
+.box.core { border-color:#1d6f80; color:#1d6f80; }
+.box.new { border-style:dashed; border-color:#2c6e48; color:#2c6e48; }
+.box.ext { border-color:#475569; color:#0f172a; background:#f1f5f9; }
+.box.risk { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.box.wide { flex:1; }
+.arr { text-align:center; color:#94a3b8; font-size:0.9rem; line-height:1; }
+.group { border:1px solid #e2e8f0; border-radius:10px; padding:8px; background:white; display:flex; flex-direction:column; gap:6px; }
+.group-label { font-size:0.58rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#94a3b8; text-align:center; }
+.weight { font-size:0.62rem; color:#475569; text-align:center; }
+.weight b { color:#0f172a; }
+
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 11 of 18 · Game tools phase</span>
+  <h1>Shape of the Game Toolset</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Today you have one thing: a studio where Claude builds and checks 3D objects while you review. Games also need characters that move, levels, game logic, and something that actually runs the game and lets the AI play it. The question is where those live. Does this one studio grow into all of it? Does it split into a family of studios? Does it stay the place assets are made, while a real game engine runs the game? Or do you build an AI-first engine? Everything after this (art style, engine, characters, rigging) hangs off this answer.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option C"</strong> · <strong>"Option C but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">One Studio Grows Into a Game Maker</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box you">You<small>direct + review</small></div><div class="box ai">Claude Code<small>/studio</small></div></div>
+        <div class="arr">↓</div>
+        <div class="group">
+          <div class="group-label">One app keeps growing</div>
+          <div class="arch-row"><div class="box core">Props</div><div class="box new">Characters</div><div class="box new">Levels</div></div>
+          <div class="arch-row"><div class="box new">Game logic</div><div class="box new">Play mode</div><div class="box new">Physics · audio · input</div></div>
+          <div class="arch-row"><div class="box core wide">Today's engine + history + proposals</div></div>
+        </div>
+        <div class="arr">↓</div>
+        <div class="arch-row"><div class="box risk">Browser games only (three.js)<small>desktop / Steam export = your problem</small></div></div>
+        <div class="weight">You build: <b>every game system</b> · Reuse: three.js</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Keep adding modes to the studio until it can play games too: characters, levels, scripts, a play button. Everything gets the same branching history and keep-or-undo review, and there's one app to learn. But the "play" half is a game engine, which you'd be writing from scratch inside a modeling tool. That's the exact path Blender took with its game engine, then removed.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want every game edit reviewable like the stool was</li>
+        <li>Browser games are the target</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Quietly becomes a custom engine</li>
+        <li>One app, ever-growing; slows down for everyone</li>
+        <li>No Steam / console path without big extra work</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">A Family of Studios, Own Runtime</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box you">You</div><div class="box ai">Claude Code<small>/props · /characters · /levels · /game</small></div></div>
+        <div class="arr">↓</div>
+        <div class="arch-row"><div class="box core">Prop Studio</div><div class="box new">Character Studio</div><div class="box new">Level Studio</div></div>
+        <div class="arr">↓</div>
+        <div class="arch-row"><div class="box core wide">Shared core: scene records · history · proposals · checks · renders</div></div>
+        <div class="arr">↓</div>
+        <div class="arch-row"><div class="box risk">Your own lightweight web game runtime<small>loop · physics lib · input · glTF</small></div></div>
+        <div class="weight">You build: <b>3 studios + a small runtime</b> · Reuse: three.js, a physics library</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Split by job. Each studio gets its own skill and view, tuned for what it makes: characters need a skeleton panel, levels need a top-down map. They all share the engine core, history and review you already have. Games run on a small web runtime you write on top of three.js (a few thousand lines). It's cleaner than A, but you still own the runtime and everything a real engine gives for free.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Each kind of asset needs a very different workspace</li>
+        <li>You want small, focused skills Claude follows reliably</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Three UIs to build and keep consistent</li>
+        <li>The runtime still grows toward an engine</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: make what engines can't</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Asset Forge + a Real Engine</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box you">You</div><div class="box ai">Claude Code<small>/studio · /game</small></div></div>
+        <div class="arr">↓</div>
+        <div class="arch-row">
+          <div class="group" style="flex:1">
+            <div class="group-label">Your studio: makes things</div>
+            <div class="box core">Props · characters · level kits</div>
+            <div class="box core">Checks · history · keep / undo</div>
+            <div class="box new">Game-ready export<small>budgets · LODs · collision · rigs</small></div>
+          </div>
+          <div class="group" style="flex:1">
+            <div class="group-label">Existing engine: runs things</div>
+            <div class="box ext">Godot / Unity / …<small>picked in decision 13</small></div>
+            <div class="box ext">Physics · audio · input · export to Steam</div>
+            <div class="box new">Bridge: run headless, screenshot, playtest</div>
+          </div>
+        </div>
+        <div class="arr">↔ glTF + a checked export contract</div>
+        <div class="weight">You build: <b>studio modes + one bridge</b> · Reuse: a whole engine</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The studio stays the place things get made. It grows modes for characters and level kits as you need them, and every asset leaves passing game checks (triangle budget, collision, rig). A real engine runs the game. A second skill (<code>/game</code>) lets Claude drive that engine from the command line: import, run without a window, screenshot, play-test. You build the part no engine has, which is parametric, checked, reviewable asset making, and borrow everything else.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want playable games soon, not an engine project</li>
+        <li>You want Steam / desktop export for free</li>
+        <li>The studio stays small and sharp</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two tools; edits inside the engine skip your review</li>
+        <li>Asset hand-off (materials, animations) is where pipelines break</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Build an AI-First Game Engine</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box you">You</div><div class="box ai">Claude Code</div></div>
+        <div class="arr">↓</div>
+        <div class="group">
+          <div class="group-label">New engine, AI-native from the ground up</div>
+          <div class="arch-row"><div class="box new">Typed world API</div><div class="box new">Branching game state</div><div class="box new">Built-in playtest agent</div></div>
+          <div class="arch-row"><div class="box risk">Renderer</div><div class="box risk">Physics</div><div class="box risk">Animation</div><div class="box risk">Audio</div><div class="box risk">Editor</div><div class="box risk">Platform export</div></div>
+          <div class="arch-row"><div class="box core wide">Today's studio becomes one module</div></div>
+        </div>
+        <div class="weight">You build: <b>everything</b> · 50k–120k lines historically</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Take the studio's ideas (typed tools, branching history, checks, review) all the way down into an engine designed for AI from scratch. This is the most original product and the biggest swing. Solo engine projects historically run 50,000–120,000 lines over several years with rewrites. The AI-native engines started in 2026 are all early, with no shipped games yet.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The engine itself is the product you want to sell</li>
+        <li>You have years and want to own every layer</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Engine work crowds out making games</li>
+        <li>Amazon and Autodesk both retired engines</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Option C splits the world in two, and the seam is exactly where game pipelines hurt most. Godot drops material edits on reimport, Unity's glTF importer only plays animations through its legacy system, and skinned characters are the flakiest part of every engine's import. Worse, anything you or Claude change inside the engine (a level layout, a script) doesn't get the studio's branching history or keep-or-undo review, which is the thing that makes this studio special. If what you love is "every change is reviewable", Option B keeps that everywhere, at the cost of owning a small runtime.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>You want to make games, not sell an engine. If the engine is the product, revisit D.</li>
+    <li>The studio's edge is AI-made, checked, reviewable assets, and no engine offers that today.</li>
+    <li>An engine can be driven well enough from the command line for Claude to run and screenshot games (confirmed for Godot; decision 13 picks).</li>
+    <li>The hand-off is owned by a checked export contract with round-trip tests, not hoped for.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Blender built a game engine into its modeler, then deleted it in 2.8. Autodesk paired Maya LT with its Stingray engine and killed the engine in 2018, citing customers standardizing on Unity and Unreal. In both cases the modeler survived and the engine didn't. <a class="cite" href="https://80.lv/articles/the-blender-game-engine-is-dead/">80.lv</a> <a class="cite" href="https://www.cgchannel.com/2017/12/autodesk-discontinues-stingray/">CG Channel</a></li>
+    <li>All three big engines and Roblox now let AI agents drive their editors. Unreal has official MCP support in 5.8 (experimental) and Unity in its AI Assistant (beta), and Roblox Studio has a built-in MCP server plus a playtesting agent. 44% of Roblox's top 1,000 creators already used AI tools. <a class="cite" href="https://dev.epicgames.com/documentation/unreal-engine/unreal-mcp-in-unreal-editor">Epic</a> <a class="cite" href="https://docs.unity3d.com/Packages/com.unity.ai.assistant@2.17/manual/integration/unity-mcp-get-started.html">Unity</a> <a class="cite" href="https://about.roblox.com/newsroom/2026/04/roblox-studio-going-agentic">Roblox</a></li>
+    <li>None of those engine integrations does parametric, branching, reviewable asset making with checks. The gap is upstream of the engines, which is where this studio already sits. Meshy and Blender MCP also win by feeding engines, not replacing them. <a class="cite" href="https://www.meshy.ai/integrations">Meshy</a> <a class="cite" href="https://github.com/ahujasid/blender-mcp">blender-mcp</a></li>
+    <li>On a benchmark of 132 Godot game tasks, the best AI agent passed only 53.8%, and it did worst on 3D graphics (38%) and animation (33%). Letting the agent see screenshots of the running game raised one model from 41% to 52%. Whatever you pick, Claude must be able to run and look at the game. <a class="cite" href="https://arxiv.org/html/2602.11103">GameDevBench, arXiv</a></li>
+    <li>The "AI-native engines" of 2026 (nAIVE, Euca, Egos and others) are all early, with no shipped games. Rosebud, an all-in-one AI game maker, hits walls on export and trust. <a class="cite" href="https://app.cinevva.com/signals/2026-03-24-ai-native-engines-are-shipping">Cinevva</a> <a class="cite" href="https://ludo.ai/compare/best-ai-game-makers">Ludo</a></li>
+    <li>Solo developers who set out to make a game regularly end up with "a short proof-of-concept demo" and an engine. Long-lived solo engines run 90k–120k lines over 7–14 years. <a class="cite" href="https://www.gamedeveloper.com/business/why-i-m-not-rolling-my-own-engine">Game Developer</a> <a class="cite" href="https://dev.to/encelo/14-years-building-my-own-game-engine-4hom">nCine</a></li>
+    <li>Pipelines break at the hand-off. Godot loses built-in materials on reimport, Unity's glTF importer can strip normal maps without warning, and skinned-mesh import is the weakest spot in Unreal. <a class="cite" href="https://godotforums.org/d/30560-mesh-loses-material-overrides-everytime-it-is-updated-externally-or-re-imported">Godot forums</a> <a class="cite" href="https://docs.unity3d.com/Packages/com.unity.cloud.gltfast@6.19/manual/ProjectSetup.html">Unity glTFast</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>Engine pragmatists say never build your own unless the game's design is truly unique. The AI-native camp says today's engines were built for clicking humans, and that an agent-first engine is the real long-term play, as Roblox's move to agents hints. What decides it for you: do you want to ship games in the next year (C), or is the engine itself the thing you'd sell (D)?</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a">A: One studio grows</th><th class="col-b">B: Family + own runtime</th><th class="col-c col-pick">C: Forge + real engine</th><th class="col-d">D: AI-first engine</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>First playable game</td><td>Months (write play mode first)</td><td>Months (write runtime first)</td><td class="col-pick col-chosen">Weeks (engine already plays)</td><td>A year or more</td></tr>
+        <tr><td>What you build</td><td>Every game system, inside one app</td><td>3 studio UIs + small runtime</td><td class="col-pick col-chosen">Studio modes + one bridge skill</td><td>Everything</td></tr>
+        <tr><td>Claude can play-test</td><td>Only what you build</td><td>Only what you build</td><td class="col-pick col-chosen">Yes, via the engine's command line</td><td>Built in, eventually</td></tr>
+        <tr><td>Every change reviewable</td><td>Yes, everywhere</td><td>Yes, everywhere</td><td class="col-pick col-chosen">In the studio; engine edits use git</td><td>Yes, everywhere</td></tr>
+        <tr><td>Ship to Steam / desktop</td><td>Hard</td><td>Hard</td><td class="col-pick col-chosen">Free (engine exports)</td><td>Your problem</td></tr>
+        <tr><td>Fits an 8 GB MacBook Air</td><td>Yes</td><td>Yes</td><td class="col-pick col-chosen">Yes with Godot; no with Unreal</td><td>Yes, until it doesn't</td></tr>
+        <tr><td>Biggest risk</td><td>Sprawl into an engine</td><td>Runtime becomes an engine</td><td class="col-pick col-chosen">Asset hand-off breaks</td><td>Never ship a game</td></tr>
+        <tr><td>Undo cost</td><td>High: game code tangled into the modeler</td><td>Medium: runtime is separable</td><td class="col-pick col-chosen">Low: swap engines behind the export</td><td>Very high: years of engine work</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option C"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-11 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

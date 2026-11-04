@@ -5,3 +5,4 @@ apps/view/dist/
 .DS_Store
 .bettercompact/
 .scratch/
+.claude/worktrees/
