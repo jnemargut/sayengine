@@ -57,18 +57,22 @@ type="PackedScene"
 [params]
 
 import_script/path="res://studio/import_studio.gd"
+meshes/ensure_tangents=false
 `;
 
 /** Make sure a GLB in the project imports through the studio post-import script. */
 function ensureImportSettings(glb: string) {
   const imp = glb + '.import';
   if (!fs.existsSync(imp)) { fs.writeFileSync(imp, IMPORT_FILE); return; }
-  const s = fs.readFileSync(imp, 'utf8');
+  let s = fs.readFileSync(imp, 'utf8');
   if (!/import_script\/path="res:\/\/studio\/import_studio\.gd"/.test(s)) {
-    fs.writeFileSync(imp, /import_script\/path=/.test(s)
+    s = /import_script\/path=/.test(s)
       ? s.replace(/import_script\/path=.*$/m, 'import_script/path="res://studio/import_studio.gd"')
-      : s.replace(/\[params\]\n/, '[params]\n\nimport_script/path="res://studio/import_studio.gd"\n'));
+      : s.replace(/\[params\]\n/, '[params]\n\nimport_script/path="res://studio/import_studio.gd"\n');
   }
+  // studio materials never use normal maps: no tangents (an unbaked export has no UVs to make them from)
+  s = /meshes\/ensure_tangents=/.test(s) ? s.replace(/meshes\/ensure_tangents=.*$/m, 'meshes/ensure_tangents=false') : s.replace(/\[params\]\n/, '[params]\n\nmeshes/ensure_tangents=false\n');
+  fs.writeFileSync(imp, s);
 }
 
 export interface ImportReport { ok: boolean; engine: 'godot'; version: string; meshes: number; triangles: number; materials: any[]; objects: any[]; collision: number; warnings: string[]; errors: string[]; seconds: number }

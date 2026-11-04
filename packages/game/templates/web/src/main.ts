@@ -37,6 +37,7 @@ async function start(): Promise<StudioGame> {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: '#9e9991', roughness: 0.95 }));
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
+  floor.position.y = -0.006; // a hair below y = 0, so studio ground (a yard, a rug) never flickers against it
   floor.name = 'Floor';
   scene.add(floor);
 

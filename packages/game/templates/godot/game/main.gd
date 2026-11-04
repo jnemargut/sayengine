@@ -78,5 +78,6 @@ func _add_floor() -> void:
 	mat.roughness = 0.95
 	plane.material = mat
 	mesh.mesh = plane
+	mesh.position.y = -0.006   # a hair below y = 0, so studio ground (a yard, a rug) never flickers against it
 	body.add_child(mesh)
 	add_child(body)
