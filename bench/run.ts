@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { initKernel, Studio, MemoryAssets, toGLB, toSTL, exportGame, validateGlb } from '../packages/core/src/index.ts';
+import { initKernel, Studio, MemoryAssets, toGLB, toSTL, exportGame, validateGlb, curvesFromCues } from '../packages/core/src/index.ts';
 import { solidPng } from '../packages/core/test/png.ts';
 
 await initKernel();
@@ -303,6 +303,82 @@ const tasks: Task[] = [
       s.call('add-op', { id: 'col', op: 'collision', inputs: ['box'], args: { shape: 'capsule', axis: 'x' } });
       const col = s.checks('crate').find((c) => c.id === 'collision-col');
       return col && !col.pass ? null : `a capsule around a cube should not cover it: ${JSON.stringify(col)}`;
+    },
+  },
+  {
+    name: '24. A blacksmith from the character kit: rigged, bends cleanly, exports a skinned GLB for Godot',
+    run(s, step) {
+      step('new-character', { name: 'Blacksmith', preset: 'blacksmith' });
+      step('set-profile', { profile: 'godot-desktop' });
+      step('add-op', { id: 'col', op: 'collision', inputs: ['figure'], args: { shape: 'capsule' } });
+    },
+    async expect(s) {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const out = await gameExport(s, 'godot');
+      const v = await validateGlb(out.glb);
+      if (!v.ok) return `validator: ${JSON.stringify(v.messages)}`;
+      const j = gltfJson(out.glb);
+      return j.skins?.[0]?.joints?.length >= 55 && j.meshes[0].primitives[0].targets?.length >= 30 ? null : 'skin or face shapes missing';
+    },
+  },
+  {
+    name: '25. "Make him smile and look worried" — expressions by name, with a correction for a wrong name',
+    run(s, step) {
+      step('new-character', { name: 'Smith' });
+      const r = s.call('set-expression', { values: { smile: 0.8 } });
+      if (r.ok || !/mouthSmile/.test(r.error ?? '')) throw new Error(`a wrong name should suggest mouthSmile*: ${r.error}`);
+      step('set-expression', { values: { mouthSmileLeft: 0.6, mouthSmileRight: 0.6, browInnerUp: 0.7 } });
+    },
+    expect(s) {
+      const e = s.doc().objects.smith.character?.expression ?? {};
+      return e.mouthSmileLeft === 0.6 && e.browInnerUp === 0.7 ? null : `expression not set: ${JSON.stringify(e)}`;
+    },
+  },
+  {
+    name: '26. "Give the blacksmith a hammer" — hold with an auto grip, no finger through the handle',
+    run(s, step) {
+      step('new-character', { name: 'Blacksmith', preset: 'blacksmith' });
+      step('new-object', { name: 'Hammer', type: 'tool', material: 'oak' });
+      step('add-op', { id: 'handle', op: 'cylinder', part: 'handle', args: { r: 0.016, h: 0.34 } });
+      step('add-op', { id: 'head', op: 'box', part: 'head', args: { size: [0.11, 0.045, 0.045], at: [0, 0.33, 0] } });
+      step('add-op', { id: 'hammer', op: 'union', inputs: ['handle', 'head'], output: true });
+      step('set-material', { part: 'head', preset: 'black-metal' });
+      step('hold', { character: 'blacksmith', hand: 'right', prop: 'hammer' });
+    },
+    expect(s) {
+      const h = s.doc().objects.hammer;
+      if (h.place?.kind !== 'held') return 'hammer is not held';
+      return allPass(s);
+    },
+  },
+  {
+    name: '27. Mobile web budget: finger bones fold into the hand, face shapes within 33',
+    run(s, step) {
+      step('new-character', { name: 'Apprentice', preset: 'apprentice' });
+      step('set-profile', { profile: 'web-mobile', triangles: 20000 });
+    },
+    async expect(s) {
+      const shapes = s.checks('apprentice').find((c) => c.id === 'budget-shapes');
+      if (!shapes?.pass) return `shape budget: ${JSON.stringify(shapes)}`;
+      const out = await gameExport(s, 'web');
+      const j = gltfJson(out.glb);
+      return j.skins[0].joints.length <= 30 ? null : `${j.skins[0].joints.length} joints exported (fingers should fold)`;
+    },
+  },
+  {
+    name: '28. A spoken line: curves from aligner cues close the lips on M/B/P and export as a clip',
+    run(s, step) {
+      step('new-character', { name: 'Smith' });
+      const cues = [{ start: 0, end: 0.15, shape: 'X' }, { start: 0.15, end: 0.2, shape: 'A' }, { start: 0.2, end: 0.55, shape: 'D' }, { start: 0.55, end: 0.62, shape: 'A' }, { start: 0.62, end: 0.9, shape: 'C' }, { start: 0.9, end: 1.2, shape: 'X' }];
+      step('set-line', { object: 'smith', id: 'mama', line: { text: 'Mama', audio: 'none.wav', emotion: 'firm', duration: 1.2, fps: 30, cues, curves: curvesFromCues(cues, 1.2, 30, 'firm'), aligner: 'bench', sync: 0 } });
+    },
+    async expect(s) {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const obj = s.doc().objects.smith;
+      const j = gltfJson(toGLB([{ obj, res: s.evaluate(obj) }], {}));
+      return j.animations.some((a: any) => a.name === 'line:mama') ? null : 'no line:mama clip';
     },
   },
 ];

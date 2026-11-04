@@ -123,6 +123,7 @@ export interface LineClip {
   text: string;
   audio: string;                 // asset name (wav)
   voice?: string;                // local text-to-speech voice, when generated
+  voiceLicence?: string;         // e.g. "Kokoro-82M, Apache-2.0" (THIRD_PARTY.md); absent for the user's own recordings
   emotion: string;
   duration: number;              // s
   fps: number;

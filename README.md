@@ -35,6 +35,8 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | **Script** | `studio run --code "…"` runs JavaScript in a QuickJS WebAssembly sandbox (no filesystem or network, 5 s, 64 MB); every call is still a normal commit. |
 | **Import** | `studio import` (or drop a file on the view): STL/OBJ/GLB become translucent, measurable reference objects (watertight ones can be cut or joined with a `mesh` op); PNG/JPG become a backdrop plane (front/side/top) that renders include, so Claude can model to match a sketch. References are never exported. |
 | **Game assets** | `set-profile godot-desktop \| web \| web-mobile` turns budgets into checks after every step (triangles, baked texture, materials, bones), pending while still building. `collision` ops (box, hull, capsule, sphere) with a "covers the mesh" check; `lod` ops make distance versions. |
+| **Characters** | `new-character` builds a rigged person from a kit (presets, proportions): Godot humanoid skeleton with fingers, jaw, eyes and lids; auto skin weights (≤ 4); 15 speech shapes + ARKit-named expressions; `set-expression`, `set-pose`, `set-hand` (named poses), `hold` a prop with an automatic grip and a finger-penetration check; 10 canonical pose checks. Close-up views `face`, `face-34`, `hands`. |
+| **Lip sync** | `say --text "…"` voices a line with a local, free voice (Kokoro-82M) or your WAV, aligns it with Rhubarb Lip Sync, and bakes smoothed speech-shape curves (coarticulation, closed lips on M/B/P, rests in pauses, emotion) with closure / held-shape / sync checks. `line-preview --video true` renders the exported character speaking in close-up to an MP4 (ffmpeg) plus a player page. |
 | **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). `export --target godot\|web` unwraps every part (xatlas), has the view bake materials, wood grain included, into one lighting-free texture pair per asset, reports texel density, island padding and stretch, and writes collision nodes (Godot `-convcolonly`, `extras.collision` for three.js) and distance versions (web, `MSFT_lod`). Every GLB passes the Khronos glTF validator or isn't written; after-export hooks (the engine round-trip) can fail an export. |
 | **Games** | `/game` turns studio scenes into games: `studio game init --engine godot` (standalone) or `--engine web` (three.js + Rapier), then `import` (round-trips the GLB through the engine and fails on any warning), `screenshot` (the engine's own renderer), `walk-to` (a capsule player with physics: reached / blocked), `test` (on, grounded, reachable… assertions) and `run`, all headless. |
 | **Other agents** | `studio mcp` serves the same tools over MCP: `claude mcp add studio -- node /path/to/AI3DModel/packages/cli/studio.ts mcp`. |
@@ -52,7 +54,7 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking, gizmo and drop-to-import · inspector with live sliders · Claude Code feed + review · history. `look.ts` holds the shared look (PBR materials, wood-grain shader, environment light, shadows) |
 | `.claude/skills/studio/SKILL.md` | The `/studio` playbook Claude Code follows |
 | `.claude/skills/game/SKILL.md` | The `/game` playbook: import, look, play-test, assert, run |
-| `bench/` | `run.ts` reference solutions (16 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
+| `bench/` | `run.ts` reference solutions (21 tasks), `talking-face.ts` (the lip-sync checkpoint video), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
 | `.decisions/` | The 10 architecture decisions, live preview, design tokens (light + dark), implementation plan |
 
 ## Games (`/game`)
@@ -89,7 +91,8 @@ npm run bench   # reference solutions: studio tasks + /game tasks on each instal
 - **No B-rep/CAD kernel.** Fillets are mesh-based (`roundedBox`, `round`); there is no STEP export. OCCT stays behind the kernel interface for when precision CAD is needed.
 - **Materials are looks, not textures.** Wood grain is procedural (no UVs, no image textures); exported GLBs carry PBR values and the grain parameters in `extras`, not baked textures.
 - **Relations are one per object** (on / next to / around…). Chains work (a glass on a tray on a table); two simultaneous constraints on one object do not.
-- **No face-level poly editing** (select a face, extrude, inset, bevel). Shapes come from typed ops and profiles; `smooth` covers organic forms. Sculpting, UVs, rigging and animation are out of scope for this version.
+- **Characters**: one stylized kit (no sculpting); Rhubarb drives 9 mouth shapes that map onto the 15 speech shapes, so TH/kk/CH/RR are only approximated; no tongue or teeth; morph normals aren't exported; no forearm twist bones; clothing is part of the mesh (no cloth). Rhubarb (MIT) downloads on first `say` to `~/.cache/ai3d-studio` (or set `RHUBARB_BIN`); the Kokoro model downloads on first use (~90 MB). Licences in `THIRD_PARTY.md`.
+- **No face-level poly editing** (select a face, extrude, inset, bevel). Shapes come from typed ops and profiles; `smooth` covers organic forms. Sculpting is out of scope.
 - Renders need the browser view open: the daemon asks the view to draw them.
 - One daemon per port. Running `studio` in a second project while another daemon holds the port gives a clear error; set `STUDIO_PORT` per project.
 - Merging a proposal onto a main that has moved applies the kept steps on top; there is no conflict UI.

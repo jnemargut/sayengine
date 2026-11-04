@@ -154,6 +154,6 @@ export function lineChecks(id: string, l: LineClip): CheckResult[] {
   }
   const held = worst / fps;
   out.push({ id: `line-${id}-held`, label: `"${id}": no shape held too long`, pass: held <= 0.7, detail: held <= 0.7 ? `longest held shape ${held.toFixed(2)} s` : `one shape is held for ${held.toFixed(2)} s around ${(worstAt / fps).toFixed(2)} s — the aligner missed a change; re-run with the script, or check the audio` });
-  if (l.sync !== undefined) out.push({ id: `line-${id}-sync`, label: `"${id}": mouth in sync with the voice`, pass: Math.abs(l.sync) <= 90, detail: `${l.sync >= 0 ? 'mouth trails' : 'mouth leads'} the loudness by ${Math.abs(l.sync)} ms (≤ 90 ms reads as in sync)` });
+  if (l.sync !== undefined) out.push({ id: `line-${id}-sync`, label: `"${id}": mouth in sync with the voice`, pass: Math.abs(l.sync) <= 90, detail: `${l.sync >= 0 ? 'mouth trails' : 'mouth leads'} the voice by ${Math.abs(l.sync)} ms (≤ 90 ms reads as in sync)` });
   return out;
 }

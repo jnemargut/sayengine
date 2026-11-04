@@ -29,6 +29,10 @@ The user's request: **$ARGUMENTS**
 4. **Assert**: `./studio game test --project <name> --assertions '[…]'` with kinds `exists {node}`, `grounded {node}`, `on {node, target}` (rests on), `count {pattern, min, max}`, `reachable {target, from}`. Godot also runs `res://tests/test_*.gd` (`static func run(root) -> {pass, detail}`); web runs tests registered with `registerTest(name, fn)` from `studio/harness.ts`.
 5. **Run**: `./studio game run --project <name> --seconds 5` runs the game headlessly (fixed 60 fps) and returns every engine warning, error and print — use after editing game code.
 
+## Characters
+
+Studio characters import as one skinned mesh with a Godot humanoid skeleton (plus `LeftUpperLid`/`RightUpperLid`), face shapes as glTF morph targets named in `extras.targetNames`, and animations: `pose` (the studio pose and expression, step keys) and one `line:<id>` per spoken line (face-shape weights at 30 fps; the clip's `extras` carry the text, audio asset and emotion). Play a line by starting its clip and its audio together; use only the bone tracks of `pose` while a line plays so the two don't average. On `web-mobile` finger bones are folded into the hands.
+
 ## Rules
 
 - **Never edit the engine copies of studio assets** (`assets/studio/`). Change the model with `/studio`, then `game import` again. Materials come from the studio on every import.

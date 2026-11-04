@@ -85,6 +85,17 @@ When the request mentions a game, Godot, three.js, the web, "game-ready", or a t
 4. Materials stay presets: export bakes every opaque part (wood grain, colour, roughness, metalness) into one texture pair, so walnut + black metal is still one material. Glaze (clearcoat) and glass get their own. Keep the "Materials within budget" check green by not mixing glaze and glass on mobile.
 5. `./studio export --target godot` (or `web`) — needs the view open (it paints the textures). It refuses while game checks fail, writes `.studio/exports/<object>.<target>.glb`, and reports the unwrap: even texel density, padded islands, no stretch — all must pass. `--texture 512` lowers the bake; `--bake false` exports untextured per-part materials when no view is open. Every GLB passes the Khronos validator or isn't written.
 
+## Characters (people)
+
+Characters come from a kit, not from ops: `./studio new-character --name Blacksmith --preset blacksmith` (presets `default`, `blacksmith`, `apprentice`; proportions `--height 1.8 --build 0.85 --headSize --armLength --legLength --handSize`, `--hair short|none`). The figure is rigged on creation: Godot humanoid bones (fingers, Jaw, Eyes, eyelids), ≤ 4 skin weights per vertex, and 33 face shapes (15 speech shapes + ARKit-named expressions). Checks: "Skin weights", "Bends cleanly in 10 test poses" (`./studio pose-check` shows each pose's worst joint, stretch, self-intersections; clothing clipping is reported separately).
+- **Face**: `./studio set-expression --values '{"mouthSmileLeft":0.6,"mouthSmileRight":0.6,"browInnerUp":0.4}'` (`--reset true` clears). Wrong names get suggestions. Blinks (`eyeBlinkLeft/Right`) turn the eyelid bones.
+- **Body**: `./studio set-pose --bones '{"LeftUpperArm":[0,0,-60]}'` (degrees, local X/Y/Z; body bones only).
+- **Hands**: `./studio set-hand --hand right --pose fist|relaxed|point|pinch|open-palm` or `--curl 0.7` / `--curl '{"index":0.2}'`, `--thumb`, `--spread`.
+- **Holding**: `./studio hold --character blacksmith --hand right --prop hammer` finds the handle (auto grip socket), places the prop in the hand and closes each finger until it touches; "Fingers clear of Hammer" must pass. `set-grip` overrides the socket; `release` lets go.
+- **Look**: `./studio render --views face,face-34,hands` for close-ups. `./studio character` lists bones, shapes, poses and lines.
+- **Spoken lines**: `./studio say --text "Hold still." --emotion firm` voices the line locally (Kokoro, default voice `bm_george`; `--voice am_michael`…; or `--audio my.wav`), aligns it with Rhubarb, and stores smoothed speech-shape curves (M/B/P always close; pauses rest). Checks: lips close, no shape held too long, mouth within 90 ms of the voice. Review with `./studio line-preview --video true` → Read the `stills` (closed on M/B/P, open on vowels), give the human the MP4 / player page. Exports carry each line as a `line:<id>` clip.
+- Game profiles budget bones and face shapes; `web-mobile` folds finger bones into the hand on export.
+
 ## Code mode (loops, many similar parts)
 
 `./studio run --code "…"` or `--file script.js` runs JavaScript in a sandbox (no filesystem or network, 5 s): `studio.addOp({...})`, `studio.setParam({...})`, `studio.call('tool-name', {...})`, `console.log(...)`. Every call is still a normal, reviewable commit. Prefer plain tool calls for fewer than ~5 edits.

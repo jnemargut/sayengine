@@ -18,7 +18,7 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     description: 'Ask the open browser view to render images. Default (--style labeled): --views front,side,top,iso,back with numbered part labels and edges; returns PNG paths you can Read plus a legend. --style presentation: a finished-looking image (materials, environment light, soft shadows, no labels) from a 3/4 "hero" camera, 1600 px; use it when the human wants to see or share the result. --object <id>, --proposal p1, --size px.',
     flags: {
       type: 'object', properties: {
-        views: { anyOf: [{ type: 'string', description: 'comma-separated, e.g. "front,side,iso" (presentation: "hero,front")' }, { type: 'array', items: { type: 'string', enum: ['front', 'side', 'top', 'iso', 'back', 'hero', 'low'] } }] },
+        views: { anyOf: [{ type: 'string', description: 'comma-separated, e.g. "front,side,iso" (presentation: "hero,front"; characters: "face,face-34,hands")' }, { type: 'array', items: { type: 'string', enum: ['front', 'side', 'top', 'iso', 'back', 'hero', 'low', 'face', 'face-34', 'hands'] } }] },
         style: { type: 'string', enum: ['labeled', 'presentation'], default: 'labeled' },
         size: { type: 'number', description: 'image width in px (labeled 768, presentation 1600)' },
         labels: { type: 'boolean', default: true }, object: { type: 'string' }, proposal: { type: 'string' },

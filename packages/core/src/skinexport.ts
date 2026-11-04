@@ -1,5 +1,5 @@
 // Characters in glTF (Decisions 13, 20, 21): the bind pose (T-pose, neutral face) as the mesh, a skin
-// on the 58-bone Godot humanoid skeleton (fingers optional), the face shape keys as sparse morph
+// on the 56-bone skeleton (Godot humanoid + two eyelid bones) (fingers optional), the face shape keys as sparse morph
 // targets named in mesh.extras.targetNames, and animation clips: "pose" (the character's current
 // pose and expression, one key) and one "line:<id>" clip per spoken line (speech-shape curves).
 // Both exporters (plain GLB and game export) use this. DOM-free and Node-free.
@@ -131,6 +131,6 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
       out.set(w, f * info.shapeNames.length);
     }
     const input = B.typed(times, 'SCALAR', { minmax: true });
-    anims.push({ name: `line:${id}`, samplers: [{ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' }], channels: [{ sampler: 0, target: { node: meshNode, path: 'weights' } }], extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion } });
+    anims.push({ name: `line:${id}`, samplers: [{ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' }], channels: [{ sampler: 0, target: { node: meshNode, path: 'weights' } }], extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion, ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}) } });
   }
 }

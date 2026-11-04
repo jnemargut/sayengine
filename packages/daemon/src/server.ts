@@ -117,7 +117,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const curves = curvesFromCues(cues, aligned.duration, fps, emotion);
         const sync = syncOffset(curves, fps, energy, 100);
         const id = String(args.id ?? (text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').split('-').slice(0, 4).join('-') || 'line'));
-        const line = { text, audio, ...(voiceName ? { voice: voiceName } : {}), emotion, duration: +aligned.duration.toFixed(3), fps, cues, curves, aligner: 'rhubarb-1.14.0', sync };
+        const line = { text, audio, ...(voiceName ? { voice: voiceName, voiceLicence: 'Kokoro-82M, Apache-2.0' } : {}), emotion, duration: +aligned.duration.toFixed(3), fps, cues, curves, aligner: 'rhubarb-1.14.0', sync };
         const r = studio.call('set-line', { object: obj.id, id, line }, author);
         if (r.ok) (r as any).result = { ...(r.result as any), audio: `/assets/${audio}`, sync, shapes: [...new Set(cues.map((c) => c.shape))].join('') };
         return r;

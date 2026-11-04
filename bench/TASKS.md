@@ -36,6 +36,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 21 | `/game check the vase really sits on the stool in the game` *(after 19)* | `game test` with an `on` assertion (and `reachable`), all pass |
 | 22 | `/game make a web version too` *(after 19)* | a second project with `--engine web`; clean import; screenshots look like the Godot ones |
 | 23 | `/studio make the stool bar height`, then `/game update the game` *(after 19)* | Claude re-imports instead of editing the engine copy; `on` still passes at the new height |
+| 24 | `/studio make a blacksmith character for Godot` | `new-character --preset blacksmith`, profile + capsule collision, all checks green (skin weights, 10 poses); `export --target godot` validates with a skin and face shapes and round-trips through Godot |
+| 25 | `/studio make him smile and look a bit worried` *(after 24)* | `set-expression` with ARKit names (a wrong name is corrected from the suggestion); Claude renders `--views face` and Reads it |
+| 26 | `/studio give the blacksmith a hammer` *(after 24)* | Claude builds a hammer and uses `hold`; "Fingers clear of Hammer" passes; `--views hands` render Read |
+| 27 | `/studio get the apprentice ready for a mobile web game` | `web-mobile` profile: finger bones folded on export, shapes ≤ 33, triangle budget handled |
+| 28 | `/studio have the blacksmith say "Bring me the big hammer"` *(after 24)* | `say` with the local voice; closure/held/sync checks pass; `line-preview --video true`; Claude Reads the stills and reports closed-on-M/B/P |
 
 ## What to record (from `node bench/score.ts`)
 

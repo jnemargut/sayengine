@@ -158,7 +158,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
     run(ctx, a) {
       const o = asCharacter(ctx.obj(a.object));
       const bad = Object.keys(a.values ?? {}).filter((k) => !SHAPE_KEYS.includes(k));
-      if (bad.length) throw new Error(`unknown shape key${bad.length > 1 ? 's' : ''} ${bad.map((k) => `"${k}" (did you mean ${closest(k, SHAPE_KEYS).join(' / ')}?)`).join(', ')}`);
+      if (bad.length) throw new Error(`unknown shape key${bad.length > 1 ? 's' : ''} ${bad.map((k) => `"${k}" (did you mean ${(SHAPE_KEYS.filter((n) => n.toLowerCase().includes(k.toLowerCase())).slice(0, 4).concat(closest(k, SHAPE_KEYS)).filter((x, i, a) => a.indexOf(x) === i).slice(0, 4)).join(' / ')}?)`).join(', ')}`);
       const cur = a.reset ? {} : { ...(o.character?.expression ?? {}) };
       for (const [k, v] of Object.entries(a.values ?? {}) as Array<[string, number]>) { if (v === 0) delete cur[k]; else cur[k] = r2(v); }
       ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), expression: cur });
