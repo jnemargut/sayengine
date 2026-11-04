@@ -50,6 +50,12 @@ export async function webCommand(dir: string, cmd: Record<string, any>, opts: { 
     const raw = await page.eval(`window.__studio.run(${JSON.stringify(cmd)})`, 180000);
     const { ok, error, ...result } = raw ?? { ok: false, error: 'no result' };
     if (Array.isArray(result.images)) result.images = writeImages(dir, cmd.prefix ?? `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${cmd.cmd}`, result.images);
+    if (Array.isArray(result.frames) && typeof cmd.frames === 'string') {
+      fs.mkdirSync(cmd.frames, { recursive: true });
+      result.frames.forEach((d: string, i: number) => fs.writeFileSync(path.join(cmd.frames, `${String(i).padStart(5, '0')}.jpg`), Buffer.from(d.replace(/^data:image\/\w+;base64,/, ''), 'base64')));
+      result.framesRecorded = result.frames.length;
+      delete result.frames;
+    }
     const errors = page.logs.filter((l) => l.level === 'error').map((l) => l.text);
     const warnings = [...b.warnings, ...page.logs.filter((l) => l.level === 'warning').map((l) => l.text)];
     return { ok: ok !== false && !error, error, result, warnings, errors };

@@ -8,11 +8,20 @@ export async function gameContext() {
   const supportsTarget = !!exportTool?.flags.properties.target;
   return {
     studioDir: DIR,
-    async exportGlb(out: string, object: string | undefined, engine: 'godot' | 'web') {
+    async exportGlb(out: string, object: string | undefined, engine: 'godot' | 'web', opts: { exclude?: string[]; atOrigin?: boolean } = {}) {
       const note = await ensureDaemon();
       if (note) process.stderr.write(`studio: ${note}\n`);
       // Week 1's `export --target godot|web` adds the engine-specific contract; plain GLB until then.
-      return callTool('export', { format: 'glb', out, ...(object ? { object } : {}), ...(supportsTarget ? { target: engine } : {}) });
+      return callTool('export', { format: 'glb', out, ...(object ? { object } : {}), ...(supportsTarget ? { target: engine } : {}), ...(opts.exclude?.length ? { exclude: opts.exclude.join(',') } : {}), ...(opts.atOrigin ? { atOrigin: true } : {}) });
+    },
+    async objectInfo(object: string) {
+      const note = await ensureDaemon();
+      if (note) process.stderr.write(`studio: ${note}\n`);
+      const r: any = await callTool('scene', {});
+      const objs: any[] = r.result?.objects ?? [];
+      const norm = (s: string) => s.toLowerCase().replace(/[_-]/g, ' ').trim();
+      const o = objs.find((x) => x.id === object) ?? objs.find((x) => norm(x.name) === norm(object));
+      return o ? { id: o.id, name: o.name, position: o.position, rotation: o.rotation ?? 0, character: o.type === 'character' || o.semanticType === 'character' } : null;
     },
   };
 }

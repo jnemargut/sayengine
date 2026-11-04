@@ -3,6 +3,7 @@
 // Everything returns the studio's JSON shape: { ok, tool, engine, project, result, warnings, errors }.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { GAME_TOOLS, gameTool } from './tools.ts';
 import { initProject, listGames, resolveProject, writeConfig, copyTemplate, workDir, type Engine } from './project.ts';
 import * as godot from './godot.ts';
@@ -17,7 +18,9 @@ export { findChrome } from './chrome.ts';
 export interface GameContext {
   studioDir: string;
   /** Export the studio scene (or one object) as GLB to an absolute path — the CLI wires this to the daemon. */
-  exportGlb(out: string, object: string | undefined, engine: Engine): Promise<{ ok: boolean; error?: string; result?: any }>;
+  exportGlb(out: string, object: string | undefined, engine: Engine, opts?: { exclude?: string[]; atOrigin?: boolean }): Promise<{ ok: boolean; error?: string; result?: any }>;
+  /** Where a studio object stands (for the player's start). */
+  objectInfo?(object: string): Promise<{ id: string; name: string; position: [number, number, number]; rotation: number; character: boolean } | null>;
 }
 
 /**
@@ -60,6 +63,17 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
       case 'game-import': {
         const dest = path.join(dir, 'assets', 'studio', 'scene.glb');
         fs.mkdirSync(path.dirname(dest), { recursive: true });
+        if (args.player !== undefined) { if (args.player === 'none' || args.player === '') delete config.player; else config.player = String(args.player); writeConfig(dir, config); }
+        const playerGlb = path.join(dir, 'assets', 'studio', 'player.glb');
+        let player: any = null;
+        if (config.player && !args.file) {
+          const info = ctx.objectInfo ? await ctx.objectInfo(config.player) : null;
+          if (!info) return out({ ok: false, ...base, error: `the player "${config.player}" is not in the studio`, hint: '--player <character> or --player none' });
+          if (!info.character) return out({ ok: false, ...base, error: `${info.name} is not a character, so it can't be the player` });
+          const pe = await ctx.exportGlb(playerGlb, info.id, config.engine, { atOrigin: true });
+          if (!pe.ok) return out({ ok: false, ...base, error: `player export failed: ${pe.error}` });
+          player = { id: info.id, name: info.name, start: info.position, rotation: info.rotation };
+        } else fs.rmSync(playerGlb, { force: true });
         let source: string;
         if (args.file) {
           const f = path.resolve(ctx.studioDir, String(args.file));
@@ -67,11 +81,12 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
           fs.copyFileSync(f, dest);
           source = path.relative(ctx.studioDir, f);
         } else {
-          const e = await ctx.exportGlb(dest, args.object, config.engine);
+          const e = await ctx.exportGlb(dest, args.object, config.engine, player ? { exclude: [player.id] } : undefined);
           if (!e.ok) return out({ ok: false, ...base, error: `studio export failed: ${e.error}` });
           source = args.object ? `studio object ${args.object}` : 'studio scene';
           if (e.result?.skipped?.length) return out({ ok: false, ...base, error: `these objects don't evaluate, fix them in the studio first: ${e.result.skipped.join(', ')}` });
         }
+        fs.writeFileSync(path.join(dir, 'assets', 'studio', 'characters.json'), JSON.stringify(charactersManifest(dest, player ? { ...player, glb: playerGlb } : null), null, 2) + '\n');
         const rep: any = config.engine === 'godot' ? await godot.importProject(dir) : await web.webCommand(dir, { cmd: 'info' });
         const report = config.engine === 'godot' ? rep : { ...rep.result, warnings: rep.warnings ?? [], errors: [...(rep.errors ?? []), ...(rep.error ? [rep.error] : [])] };
         const strict = args.strict !== false;
@@ -80,7 +95,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, roundTrip: report },
+          result: { file: dest, source, ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }
@@ -100,12 +115,16 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
       }
       case 'game-walk-to': {
         const target = parseTarget(args.target);
-        const cmd: any = { cmd: 'walk', target, speed: args.speed ?? 1.4, reach: args.reach ?? 0.45, timeout: args.timeout ?? 20, ...(args.from ? { from: args.from } : {}) };
+        const cmd: any = { cmd: 'walk', target, ...(args.speed ? { speed: args.speed } : {}), reach: args.reach ?? 0.45, timeout: args.timeout ?? 20, ...(args.from ? { from: args.from } : {}) };
         const shot = args.screenshot === true || args.screenshot === 'true';
+        const video = args.video === true || args.video === 'true';
         if (shot) Object.assign(cmd, { shot: true, views: ['iso'], prefix: `${stamp()}-walk` });
+        const frameDir = video ? path.join(workDir(dir, 'video'), stamp()) : '';
+        if (video) { fs.mkdirSync(frameDir, { recursive: true }); Object.assign(cmd, { frames: frameDir, frameEvery: 2 }); }
         const r = config.engine === 'godot'
-          ? await godot.runnerCommand(dir, { ...cmd, outDir: workDir(dir, 'shots') }, { windowed: shot })
-          : await web.webCommand(dir, cmd);
+          ? await godot.runnerCommand(dir, { ...cmd, outDir: workDir(dir, 'shots') }, { windowed: shot || video, size: video ? 1280 : undefined, timeoutMs: video ? 300000 : undefined })
+          : await web.webCommand(dir, cmd, video ? { size: 1280 } : undefined);
+        if (video && r.ok) Object.assign(r.result ?? {}, framesToVideo(frameDir, 30));
         const summary = r.ok && r.result ? (r.result.reached ? `reached ${typeof target === 'string' ? target : JSON.stringify(target)} in ${r.result.seconds} s` : `did not reach it: ${r.result.timedOut ? 'timed out' : 'blocked'} ${r.result.distanceToTarget} m short at ${JSON.stringify(r.result.final)}`) : undefined;
         return out({ ...base, ...r, ...(summary ? { summary } : {}) });
       }
@@ -122,4 +141,52 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
   } catch (e: any) {
     return out({ ok: false, error: e.message, ...(e.hint ? { hint: e.hint } : {}) });
   }
+}
+
+/** Clip names, loops and speeds per character in an exported GLB (from its animation and node extras). */
+export function charactersManifest(sceneGlb: string, player: { id: string; name: string; start: number[]; rotation: number; glb: string } | null) {
+  const read = (f: string) => {
+    if (!fs.existsSync(f)) return null;
+    const b = fs.readFileSync(f);
+    return JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString('utf8'));
+  };
+  const describe = (j: any) => {
+    const chars: any[] = [];
+    for (const n of j?.nodes ?? []) {
+      const c = n.extras?.character;
+      if (!c || n.mesh === undefined) continue;
+      const prefix: string = c.clipPrefix ?? '';
+      const clips: Record<string, any> = {};
+      for (const a of j.animations ?? []) {
+        if (prefix && !a.name.startsWith(prefix)) continue;
+        const nm = a.name.slice(prefix.length);
+        if (!prefix && j.nodes.some((m: any) => m.extras?.character?.clipPrefix && a.name.startsWith(m.extras.character.clipPrefix))) continue;
+        clips[nm] = a.extras?.motion ? { motion: a.extras.motion, loop: !!a.extras.loop, speed: a.extras.speed ?? 0, duration: a.extras.duration } : { line: nm.startsWith('line:'), loop: false };
+      }
+      let lo = Infinity, hi = -Infinity;
+      for (const p of j.meshes[n.mesh].primitives) { const acc = j.accessors[p.attributes.POSITION]; if (acc?.min) { lo = Math.min(lo, acc.min[1]); hi = Math.max(hi, acc.max[1]); } }
+      chars.push({ name: n.name, prefix, height: Number.isFinite(hi - lo) ? +(hi - lo).toFixed(3) : 1.7, clips, play: clips.idle ? 'idle' : null });
+    }
+    return chars;
+  };
+  const characters = describe(read(sceneGlb));
+  let p: any = null;
+  if (player) {
+    const c = describe(read(player.glb))[0];
+    if (c) p = { ...c, id: player.id, file: 'player.glb', start: player.start, rotation: player.rotation, walkSpeed: c.clips.walk?.speed ?? 1.4, runSpeed: c.clips.run?.speed ?? null };
+  }
+  return { player: p, characters };
+}
+
+/** PNG frames → MP4 (ffmpeg), plus three stills; frames are kept only when ffmpeg is missing. */
+export function framesToVideo(frameDir: string, fps: number) {
+  const files = fs.existsSync(frameDir) ? fs.readdirSync(frameDir).filter((f) => /\.(png|jpg)$/.test(f)).sort() : [];
+  if (!files.length) return { video: null, note: 'no frames were recorded' };
+  const ext = path.extname(files[0]);
+  const stills = [0.15, 0.5, 0.97].map((u, i) => { const f = files[Math.min(files.length - 1, Math.floor(u * files.length))]; const dst = path.join(frameDir, '..', `${path.basename(frameDir)}-still${i + 1}${ext}`); fs.copyFileSync(path.join(frameDir, f), dst); return dst; });
+  const video = `${frameDir}.mp4`;
+  const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-pattern_type', 'glob', '-i', path.join(frameDir, `*${ext}`), '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', video], { encoding: 'utf8' });
+  if (r.status !== 0) return { video: null, frames: frameDir, stills, note: `ffmpeg: ${(r.stderr || r.error?.message || '').trim().split('\n').slice(-1)[0]}` };
+  fs.rmSync(frameDir, { recursive: true, force: true });
+  return { video, frames: files.length, stills };
 }

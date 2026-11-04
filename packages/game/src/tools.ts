@@ -16,8 +16,8 @@ export const GAME_TOOLS: GameTool[] = [
   },
   {
     name: 'game-import',
-    description: 'Export the studio scene (or --object) as GLB into the game (assets/studio/scene.glb) and import it into the engine. Returns the round-trip report: meshes, triangles, materials as the engine sees them, plus engine warnings/errors. Any engine warning fails the import unless --strict false. Never edit the engine copy — fix the asset in the studio and import again.',
-    flags: { type: 'object', properties: { project, object: { type: 'string', description: 'one studio object instead of the whole scene' }, file: { type: 'string', description: 'import an existing .glb instead of exporting from the studio' }, strict: { type: 'boolean', default: true } } },
+    description: 'Export the studio scene (or --object) as GLB into the game (assets/studio/scene.glb) and import it into the engine. Returns the round-trip report: meshes, triangles, materials as the engine sees them, plus engine warnings/errors. Any engine warning fails the import unless --strict false. --player <character> makes that studio character the player: it is exported on its own (assets/studio/player.glb, with its walk/idle clips and what it holds) and starts where it stands in the studio; walk-to and the game\'s own controls then drive it, playing walk at the clip\'s speed and idle when it stops (--player none goes back to a capsule). Other characters stand in the scene playing idle. Clip speeds and loops go in assets/studio/characters.json. Never edit the engine copy — fix the asset in the studio and import again.',
+    flags: { type: 'object', properties: { project, object: { type: 'string', description: 'one studio object instead of the whole scene' }, file: { type: 'string', description: 'import an existing .glb instead of exporting from the studio' }, strict: { type: 'boolean', default: true }, player: { type: 'string', description: 'studio character that is the player (none: a capsule)' } } },
     example: 'studio game import --project forge',
   },
   {
@@ -34,8 +34,8 @@ export const GAME_TOOLS: GameTool[] = [
   },
   {
     name: 'game-walk-to',
-    description: 'Play-test: spawn a capsule player (0.6 m wide, 1.7 m tall, gravity + collision) and walk it straight toward --target (object name or [x,z]) at --speed m/s. Reports reached / blocked / timedOut, seconds, start, final position, distance short, and the path. --from [x,z] sets the start (default: 3 m out from the target, first clear side). --screenshot true also returns an image of where it ended.',
-    flags: { type: 'object', properties: { project, target: { anyOf: [{ type: 'string' }, vec] }, from: vec, speed: { type: 'number', default: 1.4 }, reach: { type: 'number', default: 0.45, description: 'count as reached within this many metres of the target footprint' }, timeout: { type: 'number', default: 20 }, screenshot: { type: 'boolean', default: false } }, required: ['target'] },
+    description: 'Play-test: walk the player straight toward --target (object name or [x,z]) with gravity and collision. The player is the studio character set with `game import --player` (playing its walk clip at the clip\'s speed, idle when it stops, starting where it stands in the studio) or else a capsule (0.6 m wide, 1.7 m tall). Reports reached / blocked / timedOut, seconds, start, final position, distance short, and the path. --from [x,z] sets the start (default: the player character\'s spot, or 3 m out from the target). --screenshot true also returns an image of where it ended; --video true records the walk from a following camera as an MP4 (plus stills).',
+    flags: { type: 'object', properties: { project, target: { anyOf: [{ type: 'string' }, vec] }, from: vec, speed: { type: 'number', description: 'm/s (default: the walk clip\'s speed, or 1.4)' }, reach: { type: 'number', default: 0.45, description: 'count as reached within this many metres of the target footprint' }, timeout: { type: 'number', default: 20 }, screenshot: { type: 'boolean', default: false }, video: { type: 'boolean', default: false } }, required: ['target'] },
     example: 'studio game walk-to --project forge --target "Walnut stool"',
   },
   {

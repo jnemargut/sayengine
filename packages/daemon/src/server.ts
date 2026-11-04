@@ -174,8 +174,24 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
       }
       case 'export': {
         const doc = studio.doc();
-        const ids = args.object ? [studio.findObject(doc, args.object).id] : doc.objectOrder;
-        const items = ids.map((id) => ({ obj: doc.objects[id], res: studio.evaluate(doc.objects[id]) }));
+        // a character comes with the props in its hands; --exclude drops objects and what they hold
+        const heldBy = (id: string) => doc.objectOrder.filter((k) => doc.objects[k]?.place?.kind === 'held' && (doc.objects[k].place as any).target === id);
+        const excluded = new Set<string>();
+        for (const x of String(args.exclude ?? '').split(',').map((v) => v.trim()).filter(Boolean)) { const id = studio.findObject(doc, x).id; excluded.add(id); for (const h of heldBy(id)) excluded.add(h); }
+        const ids = (args.object ? (() => { const id = studio.findObject(doc, args.object).id; return [id, ...heldBy(id)]; })() : doc.objectOrder).filter((id) => !excluded.has(id));
+        if (args.atOrigin && !args.object) return { ok: false, tool: name, error: '--at-origin needs --object' };
+        // --at-origin: the object (and its held props) moved so it stands at the origin facing +Z
+        const anchor = args.atOrigin ? doc.objects[ids[0]] : null;
+        const relocate = (o: any) => {
+          if (!anchor) return o;
+          const a = (-(anchor.rotation ?? 0) * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+          const dx = o.position[0] - anchor.position[0], dz = o.position[2] - anchor.position[2];
+          const pos = [+(dx * c + dz * sn).toFixed(6), o.position[1], +(-dx * sn + dz * c).toFixed(6)];
+          const h = a / 2, qy = [0, Math.sin(h), 0, Math.cos(h)];
+          const mulq = (p: number[], q: number[]) => [p[3] * q[0] + p[0] * q[3] + p[1] * q[2] - p[2] * q[1], p[3] * q[1] - p[0] * q[2] + p[1] * q[3] + p[2] * q[0], p[3] * q[2] + p[0] * q[1] - p[1] * q[0] + p[2] * q[3], p[3] * q[3] - p[0] * q[0] - p[1] * q[1] - p[2] * q[2]];
+          return o === anchor ? { ...o, position: [0, o.position[1], 0], rotation: 0 } : { ...o, position: pos, ...(o.orientation ? { orientation: mulq(qy, o.orientation) } : { rotation: (o.rotation ?? 0) - (anchor.rotation ?? 0) }) };
+        };
+        const items = ids.map((id) => { const obj = relocate(doc.objects[id]); return { obj, res: studio.evaluate(obj) }; });
         const bad = items.filter((i) => !i.res.ok).map((i) => i.obj.name);
         const opts = { includeReferences: !!args.includeReferences };
         const refs = items.filter((i) => i.obj.role === 'reference' && !opts.includeReferences).map((i) => i.obj.name);

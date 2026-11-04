@@ -77,14 +77,17 @@ export interface ImportReport { ok: boolean; engine: 'godot'; version: string; m
 export async function importProject(dir: string): Promise<ImportReport> {
   const g = requireGodot();
   const glb = path.join(dir, 'assets', 'studio', 'scene.glb');
-  if (fs.existsSync(glb)) ensureImportSettings(glb);
+  const playerGlb = path.join(dir, 'assets', 'studio', 'player.glb');
+  for (const f of [glb, playerGlb]) if (fs.existsSync(f)) ensureImportSettings(f);
   // Godot skips unchanged sources; the report comes from the post-import script, so always re-run it
   const cache = path.join(dir, '.godot', 'imported');
-  if (fs.existsSync(cache)) for (const f of fs.readdirSync(cache)) if (f.startsWith('scene.glb-')) fs.rmSync(path.join(cache, f), { force: true });
+  if (fs.existsSync(cache)) for (const f of fs.readdirSync(cache)) if (f.startsWith('scene.glb-') || f.startsWith('player.glb-')) fs.rmSync(path.join(cache, f), { force: true });
   const t0 = Date.now();
   const r = await exec(g.bin, ['--headless', '--path', dir, '--import'], dir, 180000);
   const p = parseGodotOutput(r.text);
-  const rep = p.imports.at(-1) ?? { meshes: 0, triangles: 0, materials: [], objects: [], collision: 0 };
+  const rep = p.imports.filter((x: any) => (x.file ?? 'scene.glb') === 'scene.glb').at(-1) ?? { meshes: 0, triangles: 0, materials: [], objects: [], collision: 0 };
+  const playerRep = p.imports.find((x: any) => x.file === 'player.glb');
+  if (fs.existsSync(playerGlb)) { if (!playerRep) p.errors.push('the player model (assets/studio/player.glb) did not import'); else (rep as any).player = { meshes: playerRep.meshes, triangles: playerRep.triangles, animations: playerRep.animations }; }
   if (r.timedOut) p.errors.push('Godot import timed out after 180 s');
   if (fs.existsSync(glb) && !p.imports.length) p.errors.push('the studio post-import script did not run (check assets/studio/scene.glb.import)');
   return { ok: !p.errors.length, engine: 'godot', version: g.version, ...rep, warnings: p.warnings, errors: p.errors, seconds: (Date.now() - t0) / 1000 };

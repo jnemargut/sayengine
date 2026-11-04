@@ -4,6 +4,7 @@ extends Node
 ## `STUDIO_RESULT {json}` and quits. Commands: info, run, screenshot, walk, test.
 
 const PLAYER := preload("res://studio/player.gd")
+const CHARS := preload("res://studio/characters.gd")
 var main: Node
 
 func _ready() -> void:
@@ -23,6 +24,11 @@ func _ready() -> void:
 	add_child(main)
 	await get_tree().process_frame
 	await get_tree().physics_frame
+	# the game's own keyboard player (main.gd) steps aside: play-tests spawn their own
+	var own := main.get_node_or_null("Player")
+	if own and own.get_script() == PLAYER:
+		own.queue_free()
+	CHARS.animate(_studio_root())
 	var name: String = cmd.get("cmd", "info")
 	if not has_method("_cmd_" + name):
 		_finish({"ok": false, "error": "unknown runner command " + name})
@@ -212,8 +218,13 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 		target_box = AABB(p, Vector3.ZERO)
 	var reach: float = c.get("reach", 0.45)
 	var start: Vector3
+	var pinfo = CHARS.manifest().get("player")
+	var facing := 0.0
 	if c.get("from") is Array:
 		start = _arr3(c["from"])
+	elif pinfo is Dictionary and pinfo.get("start") is Array:
+		start = _arr3(pinfo["start"])
+		facing = deg_to_rad(float(pinfo.get("rotation", 0.0)))
 	else:
 		var center := target_box.get_center()
 		var ext: float = max(target_box.size.x, target_box.size.z) * 0.5
@@ -224,8 +235,10 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 				start = s
 				break
 	var player := _spawn_player(start)
-	player.speed = c.get("speed", 1.4)
+	player.rotation.y = facing + PI
 	await get_tree().physics_frame
+	if c.get("speed") != null:
+		player.speed = c["speed"]
 	await get_tree().physics_frame
 	var timeout: float = c.get("timeout", 20.0)
 	var t := 0.0
@@ -234,7 +247,9 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 	var best := INF
 	var reached := false
 	player.active = true
+	var rec: Dictionary = _recorder(c, target_box, start)
 	while t < timeout:
+		await _record(rec, player)
 		var pos := player.global_position
 		var d := _xz_dist_to_box(pos, target_box)
 		if d <= reach:
@@ -255,6 +270,11 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 		if int(t / 0.5) != int((t - dt) / 0.5):
 			path.append(_v(player.global_position))
 	player.active = false
+	# a beat of standing still at the end (the idle settles in) for the recording
+	if not rec.is_empty():
+		for i in 50:
+			await get_tree().physics_frame
+			await _record(rec, player)
 	var end := player.global_position
 	path.append(_v(end))
 	var result := {
@@ -262,8 +282,11 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 		"seconds": snappedf(t, 0.01), "from": _v(start), "final": _v(end),
 		"distanceToTarget": snappedf(_xz_dist_to_box(end, target_box), 0.001), "reach": reach,
 		"target": target_name if target_name != "" else _v(target_box.position), "path": path,
-		"fellThroughFloor": end.y < -0.5,
+		"fellThroughFloor": end.y < -0.5, "player": (pinfo.get("name", "character") if pinfo is Dictionary and player.avatar != null else "capsule"),
+		"speed": snappedf(player.speed, 0.01),
 	}
+	if not rec.is_empty():
+		result["framesRecorded"] = rec.n
 	if c.get("shot", false):
 		# look across the walk, from the side, so neither the player nor the target hides the other
 		var walk_dir := Vector3(end.x - start.x, 0, end.z - start.z)
@@ -273,6 +296,35 @@ func _cmd_walk(c: Dictionary) -> Dictionary:
 	if c.get("keepPlayer", false) == false:
 		player.queue_free()
 	return result
+
+## Video of a walk: every few physics frames, a following camera from the side of the walk.
+func _recorder(c: Dictionary, target_box: AABB, start: Vector3) -> Dictionary:
+	if not (c.get("frames") is String):
+		return {}
+	var cam := Camera3D.new()
+	cam.fov = 38.0
+	add_child(cam)
+	cam.current = true
+	var tc := target_box.get_center()
+	var walk_dir := Vector3(tc.x - start.x, 0, tc.z - start.z).normalized()
+	if walk_dir.length() < 0.01:
+		walk_dir = Vector3(0, 0, 1)
+	return {"dir": c["frames"], "every": int(c.get("frameEvery", 2)), "i": 0, "n": 0, "cam": cam, "side": Vector3(-walk_dir.z, 0, walk_dir.x), "fwd": walk_dir, "target": tc}
+
+func _record(rec: Dictionary, player: Node3D) -> void:
+	if rec.is_empty():
+		return
+	rec.i += 1
+	if rec.i % rec.every != 0:
+		return
+	var p := player.global_position
+	var look := p.lerp(Vector3(rec.target.x, 0, rec.target.z), 0.3) + Vector3(0, 0.95, 0)
+	var cam: Camera3D = rec.cam
+	cam.look_at_from_position(look + rec.side * 3.6 - rec.fwd * 1.2 + Vector3(0, 1.0, 0), look, Vector3.UP)
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	img.save_png("%s/%05d.png" % [rec.dir, rec.n])
+	rec.n += 1
 
 # ── assertions ───────────────────────────────────────────────────────────────
 

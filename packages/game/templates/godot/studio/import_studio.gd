@@ -2,14 +2,19 @@
 extends EditorScenePostImport
 ## Managed by the studio — overwritten by `studio game import`. Runs every time Godot (re)imports a
 ## studio GLB. The studio owns materials: they come from the GLB on every import, so nothing edited
-## inside Godot can drift from the studio. Godot's glTF importer drops some studio material features
+## inside Godot can drift from the studio. Characters (skinned meshes) get a capsule instead of a
+## trimesh, props riding on a hand get none, and the player model (player.glb) gets no collision at
+## all (its own CharacterBody3D moves it). Godot's glTF importer drops some studio material features
 ## (clearcoat for glazes, transmission for glass), so this script reads the GLB's own material table
 ## and re-applies them. It also adds trimesh collision to every mesh (players can walk on and bump
 ## into studio objects) and prints a one-line JSON report the studio reads as the round-trip result.
 
 func _post_import(scene: Node) -> Object:
 	var studio := _studio_materials(get_source_file())
-	var report := {"meshes": 0, "triangles": 0, "materials": [], "objects": [], "collision": 0, "applied": [], "notCarried": []}
+	var is_player := get_source_file().get_file() == "player.glb"
+	var report := {"file": get_source_file().get_file(), "meshes": 0, "triangles": 0, "materials": [], "objects": [], "collision": 0, "characters": [], "animations": 0, "applied": [], "notCarried": []}
+	for ap in scene.find_children("*", "AnimationPlayer", true, false):
+		report.animations += (ap as AnimationPlayer).get_animation_list().size()
 	var mats := {}
 	for n in scene.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
@@ -30,6 +35,13 @@ func _post_import(scene: Node) -> Object:
 		report.triangles += tris
 		var node := mi if mi.get_parent() == scene or mi.get_parent().get_parent() == null else mi.get_parent()
 		report.objects.append({"name": String(node.name), "triangles": tris})
+		if is_player:
+			continue
+		if mi.skin != null or mi.get_parent() is Skeleton3D:
+			_character_capsule(scene, mi, report)
+			continue
+		if _rides_a_bone(mi):
+			continue
 		# collision: a StaticBody3D with a trimesh shape under the mesh
 		var shape := mi.mesh.create_trimesh_shape()
 		if shape:
@@ -46,6 +58,48 @@ func _post_import(scene: Node) -> Object:
 	report.materials = mats.values()
 	print("STUDIO_IMPORT " + JSON.stringify(report))
 	return scene
+
+## A standing character blocks the way like a person: a capsule at its feet, its height.
+func _character_capsule(scene: Node, mi: MeshInstance3D, report: Dictionary) -> void:
+	var sk := mi.get_parent() as Skeleton3D
+	var base := Vector3.ZERO
+	if sk and sk.get_bone_count() > 0:
+		base = _to_scene(scene, sk) * sk.get_bone_global_rest(0).origin
+	var aabb := mi.get_aabb()
+	var h: float = max(aabb.size.y, 0.5)
+	var body := StaticBody3D.new()
+	body.name = String(mi.name) + "_Body"
+	var cs := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = clamp(min(aabb.size.x, aabb.size.z) * 0.5, 0.15, 0.32)
+	cap.height = h
+	cs.shape = cap
+	cs.position = Vector3(0, h * 0.5, 0)
+	body.add_child(cs)
+	scene.add_child(body)
+	body.owner = scene
+	cs.owner = scene
+	body.position = Vector3(base.x, 0, base.z)
+	report.collision += 1
+	report.characters.append(String(mi.name))
+
+## A node's transform relative to the imported scene root (the scene isn't in a tree while importing).
+func _to_scene(scene: Node, n: Node3D) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var cur: Node = n
+	while cur != null and cur != scene:
+		if cur is Node3D:
+			t = (cur as Node3D).transform * t
+		cur = cur.get_parent()
+	return t
+
+func _rides_a_bone(n: Node) -> bool:
+	var p := n.get_parent()
+	while p != null:
+		if p is BoneAttachment3D:
+			return true
+		p = p.get_parent()
+	return false
 
 ## Material table straight from the GLB's JSON chunk: name → glTF material (incl. extensions/extras).
 func _studio_materials(path: String) -> Dictionary:

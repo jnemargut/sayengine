@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { addStaticColliders, installHarness, type StudioGame } from '../studio/harness.ts';
+import { addStaticColliders, installHarness, startCharacters, type StudioGame } from '../studio/harness.ts';
 
 const STUDIO_SCENE = 'assets/studio/scene.glb';
 
@@ -44,10 +44,12 @@ async function start(): Promise<StudioGame> {
   world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.1, 30).setTranslation(0, -0.1, 0));
 
   let studio: THREE.Object3D | null = null;
+  let animations: THREE.AnimationClip[] = [];
   const res = await fetch(STUDIO_SCENE, { method: 'HEAD' }).catch(() => null);
   if (res?.ok) {
     const gltf = await new GLTFLoader().loadAsync(STUDIO_SCENE);
     studio = gltf.scene;
+    animations = gltf.animations;
     studio.name = 'Studio';
     studio.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     scene.add(studio);
@@ -55,7 +57,7 @@ async function start(): Promise<StudioGame> {
   }
 
   const game: StudioGame = {
-    renderer, scene, camera, studio, world, RAPIER, paused: false,
+    renderer, scene, camera, studio, world, RAPIER, animations, paused: false,
     step(dt: number) {
       world.timestep = dt;
       world.step();
@@ -68,9 +70,12 @@ async function start(): Promise<StudioGame> {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
   });
+  // studio characters play their idle; the studio's player (game import --player) walks with WASD / arrows
+  await startCharacters(game, { controls: true });
   renderer.setAnimationLoop(() => {
     if (game.paused) return;
     game.step(1 / 60);
+    game.characters?.update(1 / 60);
     renderer.render(scene, camera);
   });
   return game;

@@ -14,6 +14,8 @@ export interface GameConfig {
   created: string;
   studio: { configVersion: 1 };
   lastImport?: { at: string; file: string; source: string; ok: boolean; triangles?: number; meshes?: number; warnings: number };
+  /** the studio character the game's player is (exported on its own as assets/studio/player.glb) */
+  player?: string;
 }
 
 export const CONFIG = 'studio-game.json';
