@@ -400,6 +400,64 @@ const tasks: Task[] = [
       return j.animations.some((a: any) => a.name === 'wave' && a.extras.loop === false) ? null : 'no one-off wave clip';
     },
   },
+  // ── printing (Decisions 43–46); numbered P1… so they never collide with the game-track tasks ──
+  {
+    name: 'P1. "A box with a sliding lid, my initials JM on top, and a hole for an M3 screw" — print checks green, two pieces on the bed',
+    run: (_s, step) => {
+      step('new-object', { name: 'JM box', type: 'box', material: 'pla', color: '#d8cfc0' });
+      step('set-print-profile', { printer: 'a1-mini' });
+      step('set-params', { values: { W: 0.06, D: 0.04, H: 0.03, t: 0.002, lidT: 0.002, rail: 0.001, rim: 0.0012 } });
+      step('add-op', { id: 'shell', op: 'roundedBox', part: 'box', args: { size: ['$W', '$H', '$D'], r: 0.0015, at: [0, '$H/2', 0] } });
+      step('add-op', { id: 'cavity', op: 'box', output: false, args: { size: ['$W - 2*$t', '$H', '$D - 2*$t'], at: [0, '$t + $H/2', 0] } });
+      step('add-op', { id: 'groove', op: 'box', output: false, args: { size: ['$W - 2*$t + 2*$rail', '$lidT + 2*$fitSlide', '$D - $t + $rail + 0.002'], at: [0, '$H - $rim - $lidT/2 - $fitSlide', '$t/2 - $rail/2 + 0.001'] } });
+      step('add-op', { id: 'screw', op: 'hole', output: false, args: { size: 'M3', kind: 'clearance', depth: '$t', at: [0, '$t', 0] } });
+      step('add-op', { id: 'body', op: 'difference', inputs: ['shell', 'cavity', 'groove', 'screw'], output: false });
+      const lidX = '$W/2 + 0.012 + ($W - 2*$t + 2*$rail)/2';
+      step('add-op', { id: 'lidPlate', op: 'box', part: 'lid', output: false, args: { size: ['$W - 2*$t + 2*$rail - 2*$fitSlide', '$lidT', '$D - $t + $rail - $fitSlide'], at: [lidX, '$lidT/2', 0] } });
+      step('add-op', { id: 'initials', op: 'text', part: 'initials', output: false, args: { text: 'JM', size: 0.012, depth: 0.0008, at: [lidX, '$lidT - 0.0001', -0.002] } });
+      step('add-op', { id: 'lid', op: 'union', inputs: ['lidPlate', 'initials'], output: false });
+      step('add-op', { id: 'kit', op: 'union', inputs: ['body', 'lid'], output: true });
+    },
+    expect: (s) => {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const r = s.evaluate(s.doc().objects['jm-box']);
+      if (r.components !== 2) return `expected box + lid as 2 pieces, got ${r.components}`;
+      const conn = s.checks('jm-box').find((c) => c.id.startsWith('connected'));
+      return conn && !/each resting on the bed/.test(conn.detail) ? `connected: ${conn.detail}` : null;
+    },
+  },
+  {
+    name: 'P2. "It\'s too long for my printer" — split with pins; every piece fits the A1 mini bed',
+    run: (_s, step) => {
+      step('new-object', { name: 'Shelf bracket', type: 'bracket' });
+      step('set-print-profile', { printer: 'a1-mini' });
+      step('add-op', { id: 'beam', op: 'box', args: { size: [0.26, 0.02, 0.03], at: [0, 0.01, 0] } });
+      step('print-fix', { fix: 'split', axis: 'x' });
+    },
+    expect: (s) => {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const pins = s.evaluate(s.doc().objects['shelf-bracket']).parts.filter((p) => p.name.startsWith('pin')).length;
+      return pins === 2 ? null : `expected 2 pins, got ${pins}`;
+    },
+  },
+  {
+    name: 'P3. "Print the fit test", then "hole 2 was snug, 3 slid, 5 was loose" — gaps reach the box\'s fit params',
+    run: (_s, step) => {
+      step('new-object', { name: 'Peg box', type: 'box' });
+      step('set-print-profile', { printer: 'a1-mini' });
+      step('add-op', { id: 'b', op: 'box', args: { size: [0.03, 0.02, 0.03], at: [0, 0.01, 0] } });
+      step('fit-test');
+      step('fit-result', { press: 2, slide: 3, loose: 5 });
+    },
+    expect: (s) => {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const p = s.doc().objects['peg-box'].params;
+      return p.fitPress.value === 0.00015 && p.fitSlide.value === 0.0002 && p.fitLoose.value === 0.0004 ? null : `fit params ${JSON.stringify([p.fitPress, p.fitSlide, p.fitLoose])}`;
+    },
+  },
 ];
 
 let failed = 0;

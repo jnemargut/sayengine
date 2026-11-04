@@ -1,6 +1,6 @@
 ---
 name: studio
-description: Model 3D objects and small scenes in the AI-first studio — create, modify, give materials, arrange, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches, drags and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, furnish, arrange, render, import a reference for, or export a 3D object (furniture, props, vases, buildings, parts) in this project — including game-ready assets for Godot or three.js (budgets, collision, baked textures).
+description: Model 3D objects and small scenes in the AI-first studio — create, modify, give materials, arrange, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches, drags and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, furnish, arrange, render, import a reference for, or export a 3D object (furniture, props, vases, buildings, parts) in this project — including game-ready assets for Godot or three.js (budgets, collision, baked textures) and things to 3D-print on the user's Bambu Lab A1 mini (print checks, text, screw holes, split to fit, a ready Bambu Studio project).
 ---
 
 # /studio — model in the AI-first 3D studio
@@ -85,6 +85,21 @@ When the request mentions a game, Godot, three.js, the web, "game-ready", or a t
 4. Materials stay presets: export bakes every opaque part (wood grain, colour, roughness, metalness) into one texture pair, so walnut + black metal is still one material. Glaze (clearcoat) and glass get their own. Keep the "Materials within budget" check green by not mixing glaze and glass on mobile.
 5. `./studio export --target godot` (or `web`) — needs the view open (it paints the textures). It refuses while game checks fail, writes `.studio/exports/<object>.<target>.glb`, and reports the unwrap: even texel density, padded islands, no stretch — all must pass. `--texture 512` lowers the bake; `--bake false` exports untextured per-part materials when no view is open. Every GLB passes the Khronos validator or isn't written.
 
+## 3D printing (Bambu Lab A1 mini)
+
+When the request is to print something, or mentions a printer, PLA, Bambu, "for printing", a lid that fits, screw holes, or engraved/raised text. The user's printer is a **Bambu Lab A1 mini: 180 mm cube, 0.4 nozzle, one spool (always one colour)**.
+1. `./studio set-print-profile --printer a1-mini` right after `new-object`. Print checks then run after every step: **fits the bed**, **sealed**, **walls ≥ 0.84 mm** (two nozzle lines; aim for 1.2 mm+), **overhangs needing support** (advice), **flat base** (advice). It also adds params `fitPress`, `fitSlide`, `fitLoose` (metres per side — the user's measured gaps once a fit-test is recorded).
+2. Model in metres as usual; the object prints the way it stands (lowest point on the bed). Parts that must fit together use the gaps: a lid `"$innerW - 2*$fitSlide"`, a peg in a hole `"$pegR + $fitPress"`. Lay separate pieces (box and lid, parts to assemble) side by side on the floor in one object — pieces that each rest on the bed pass "one connected piece"; a piece floating in the air still fails.
+3. Print helpers (`./studio ops` → print):
+   - `text {text, size: cap height, depth, at, axis: y (lying flat, read from above) | z (standing, facing front)}` — union to raise, difference to engrave. Cap height ≥ 5 mm keeps strokes printable (a check says when it's too small).
+   - `hole {size: M3, kind: clearance | tap | insert, depth, at}` — goes *down* from `at`; difference it. `head: true` adds a counterbore.
+   - `split` (or `print-fix --fix split`) cuts a too-long model in two with pin holes and adds the pins; the cut face needs ~8 mm for pins, otherwise glue.
+   - `chamfer` (or `print-fix --fix chamfer`) bevels the bottom edge against the squashed first layer.
+4. Fixes are reviewable steps: `./studio print-fix --fix lay-flat` turns it onto the side that needs the least support (tell the human the before/after it reports). Propose first if they'd want to compare.
+5. **`./studio print`** — refuses while print checks fail (`--force true` overrides), then has Bambu Studio's own command line build a project for the A1 mini (the user's PLA preset, laid on the bed, arranged; each piece its own object), slices a copy for a time/filament estimate, and opens the project in Bambu Studio. Tell the human: "It's open in Bambu Studio — look over the plate, then press Print." The studio never talks to the printer. If Bambu Studio's command line fails, a checked STL opens instead and the result says why.
+6. First print of a project with fits? Offer the coupon: `./studio fit-test`, `./studio print --object fit-test`; after printing, ask which hole was snug / slid / loose and record it: `./studio fit-result --press 2 --slide 3 --loose 5` (updates every printable object and is remembered).
+7. Look before printing: `./studio render --style presentation --views hero,top` and Read it — text reads correctly from above, holes where asked, nothing floating.
+
 ## Characters (people)
 
 Characters come from a kit, not from ops: `./studio new-character --name Blacksmith --preset blacksmith` (presets `default`, `blacksmith`, `apprentice`; proportions `--height 1.8 --build 0.85 --headSize --armLength --legLength --handSize`, `--hair short|none`). The figure is rigged on creation: Godot humanoid bones (fingers, Jaw, Eyes, eyelids), ≤ 4 skin weights per vertex, and 33 face shapes (15 speech shapes + ARKit-named expressions). Checks: "Skin weights", "Bends cleanly in 10 test poses" (`./studio pose-check` shows each pose's worst joint, stretch, self-intersections; clothing clipping is reported separately).
@@ -105,7 +120,7 @@ Characters come from a kit, not from ops: `./studio new-character --name Blacksm
 
 - `./studio check` — everything passes, or say plainly what still fails and why.
 - Summarize in 2–4 lines: what you made, key dimensions, what to look at in the view.
-- Export only when asked: `./studio export --format glb|obj|stl` → path in `.studio/exports/`. STL is millimetres, Z-up, for 3D printing. For games: `./studio export --target godot|web` (see Game assets).
+- Export only when asked: `./studio export --format glb|obj|stl` → path in `.studio/exports/`. STL is millimetres, Z-up; to print, use `./studio print` instead (see 3D printing). For games: `./studio export --target godot|web` (see Game assets).
 
 ## Example: "/studio make a walnut stool"
 

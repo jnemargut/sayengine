@@ -287,7 +287,7 @@ export function printChecks(obj: SceneObject, res: EvalResult, midBuild: boolean
   }));
   out.push({
     id: 'print-overhangs', label: 'Overhangs that need support', pass: true,
-    detail: a.supportArea < 1 ? `none (nothing flatter than ${printer.supportBelow}° hangs in the air)` : `about ${cm2(a.supportArea)} of downward faces flatter than ${printer.supportBelow}° — Bambu Studio adds supports (short flat spans under ~10 mm bridge without); studio print-fix --fix lay-flat finds a side that needs less`,
+    detail: a.supportArea < 1 ? `none (nothing flatter than ${printer.supportBelow}° hangs in the air)` : `about ${cm2(a.supportArea)} of downward faces flatter than ${printer.supportBelow}°: short spans (under ~10 mm) bridge fine; for longer ones turn on supports in Bambu Studio (off in the standard preset), or studio print-fix --fix lay-flat finds a side that needs less`,
   });
   const tall = a.size[2] / Math.max(1, Math.sqrt(a.baseArea));
   out.push({
@@ -298,10 +298,42 @@ export function printChecks(obj: SceneObject, res: EvalResult, midBuild: boolean
   return out;
 }
 
-/** A model that is split on purpose prints as separate pieces: "one connected piece" doesn't apply. */
-export function adjustForPrint(obj: SceneObject, checks: CheckResult[]): CheckResult[] {
-  if (!obj.print || !Object.values(obj.ops).some((n) => n.op === 'split')) return checks;
-  return checks.map((c) => (c.id.startsWith('connected') && !c.pass ? { ...c, pass: true, detail: `${c.detail.split(' —')[0]}: split for printing (each prints on its own, then joins with the pins)` } : c));
+/**
+ * On a printer, separate pieces are normal (a box and its lid, a split model and its pins): each
+ * goes on the plate on its own. "One connected piece" then only fails for a piece that would not
+ * rest on the bed — a part floating in the air, which is the mistake that check is for.
+ */
+export function adjustForPrint(obj: SceneObject, res: EvalResult, checks: CheckResult[]): CheckResult[] {
+  if (!obj.print || !res.ok || res.components <= 1) return checks;
+  const local = localPositions(obj, res);
+  let minY = Infinity;
+  for (let i = 1; i < local.length; i += 3) minY = Math.min(minY, local[i]);
+  const lows = pieceLows(local, res.indices);
+  const floating = lows.filter((y) => y - minY > 0.0001).length;
+  return checks.map((c) => {
+    if (!c.id.startsWith('connected') || c.pass) return c;
+    return floating
+      ? { ...c, detail: `${c.detail.split(' —')[0]}: ${floating} of them would float above the bed — attach it (sink it 1–2 mm into its neighbour) or move it down` }
+      : { ...c, pass: true, detail: `${lows.length} pieces, each resting on the bed: they print side by side${Object.values(obj.ops).some((n) => n.op === 'split') ? ' and join with the pins' : ''}` };
+  });
+}
+
+/** Lowest y of each separate piece. */
+function pieceLows(p: Float32Array, idx: Uint32Array): number[] {
+  const n = p.length / 3;
+  const parent = new Int32Array(n).map((_, i) => i);
+  const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const join = (a: number, b: number) => { const x = find(a), y = find(b); if (x !== y) parent[x] = y; };
+  const seen = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const k = `${Math.round(p[i * 3] * 1e5)},${Math.round(p[i * 3 + 1] * 1e5)},${Math.round(p[i * 3 + 2] * 1e5)}`;
+    const j = seen.get(k);
+    if (j === undefined) seen.set(k, i); else join(i, j);
+  }
+  for (let t = 0; t < idx.length; t += 3) { join(idx[t], idx[t + 1]); join(idx[t], idx[t + 2]); }
+  const low = new Map<number, number>();
+  for (let i = 0; i < n; i++) { const r = find(i); low.set(r, Math.min(low.get(r) ?? Infinity, p[i * 3 + 1])); }
+  return [...low.values()];
 }
 
 // ── lay-flat: the orientation that needs the least support ─────────────

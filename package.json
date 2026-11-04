@@ -21,10 +21,12 @@
     "node": ">=23.6"
   },
   "dependencies": {
+    "@fontsource/roboto": "^5.3.0",
     "@dimforge/rapier3d-compat": "^0.21.0",
     "esbuild": "^0.28.2",
     "gltf-validator": "^2.0.0-dev.3.10",
     "manifold-3d": "^3.5.4",
+    "opentype.js": "^2.0.0",
     "quickjs-emscripten": "^0.31.0",
     "three": "^0.187.0",
     "ws": "^8.22.1",

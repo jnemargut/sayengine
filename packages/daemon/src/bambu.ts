@@ -9,9 +9,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 
-export const BAMBU_APP = process.env.BAMBU_STUDIO_APP ?? '/Applications/BambuStudio.app';
-export const bambuBinary = () => path.join(BAMBU_APP, 'Contents/MacOS/BambuStudio');
-const SYSTEM_DIR = () => path.join(BAMBU_APP, 'Contents/Resources/profiles/BBL');
+/** Where Bambu Studio is (BAMBU_STUDIO_APP overrides, read on every call). */
+export const bambuApp = () => process.env.BAMBU_STUDIO_APP ?? '/Applications/BambuStudio.app';
+export const bambuBinary = () => path.join(bambuApp(), 'Contents/MacOS/BambuStudio');
+const SYSTEM_DIR = () => path.join(bambuApp(), 'Contents/Resources/profiles/BBL');
 const USER_ROOT = () => process.env.BAMBU_STUDIO_DATA ?? path.join(os.homedir(), 'Library/Application Support/BambuStudio');
 
 export type PresetKind = 'machine' | 'process' | 'filament';
@@ -20,10 +21,10 @@ export function findBambu(): { app: string; version: string | null } | null {
   if (!fs.existsSync(bambuBinary())) return null;
   let version: string | null = null;
   try {
-    const plist = fs.readFileSync(path.join(BAMBU_APP, 'Contents/Info.plist'), 'utf8');
+    const plist = fs.readFileSync(path.join(bambuApp(), 'Contents/Info.plist'), 'utf8');
     version = /<key>CFBundleShortVersionString<\/key>\s*<string>([^<]+)<\/string>/.exec(plist)?.[1] ?? null;
   } catch { /* ignore */ }
-  return { app: BAMBU_APP, version };
+  return { app: bambuApp(), version };
 }
 
 /** Folders a preset of this kind may live in: the app's system presets, then your own (user/<id>/kind). */
@@ -123,7 +124,7 @@ export async function buildProject(stls: string[], out: string, presets: PresetC
 /** Open a file in the Bambu Studio app. STUDIO_NO_OPEN=1 (tests) skips it. */
 export function openInBambu(file: string): { opened: boolean; note?: string } {
   if (process.env.STUDIO_NO_OPEN === '1') return { opened: false, note: 'STUDIO_NO_OPEN=1: not opening the app' };
-  const r = spawnSync('open', ['-a', BAMBU_APP, file]);
+  const r = spawnSync('open', ['-a', bambuApp(), file]);
   return r.status === 0 ? { opened: true } : { opened: false, note: String(r.stderr ?? '').trim() || `open exited ${r.status}` };
 }
 

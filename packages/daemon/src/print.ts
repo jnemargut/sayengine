@@ -114,8 +114,26 @@ export async function printTool(studio: Studio, dir: string, stateDir: string, a
   fs.mkdirSync(work, { recursive: true });
   const local = localPositions(obj, res);
   const pieces = splitPieces(local, res.indices);
-  const stls = pieces.map((pc, i) => {
-    const f = path.join(work, pieces.length > 1 ? `${obj.id}-${i + 1}.stl` : `${obj.id}.stl`);
+  // name each piece after the studio part it mostly is (box, lid, half-a, pin…), so Bambu Studio's
+  // object list reads like the model
+  const pieceName = (pc: { positions: Float32Array }) => {
+    let cx = 0, cy = 0, cz = 0;
+    const n = pc.positions.length / 3;
+    for (let i = 0; i < pc.positions.length; i += 3) { cx += pc.positions[i]; cy += pc.positions[i + 1]; cz += pc.positions[i + 2]; }
+    const c = [cx / n + obj.position[0], cy / n + obj.position[1], cz / n + obj.position[2]];
+    const hit = res.parts.filter((q) => !q.name.startsWith('~') && c.every((v, k) => v >= q.bbox.min[k] - 1e-4 && v <= q.bbox.max[k] + 1e-4))
+      .sort((x, y) => vol(y.bbox) - vol(x.bbox))[0]; // the biggest part around it (the lid, not the letters on it)
+    return hit ? hit.name.replace(/#\d+$/, '') : 'piece';
+  };
+  const vol = (b: { min: number[]; max: number[] }) => (b.max[0] - b.min[0]) * (b.max[1] - b.min[1]) * (b.max[2] - b.min[2]);
+  const used = new Map<string, number>();
+  const safe = (x: string) => x.replace(/[^A-Za-z0-9 _.-]+/g, '-').trim() || 'piece';
+  const stls = pieces.map((pc) => {
+    let label = pieces.length > 1 ? `${obj.name} ${pieceName(pc)}` : obj.name;
+    const k = used.get(label) ?? 0;
+    used.set(label, k + 1);
+    if (k) label += ` ${k + 1}`;
+    const f = path.join(work, `${safe(label)}.stl`);
     fs.writeFileSync(f, stlBytes(pc.positions, pc.indices));
     return f;
   });

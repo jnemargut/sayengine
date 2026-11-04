@@ -45,6 +45,9 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 30 | `/game walk the apprentice up to the anvil` *(after 29)* | `walk-to --target Anvil --video true`: reached, as the apprentice, at the walk clip's speed; Claude Reads the stills (feet planted, idle at the end); walking through the forge is blocked |
 | 31 | `/studio make a blacksmith and a little forge yard` | ~10 props with the godot-desktop profile and collision, the blacksmith holding a hammer, the apprentice; every check green (overlaps, grounding, one piece, motions) — `bench/forge.ts` is the reference |
 | 32 | `/studio make him walk slower and more tired, and wave hello` | `set-motion --id walk --speed 0.9 --energy 0.15`, `set-motion --id wave --kind action --action wave`; motion checks green; `motion-preview --video true` stills Read |
+| P1 | `/studio make a box with a sliding lid and my initials "JM" on top, and a hole for an M3 screw` | `set-print-profile --printer a1-mini`; lid gap uses `$fitSlide`; `text` + `hole` ops; all print checks green (bed, walls ≥ 0.84 mm, base); box + lid pass as 2 pieces resting on the bed; `studio print` opens a project with the A1 mini preset and an estimate |
+| P2 | `/studio make a 26 cm shelf bracket I can print` | the bed check fails; Claude runs `print-fix --fix split` (2 pins, matching holes); every piece fits; reports the pins |
+| P3 | `/studio print the fit test`, then "hole 2 was snug, 3 slid, 5 was loose" | `fit-test`, `studio print --object fit-test`; `fit-result --press 2 --slide 3 --loose 5` updates fitPress/fitSlide/fitLoose everywhere and is remembered for new objects |
 
 ## What to record (from `node bench/score.ts`)
 

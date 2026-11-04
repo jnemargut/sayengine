@@ -127,7 +127,7 @@ export class Studio {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }
     const core = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc)];
-    const base = o.print ? adjustForPrint(o, [...core, ...printChecks(o, r, core.some((c) => c.pending))]) : core;
+    const base = o.print ? adjustForPrint(o, r, [...core, ...printChecks(o, r, core.some((c) => c.pending))]) : core;
     if (!o.profile) return base;
     const midBuild = base.some((c) => c.pending);
     return [...base, ...profileChecks(o, r, { evaluateOp: (x, id) => this.evaluateOp(x, id), overlap: (a, b) => overlapVolume(a, b) }, midBuild)];
