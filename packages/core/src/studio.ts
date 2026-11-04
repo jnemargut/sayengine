@@ -12,7 +12,8 @@ import { codeView } from './codeview.ts';
 import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
-import { poseChecks, weightReport, mouthCheck, type PoseCheck } from './rig.ts';
+import { poseChecks, weightReport, mouthCheck, speechCheck, type PoseCheck } from './rig.ts';
+import { CAST_SIMILAR, outlineSimilarity, silhouette, type Silhouette } from './charstyle.ts';
 import { compilePerformance, performanceReport } from './performance.ts';
 import { apronReport, bakeMotion, motionReport, checkFrames } from './motion.ts';
 import { fingerPenetration } from './grip.ts';
@@ -158,6 +159,10 @@ export class Studio {
     out.push({ id: 'skin-weights', label: 'Skin weights', pass: !w.unbound && !w.badSum && w.maxInfluences <= 4, detail: w.unbound || w.badSum ? `${w.unbound} unbound vertices, ${w.badSum} whose weights don't sum to 1` : `every vertex bound, ≤ ${w.maxInfluences} bones each, weights sum to 1` });
     const mouth = mouthCheck(r.rig.rig, r.rig.rest, r.rig.vertPart);
     out.push({ id: 'mouth-inside', label: 'Teeth and tongue stay behind the lips', pass: mouth.pass, detail: mouth.detail });
+    const speech = speechCheck(r.rig.rig, r.rig.rest, r.rig.vertPart);
+    out.push({ id: 'speech-shapes', label: 'Speech shapes read: closes on M/B/P, distinct shapes', pass: speech.pass, detail: speech.detail });
+    const cast = this.castCheck(o, doc);
+    if (cast) out.push(cast);
     const poses = this.poseChecks(o);
     const bad = poses.filter((p) => !p.pass);
     out.push({
@@ -179,6 +184,45 @@ export class Studio {
     }
     for (const id of Object.keys(o.character?.motions ?? {})) out.push(...this.motionChecks(o, id));
     return out;
+  }
+
+  private silCache = new Map<string, Silhouette>();
+  /** A character's outline in its rest pose (cached per geometry). */
+  silhouetteOf(o: SceneObject): Silhouette | null {
+    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output]);
+    let v = this.silCache.get(key);
+    if (!v) {
+      const r = this.evaluate(o);
+      if (!r.ok || !r.rig) return null;
+      const bone = (n: string) => r.rig!.rig.bones.find((b) => b.name === n);
+      const sp = r.rig.rig.spec, pp = sp.params;
+      v = silhouette(r.rig.rest, bone('Head')?.head[1], bone('Hips')?.head[1], [sp.plan ?? 'human', sp.face.kind ?? 'human', pp.eyes ?? '', pp.nose ?? '', pp.hair, pp.ears ?? '', pp.brows ?? '', pp.style ?? 'faceted']);
+      if (this.silCache.size > 40) this.silCache.delete(this.silCache.keys().next().value!);
+      this.silCache.set(key, v);
+    }
+    return v;
+  }
+
+  /** The cast check (Decision 47 A): a character's outline must differ from every other character in the
+   *  scene, so a cast doesn't read as cousins. */
+  castCheck(o: SceneObject, doc: SceneDoc): CheckResult | null {
+    const others = doc.objectOrder.map((id) => doc.objects[id]).filter((x) => x && x.id !== o.id && x.semanticType === 'character' && x.role !== 'reference');
+    if (!others.length) return null;
+    const me = this.silhouetteOf(o);
+    if (!me) return null;
+    let worst = 0, who = '';
+    for (const x of others) {
+      const sx = this.silhouetteOf(x);
+      if (!sx) continue;
+      const sim = outlineSimilarity(me, sx);
+      if (sim > worst) { worst = sim; who = x.name; }
+    }
+    const pass = worst <= CAST_SIMILAR;
+    return {
+      id: 'cast-outline', label: 'Outline differs from the rest of the cast', pass,
+      detail: pass ? `most alike: ${who} (${Math.round(worst * 100)}% alike in outline and face parts, limit ${Math.round(CAST_SIMILAR * 100)}%)`
+        : `${Math.round(worst * 100)}% alike with ${who} (outline proportions and face parts) — they read as cousins. Change the body plan (--plan), or push height, build, head size or leg length apart`,
+    };
   }
 
   private perfCache = new Map<string, CheckResult[]>();

@@ -4,7 +4,8 @@
 import { z } from 'zod';
 import { freeSpot, type ToolDef } from './tools.ts';
 import type { CharacterState, GripSocket, HandPose, LineClip, Material, SceneObject } from './types.ts';
-import { CHAR_DEFAULTS, EXPRESSIONS, NAMED_HAND_POSES, SHAPE_KEYS, VISEMES, characterSpec, charParams, weightReport, type V3 } from './rig.ts';
+import { BODY_PLANS, BROW_STYLES, CHAR_DEFAULTS, EARS, EXPRESSIONS, EYE_STYLES, HAIRS, MOUTHS, NAMED_HAND_POSES, NOSES, PLANS, SHAPE_KEYS, STYLE_FAMILIES, VISEMES, apronDepth, characterSpec, charParams, weightReport, type BodyPlan, type V3 } from './rig.ts';
+import { decodePng, readReference } from './charstyle.ts';
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
 import { lineLife } from './life.ts';
 import { ACTIONS, MOTION_DEFAULTS, bakeMotion, motionSettings } from './motion.ts';
@@ -30,20 +31,41 @@ function asCharacter(o: SceneObject): SceneObject {
 }
 
 // ── looks: palettes per preset ───────────────────────────────────────────
-interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string }
+interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string; metal?: boolean }
 const LOOKS: Record<string, Look> = {
   default: { skin: '#d9a77a', hair: '#4a3022', shirt: '#6f8fa8', sleeves: 'shirt', trousers: '#3f4654', boots: '#2f2a26', lips: '#b06a5a', iris: '#5b4632' },
-  blacksmith: { skin: '#c58c64', hair: '#3b2a20', shirt: '#9a8466', sleeves: 'skin', trousers: '#3c4350', boots: '#2e2a26', lips: '#9c5a4a', iris: '#4a3b2c', apron: '#5a3a24' },
-  apprentice: { skin: '#e3b48f', hair: '#8a5a2e', shirt: '#7b9a72', sleeves: 'shirt', trousers: '#5a5248', boots: '#3b3129', lips: '#c07466', iris: '#4f6b3a' },
+  // the forge pair, recast (Phase 7): a stocky, bald, bushy-browed smith and a lanky, freckled kid
+  blacksmith: { skin: '#b9774f', hair: '#b4542b', shirt: '#7d6a55', sleeves: 'skin', trousers: '#3a3f4a', boots: '#2a2420', lips: '#8f4e3e', iris: '#3d4a5c', apron: '#5a3a24' },
+  apprentice: { skin: '#efc3a0', hair: '#d0682f', shirt: '#4f8a8b', sleeves: 'shirt', trousers: '#6a5a40', boots: '#4a3626', lips: '#cf7f6e', iris: '#4f7a3a' },
+  goblin: { skin: '#7fa05a', hair: '#2d2a26', shirt: '#8a3b2e', sleeves: 'skin', trousers: '#4a4034', boots: '#3a2a20', lips: '#4f6a3a', iris: '#e0b030', apron: '#c9a46a' },
+  robot: { skin: '#a9b4bf', hair: '#3a4250', shirt: '#d97b2e', sleeves: 'skin', trousers: '#4b5563', boots: '#2b3038', lips: '#e8eef4', iris: '#41c9e6', metal: true },
+  bird: { skin: '#e8dcc0', hair: '#c4532d', shirt: '#4c6fa8', sleeves: 'skin', trousers: '#e8dcc0', boots: '#e09a2c', lips: '#e8a23a', iris: '#141210' },
+  kid: { skin: '#f0c9a6', hair: '#2c2c3a', shirt: '#e8b33a', sleeves: 'shirt', trousers: '#3d6ea8', boots: '#c94a3a', lips: '#d98474', iris: '#2f2620' },
+  elder: { skin: '#d6a37e', hair: '#e2ddd3', shirt: '#6a4c7a', sleeves: 'shirt', trousers: '#4a4450', boots: '#2f2a26', lips: '#a96858', iris: '#4c6278' },
 };
-const PRESETS: Record<string, Partial<Record<string, number>>> = {
+/** Presets: a body plan, proportions and face parts (Decision 47 A). Anything can be overridden. */
+const PRESETS: Record<string, Partial<Record<string, number | string>>> = {
   default: {},
-  blacksmith: { height: 1.8, build: 0.85, headSize: 1.04, armLength: 1.02, handSize: 1.12 },
-  apprentice: { height: 1.62, build: 0.32, headSize: 1.1, armLength: 0.98, legLength: 0.98, handSize: 0.95 },
+  blacksmith: { plan: 'stocky', height: 1.42, build: 0.95, handSize: 1.05, hair: 'none', brows: 'bushy', nose: 'big' },
+  apprentice: { plan: 'lanky', height: 1.9, build: 0.1, headSize: 1.12, hair: 'tuft', nose: 'long', ears: 'pointy', eyes: 'big' },
+  goblin: { plan: 'stocky', height: 1.05, build: 0.55, headSize: 1.25, armLength: 1.1, hair: 'none', nose: 'long', ears: 'pointy', mouth: 'cartoon', eyes: 'big', brows: 'none', style: 'toy' },
+  robot: { plan: 'lanky', height: 2.0, build: 0.3, headSize: 1.35, hair: 'none', mouth: 'grille', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', style: 'toy' },
+  bird: { plan: 'beaked' },
+  kid: { plan: 'chibi', hair: 'bun' },
+  elder: { plan: 'human', height: 1.66, build: 0.4, headSize: 1.06, hair: 'bun', nose: 'long', brows: 'bushy', style: 'smooth' },
 };
+/** Palettes: colour families that can dress any plan. */
+const PALETTES: Record<string, Partial<Look>> = {
+  earthy: { shirt: '#8a6a48', trousers: '#4a4034', boots: '#2e2620', hair: '#4a3022' },
+  storybook: { shirt: '#c8463a', trousers: '#2f5d8a', boots: '#3b2a20', hair: '#2a2a3a' },
+  forest: { shirt: '#3f6b3a', trousers: '#5a4a32', boots: '#2e2a20', hair: '#6a4a24' },
+  pastel: { shirt: '#9fc7d9', trousers: '#e8c1c9', boots: '#7a6a8a', hair: '#d9b56a' },
+  night: { shirt: '#3a3f6b', trousers: '#22253a', boots: '#151520', hair: '#1a1a22' },
+};
+export const CHARACTER_PRESETS = Object.keys(PRESETS);
 const mat = (name: string, color: string, roughness = 0.75, extra: Partial<Material> = {}): Material => ({ name, color, roughness, metalness: 0, grain: null, ...extra });
 function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
-  const skin = mat('skin', l.skin, 0.62);
+  const skin = mat('skin', l.skin, l.metal ? 0.38 : 0.62, l.metal ? { metalness: 0.55 } : {});
   return [
     { parts: 'torso', material: mat('shirt', l.shirt, 0.9) },
     { parts: '*UpperArm', material: mat('shirt', l.shirt, 0.9) },
@@ -54,8 +76,8 @@ function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
     { parts: '*Toes', material: mat('boots', l.boots, 0.55) },
     { parts: 'hair', material: mat('hair', l.hair, 0.85) },
     { parts: 'brow.*', material: mat('hair', l.hair, 0.85) },
-    { parts: 'lip*', material: mat('lips', l.lips, 0.5) },
-    { parts: 'mouthInner', material: mat('mouth', '#542220', 0.75) },
+    { parts: 'lip*', material: mat('lips', l.lips, 0.5, l.metal ? { metalness: 0.6 } : {}) },
+    { parts: 'mouthInner', material: mat('mouth', l.metal ? '#1b2027' : '#542220', 0.75) },
     { parts: 'teeth*', material: mat('teeth', '#ece4d4', 0.35) },
     { parts: 'tongue', material: mat('tongue', '#b0605a', 0.55) },
     { parts: 'eyeSocket', material: mat('skin', shade(l.skin, 0.8), 0.7) },
@@ -69,6 +91,22 @@ function shade(hex: string, f: number): string {
   const n = parseInt(hex.slice(1), 16);
   const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.round(v * f));
   return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+/** A reference picture steers a new character: its outline picks the body plan (unless one was given)
+ *  and the head and leg proportions; its colours, sampled by height band, dress it. */
+function referenceSteer(ctx: any, file: string, P: any): { params: Record<string, unknown>; look: Partial<Look>; note: string } {
+  const bytes: Uint8Array = ctx.studio.assets.readExternal(file);
+  const ref = readReference(decodePng(bytes));
+  const explicitPlan = P.plan && P.plan !== 'human' ? P.plan as BodyPlan : undefined;
+  const plan = explicitPlan ?? ref.plan;
+  const params: Record<string, unknown> = { plan };
+  if (!explicitPlan) { params.height = PLANS[plan].height; params.build = PLANS[plan].build; }
+  // proportions relative to the chosen plan
+  const scale = (v: number, k: 'head' | 'leg') => +Math.min(k === 'head' ? 1.6 : 1.4, Math.max(0.7, (v * (k === 'head' ? PLANS[ref.plan].head : PLANS[ref.plan].leg)) / PLANS[plan][k])).toFixed(2);
+  params.headSize = scale(ref.params.headSize as number, 'head');
+  params.legLength = scale(ref.params.legLength as number, 'leg');
+  return { params, look: ref.look as Partial<Look>, note: ref.note + (explicitPlan && explicitPlan !== ref.plan ? ` (kept your ${explicitPlan} plan)` : '') };
 }
 
 /** A hand pose from a named pose and/or explicit settings. */
@@ -92,25 +130,43 @@ const describeHand = (h: HandPose) => h.name ?? `curl ${['index', 'middle', 'rin
 export const CHARACTER_TOOLS: ToolDef[] = [
   {
     name: 'new-character', mode: 'create', mutates: true,
-    description: 'Make a character from the humanoid kit (Decision 14): a low-poly body with a stylized face and full hands, born rigged — 56 Godot humanoid bones, skin weights, 15 speech shapes + 18 expression shapes. Proportions are params (height, build 0..1, headSize, armLength, legLength, handSize), so "make him taller" is one set-param. --preset blacksmith | apprentice | default sets proportions, colours and (blacksmith) a leather apron. Clothes, hair and tools are ordinary ops unioned with the body op; they follow the nearest bones. Starts relaxed (arms down, hands relaxed).',
+    description: `Make a character, skeleton first (Decision 47 A): pick a body plan (${BODY_PLANS.join(', ')}), and the studio builds that skeleton (standard humanoid bone names), a low-poly body around it, a face from parts and hair. Born rigged: skin weights, 15 speech shapes + 18 expression shapes (every mouth answers to the same names), full hands. Face parts: --mouth ${MOUTHS.join('|')}, --eyes ${EYE_STYLES.join('|')}, --brows ${BROW_STYLES.join('|')}, --nose ${NOSES.join('|')}, --ears ${EARS.join('|')}, --hair ${HAIRS.join('|')}; --style ${STYLE_FAMILIES.join('|')} (how the facets are cut); --palette ${Object.keys(PALETTES).join('|')}. Presets: ${Object.keys(PRESETS).join(', ')}. --reference picture.png steers proportions and colours. Proportions stay params (height, build 0..1, headSize, armLength, legLength, handSize), so "make him taller" is one set-param. Studio check compares each new character's outline with the rest of the cast (no look-alikes).`,
     input: z.object({
-      name: z.string(), id: z.string().optional(), preset: z.enum(['default', 'blacksmith', 'apprentice']).optional(),
+      name: z.string(), id: z.string().optional(), preset: z.enum(Object.keys(PRESETS) as [string, ...string[]]).optional(),
+      plan: z.enum(BODY_PLANS).optional(), style: z.enum(STYLE_FAMILIES).optional(), palette: z.enum(Object.keys(PALETTES) as [string, ...string[]]).optional(),
+      mouth: z.enum(MOUTHS).optional(), eyes: z.enum(EYE_STYLES).optional(), brows: z.enum(BROW_STYLES).optional(), nose: z.enum(NOSES).optional(), ears: z.enum(EARS).optional(),
       height: z.number().min(0.5).max(3).optional(), build: z.number().min(0).max(1).optional(), headSize: z.number().min(0.7).max(1.6).optional(),
       armLength: z.number().min(0.7).max(1.4).optional(), legLength: z.number().min(0.7).max(1.4).optional(), handSize: z.number().min(0.6).max(1.6).optional(),
-      hair: z.enum(['short', 'none']).optional(),
+      hair: z.enum(HAIRS).optional(), apron: z.boolean().optional(),
       skin: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), hairColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), shirt: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      trousers: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+      reference: z.string().optional(),
       position: z.tuple([z.number(), z.number(), z.number()]).optional(),
     }),
-    example: `studio new-character --name "Blacksmith" --preset blacksmith`,
+    example: `studio new-character --name "Mossy" --plan beaked --palette forest`,
     run(ctx, a) {
-      const preset = a.preset ?? 'default';
+      const preset = a.preset ?? (a.plan ? undefined : 'default');
       let id = a.id ?? slug(a.name);
       while (ctx.doc.objects[id]) id = id + '-2';
-      const P = { ...CHAR_DEFAULTS, ...PRESETS[preset] } as any;
-      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize'] as const) if (a[k] !== undefined) P[k] = a[k];
+      const pre = preset ? PRESETS[preset] : {};
+      let plan = (a.plan ?? pre.plan ?? 'human') as BodyPlan;
+      const P = { ...CHAR_DEFAULTS, height: PLANS[plan].height, build: PLANS[plan].build, ...pre, plan } as any;
+      // a reference picture steers proportions (its outline) and colours (sampled by height band)
+      let refLook: Partial<Look> = {}, refNote = '';
+      if (a.reference) {
+        const ref = referenceSteer(ctx, a.reference, P);
+        Object.assign(P, ref.params); refLook = ref.look; refNote = ref.note;
+        plan = P.plan;
+      }
+      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears'] as const) if (a[k] !== undefined) P[k] = a[k];
+      const PD = PLANS[plan];
+      if (a.hair === undefined && pre.hair === undefined) P.hair = PD.face.hair;
       charParams(P); // validate the combination
-      const spec = characterSpec(charParams({ ...P, hair: a.hair }));
-      const look = { ...LOOKS[preset], ...(a.skin ? { skin: a.skin } : {}), ...(a.hairColor ? { hair: a.hairColor } : {}), ...(a.shirt ? { shirt: a.shirt } : {}) };
+      const spec = characterSpec(charParams(P));
+      const baseLook = LOOKS[preset ?? ''] ?? LOOKS[{ chibi: 'kid', beaked: 'bird', stocky: 'blacksmith', lanky: 'apprentice', human: 'default' }[plan]];
+      const look: Look = { ...baseLook, ...(a.palette ? PALETTES[a.palette] : {}), ...refLook, ...(a.skin ? { skin: a.skin } : {}), ...(a.hairColor ? { hair: a.hairColor } : {}), ...(a.shirt ? { shirt: a.shirt } : {}), ...(a.trousers ? { trousers: a.trousers } : {}) };
+      if (a.apron === false) delete look.apron;
+      if (a.apron === true && !look.apron) look.apron = '#5a3a24';
       const params: SceneObject['params'] = {
         height: { value: P.height, unit: 'm', min: 0.5, max: 3, description: 'standing height (feet to crown)' },
         build: { value: P.build, unit: '', min: 0, max: 1, description: 'slim 0 … broad 1' },
@@ -120,7 +176,8 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         handSize: { value: P.handSize, unit: '', min: 0.6, max: 1.6, description: 'hand size (×)' },
       };
       const ops: SceneObject['ops'] = {
-        body: { id: 'body', op: 'character', args: { height: '$height', build: '$build', headSize: '$headSize', armLength: '$armLength', legLength: '$legLength', handSize: '$handSize', hair: a.hair ?? 'short' }, part: 'body' },
+        body: { id: 'body', op: 'character', args: { height: '$height', build: '$build', headSize: '$headSize', armLength: '$armLength', legLength: '$legLength', handSize: '$handSize', hair: P.hair ?? 'short',
+          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])) }, part: 'body' },
       };
       const opOrder = ['body'];
       let output = 'body';
@@ -132,10 +189,12 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         // a bib apron: wide over the thighs, narrower over the chest (an outline pushed 3 cm deep)
         const k = '* $height / 1.75';
         const yb = r2(hip / s - 0.36), yw = r2(hip / s + 0.05), yt = r2(chest / s + 0.02);
+        // the apron follows the plan's body: wider over a barrel chest, further out over a belly
+        const wx = r2(Math.max(1, PD.torso[1] * 0.9)), dz = r2(apronDepth(plan));
         ops.apron = { id: 'apron', op: 'extrude', part: 'apron', args: {
           axis: 'z', h: `0.03 ${k}`,
-          profile: [[`-0.2 ${k}`, `${yb} ${k}`], [`0.2 ${k}`, `${yb} ${k}`], [`0.18 ${k}`, `${yw} ${k}`], [`0.12 ${k}`, `${yt} ${k}`], [`-0.12 ${k}`, `${yt} ${k}`], [`-0.18 ${k}`, `${yw} ${k}`]],
-          at: [0, 0, `0.123 ${k} * (0.9 + 0.3 * $build)`],
+          profile: [[`-${r2(0.2 * wx)} ${k}`, `${yb} ${k}`], [`${r2(0.2 * wx)} ${k}`, `${yb} ${k}`], [`${r2(0.18 * wx)} ${k}`, `${yw} ${k}`], [`${r2(0.12 * wx)} ${k}`, `${yt} ${k}`], [`-${r2(0.12 * wx)} ${k}`, `${yt} ${k}`], [`-${r2(0.18 * wx)} ${k}`, `${yw} ${k}`]],
+          at: [0, 0, dz === 1 ? `0.123 ${k} * (0.9 + 0.3 * $build)` : `0.123 ${k} * (0.9 + 0.3 * $build) * ${dz}`],
         } };
         ops.figure = { id: 'figure', op: 'union', args: {}, inputs: ['body', 'apron'] };
         opOrder.push('apron', 'figure');
@@ -146,17 +205,19 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         hands: { left: { ...NAMED_HAND_POSES.relaxed }, right: { ...NAMED_HAND_POSES.relaxed } },
         expression: {},
         // every character can stand and walk in a game from the start (set-motion tunes or adds more)
-        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' }, start: { kind: 'start' }, stop: { kind: 'stop' } },
+        // the plan's own gait (a beaked body waddles, a chibi bounces) unless set-motion says otherwise
+        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk', ...(spec.walk ? { style: spec.walk } : {}) }, start: { kind: 'start' }, stop: { kind: 'stop' } },
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,
-        material: mat('skin', look.skin, 0.62), partMaterials: partMaterials(look),
+        material: mat('skin', look.skin, look.metal ? 0.38 : 0.62, look.metal ? { metalness: 0.55 } : {}), partMaterials: partMaterials(look),
         position: a.position ?? freeSpot(ctx as any), character, rules: [],
       };
       ctx.set(['objects', id], obj);
       ctx.set(['objectOrder'], [...ctx.doc.objectOrder, id]);
-      ctx.summary(`Created character "${a.name}" (${preset}, ${P.height} m) — rigged: 56 bones, ${SHAPE_KEYS.length} face shapes`);
-      return { id, preset, params: Object.fromEntries(Object.entries(params).map(([k, p]) => [k, p.value])), shapes: { speech: VISEMES, expression: EXPRESSIONS }, handPoses: Object.keys(NAMED_HAND_POSES), next: `studio set-expression --object ${id} --values '{"mouthSmileLeft":0.5,"mouthSmileRight":0.5}'` };
+      const face = spec.face.kind ?? 'human';
+      ctx.summary(`Created character "${a.name}" (${preset ?? plan} — ${plan} body, ${face} mouth, ${P.height} m) — rigged: ${spec.bones.length} bones, ${SHAPE_KEYS.length} face shapes${refNote ? `; ${refNote}` : ''}`);
+      return { id, preset: preset ?? null, plan, face: { mouth: face, eyes: P.eyes ?? PD.face.eyes, brows: P.brows ?? PD.face.brows, nose: P.nose ?? PD.face.nose, ears: P.ears ?? PD.face.ears, hair: P.hair }, style: P.style ?? 'faceted', ...(spec.walk ? { gait: spec.walk } : {}), ...(refNote ? { reference: refNote } : {}), params: Object.fromEntries(Object.entries(params).map(([k, p]) => [k, p.value])), shapes: { speech: VISEMES, expression: EXPRESSIONS }, handPoses: Object.keys(NAMED_HAND_POSES), next: `studio check --object ${id}  (the cast check compares its outline with the other characters)` };
     },
   },
   {

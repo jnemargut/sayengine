@@ -164,6 +164,21 @@ export const MOTION_DEFAULTS = {
   stop: { duration: 0.9 },
 };
 
+/** A human's leg length (hip to ankle) at 1.75 m: gaits scale with leg length / this. */
+export const HUMAN_LEG = 0.7833;
+export const gaitScale = (legLen: number) => legLen / HUMAN_LEG;
+/** Gait styles (Decision 48 A): multipliers on the computed walk. A waddle rocks over each foot with a
+ *  wide stance and short steps; a swagger rolls the shoulders and swings the arms; a shuffle barely
+ *  lifts its feet; a bounce dips into every step. */
+export interface GaitStyle { speed: number; stride: number; sway: number; swing: number; lean: number; bounce: number; lift: number; widen: number; roll: number; yaw: number; shoulders: number; out: number; dip: number }
+export const GAIT_STYLES: Record<string, GaitStyle> = {
+  '': { speed: 1, stride: 1, sway: 1, swing: 1, lean: 0, bounce: 1, lift: 1, widen: 1, roll: 0, yaw: 1, shoulders: 1, out: 0, dip: 0 },
+  waddle: { speed: 0.8, stride: 0.78, sway: 1.4, swing: 0.6, lean: -1, bounce: 0.6, lift: 0.7, widen: 1.12, roll: -5, yaw: 0.5, shoulders: 0.6, out: 14, dip: 0 },
+  swagger: { speed: 0.92, stride: 1.03, sway: 1.5, swing: 1.5, lean: -2.5, bounce: 1.1, lift: 1, widen: 1.06, roll: 1.5, yaw: 1.7, shoulders: 2.4, out: 6, dip: 0 },
+  shuffle: { speed: 0.7, stride: 0.66, sway: 0.8, swing: 0.5, lean: 5, bounce: 0.35, lift: 0.4, widen: 1, roll: 0, yaw: 0.7, shoulders: 1, out: 0, dip: 0 },
+  bounce: { speed: 1.05, stride: 0.96, sway: 1, swing: 1.25, lean: 0, bounce: 2.2, lift: 1.35, widen: 1, roll: 0, yaw: 1.1, shoulders: 1, out: 0, dip: 0.014 },
+};
+
 /** Validate settings and fill defaults (throws a readable error). */
 export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
   const kinds = ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop'];
@@ -181,6 +196,7 @@ export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
     if (!ACTIONS[spec.action]) throw new Error(`no action "${spec.action}" — library: ${Object.keys(ACTIONS).join(', ')}`);
   }
   if (spec.kind === 'turn' && spec.turn === undefined) throw new Error('a turn motion needs --turn degrees (+ = to the left)');
+  if (spec.style !== undefined && !GAIT_STYLES[spec.style]) throw new Error(`motion style must be one of ${Object.keys(GAIT_STYLES).filter(Boolean).join(', ')}`);
   return { ...spec, energy: spec.energy ?? 0.5 };
 }
 
@@ -226,20 +242,26 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
   if (S.kind === 'walk' || S.kind === 'run') {
     const D = MOTION_DEFAULTS[S.kind];
     const run = S.kind === 'run';
-    const v = S.speed ?? D.speed * Math.sqrt(s);
+    // everything scales with leg length (bodies of different sizes walk alike at the same Froude number):
+    // short legs patter with quick steps, long legs lope; for a human g = height / 1.75
+    const g = gaitScale(legLen), sg = Math.sqrt(g);
+    const SM0 = GAIT_STYLES[S.style ?? ''] ?? GAIT_STYLES[''];
+    // a style changes how a walk steps; a run keeps its mechanics and only takes the upper-body flavour
+    const SM = run ? { ...GAIT_STYLES[''], swing: SM0.swing, yaw: SM0.yaw, shoulders: SM0.shoulders } : SM0;
+    const v = S.speed ?? D.speed * sg * SM.speed;
     const k = 0.6 + 0.8 * en;                                          // energy scales the flourishes
     // runners lengthen the stride more than they quicken the step: ~170 steps/min at 3.4 m/s, ~180 sprinting
-    const strideWanted = S.stride ?? (run ? legLen * 3.28 * (v / (3.4 * Math.sqrt(s))) ** 0.85 : legLen * 1.55 * (v / (1.3 * Math.sqrt(s))) ** 0.42);
+    const strideWanted = S.stride ?? (run ? legLen * 3.28 * (v / (3.4 * sg)) ** 0.85 : legLen * 1.55 * (v / (1.3 * sg)) ** 0.42) * SM.stride;
     frames = Math.max(12, Math.round((strideWanted / v) * fps));
     duration = frames / fps;
     stride = strideWanted; speed = stride / duration; loop = true;
     // a faster run spends less of the stride on the ground (the stance stays about as long in metres;
     // the extra length is flight)
-    const duty = run ? clamp(D.duty - (v / Math.sqrt(s) - 3.4) * 0.042, 0.16, 0.33) : D.duty, Lst = stride * duty;
-    const swing = (S.armSwing ?? D.armSwing) * k, sway = (S.sway ?? D.sway * s);
+    const duty = run ? clamp(D.duty - (v / sg - 3.4) * 0.042, 0.16, 0.33) : D.duty, Lst = stride * duty;
+    const swing = (S.armSwing ?? D.armSwing * SM.swing) * k, sway = (S.sway ?? D.sway * s * SM.sway);
     // a faster run leans further into it
-    const lean = S.lean ?? (run ? D.lean * (0.85 + 0.25 * clamp((v / Math.sqrt(s) - 3) / 3)) : D.lean);
-    const yawAmp = (run ? 7 : 5) * k, lift = D.lift * s * (run ? 1 : 0.8 + 0.4 * en);
+    const lean = S.lean ?? (run ? D.lean * (0.85 + 0.25 * clamp((v / sg - 3) / 3)) : D.lean + SM.lean);
+    const yawAmp = (run ? 7 : 5) * k * SM.yaw, lift = D.lift * s * (run ? 1 : 0.8 + 0.4 * en) * SM.lift;
     // the foot rolls: it lands on the heel (toe up), goes flat, then the heel lifts and it pivots over
     // the ball of the foot (toes stay on the ground) before it leaves. The planted point — heel, then
     // sole, then ball — moves back at exactly the ground's speed. Runners land flatter.
@@ -248,7 +270,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     const toeJoint = bone('LeftToes').head;
     const heelRel: V3 = [0, -ankleY, -0.035 * s], ballRel: V3 = [0, toeJoint[1] - ankleY, toeJoint[2] - ankleZ];
     // a faster walk pushes off harder over the toes (that, not a deeper dip, makes the longer step)
-    const brisk = clamp((v / Math.sqrt(s) - 1.2) / 0.7);
+    const brisk = clamp((v / sg - 1.2) / 0.7);
     const strikeU = run ? 0.04 : 0.12, strikeDeg = run ? -4 : -14, offU = run ? 0.42 : 0.55 - 0.08 * brisk, offDeg = run ? 34 : 32 + 16 * brisk;
     const pivot = (pt: V3, rel: V3, deg: number): V3 => { const o = qRot(X(deg), mul(rel, -1)); return add(pt, o); };
     const stance = (r: V3, u: number) => {
@@ -261,7 +283,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       return { p: pivot([r[0], toeJoint[1], zA + ballRel[2]], ballRel, deg), deg };
     };
     const footPath = (side: 'Left' | 'Right', phi: number) => {
-      const r = restFoot(side, run ? 0.75 : 0.85);
+      const r = restFoot(side, (run ? 0.75 : 0.85) * SM.widen);
       if (phi < duty) { const st = stance(r, phi / duty); return { p: st.p, q: X(st.deg), toes: st.deg > 0 ? X(-st.deg) : flat, down: true }; }
       const u = (phi - duty) / (1 - duty);
       const a = stance(r, 1), b = stance(r, 0);
@@ -283,7 +305,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     // hip height from the actual foot paths: the highest the hips can ride with every foot in reach
     // (a soft knee at full stretch), then the bounce on top of that
     const bobAt = (p: number) => (run ? (1 + Math.cos(4 * Math.PI * p)) / 2 : (1 - Math.cos(4 * Math.PI * p)) / 2);
-    const bounceWanted = (S.bounce ?? D.bounce * s) * k;
+    const bounceWanted = (S.bounce ?? D.bounce * s * SM.bounce) * k;
     const hipDrop = L.hip[1] - hipsRest[1];
     let baseY = hipsRest[1] - (run ? 0.03 * s : 0.004 * s);
     const reach = legLen * (run ? 0.985 : 0.985);
@@ -321,22 +343,28 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
           acc += Math.exp(-(top - hipsRest[1]) / k);
         }
         hipY = Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+        // a bouncy gait dips into each step (where both feet are down)
+        if (SM.dip) hipY -= SM.dip * s * (1 + Math.cos(4 * Math.PI * (p - duty / 2 + 0.25))) / 2;
       }
       const hipsOff: V3 = [swayX, hipY - hipsRest[1], 0];
       const yaw = -yawAmp * Math.cos(w);
-      const hipsQ = qMul(Y(yaw), Z(1.5 * k * Math.sin(w - Math.PI * duty)));
+      // a waddle rocks the whole body over the standing foot; others only tilt the hips a little
+      const roll = (1.5 * k + SM.roll) * Math.sin(w - Math.PI * duty);
+      const hipsQ = qMul(Y(yaw), Z(roll));
       const breath = Math.sin((2 * Math.PI * t) / duration);
       const armR = swing * Math.cos(w), armLf = -swing * Math.cos(w);
       // a runner pumps the arms: elbows near 90°, closing as the hand drives forward
       const bend = run ? 88 : 12, bendExtra = run ? 22 : 18;
+      // the spine stays upright against the hips' roll (a waddle keeps a little of it)
+      const counter = SM.roll ? -roll * 0.55 : 0;
       const body: Record<string, Q> = {
-        Spine: qMul(X(lean * 0.5), Y(-yaw * 0.5)),
-        Chest: qMul(X(lean * 0.3 + (run ? -0.6 * breath : 0)), Y(-yaw * 0.45)),
-        UpperChest: Y(-yaw * 0.35),
+        Spine: qMul(qMul(X(lean * 0.5), Y(-yaw * 0.5)), Z(counter * 0.6)),
+        Chest: qMul(qMul(X(lean * 0.3 + (run ? -0.6 * breath : 0)), Y(-yaw * 0.45)), Z(counter * 0.4)),
+        UpperChest: Y(-yaw * 0.35 * SM.shoulders),
         Neck: X(-lean * 0.35),
         Head: qMul(X(-lean * 0.45 - (bounce / s) * 40 * (bob - 0.5)), Y(yaw * 0.3)),
-        ...arm('Left', holds.left ? armLf * 0.25 : armLf, bend + bendExtra * Math.max(0, armLf / Math.max(1, swing)), run ? 4 : 0),
-        ...arm('Right', holds.right ? armR * 0.25 : armR, bend + bendExtra * Math.max(0, armR / Math.max(1, swing)), run ? 4 : 0),
+        ...arm('Left', holds.left ? armLf * 0.25 : armLf, bend + bendExtra * Math.max(0, armLf / Math.max(1, swing)), run ? 4 : SM.out),
+        ...arm('Right', holds.right ? armR * 0.25 : armR, bend + bendExtra * Math.max(0, armR / Math.max(1, swing)), run ? 4 : SM.out),
       };
       const runHand = { ...NAMED_HAND_POSES.relaxed, index: 0.55, middle: 0.6, ring: 0.65, little: 0.7, thumb: 0.45 };
       return { hipsOff, hipsQ, body, hands: run ? { left: holds.left ? restHands.left : runHand, right: holds.right ? restHands.right : runHand } : undefined, feet: { left: fl, right: fr } };
@@ -709,7 +737,12 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
     if (run.flight < RUN_FORM.flight) fails.push(`a run needs both feet off the ground for part of each stride (${(run.flight * 100).toFixed(0)}% of the cycle, want ≥ ${RUN_FORM.flight * 100}%)`);
     if (run.lean < RUN_FORM.lean) fails.push(`the runner leans only ${run.lean}° forward (want ≥ ${RUN_FORM.lean}°)`);
     if (run.heelRecovery < RUN_FORM.heelRecovery) fails.push(`the swinging heel doesn't fold up behind (knee ${run.heelRecovery}°, want ≥ ${RUN_FORM.heelRecovery}°)`);
-    if (run.cadence < RUN_FORM.cadence[0] || run.cadence > RUN_FORM.cadence[1]) fails.push(`cadence ${run.cadence} steps/min (a run is ${RUN_FORM.cadence[0]}–${RUN_FORM.cadence[1]})`);
+    // short legs step faster: the cadence range scales with leg length like the gait does
+    const lb = (n: string) => rig.bones[idx.get(n)!];
+    const legLen = len(sub(lb('LeftLowerLeg').head, lb('LeftUpperLeg').head)) + len(sub(lb('LeftFoot').head, lb('LeftLowerLeg').head));
+    const cs = 1 / Math.sqrt(gaitScale(legLen));
+    const cad: [number, number] = [Math.round(RUN_FORM.cadence[0] * Math.min(1, cs)), Math.round(RUN_FORM.cadence[1] * Math.max(1, cs))];
+    if (run.cadence < cad[0] || run.cadence > cad[1]) fails.push(`cadence ${run.cadence} steps/min (a run with these legs is ${cad[0]}–${cad[1]})`);
     if (run.pelvis < RUN_FORM.pelvis) fails.push(`runs in a crouch: hips average ${(run.pelvis * 100).toFixed(0)}% of standing height (want ≥ ${RUN_FORM.pelvis * 100}%)`);
   }
   if (strike) {

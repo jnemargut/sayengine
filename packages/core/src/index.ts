@@ -15,6 +15,7 @@ export * from './scene.ts';
 export * from './profiles.ts';
 export * from './gameexport.ts';
 export * from './rig.ts';
+export * from './charstyle.ts';
 export * from './grip.ts';
 export * from './lipsync.ts';
 export * from './phonemes.ts';

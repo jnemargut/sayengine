@@ -59,20 +59,70 @@ export const fingerBones = (side: 'Left' | 'Right', finger: string) => FINGER_SE
 
 export interface BoneDef { name: string; parent: string | null; head: V3; tail: V3 }
 
-/** Parameters of the humanoid template (all have defaults). */
+/** Body plans (Decision 47 A): the skeleton comes first, then a body, face and outfit on it. Every plan
+ *  keeps the standard humanoid bone names, so motion, export and the engines treat them alike. */
+export const BODY_PLANS = ['human', 'chibi', 'lanky', 'stocky', 'beaked'] as const;
+export type BodyPlan = typeof BODY_PLANS[number];
+/** Face parts (Decision 49 A): each mouth answers to the same 15 speech shapes in its own way. */
+export const MOUTHS = ['human', 'cartoon', 'beak', 'muzzle', 'grille'] as const;
+export const EYE_STYLES = ['natural', 'big', 'dot'] as const;
+export const BROW_STYLES = ['bar', 'bushy', 'none'] as const;
+export const NOSES = ['human', 'long', 'button', 'big', 'none'] as const;
+export const EARS = ['human', 'pointy', 'none'] as const;
+export const HAIRS = ['short', 'none', 'tuft', 'bun'] as const;
+/** Style families: how the low-poly shapes are cut (facet count and chunkiness). */
+export const STYLE_FAMILIES = ['faceted', 'toy', 'smooth'] as const;
+export type WalkStyle = 'waddle' | 'swagger' | 'shuffle' | 'bounce';
+
+export interface PlanDef {
+  label: string;
+  height: number; build: number;          // defaults
+  head: number;                           // head height as a fraction of standing height
+  leg: number; arm: number;               // leg length (fraction of height), arm length (× human)
+  shoulder: number; limb: number;         // shoulder width, limb thickness (× human)
+  hand: number; foot: number; neck: number;
+  headW: number; headD: number;           // head half-width / half-depth (× human)
+  torso: [number, number, number, number, number]; // hips, waist, chest widths, depth (× human), belly (front bulge at the waist, × depth)
+  eyeY: number;                           // eye height on the head (0..1)
+  face: { mouth: typeof MOUTHS[number]; eyes: typeof EYE_STYLES[number]; brows: typeof BROW_STYLES[number]; nose: typeof NOSES[number]; ears: typeof EARS[number]; hair: typeof HAIRS[number] };
+  walk?: WalkStyle;                       // the plan's natural gait (set-motion --style overrides)
+}
+export const PLANS: Record<BodyPlan, PlanDef> = {
+  human: { label: 'human proportions', height: 1.75, build: 0.55, head: 0.165, leg: 0.47, arm: 1, shoulder: 1, limb: 1, hand: 1, foot: 1, neck: 1, headW: 1, headD: 1, torso: [1, 1, 1, 1, 0], eyeY: 0.5,
+    face: { mouth: 'human', eyes: 'natural', brows: 'bar', nose: 'human', ears: 'human', hair: 'short' } },
+  chibi: { label: 'big head, short round body, stubby limbs', height: 1.0, build: 0.6, head: 0.3, leg: 0.3, arm: 0.86, shoulder: 1.05, limb: 1.45, hand: 1.35, foot: 1.5, neck: 0.45, headW: 1.12, headD: 1.04, torso: [1.35, 1.3, 1.15, 1.25, 0.22], eyeY: 0.44,
+    face: { mouth: 'cartoon', eyes: 'big', brows: 'bar', nose: 'button', ears: 'human', hair: 'tuft' }, walk: 'bounce' },
+  lanky: { label: 'tall and thin, long limbs, small head', height: 2.05, build: 0.15, head: 0.125, leg: 0.53, arm: 1.16, shoulder: 0.84, limb: 0.66, hand: 1.12, foot: 1.0, neck: 1.7, headW: 0.86, headD: 0.98, torso: [0.82, 0.74, 0.86, 0.82, 0], eyeY: 0.52,
+    face: { mouth: 'human', eyes: 'natural', brows: 'bar', nose: 'long', ears: 'human', hair: 'short' } },
+  stocky: { label: 'short and broad, barrel chest, thick limbs', height: 1.38, build: 0.9, head: 0.2, leg: 0.34, arm: 0.94, shoulder: 1.42, limb: 1.5, hand: 1.4, foot: 1.35, neck: 0.5, headW: 1.08, headD: 1.0, torso: [1.2, 1.38, 1.42, 1.3, 0.18], eyeY: 0.5,
+    face: { mouth: 'human', eyes: 'natural', brows: 'bushy', nose: 'big', ears: 'human', hair: 'none' }, walk: 'swagger' },
+  beaked: { label: 'round egg body, short legs, a beak', height: 1.22, build: 0.6, head: 0.25, leg: 0.27, arm: 0.74, shoulder: 0.9, limb: 0.82, hand: 0.82, foot: 1.6, neck: 0.35, headW: 1.0, headD: 1.06, torso: [1.4, 1.62, 1.22, 1.45, 0.42], eyeY: 0.56,
+    face: { mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', hair: 'tuft' }, walk: 'waddle' },
+};
+
+/** Parameters of a character (all have defaults; the plan sets proportions and face parts). */
 export interface CharParams {
   height: number;      // m
   build: number;       // 0 slim … 1 broad
-  headSize: number;    // × stylized head height (15 % of height)
+  headSize: number;    // × the plan's head size
   armLength: number;   // ×
   legLength: number;   // ×
   handSize: number;    // ×
-  hair: 'short' | 'none';
+  hair: typeof HAIRS[number];
   apron?: boolean;     // a hanging apron: two extra bones (ApronUpper, ApronLower) so the cloth bends and swings (secondary motion)
+  plan?: BodyPlan;
+  style?: typeof STYLE_FAMILIES[number];
+  mouth?: typeof MOUTHS[number];
+  eyes?: typeof EYE_STYLES[number];
+  brows?: typeof BROW_STYLES[number];
+  nose?: typeof NOSES[number];
+  ears?: typeof EARS[number];
 }
 export const CHAR_DEFAULTS: CharParams = { height: 1.75, build: 0.55, headSize: 1, armLength: 1, legLength: 1, handSize: 1, hair: 'short' };
 /** Where an apron hangs (its back face, object space z) for a build: the kit's apron op and the apron bones share it. */
-export const apronZ = (s: number, build: number) => 0.123 * s * (0.9 + 0.3 * build);
+export const apronZ = (s: number, build: number, plan: BodyPlan = 'human') => 0.123 * s * (0.9 + 0.3 * build) * apronDepth(plan);
+/** How much further out an apron hangs on a plan's body (deeper torsos, bellies). */
+export const apronDepth = (plan: BodyPlan) => { const t = PLANS[plan].torso; return Math.round(Math.max(1, t[3] * (1 + 0.6 * t[4])) * 100) / 100; };
 
 export type Piece =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides: number; part: string }
@@ -89,6 +139,7 @@ export interface FaceLandmarks {
   brows: V3[];                                            // inner-to-outer centres per side [L, R]
   nose: V3;
   cheeks: V3[];
+  kind?: typeof MOUTHS[number];                           // which mouth part (its speech shapes differ)
 }
 
 export interface CharSpec {
@@ -103,7 +154,15 @@ export interface CharSpec {
   lids: Array<{ c: V3; rIn: number; rOut: number; edgeDeg: number; closeDeg: number; part: string; bone: string }>; // eyelid shells (the lid bones turn them)
   face: FaceLandmarks;
   palm: Record<'Left' | 'Right', { c: V3; len: number; width: number; thick: number }>;
+  plan: BodyPlan;
+  walk?: WalkStyle;
 }
+
+const pick = <T extends readonly string[]>(list: T, v: unknown, what: string): T[number] | undefined => {
+  if (v === undefined || v === null || v === '') return undefined;
+  if (!list.includes(v as string)) throw new Error(`character ${what} must be one of ${list.join(', ')} (got ${v})`);
+  return v as T[number];
+};
 
 export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharParams {
   const n = (k: keyof CharParams, lo: number, hi: number) => {
@@ -111,29 +170,50 @@ export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharP
     if (!Number.isFinite(v) || v < lo || v > hi) throw new Error(`character ${k} must be between ${lo} and ${hi} (got ${a[k]})`);
     return v;
   };
+  const plan = pick(BODY_PLANS, a.plan, 'plan');
+  const opt: Partial<CharParams> = {};
+  if (plan && plan !== 'human') opt.plan = plan;
+  const lists = { style: STYLE_FAMILIES, mouth: MOUTHS, eyes: EYE_STYLES, brows: BROW_STYLES, nose: NOSES, ears: EARS } as const;
+  for (const k of Object.keys(lists) as Array<keyof typeof lists>) {
+    const v = pick(lists[k] as readonly string[], a[k], k);
+    if (v) (opt as any)[k] = v;
+  }
   return {
     height: n('height', 0.5, 3), build: n('build', 0, 1), headSize: n('headSize', 0.7, 1.6),
     armLength: n('armLength', 0.7, 1.4), legLength: n('legLength', 0.7, 1.4), handSize: n('handSize', 0.6, 1.6),
-    hair: a.hair === 'none' ? 'none' : 'short',
+    hair: pick(HAIRS, a.hair, 'hair') ?? (plan ? PLANS[plan].face.hair : 'short'),
     ...(a.apron === true || a.apron === 'true' || a.apron === 1 ? { apron: true } : {}),
+    ...opt,
   };
 }
 
 /** The humanoid template: bones, pieces and face landmarks from the parameters. Faces +Z; its left is +X. */
 export function characterSpec(p: CharParams): CharSpec {
+  const plan: BodyPlan = p.plan ?? 'human';
+  const PD = PLANS[plan];
+  const F0 = PD.face;
+  const mouthKind = p.mouth ?? F0.mouth, eyeStyle = p.eyes ?? F0.eyes, browStyle = p.brows ?? F0.brows, noseKind = p.nose ?? F0.nose, earKind = p.ears ?? F0.ears;
+  const style = p.style ?? 'faceted';
+  const SIDES = style === 'toy' ? 6 : style === 'smooth' ? 12 : 8, HEAD_N = style === 'toy' ? 8 : style === 'smooth' ? 18 : 12;
   const s = p.height / 1.75, H = p.height, b = p.build;
-  const headH = 0.165 * H * p.headSize, neckLen = 0.028 * H;
-  const legTotal = 0.47 * H * p.legLength;
+  const L = PD.limb, T = PD.torso;
+  const headH = PD.head * H * p.headSize, neckLen = 0.028 * H * PD.neck;
+  const legTotal = PD.leg * H * p.legLength;
   const hipY = legTotal + 0.035 * s;
   const torsoLen = H - hipY - neckLen - headH;
-  if (torsoLen < 0.2 * s) throw new Error('character proportions leave no room for a torso: lower headSize or legLength');
-  const ankleY = 0.075 * s, kneeY = ankleY + (hipY - ankleY) * 0.48;
-  const legX = 0.1 * s * (0.9 + 0.25 * b);
+  if (torsoLen < 0.16 * s) throw new Error('character proportions leave no room for a torso: lower headSize or legLength');
+  const ankleY = 0.075 * s * Math.min(1, PD.foot), kneeY = ankleY + (hipY - ankleY) * 0.48;
+  const legX = 0.1 * s * (0.9 + 0.25 * b) * (0.55 + 0.45 * T[0]);
   const shoulderY = hipY + torsoLen * 0.95;
-  const shW = 0.18 * s * (0.86 + 0.34 * b);
-  const upperArm = 0.165 * H * p.armLength, lowerArm = 0.145 * H * p.armLength;
-  const palmLen = 0.052 * H * p.handSize, palmW = 0.048 * H * p.handSize, palmT = 0.016 * H * p.handSize;
-  const fingerLen = 0.046 * H * p.handSize;
+  // shoulders wide enough that the arms hang clear of a broad torso (a belly, a barrel chest) and of
+  // their own thickness: at least as wide as the widest torso ring, plus any extra arm girth
+  const torsoHalf = Math.max(0.165 * T[0], 0.155 * T[1], 0.185 * T[2]) * (0.86 + 0.3 * b) * s;
+  const extraArm = Math.max(0, 0.052 * s * (0.8 + 0.4 * b) * (L - 1));
+  const shW = Math.max(0.18 * s * (0.86 + 0.34 * b) * PD.shoulder, plan === 'human' ? 0 : torsoHalf * 1.02 + extraArm * 1.3);
+  const upperArm = 0.165 * H * p.armLength * PD.arm, lowerArm = 0.145 * H * p.armLength * PD.arm;
+  const hs = p.handSize * PD.hand;
+  const palmLen = 0.052 * H * hs, palmW = 0.048 * H * hs, palmT = 0.016 * H * hs;
+  const fingerLen = 0.046 * H * hs;
   const headBaseY = hipY + torsoLen + neckLen;
   const bones: BoneDef[] = [];
   const bone = (name: string, parent: string | null, head: V3, tail: V3) => bones.push({ name, parent, head, tail });
@@ -145,7 +225,7 @@ export function characterSpec(p: CharParams): CharSpec {
   bone('Neck', 'UpperChest', [0, hipY + torsoLen, 0], [0, headBaseY, 0]);
   bone('Head', 'Neck', [0, headBaseY, 0], [0, headBaseY + headH, 0]);
   // face
-  const hw = 0.5 * headH * 0.8, hd = 0.5 * headH * 0.92;
+  const hw = 0.5 * headH * 0.8 * PD.headW, hd = 0.5 * headH * 0.92 * PD.headD;
   // the head's profile rings: [height 0..1, half width, front depth, back depth] (× hw / hd)
   const headRings: Array<[number, number, number, number]> = [
     [0.0, 0.3, 0.6, 0.15], [0.1, 0.62, 0.86, 0.45], [0.27, 0.86, 0.97, 0.78], [0.5, 0.97, 0.97, 0.92], [0.7, 1.0, 0.9, 1.0], [0.88, 0.87, 0.74, 0.9], [1.0, 0.42, 0.34, 0.5],
@@ -167,12 +247,16 @@ export function characterSpec(p: CharParams): CharSpec {
     return hw * 0.5;
   };
   const surfAt = (y01: number, x: number) => surfZ(y01) * Math.sqrt(Math.max(0, 1 - (x / ringAt(y01)) ** 2));
-  const eyeR = 0.14 * hw;
-  const eyeY = headBaseY + 0.5 * headH;
-  const eyeX = 0.37 * hw;
-  const eyeZ = surfAt(0.5, eyeX) - 0.68 * eyeR;
-  const mouthY = headBaseY + 0.24 * headH;
-  const mouthZ = surfZ(0.24);
+  const eyeR = (eyeStyle === 'big' ? 0.2 : eyeStyle === 'dot' ? 0.11 : 0.14) * hw;
+  const eyeY01 = PD.eyeY;
+  const eyeY = headBaseY + eyeY01 * headH;
+  const eyeX = (eyeStyle === 'big' ? 0.42 : 0.37) * hw;
+  const eyeZ = surfAt(eyeY01, eyeX) - 0.68 * eyeR;
+  const mouthY01 = mouthKind === 'beak' ? 0.3 : mouthKind === 'muzzle' ? 0.2 : 0.24;
+  const mouthY = headBaseY + mouthY01 * headH;
+  // a muzzle pushes the mouth forward on a snout (the head hull takes the snout's points)
+  const snoutZ = mouthKind === 'muzzle' ? surfZ(mouthY01) + 0.3 * headH : 0;
+  const mouthZ = mouthKind === 'muzzle' ? snoutZ : surfZ(mouthY01);
   const jawPivot: V3 = [0, headBaseY + 0.42 * headH, -0.08 * hd];
   bone('LeftEye', 'Head', [eyeX, eyeY, eyeZ], [eyeX, eyeY, eyeZ + eyeR]);
   bone('RightEye', 'Head', [-eyeX, eyeY, eyeZ], [-eyeX, eyeY, eyeZ + eyeR]);
@@ -183,7 +267,7 @@ export function characterSpec(p: CharParams): CharSpec {
   if (p.apron) {
     // the apron hangs from the waist in front of the thighs: two bones down its middle, swung by a
     // spring when motions are baked (it lags, sways and is pushed forward by the knees)
-    const az = apronZ(s, b) + 0.015 * s;
+    const az = apronZ(s, b, plan) + 0.015 * s;
     bone('ApronUpper', 'Hips', [0, hipY + 0.02 * s, az], [0, hipY - 0.17 * s, az]);
     bone('ApronLower', 'ApronUpper', [0, hipY - 0.17 * s, az], [0, hipY - 0.36 * s, az]);
   }
@@ -226,27 +310,30 @@ export function characterSpec(p: CharParams): CharSpec {
 
   // ── pieces (low-poly, faceted) ─────────────────────────────────────────
   const pieces: Piece[] = [];
-  const seg = (a: V3, c: V3, r1: number, r2: number, part: string, sides = 8) => pieces.push({ kind: 'seg', a, b: c, r1, r2, sides, part });
-  const ball = (c: V3, r: number, part: string, sides = 8) => pieces.push({ kind: 'ball', c, r, sides, part });
-  const ring = (y: number, rx: number, rzF: number, rzB: number, n = 8, cx = 0, cz = 0): V3[] =>
+  const seg = (a: V3, c: V3, r1: number, r2: number, part: string, sides = SIDES) => pieces.push({ kind: 'seg', a, b: c, r1, r2, sides, part });
+  const ball = (c: V3, r: number, part: string, sides = SIDES) => pieces.push({ kind: 'ball', c, r, sides, part });
+  const ring = (y: number, rx: number, rzF: number, rzB: number, n = SIDES, cx = 0, cz = 0): V3[] =>
     Array.from({ length: n }, (_, i) => { const t = (i / n) * Math.PI * 2; const c = Math.cos(t); return [cx + rx * Math.sin(t), y, cz + (c > 0 ? rzF : rzB) * c] as V3; });
-  // torso: hips → waist → chest → shoulders
+  // torso: hips → waist → chest → shoulders, shaped by the plan (V, barrel, pear, egg, straight)
   const tw = (0.86 + 0.3 * b) * s;
+  const dpt = T[3], belly = T[4];
+  const tr = Math.max(SIDES, 8);
   pieces.push({ kind: 'hull', part: 'torso', pts: [
-    ...ring(hipY - 0.07 * s, 0.165 * tw, 0.1 * s, 0.105 * s),
-    ...ring(hipY + torsoLen * 0.35, 0.155 * tw, 0.11 * s * (0.85 + 0.4 * b), 0.1 * s),
-    ...ring(hipY + torsoLen * 0.7, 0.185 * tw, 0.125 * s, 0.11 * s),
-    ...ring(shoulderY + 0.012 * s, shW * 0.95, 0.085 * s, 0.085 * s),
-    ...ring(shoulderY + 0.035 * s, shW * 0.45, 0.07 * s, 0.07 * s),
+    ...ring(hipY - 0.07 * s, 0.165 * tw * T[0], 0.1 * s * dpt, 0.105 * s * dpt, tr),
+    ...ring(hipY + torsoLen * 0.35, 0.155 * tw * T[1], 0.11 * s * (0.85 + 0.4 * b) * dpt * (1 + belly), 0.1 * s * dpt, tr),
+    ...ring(hipY + torsoLen * 0.7, 0.185 * tw * T[2], 0.125 * s * dpt * (1 + belly * 0.5), 0.11 * s * dpt, tr),
+    ...ring(shoulderY + 0.012 * s, shW * 0.95, 0.085 * s * dpt, 0.085 * s * dpt, tr),
+    ...ring(shoulderY + 0.035 * s, shW * 0.45, 0.07 * s * dpt, 0.07 * s * dpt, tr),
   ] });
-  seg(add(B.Neck.head, [0, -0.02 * s, 0]), add(B.Head.head, [0, 0.03 * s, 0]), 0.056 * s * (0.9 + 0.25 * b), 0.05 * s, 'Neck');
+  seg(add(B.Neck.head, [0, -0.02 * s, 0]), add(B.Head.head, [0, 0.03 * s, 0]), 0.056 * s * (0.9 + 0.25 * b) * Math.sqrt(L), 0.05 * s * Math.sqrt(L), 'Neck');
   for (const side of ['Left', 'Right'] as const) {
     const ua = B[`${side}UpperArm`], la = B[`${side}LowerArm`], hd2 = B[`${side}Hand`];
-    ball(add(ua.head, [-(side === 'Left' ? 1 : -1) * 0.01 * s, -0.022 * s, 0]), 0.052 * s * (0.8 + 0.4 * b), `${side}UpperArm`);
-    seg(add(ua.head, [0, -0.012 * s, 0]), ua.tail, 0.052 * s * (0.8 + 0.42 * b), 0.046 * s * (0.85 + 0.3 * b), `${side}UpperArm`);
-    ball(la.head, 0.046 * s * (0.85 + 0.3 * b), `${side}LowerArm`);
-    seg(la.head, la.tail, 0.045 * s * (0.85 + 0.35 * b), 0.032 * s * (0.9 + 0.2 * b), `${side}LowerArm`);
-    ball(hd2.head, 0.032 * s * (0.9 + 0.2 * b), `${side}Hand`, 6);
+    const ls = s * L;
+    ball(add(ua.head, [-(side === 'Left' ? 1 : -1) * 0.01 * s, -0.022 * s, 0]), 0.052 * ls * (0.8 + 0.4 * b), `${side}UpperArm`);
+    seg(add(ua.head, [0, -0.012 * s, 0]), ua.tail, 0.052 * ls * (0.8 + 0.42 * b), 0.046 * ls * (0.85 + 0.3 * b), `${side}UpperArm`);
+    ball(la.head, 0.046 * ls * (0.85 + 0.3 * b), `${side}LowerArm`);
+    seg(la.head, la.tail, 0.045 * ls * (0.85 + 0.35 * b), 0.032 * ls * (0.9 + 0.2 * b), `${side}LowerArm`);
+    ball(hd2.head, 0.032 * ls * (0.9 + 0.2 * b), `${side}Hand`, 6);
     // palm: a flattened box from wrist to knuckles
     const sx = side === 'Left' ? 1 : -1;
     const x0 = hd2.head[0], x1 = hd2.tail[0] - sx * 0.004 * s, y = hd2.head[1];
@@ -256,7 +343,7 @@ export function characterSpec(p: CharParams): CharSpec {
     ] });
     for (const f of FINGER_NAMES) {
       const names = fingerBones(side, f);
-      const r0 = (f === 'Thumb' ? 0.0105 : f === 'Little' ? 0.0078 : 0.0092) * s * p.handSize;
+      const r0 = (f === 'Thumb' ? 0.0105 : f === 'Little' ? 0.0078 : 0.0092) * s * hs;
       names.forEach((n, i) => {
         const bd = B[n];
         const r = r0 * (1 - i * 0.08);
@@ -266,27 +353,39 @@ export function characterSpec(p: CharParams): CharSpec {
       });
     }
     const ul = B[`${side}UpperLeg`], ll = B[`${side}LowerLeg`], ft = B[`${side}Foot`];
-    seg(ul.head, ul.tail, 0.088 * s * (0.85 + 0.35 * b), 0.064 * s * (0.9 + 0.2 * b), `${side}UpperLeg`);
-    ball(ll.head, 0.064 * s * (0.9 + 0.2 * b), `${side}LowerLeg`);
-    seg(ll.head, ll.tail, 0.06 * s * (0.9 + 0.2 * b), 0.044 * s, `${side}LowerLeg`);
-    ball(ft.head, 0.04 * s, `${side}Foot`);
-    const fx = ft.head[0];
+    // legs: the thigh may be thicker than the hip spacing allows on broad plans, so cap it below the gap between the legs
+    const thigh = Math.min(0.088 * ls * (0.85 + 0.35 * b), legX * 0.98);
+    seg(ul.head, ul.tail, thigh, Math.min(0.064 * ls * (0.9 + 0.2 * b), thigh * 0.85), `${side}UpperLeg`);
+    ball(ll.head, Math.min(0.064 * ls * (0.9 + 0.2 * b), thigh * 0.85), `${side}LowerLeg`);
+    seg(ll.head, ll.tail, Math.min(0.06 * ls * (0.9 + 0.2 * b), thigh * 0.8), 0.044 * ls, `${side}LowerLeg`);
+    ball(ft.head, 0.04 * s * Math.min(1.3, Math.max(L, PD.foot)), `${side}Foot`);
+    const fx = ft.head[0], fs = s * PD.foot, fw = s * Math.min(PD.foot, legX / (0.05 * s));
     pieces.push({ kind: 'hull', part: `${side}Foot`, pts: [
-      [fx - 0.035 * s, ankleY + 0.02 * s, -0.045 * s], [fx + 0.035 * s, ankleY + 0.02 * s, -0.045 * s],
-      [fx - 0.04 * s, 0, -0.055 * s], [fx + 0.04 * s, 0, -0.055 * s],
-      [fx - 0.045 * s, 0, 0.1 * s], [fx + 0.045 * s, 0, 0.1 * s], [fx - 0.04 * s, 0.05 * s, 0.09 * s], [fx + 0.04 * s, 0.05 * s, 0.09 * s],
+      [fx - 0.035 * fw, ankleY + 0.02 * s, -0.045 * fs], [fx + 0.035 * fw, ankleY + 0.02 * s, -0.045 * fs],
+      [fx - 0.04 * fw, 0, -0.055 * fs], [fx + 0.04 * fw, 0, -0.055 * fs],
+      [fx - 0.045 * fw, 0, 0.1 * s], [fx + 0.045 * fw, 0, 0.1 * s], [fx - 0.04 * fw, 0.05 * s, 0.09 * s], [fx + 0.04 * fw, 0.05 * s, 0.09 * s],
     ] });
     pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [
-      [fx - 0.045 * s, 0, 0.095 * s], [fx + 0.045 * s, 0, 0.095 * s], [fx - 0.04 * s, 0.045 * s, 0.09 * s], [fx + 0.04 * s, 0.045 * s, 0.09 * s],
-      [fx - 0.038 * s, 0, 0.17 * s], [fx + 0.038 * s, 0, 0.17 * s], [fx - 0.03 * s, 0.028 * s, 0.165 * s], [fx + 0.03 * s, 0.028 * s, 0.165 * s],
+      [fx - 0.045 * fw, 0, 0.095 * s], [fx + 0.045 * fw, 0, 0.095 * s], [fx - 0.04 * fw, 0.045 * s, 0.09 * s], [fx + 0.04 * fw, 0.045 * s, 0.09 * s],
+      [fx - 0.038 * fw, 0, 0.095 * s + 0.075 * fs], [fx + 0.038 * fw, 0, 0.095 * s + 0.075 * fs], [fx - 0.03 * fw, 0.028 * s, 0.09 * s + 0.075 * fs], [fx + 0.03 * fw, 0.028 * s, 0.09 * s + 0.075 * fs],
     ] });
   }
 
   // ── head: a faceted hull, refined so the face can deform ──────────────
   const hb = headBaseY;
-  const headPts: V3[] = headRings.flatMap(([y, rx, rf, rbk]) => ring(hb + y * headH, rx * hw, rf * hd, rbk * hd, 12));
-  const slotH = 0.018 * headH;
-  const mouthW = 0.3 * hw;
+  const headPts: V3[] = headRings.flatMap(([y, rx, rf, rbk]) => ring(hb + y * headH, rx * hw, rf * hd, rbk * hd, HEAD_N));
+  if (mouthKind === 'muzzle') {
+    // a snout: the head hull reaches forward to a blunt front where the mouth sits
+    const my0 = headBaseY + mouthY01 * headH;
+    for (const sx of [1, -1]) headPts.push(
+      [sx * 0.46 * hw, my0 + 0.2 * headH, surfZ(0.42) - 0.02 * headH], [sx * 0.5 * hw, my0 - 0.1 * headH, surfZ(0.08)],
+      [sx * 0.34 * hw, my0 + 0.13 * headH, snoutZ - 0.04 * headH], [sx * 0.4 * hw, my0 - 0.07 * headH, snoutZ - 0.03 * headH],
+      [sx * 0.26 * hw, my0 + 0.02 * headH, snoutZ], [sx * 0.18 * hw, my0 + 0.15 * headH, snoutZ - 0.015 * headH],
+    );
+    headPts.push([0, my0 + 0.16 * headH, snoutZ - 0.005 * headH], [0, my0 - 0.08 * headH, snoutZ - 0.02 * headH], [0, my0 + 0.02 * headH, snoutZ + 0.004 * headH]);
+  }
+  const slotH = (mouthKind === 'cartoon' ? 0.024 : 0.018) * headH;
+  const mouthW = (mouthKind === 'cartoon' ? 0.4 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.3) * hw;
   // ── mouth: chamber, teeth and tongue (all relative to the lip surface a = mouthZ, in head heights) ──
   const a = mouthZ, Hh = headH, my = mouthY;
   const chamberPts: V3[] = [];
@@ -298,7 +397,7 @@ export function characterSpec(p: CharParams): CharSpec {
     );
   }
   chamberPts.push([0, my + 0.05 * Hh, a - 0.03 * Hh], [0, my, a - 0.03 * Hh], [0, my - 0.072 * Hh, a - 0.055 * Hh]);
-  const arch = 3.5 / Hh;                                   // the teeth follow a curve: z drops by arch·x² toward the sides
+  const arch = 3.5 / Hh / (PD.headW * PD.headW);           // the teeth follow a curve: z drops by arch·x² toward the sides (a narrow head curves sooner)
   const upperFront = a - 0.045 * Hh, lowerFront = upperFront - 0.013 * Hh, edgeY = my - 0.014 * Hh;
   const mouthPieces: Piece[] = [];
   const toothRow = (part: string, front: number, thick: number, top: (i: number) => number, bottom: (i: number) => number, widths: number[]) => {
@@ -307,7 +406,7 @@ export function characterSpec(p: CharParams): CharSpec {
     for (const sx of [1, -1]) {
       let x = gap / 2;
       widths.forEach((w, i) => {
-        const x0 = x, x1 = x + w * Hh;
+        const x0 = x, x1 = x + w * Hh * Math.min(1, PD.headW);
         x = x1 + gap;
         const z = (xx: number) => front - arch * xx * xx;
         const yT = top(i), yB = bottom(i), inset = 0.0025 * Hh;  // the biting edge is a little thinner
@@ -319,23 +418,25 @@ export function characterSpec(p: CharParams): CharSpec {
       });
     }
   };
-  // upper: central incisors longest, then laterals, canines, a premolar
-  const upLen = [0, 0.004, 0.001, 0.004, 0.006];
-  toothRow('teethUpper', upperFront, 0.011 * Hh, () => my + 0.03 * Hh, (i) => edgeY + upLen[i] * Hh, [0.023, 0.019, 0.02, 0.022, 0.02]);
-  const loLen = [0, 0.001, 0.003, 0.005, 0.007];
-  toothRow('teethLower', lowerFront, 0.01 * Hh, (i) => my + 0.004 * Hh - loLen[i] * Hh, () => my - 0.034 * Hh, [0.016, 0.016, 0.018, 0.02, 0.02]);
   // the tongue: a low, rounded wedge on the floor of the mouth, tip just behind the lower teeth
   const tipZ = lowerFront - 0.022 * Hh, backZ = a - 0.19 * Hh;
-  const tongue: V3[] = [];
-  for (const sx of [1, -1]) {
-    tongue.push(
-      [sx * 0.012 * Hh, my - 0.031 * Hh, tipZ], [sx * 0.03 * Hh, my - 0.036 * Hh, tipZ - 0.012 * Hh], [sx * 0.02 * Hh, my - 0.046 * Hh, tipZ - 0.004 * Hh],
-      [sx * 0.05 * Hh, my - 0.028 * Hh, tipZ - 0.05 * Hh], [sx * 0.055 * Hh, my - 0.05 * Hh, tipZ - 0.05 * Hh],
-      [sx * 0.05 * Hh, my - 0.03 * Hh, backZ], [sx * 0.055 * Hh, my - 0.052 * Hh, backZ],
-    );
+  if (mouthKind === 'human') {
+    // upper: central incisors longest, then laterals, canines, a premolar
+    const upLen = [0, 0.004, 0.001, 0.004, 0.006];
+    toothRow('teethUpper', upperFront, 0.011 * Hh, () => my + 0.03 * Hh, (i) => edgeY + upLen[i] * Hh, [0.023, 0.019, 0.02, 0.022, 0.02]);
+    const loLen = [0, 0.001, 0.003, 0.005, 0.007];
+    toothRow('teethLower', lowerFront, 0.01 * Hh, (i) => my + 0.004 * Hh - loLen[i] * Hh, () => my - 0.034 * Hh, [0.016, 0.016, 0.018, 0.02, 0.02]);
+    const tongue: V3[] = [];
+    for (const sx of [1, -1]) {
+      tongue.push(
+        [sx * 0.012 * Hh, my - 0.031 * Hh, tipZ], [sx * 0.03 * Hh, my - 0.036 * Hh, tipZ - 0.012 * Hh], [sx * 0.02 * Hh, my - 0.046 * Hh, tipZ - 0.004 * Hh],
+        [sx * 0.05 * Hh, my - 0.028 * Hh, tipZ - 0.05 * Hh], [sx * 0.055 * Hh, my - 0.05 * Hh, tipZ - 0.05 * Hh],
+        [sx * 0.05 * Hh, my - 0.03 * Hh, backZ], [sx * 0.055 * Hh, my - 0.052 * Hh, backZ],
+      );
+    }
+    tongue.push([0, my - 0.024 * Hh, tipZ - 0.06 * Hh], [0, my - 0.03 * Hh, tipZ + 0.002 * Hh]);
+    mouthPieces.push({ kind: 'hull', part: 'tongue', pts: tongue });
   }
-  tongue.push([0, my - 0.024 * Hh, tipZ - 0.06 * Hh], [0, my - 0.03 * Hh, tipZ + 0.002 * Hh]);
-  mouthPieces.push({ kind: 'hull', part: 'tongue', pts: tongue });
   const cuts: CharSpec['cuts'] = [
     { kind: 'box', c: [0, mouthY, mouthZ - 0.018 * headH], size: [2 * mouthW, slotH, 0.06 * headH], part: 'mouthInner' },
     // the mouth itself: a chamber behind the lips (the slot opens into it), roomy enough for teeth and a tongue
@@ -343,39 +444,104 @@ export function characterSpec(p: CharParams): CharSpec {
     { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
     { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
   ];
+  if (mouthKind === 'grille') {
+    // a speaker grille: a shallow dark panel behind three bars
+    cuts[0] = { kind: 'box', c: [0, mouthY, mouthZ - 0.02 * headH], size: [2.3 * mouthW, 0.1 * headH, 0.05 * headH], part: 'mouthInner' };
+  }
   // nose, brows, lips, ears, hair
   const nb = surfZ(0.42);
-  pieces.push({ kind: 'hull', part: 'nose', pts: [[0, hb + 0.5 * headH, nb - 0.01 * headH], [0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [-0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [0, hb + 0.35 * headH, nb + 0.1 * headH], [0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [-0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [-0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [0, hb + 0.31 * headH, nb + 0.05 * headH]] });
-  const browY = eyeY + eyeR * 1.75;
-  const browZ = surfAt(0.62, 0.38 * hw) + 0.006 * headH;
+  const noseTop = hb + 0.5 * headH;
+  if (noseKind === 'human') {
+    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop, nb - 0.01 * headH], [0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [-0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [0, hb + 0.35 * headH, nb + 0.1 * headH], [0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [-0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [-0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [0, hb + 0.31 * headH, nb + 0.05 * headH]] });
+  } else if (noseKind === 'long') {
+    // a long, pointed nose that juts out and down
+    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop + 0.02 * headH, nb - 0.02 * headH], [0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [0.12 * hw, hb + 0.34 * headH, nb], [-0.12 * hw, hb + 0.34 * headH, nb], [0, hb + 0.3 * headH, nb + 0.24 * headH], [0, hb + 0.34 * headH, nb + 0.22 * headH]] });
+  } else if (noseKind === 'button') {
+    pieces.push({ kind: 'ball', c: [0, hb + 0.38 * headH, surfZ(0.38) + 0.01 * headH], r: 0.07 * hw, sides: Math.max(6, SIDES), part: 'nose' });
+  } else if (noseKind === 'big') {
+    // a bulbous nose: wide, round, low on the face
+    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop, nb - 0.015 * headH], [0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH]] });
+    pieces.push({ kind: 'ball', c: [0, hb + 0.35 * headH, nb + 0.09 * headH], r: 0.22 * hw, sides: Math.max(8, SIDES), part: 'nose' });
+  } else if (mouthKind === 'muzzle') {
+    // no separate nose, but the snout gets a nose pad at its tip
+  }
+  if (mouthKind === 'muzzle') pieces.push({ kind: 'ball', c: [0, mouthY + 0.13 * headH, snoutZ - 0.01 * headH], r: 0.13 * hw, sides: Math.max(8, SIDES), part: 'nose' });
+  const browY = eyeY + eyeR * (eyeStyle === 'big' ? 1.45 : 1.75);
+  const browZ = surfAt(Math.min(0.75, eyeY01 + 0.12), 0.38 * hw) + 0.006 * headH;
   const brows: V3[] = [];
+  const bushy = browStyle === 'bushy';
   for (const sx of [1, -1]) {
-    const x0 = sx * 0.15 * hw, x1 = sx * 0.6 * hw;
+    const x0 = sx * 0.15 * hw, x1 = sx * (bushy ? 0.66 : 0.6) * hw;
     brows.push([(x0 + x1) / 2, browY, browZ]);
-    pieces.push({ kind: 'hull', part: sx > 0 ? 'brow.L' : 'brow.R', pts: [
-      [x0, browY - 0.008 * headH, browZ - 0.015 * headH], [x0, browY + 0.032 * headH, browZ - 0.015 * headH], [x0, browY - 0.008 * headH, browZ + 0.012 * headH], [x0, browY + 0.032 * headH, browZ + 0.008 * headH],
-      [x1, browY - 0.01 * headH, browZ - 0.03 * headH], [x1, browY + 0.022 * headH, browZ - 0.03 * headH], [x1, browY - 0.01 * headH, browZ - 0.004 * headH], [x1, browY + 0.022 * headH, browZ - 0.008 * headH],
-    ] });
-    pieces.push({ kind: 'hull', part: sx > 0 ? 'ear.L' : 'ear.R', pts: [
-      [sx * hw * 0.92, hb + 0.38 * headH, -0.02 * hd], [sx * hw * 0.92, hb + 0.62 * headH, -0.06 * hd], [sx * hw * 1.08, hb + 0.4 * headH, -0.08 * hd], [sx * hw * 1.1, hb + 0.6 * headH, -0.14 * hd], [sx * hw * 0.95, hb + 0.5 * headH, -0.22 * hd],
-    ] });
+    if (browStyle !== 'none') {
+      const t = bushy ? 2.1 : 1, f = bushy ? 1.8 : 1;
+      pieces.push({ kind: 'hull', part: sx > 0 ? 'brow.L' : 'brow.R', pts: [
+        [x0, browY - 0.008 * headH * t, browZ - 0.015 * headH], [x0, browY + 0.032 * headH * t, browZ - 0.015 * headH], [x0, browY - 0.008 * headH * t, browZ + 0.012 * headH * f], [x0, browY + 0.032 * headH * t, browZ + 0.008 * headH * f],
+        [x1, browY - 0.01 * headH * t, browZ - 0.03 * headH], [x1, browY + 0.022 * headH * t, browZ - 0.03 * headH], [x1, browY - 0.01 * headH * t, browZ - 0.004 * headH * f], [x1, browY + 0.022 * headH * t, browZ - 0.008 * headH * f],
+      ] });
+    }
+    if (earKind === 'human') {
+      pieces.push({ kind: 'hull', part: sx > 0 ? 'ear.L' : 'ear.R', pts: [
+        [sx * hw * 0.92, hb + 0.38 * headH, -0.02 * hd], [sx * hw * 0.92, hb + 0.62 * headH, -0.06 * hd], [sx * hw * 1.08, hb + 0.4 * headH, -0.08 * hd], [sx * hw * 1.1, hb + 0.6 * headH, -0.14 * hd], [sx * hw * 0.95, hb + 0.5 * headH, -0.22 * hd],
+      ] });
+    } else if (earKind === 'pointy') {
+      // long pointed ears that sweep up and back
+      pieces.push({ kind: 'hull', part: sx > 0 ? 'ear.L' : 'ear.R', pts: [
+        [sx * hw * 0.9, hb + 0.38 * headH, -0.02 * hd], [sx * hw * 0.9, hb + 0.62 * headH, -0.1 * hd], [sx * hw * 1.06, hb + 0.4 * headH, -0.06 * hd],
+        [sx * hw * 1.1, hb + 0.58 * headH, -0.16 * hd], [sx * hw * 1.62, hb + 0.86 * headH, -0.36 * hd], [sx * hw * 0.95, hb + 0.5 * headH, -0.24 * hd],
+      ] });
+    }
   }
-  for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
-    const y = mouthY + dy * (slotH / 2 + 0.008 * headH);
-    const z = mouthZ - 0.006 * headH;
-    const r = 0.012 * headH;
-    pieces.push({ kind: 'hull', part: name, pts: [
-      [-mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r], [mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r],
-      [-mouthW * 0.85, y, z + r * 0.7], [mouthW * 0.85, y, z + r * 0.7], [-mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3], [mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3],
-      [0, y + dy * r * 0.5, z + r * 0.9], [-mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6], [mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6],
-      // the inner edge has vertices along it, so the opening can curve (O, OO) instead of staying a straight slot
-      [-mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [0, mouthY + dy * slotH * 0.12, z - r * 0.2],
+  if (mouthKind === 'beak') {
+    // a beak: an upper bill on the head and a shorter lower bill on the jaw, a gap between them
+    const up: V3[] = [], lo: V3[] = [];
+    for (const sx of [1, -1]) {
+      up.push([sx * 0.3 * hw, my + 0.005 * Hh, a - 0.05 * Hh], [sx * 0.22 * hw, my + 0.13 * Hh, a - 0.05 * Hh], [sx * 0.07 * hw, my + 0.004 * Hh, a + 0.22 * Hh]);
+      lo.push([sx * 0.26 * hw, my - 0.005 * Hh, a - 0.05 * Hh], [sx * 0.17 * hw, my - 0.085 * Hh, a - 0.05 * Hh], [sx * 0.05 * hw, my - 0.006 * Hh, a + 0.15 * Hh]);
+    }
+    up.push([0, my + 0.15 * Hh, a - 0.02 * Hh], [0, my + 0.07 * Hh, a + 0.2 * Hh], [0, my - 0.012 * Hh, a + 0.3 * Hh]);
+    lo.push([0, my - 0.09 * Hh, a - 0.03 * Hh], [0, my - 0.012 * Hh, a + 0.19 * Hh], [0, my - 0.04 * Hh, a + 0.12 * Hh]);
+    pieces.push({ kind: 'hull', part: 'lipUpper', pts: up }, { kind: 'hull', part: 'lipLower', pts: lo });
+  } else if (mouthKind === 'grille') {
+    // three bars across the dark panel: the top one on the head, the bottom one on the jaw
+    const bar = (part: string, y: number, w: number): Piece => ({ kind: 'hull', part, pts: [
+      [-w, y - 0.009 * Hh, a - 0.03 * Hh], [w, y - 0.009 * Hh, a - 0.03 * Hh], [-w, y + 0.009 * Hh, a - 0.03 * Hh], [w, y + 0.009 * Hh, a - 0.03 * Hh],
+      [-w, y - 0.009 * Hh, a - 0.004 * Hh], [w, y - 0.009 * Hh, a - 0.004 * Hh], [-w, y + 0.009 * Hh, a - 0.004 * Hh], [w, y + 0.009 * Hh, a - 0.004 * Hh],
     ] });
+    pieces.push(bar('lipUpper', my + 0.03 * Hh, mouthW * 1.05), bar('lipMid', my, mouthW * 1.05), bar('lipLower', my - 0.03 * Hh, mouthW * 1.05));
+  } else {
+    const thin = mouthKind === 'cartoon' ? 0.6 : 1;
+    for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
+      const y = mouthY + dy * (slotH / 2 + 0.008 * headH * thin);
+      const z = mouthZ - 0.006 * headH;
+      const r = 0.012 * headH * thin;
+      pieces.push({ kind: 'hull', part: name, pts: [
+        [-mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r], [mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r],
+        [-mouthW * 0.85, y, z + r * 0.7], [mouthW * 0.85, y, z + r * 0.7], [-mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3], [mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3],
+        [0, y + dy * r * 0.5, z + r * 0.9], [-mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6], [mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6],
+        // the inner edge has vertices along it, so the opening can curve (O, OO) instead of staying a straight slot
+        [-mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [0, mouthY + dy * slotH * 0.12, z - r * 0.2],
+      ] });
+    }
   }
+  const hc: V3 = [0, hb + 0.55 * headH, 0];
   if (p.hair === 'short') {
-    const c: V3 = [0, hb + 0.55 * headH, 0];
     const top = headPts.filter((q) => q[1] >= hb + 0.62 * headH && !(q[2] > 0.5 * hd && q[1] < hb + 0.8 * headH));
-    pieces.push({ kind: 'hull', part: 'hair', pts: top.map((q) => add(c, mul(subv(q, c), 1.07))).concat([[0, hb + 0.66 * headH, -hd * 1.06], [hw * 0.9, hb + 0.5 * headH, -hd * 0.6], [-hw * 0.9, hb + 0.5 * headH, -hd * 0.6]]) });
+    pieces.push({ kind: 'hull', part: 'hair', pts: top.map((q) => add(hc, mul(subv(q, hc), 1.07))).concat([[0, hb + 0.66 * headH, -hd * 1.06], [hw * 0.9, hb + 0.5 * headH, -hd * 0.6], [-hw * 0.9, hb + 0.5 * headH, -hd * 0.6]]) });
+  } else if (p.hair === 'tuft') {
+    // a crest of three spikes on the crown, swept back
+    const crown = hb + 0.92 * headH;
+    [[0, 0.32, 0.05], [0.22, 0.24, -0.1], [-0.22, 0.24, -0.1], [0, 0.26, -0.32]].forEach(([x, hgt, z]) => {
+      const bx = x * hw, bz = z * hd;
+      pieces.push({ kind: 'hull', part: 'hair', pts: [
+        [bx - 0.16 * hw, crown - 0.06 * headH, bz + 0.1 * hd], [bx + 0.16 * hw, crown - 0.06 * headH, bz + 0.1 * hd], [bx, crown - 0.06 * headH, bz - 0.22 * hd],
+        [bx * 1.3, crown + hgt * headH, bz - 0.25 * hd],
+      ] });
+    });
+  } else if (p.hair === 'bun') {
+    const top = headPts.filter((q) => q[1] >= hb + 0.66 * headH && !(q[2] > 0.45 * hd && q[1] < hb + 0.85 * headH));
+    pieces.push({ kind: 'hull', part: 'hair', pts: top.map((q) => add(hc, mul(subv(q, hc), 1.06))) });
+    pieces.push({ kind: 'ball', c: [0, hb + 0.92 * headH, -0.78 * hd], r: 0.34 * hw, sides: Math.max(8, SIDES), part: 'hair' });
   }
   // eyeballs: white, iris, pupil; separate from the head so they can turn
   const eyes: Piece[] = [];
@@ -384,9 +550,11 @@ export function characterSpec(p: CharParams): CharSpec {
     // iris and pupil: thin caps just proud of the eyeball, cut by planes (clean round edges; a union
     // of offset low-poly spheres gives star-shaped ones). Iris ≈ 36° from the axis, pupil ≈ 16°;
     // only the cap is kept, so the finer tessellation costs a few dozen triangles.
+    // dot eyes are almost all pupil (a bead); big eyes have a large iris and a bright catch-light
+    const irisDeg = eyeStyle === 'dot' ? 70 : eyeStyle === 'big' ? 44 : 36, pupilDeg = eyeStyle === 'dot' ? 64 : eyeStyle === 'big' ? 22 : 16;
     eyes.push({ kind: 'ball', c, r: eyeR, sides: 24, part: `${side}Eye` });
-    eyes.push({ kind: 'ball', c, r: eyeR * 1.01, sides: 48, cap: Math.cos((36 * Math.PI) / 180), part: `${side}Eye.iris` });
-    eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: 96, cap: Math.cos((16 * Math.PI) / 180), part: `${side}Eye.pupil` });
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.01, sides: 48, cap: Math.cos((irisDeg * Math.PI) / 180), part: `${side}Eye.iris` });
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: 96, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
   }
   // eyelids: thin shells in the gap between eyeball and socket; at rest the edge sits just under the
   // socket's upper rim (a calm, slightly hooded eye); a blink turns the shell down over the eyeball
@@ -402,7 +570,9 @@ export function characterSpec(p: CharParams): CharSpec {
       eyes: [{ c: B.LeftEye.head, r: eyeR, side: 'Left' }, { c: B.RightEye.head, r: eyeR, side: 'Right' }],
       brows, nose: [0, hb + 0.35 * headH, nb + 0.1 * headH],
       cheeks: [[0.55 * hw, hb + 0.35 * headH, surfAt(0.35, 0.55 * hw)], [-0.55 * hw, hb + 0.35 * headH, surfAt(0.35, 0.55 * hw)]],
+      kind: mouthKind,
     },
+    plan, ...(PD.walk ? { walk: PD.walk } : {}),
   };
 }
 
@@ -422,6 +592,15 @@ export const VISEME_MIX: Record<string, Partial<Record<'jaw' | 'wide' | 'round' 
   nn: { jaw: 0.2, wide: 0.25, tongueUp: 1 }, RR: { jaw: 0.22, round: 0.6 }, aa: { jaw: 1, wide: 0.2, upper: 0.3 }, E: { jaw: 0.5, wide: 0.65, upper: 0.35 },
   ih: { jaw: 0.28, wide: 0.6, upper: 0.3 }, oh: { jaw: 0.6, round: 0.95 }, ou: { jaw: 0.22, round: 1.3 },
 };
+
+/** How a mouth part says a speech shape. Lips use the full mix; a beak can only open and snap shut (it
+ *  opens wider for vowels, a little for consonants, closes on M/B/P); a speaker grille opens and widens. */
+export function visemeMix(kind: string | undefined, v: string): Partial<Record<string, number>> {
+  const m = VISEME_MIX[v];
+  if (kind === 'beak') return { jaw: Math.min(1.2, (m.jaw ?? 0) * 1.25 + (m.round ?? 0) * 0.18 + (m.wide ?? 0) * 0.1), ...(m.press ? { press: m.press } : {}) };
+  if (kind === 'grille') return { jaw: (m.jaw ?? 0) * 1.1 + (m.round ?? 0) * 0.15, wide: (m.wide ?? 0) * 1.2 - (m.round ?? 0) * 0.6, ...(m.press ? { press: m.press } : {}) };
+  return m;
+}
 
 /** Parts that belong to the face (deformed by shape keys, weighted to Head/Jaw). */
 export const isFacePart = (part: string) => /^(Head|mouthInner|eyeSocket|nose|brow\.|lip|lid\.|ear\.|hair|teeth|tongue)/.test(part);
@@ -522,7 +701,7 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
     return d;
   };
   const out: Record<string, Float32Array> = {};
-  for (const vname of VISEMES) out[vname] = mix(VISEME_MIX[vname]);
+  for (const vname of VISEMES) out[vname] = mix(visemeMix(F.kind, vname));
   // expressions
   const sideField = (sx: number, fn: (p: V3, v: number) => V3 | null) => prim((p, v) => (Math.sign(p[0] || 1e-9) === sx || Math.abs(p[0]) < 0.004 ? fn(p, v) : null));
   for (const e of F.eyes) {
@@ -578,7 +757,7 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
     return w > 0.01 ? [0, 0.012 * H * w, 0] : null;
   });
   out.noseSneerLeft = sneer(1); out.noseSneerRight = sneer(-1);
-  out.mouthPucker = mix({ round: 1.15 });
+  out.mouthPucker = F.kind === 'beak' || F.kind === 'grille' ? mix({ jaw: 0.12, press: 0.4 }) : mix({ round: 1.15 });
   out.mouthClose = mix({ press: 1 });
   out.jawOpen = mix({ jaw: 1 });
   // sparse storage (only vertices that move)
@@ -870,7 +1049,15 @@ export function poseChecks(rig: Rig, rest: Float32Array, indices: Uint32Array, v
     triRegion.push(region(dominant[v]));
   }
   const out: PoseCheck[] = [];
-  const sets: Record<string, Q[]> = poses ?? Object.fromEntries(Object.entries(CANONICAL_POSES).map(([name, pose]) => [name, rig.bones.map((b) => (pose[b.name] ? qEuler(pose[b.name]) : qIdentity()))]));
+  // the test poses follow the body's range of motion: a belly or a round torso stops the thighs short
+  // of a human's 80° sit, so those bodies sit as far as they can (body-relative checks, Decision 48 A)
+  const PDp = PLANS[rig.spec.plan ?? 'human'];
+  const hipFlex = 1 - Math.min(0.35, PDp.torso[4] * 0.8 + Math.max(0, PDp.limb - 1) * 0.3);
+  const posesFor = (name: string, pose: Record<string, V3>): Record<string, V3> => {
+    if (hipFlex === 1 || name !== 'sitting') return pose;
+    return Object.fromEntries(Object.entries(pose).map(([k, v]) => [k, /Leg$/.test(k) ? (v.map((x) => x * hipFlex) as V3) : v]));
+  };
+  const sets: Record<string, Q[]> = poses ?? Object.fromEntries(Object.entries(CANONICAL_POSES).map(([name, pose0]) => { const pose = posesFor(name, pose0); return [name, rig.bones.map((b) => (pose[b.name] ? qEuler(pose[b.name]) : qIdentity()))]; }));
   for (const [name, local] of Object.entries(sets)) {
     const posed = forward(rig.bones, rig.parents, local);
     const P = poseVertices(rig, rest, posed, undefined);
@@ -984,6 +1171,55 @@ function triTri(P: Float32Array, I: Uint32Array, a: number, b: number): boolean 
  * shape at full weight, the margin between each tooth/tongue point and the front of the lips above
  * or below it. Negative = something pokes through.
  */
+/** Speech on any mouth part (Decision 49 A): it closes on M/B/P, opens clearly for vowels, and its 15
+ *  speech shapes fall into enough visibly different groups (lips can do more than a beak or a grille). */
+export function speechCheck(rig: Rig, rest: Float32Array, vertPart: string[]): { pass: boolean; groups: number; need: number; closed: number; open: number; detail: string } {
+  const F = rig.spec.face, kind = F.kind ?? 'human', Hh = F.headH;
+  const band = (v: number) => Math.abs(rest[v * 3] - F.mouth[0]) < F.mouthW * 0.5;
+  const up: number[] = [], lo: number[] = [], mouthVerts: number[] = [];
+  for (let v = 0; v < vertPart.length; v++) {
+    const p = vertPart[v];
+    if (p === 'lipUpper' && band(v)) up.push(v);
+    if (p === 'lipLower' && band(v)) lo.push(v);
+    if (/^lip|^mouthInner/.test(p)) mouthVerts.push(v);
+  }
+  // bars and bills may have no vertices near the centre line: then the whole part stands in
+  if (!up.length) for (let v = 0; v < vertPart.length; v++) if (vertPart[v] === 'lipUpper') up.push(v);
+  if (!lo.length) for (let v = 0; v < vertPart.length; v++) if (vertPart[v] === 'lipLower') lo.push(v);
+  if (!up.length || !lo.length) return { pass: false, groups: 0, need: 0, closed: 0, open: 0, detail: 'no upper and lower mouth parts found' };
+  const deltaAt = (key: string) => {
+    const d = new Map<number, V3>();
+    const sh = rig.shapes[key];
+    if (sh) for (let i = 0; i < sh.idx.length; i++) d.set(sh.idx[i], [sh.d[i * 3], sh.d[i * 3 + 1], sh.d[i * 3 + 2]]);
+    return d;
+  };
+  const cy = (vs: number[], d: Map<number, V3>) => vs.reduce((a, v) => a + rest[v * 3 + 1] + (d.get(v)?.[1] ?? 0), 0) / vs.length;
+  const opening = (key: string) => { const d = deltaAt(key); return cy(up, d) - cy(lo, d); };
+  const rest0 = opening('__none__');
+  const closed = opening('PP') - rest0, open = opening('aa') - rest0;
+  // group the speech shapes by how they move the mouth (RMS difference over its vertices)
+  const fields = VISEMES.map((k) => { const d = deltaAt(k); return mouthVerts.map((v) => d.get(v) ?? [0, 0, 0]); });
+  const groups: number[] = [];
+  const reps: V3[][] = [];
+  fields.forEach((f) => {
+    let found = -1;
+    reps.forEach((r, gi) => {
+      let e = 0; for (let i = 0; i < f.length; i++) e += (f[i][0] - r[i][0]) ** 2 + (f[i][1] - r[i][1]) ** 2 + (f[i][2] - r[i][2]) ** 2;
+      if (found < 0 && Math.sqrt(e / Math.max(1, f.length)) < 0.004 * Hh) found = gi;
+    });
+    if (found < 0) { reps.push(f); groups.push(reps.length - 1); } else groups.push(found);
+  });
+  const need = kind === 'beak' || kind === 'grille' ? 4 : 8;
+  const fails: string[] = [];
+  if (closed > 0.002 * Hh) fails.push(`M/B/P leaves the ${kind === 'beak' ? 'beak' : 'mouth'} ${(closed * 1000).toFixed(1)} mm more open than at rest (it must close)`);
+  if (open < 0.03 * Hh) fails.push(`"aa" opens only ${(open * 1000).toFixed(1)} mm (vowels must read)`);
+  if (reps.length < need) fails.push(`the 15 speech shapes fall into only ${reps.length} visibly different groups (want ≥ ${need})`);
+  return {
+    pass: !fails.length, groups: reps.length, need, closed, open,
+    detail: fails.length ? fails.join('; ') : `${kind} mouth: closes on M/B/P (${(closed * 1000).toFixed(1)} mm), opens ${(open * 1000).toFixed(0)} mm on "aa", ${reps.length} distinct speech shapes of 15`,
+  };
+}
+
 export function mouthCheck(rig: Rig, rest: Float32Array, vertPart: string[]): { pass: boolean; worst: number; shape: string; detail: string } {
   const H = rig.spec.face.headH, mw = rig.spec.face.mouthW;
   const F0 = rig.spec.face.mouth;

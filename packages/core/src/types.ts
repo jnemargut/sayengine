@@ -198,6 +198,7 @@ export interface MotionSpec {
   action?: string;     // a library action (action): wave, nod, shrug, point, hammer-strike, pick-up, look-around
   seed?: number;       // blinks and glances
   from?: string;       // start/stop: the walk motion they pair with (default "walk"; its settings are used)
+  style?: 'waddle' | 'swagger' | 'shuffle' | 'bounce';   // walk/run gait character (body plans have their own default)
 }
 
 /** A 3D-print profile (Decisions 43–46): one printer, one filament, the fit gaps measured for it. */
