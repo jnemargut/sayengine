@@ -90,7 +90,7 @@ export interface PlanDef {
 export const PLANS: Record<BodyPlan, PlanDef> = {
   human: { label: 'human proportions', height: 1.75, build: 0.55, head: 0.165, leg: 0.47, arm: 1, shoulder: 1, limb: 1, hand: 1, foot: 1, neck: 1, headW: 1, headD: 1, torso: [1, 1, 1, 1, 0], eyeY: 0.5,
     face: { mouth: 'human', eyes: 'natural', brows: 'bar', nose: 'human', ears: 'human', hair: 'short' } },
-  chibi: { label: 'big head, short round body, stubby limbs', height: 1.0, build: 0.6, head: 0.3, leg: 0.3, arm: 0.86, shoulder: 1.05, limb: 1.45, hand: 1.35, foot: 1.5, neck: 0.45, headW: 1.12, headD: 1.04, torso: [1.35, 1.3, 1.15, 1.25, 0.22], eyeY: 0.44,
+  chibi: { label: 'big head, short round body, stubby limbs', height: 1.0, build: 0.6, head: 0.34, leg: 0.3, arm: 0.86, shoulder: 1.05, limb: 1.45, hand: 1.35, foot: 1.5, neck: 0.45, headW: 1.12, headD: 1.04, torso: [1.35, 1.3, 1.15, 1.25, 0.22], eyeY: 0.44,
     face: { mouth: 'cartoon', eyes: 'big', brows: 'bar', nose: 'button', ears: 'human', hair: 'tuft' }, walk: 'bounce' },
   lanky: { label: 'tall and thin, long limbs, small head', height: 2.05, build: 0.15, head: 0.125, leg: 0.53, arm: 1.16, shoulder: 0.84, limb: 0.66, hand: 1.12, foot: 1.0, neck: 1.7, headW: 0.86, headD: 0.98, torso: [0.82, 0.74, 0.86, 0.82, 0], eyeY: 0.52,
     face: { mouth: 'human', eyes: 'natural', brows: 'bar', nose: 'long', ears: 'human', hair: 'short' } },
@@ -247,7 +247,7 @@ export function characterSpec(p: CharParams): CharSpec {
     return hw * 0.5;
   };
   const surfAt = (y01: number, x: number) => surfZ(y01) * Math.sqrt(Math.max(0, 1 - (x / ringAt(y01)) ** 2));
-  const eyeR = (eyeStyle === 'big' ? 0.2 : eyeStyle === 'dot' ? 0.11 : 0.14) * hw;
+  const eyeR = (eyeStyle === 'big' ? 0.2 : eyeStyle === 'dot' ? 0.13 : 0.14) * hw;
   const eyeY01 = PD.eyeY;
   const eyeY = headBaseY + eyeY01 * headH;
   const eyeX = (eyeStyle === 'big' ? 0.42 : 0.37) * hw;
@@ -496,11 +496,12 @@ export function characterSpec(p: CharParams): CharSpec {
     // a beak: an upper bill on the head and a shorter lower bill on the jaw, a gap between them
     const up: V3[] = [], lo: V3[] = [];
     for (const sx of [1, -1]) {
-      up.push([sx * 0.3 * hw, my + 0.005 * Hh, a - 0.05 * Hh], [sx * 0.22 * hw, my + 0.13 * Hh, a - 0.05 * Hh], [sx * 0.07 * hw, my + 0.004 * Hh, a + 0.22 * Hh]);
-      lo.push([sx * 0.26 * hw, my - 0.005 * Hh, a - 0.05 * Hh], [sx * 0.17 * hw, my - 0.085 * Hh, a - 0.05 * Hh], [sx * 0.05 * hw, my - 0.006 * Hh, a + 0.15 * Hh]);
+      // a big, readable bill: wide at the face, a hooked tip well forward of it
+      up.push([sx * 0.42 * hw, my + 0.006 * Hh, a - 0.06 * Hh], [sx * 0.3 * hw, my + 0.17 * Hh, a - 0.06 * Hh], [sx * 0.1 * hw, my + 0.006 * Hh, a + 0.34 * Hh]);
+      lo.push([sx * 0.36 * hw, my - 0.006 * Hh, a - 0.06 * Hh], [sx * 0.24 * hw, my - 0.11 * Hh, a - 0.06 * Hh], [sx * 0.07 * hw, my - 0.008 * Hh, a + 0.24 * Hh]);
     }
-    up.push([0, my + 0.15 * Hh, a - 0.02 * Hh], [0, my + 0.07 * Hh, a + 0.2 * Hh], [0, my - 0.012 * Hh, a + 0.3 * Hh]);
-    lo.push([0, my - 0.09 * Hh, a - 0.03 * Hh], [0, my - 0.012 * Hh, a + 0.19 * Hh], [0, my - 0.04 * Hh, a + 0.12 * Hh]);
+    up.push([0, my + 0.2 * Hh, a - 0.03 * Hh], [0, my + 0.1 * Hh, a + 0.3 * Hh], [0, my - 0.02 * Hh, a + 0.46 * Hh]);
+    lo.push([0, my - 0.12 * Hh, a - 0.04 * Hh], [0, my - 0.016 * Hh, a + 0.3 * Hh], [0, my - 0.055 * Hh, a + 0.18 * Hh]);
     pieces.push({ kind: 'hull', part: 'lipUpper', pts: up }, { kind: 'hull', part: 'lipLower', pts: lo });
   } else if (mouthKind === 'grille') {
     // three bars across the dark panel: the top one on the head, the bottom one on the jaw

@@ -6,6 +6,7 @@ import { freeSpot, type ToolDef } from './tools.ts';
 import type { CharacterState, GripSocket, HandPose, LineClip, Material, SceneObject } from './types.ts';
 import { BODY_PLANS, BROW_STYLES, CHAR_DEFAULTS, EARS, EXPRESSIONS, EYE_STYLES, HAIRS, MOUTHS, NAMED_HAND_POSES, NOSES, PLANS, SHAPE_KEYS, STYLE_FAMILIES, VISEMES, apronDepth, characterSpec, charParams, weightReport, type BodyPlan, type V3 } from './rig.ts';
 import { decodePng, readReference } from './charstyle.ts';
+import { importCharacter } from './importchar.ts';
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
 import { lineLife } from './life.ts';
 import { ACTIONS, MOTION_DEFAULTS, bakeMotion, motionSettings } from './motion.ts';
@@ -128,6 +129,29 @@ function handPose(a: any, base?: HandPose): HandPose {
 const describeHand = (h: HandPose) => h.name ?? `curl ${['index', 'middle', 'ring', 'little'].map((f) => (h as any)[f]).join('/')}, thumb ${h.thumb}, spread ${h.spread}`;
 
 export const CHARACTER_TOOLS: ToolDef[] = [
+  {
+    name: 'import-character', mode: 'create', mutates: true,
+    description: 'Bring in an outside character (Decision 50 A: the side door; studio-made characters are the main road). A rigged .glb / .gltf / .vrm (VRoid, Mixamo, Blender, asset stores): its bones are matched to the standard humanoid names, the studio motions (idle, walk, run, start, stop, turn, wave) are retargeted onto it (rest-pose fix + hip-height scale), its face is driven by what it brings (its own 15 visemes → ARKit shapes → VRM vowels with made-up consonants → jaw → eyes only), and its VRM licence is read. Returns a report of what carried over and what did not. The retargeted model is saved as an asset (shown in the scene as a reference you can place). A model with no skeleton stays a prop.',
+    input: z.object({ file: z.string(), name: z.string().optional(), motions: z.array(z.string()).optional(), at: z.tuple([z.number(), z.number(), z.number()]).optional() }),
+    example: `studio import-character --file models/knight.vrm`,
+    run(ctx, a) {
+      const bytes: Uint8Array = ctx.studio.assets.readExternal(a.file);
+      const fileName = a.file.split(/[\\/]/).pop()!;
+      const { glb, report } = importCharacter(bytes, { name: a.name, motions: a.motions });
+      const asset = ctx.studio.assets.put(glb, 'glb');
+      let id = slug(a.name ?? report.name);
+      while (ctx.doc.objects[id]) id = id + '-2';
+      const obj: SceneObject = {
+        id, name: a.name ?? report.name, semanticType: 'reference', params: {}, ops: { mesh: { id: 'mesh', op: 'mesh', args: { asset, format: 'glb', units: 'm', up: 'y' }, part: 'reference' } }, opOrder: ['mesh'], output: 'mesh',
+        material: { name: 'reference', color: '#9a8fb0' }, position: a.at ?? freeSpot(ctx as any), rules: [], role: 'reference',
+        reference: { kind: 'mesh', asset, file: fileName, format: 'glb' }, imported: { asset, report } as any,
+      } as any;
+      ctx.set(['objects', id], obj);
+      ctx.set(['objectOrder'], [...ctx.doc.objectOrder, id]);
+      ctx.summary(report.rigged ? `Imported ${fileName} as an outside character: ${report.bones.matched}/${report.bones.of} bones matched, ${report.motions.length} motions retargeted, face: ${report.face.mode}${report.warnings.length ? ` — ${report.warnings.length} warning(s)` : ''}` : `Imported ${fileName}: no skeleton, so it stays a prop`);
+      return { id, asset, report };
+    },
+  },
   {
     name: 'new-character', mode: 'create', mutates: true,
     description: `Make a character, skeleton first (Decision 47 A): pick a body plan (${BODY_PLANS.join(', ')}), and the studio builds that skeleton (standard humanoid bone names), a low-poly body around it, a face from parts and hair. Born rigged: skin weights, 15 speech shapes + 18 expression shapes (every mouth answers to the same names), full hands. Face parts: --mouth ${MOUTHS.join('|')}, --eyes ${EYE_STYLES.join('|')}, --brows ${BROW_STYLES.join('|')}, --nose ${NOSES.join('|')}, --ears ${EARS.join('|')}, --hair ${HAIRS.join('|')}; --style ${STYLE_FAMILIES.join('|')} (how the facets are cut); --palette ${Object.keys(PALETTES).join('|')}. Presets: ${Object.keys(PRESETS).join(', ')}. --reference picture.png steers proportions and colours. Proportions stay params (height, build 0..1, headSize, armLength, legLength, handSize), so "make him taller" is one set-param. Studio check compares each new character's outline with the rest of the cast (no look-alikes).`,
