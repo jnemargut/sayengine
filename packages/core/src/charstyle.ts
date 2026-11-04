@@ -139,7 +139,7 @@ export function readReference(img: Rgba): { plan: BodyPlan; params: Record<strin
   // colours: the median of each height band, sampled from the middle of the figure
   const band = (a: number, b: number, half = 0.18) => {
     const cs: number[][] = [];
-    for (let y = top + Math.round(Hf * a); y <= top + Math.round(Hf * b); y++) {
+    for (let y = top + Math.round(Hf * a); y <= Math.min(bottom, top + Math.round(Hf * b)); y++) {
       const row = rows[y]; if (!row.n) continue;
       const mid = (row.l + row.r) / 2, hw = Math.max(1, (row.r - row.l) * half);
       for (let x = Math.round(mid - hw); x <= Math.round(mid + hw); x++) if (fg(x, y)) cs.push(px(x, y));

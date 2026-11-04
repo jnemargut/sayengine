@@ -93,7 +93,7 @@ const SEG: Record<string, string[]> = { Thumb: ['Metacarpal', 'Proximal', 'Dista
 
 /** The humanoid name a bone name stands for, or null. */
 export function humanoidName(raw: string): string | null {
-  let n = raw.replace(/^mixamorig\d*[:_]?/i, '').replace(/^(bip0?1|def|org|armature)[\s_:.-]*/i, '');
+  let n = raw.replace(/^mixamorig\d*[:_]?/i, '').replace(/^(bip0?1|def|org|armature|j_bip)[\s_:.-]*/i, '');   // j_bip: VRoid exports (J_Bip_L_UpperArm)
   let side = '';
   const sideM = n.match(/^(left|right)[\s_.-]*/i) ?? n.match(/^([lr])[\s_.-]+/i);
   if (sideM) { side = sideM[1][0].toLowerCase() === 'l' ? 'Left' : 'Right'; n = n.slice(sideM[0].length); }

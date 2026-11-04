@@ -44,8 +44,8 @@ test('the mouth has teeth and a tongue: upper teeth on the head, lower teeth and
   const m = mouthCheck(rig, bad, vertPart);
   assert.equal(m.pass, false);
   assert.match(m.detail, /poke through/);
-  // still inside the budget the kit had before
-  assert.ok(res.indices.length / 3 < 16000, `${res.indices.length / 3} triangles`);
+  // still inside budget (the stocky body plan's barrel chest and belly rings add some hull detail)
+  assert.ok(res.indices.length / 3 < 20000, `${res.indices.length / 3} triangles`);
 });
 
 test('short F/V and OO sounds reach their shape; the check catches a smoothed-away one', () => {

@@ -37,7 +37,10 @@ test('a walk stays upright (hips ≥ 95% of standing, planted knee ≥ 165° at 
       const r = motionReport(rig(), c);
       assert.ok(r.pass && r.pelvis! >= 0.95 && r.stanceKnee! >= 165, `${preset} ${speed} m/s: ${r.detail}`);
       const bob = Math.max(...c.hips.map((h) => h[1])) - Math.min(...c.hips.map((h) => h[1]));
-      assert.ok(bob > 0.02 && bob < 0.085, `${preset} ${speed} m/s: hips bob ${bob.toFixed(3)} m`);
+      // body-relative: the hips rise and fall with leg length (a short stocky smith bobs less, long legs more)
+      const hipsY = (r: ReturnType<typeof rig>) => r.bones.find((b) => b.name === 'Hips')!.head[1];
+      const s = hipsY(rig()) / hipsY(kit().rig());
+      assert.ok(bob > 0.02 * s && bob < 0.085 * s, `${preset} ${speed} m/s: hips bob ${bob.toFixed(3)} m`);
     }
   }
   const { rig } = kit();
@@ -67,7 +70,7 @@ test('new characters can stand and walk; set-motion adds, tunes and explains; ch
   const { s, ok } = kit('blacksmith');
   assert.deepEqual(Object.keys(s.doc().objects.smith.character!.motions!).sort(), ['idle', 'start', 'stop', 'walk']);
   ok('set-motion', { object: 'smith', id: 'walk', speed: 1.0, energy: 0.2 });
-  assert.deepEqual(s.doc().objects.smith.character!.motions!.walk, { kind: 'walk', speed: 1, energy: 0.2 });
+  assert.deepEqual(s.doc().objects.smith.character!.motions!.walk, { kind: 'walk', style: 'swagger', speed: 1, energy: 0.2 });   // the stocky plan's own gait stays
   ok('set-motion', { object: 'smith', id: 'strike', kind: 'action', action: 'hammer-strike' });
   const bad = s.call('set-motion', { object: 'smith', id: 'hi', kind: 'action', action: 'wav' });
   assert.equal(bad.ok, false);
@@ -115,7 +118,7 @@ test('export: walk/idle/action clips in place with speed, hips translation, blin
   const j = json(glb);
   const walk = j.animations.find((a: any) => a.name === 'walk');
   assert.equal(walk.extras.motion, 'walk');
-  assert.ok(walk.extras.loop && walk.extras.speed > 1 && walk.extras.stride > 0.8);
+  assert.ok(walk.extras.loop && walk.extras.speed > 0.8 && walk.extras.stride > 0.6, JSON.stringify(walk.extras));   // the stocky smith's shorter legs
   const paths = walk.channels.map((c: any) => `${j.nodes[c.target.node].name ?? ''}.${c.target.path}`);
   for (const want of ['Hips.translation', 'LeftUpperLeg.rotation', 'RightLowerLeg.rotation', 'LeftFoot.rotation', 'LeftUpperArm.rotation', 'Smith.weights']) assert.ok(paths.includes(want), `walk animates ${want}`);
   assert.equal(j.animations.find((a: any) => a.name === 'wave').extras.loop, false);
