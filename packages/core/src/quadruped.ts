@@ -95,7 +95,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   const H = p.height, b = p.build, s = H / 1.75;
   const wither = 0.66 * H * p.legLength / (0.75 + 0.25 * p.legLength);          // shoulder height
   const bodyLen = 1.12 * wither * (0.95 + 0.25 * (1 - p.legLength));
-  const bodyR = 0.235 * wither * (0.75 + 0.5 * b);
+  const bodyR = 0.27 * wither * (0.75 + 0.5 * b);
   const hipY = wither * 0.97, chestY = wither, zRump = -bodyLen * 0.48, zChest = bodyLen * 0.4;
   const legX = bodyR * 0.62;
   const bones: BoneDef[] = [];
@@ -153,10 +153,10 @@ export function quadrupedSpec(p: CharParams): CharSpec {
       let at: V3 = [x + sx * fz * 0.03 * wither, pawY, fpaw[2] + 0.01 * wither];
       fingerBones(side, f).forEach((n, i) => { const end = add(at, [0, 0, toeLen * 0.25]); bone(n, i === 0 ? `${side}Hand` : fingerBones(side, f)[i - 1], at, end); at = end; });
     }
-    const t = 0.11 * wither * (0.8 + 0.4 * b);
-    ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.25, t * 0.6, `${side}UpperLeg`);
-    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.58, t * 0.37, `${side}LowerLeg`);
-    ball(hock, t * 0.37, `${side}Foot`); seg(hock, paw, t * 0.35, t * 0.31, `${side}Foot`);
+    const t = 0.105 * wither * (0.8 + 0.4 * b);
+    ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.2, t * 0.62, `${side}UpperLeg`);
+    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.58, t * 0.36, `${side}LowerLeg`);
+    ball(hock, t * 0.36, `${side}Foot`); seg(hock, paw, t * 0.34, t * 0.3, `${side}Foot`);
     pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [add(paw, [-t * 0.55, -pawY, -t * 0.4]), add(paw, [t * 0.55, -pawY, -t * 0.4]), add(paw, [-t * 0.6, -pawY, toeLen]), add(paw, [t * 0.6, -pawY, toeLen]), add(paw, [0, t * 0.48, toeLen * 0.4]), add(paw, [-t * 0.33, t * 0.33, 0]), add(paw, [t * 0.33, t * 0.33, 0])] });
     const ft = t * 0.92;
     ball(sh, ft * 1.0, `${side}UpperArm`); seg(sh, elbow, ft, ft * 0.6, `${side}UpperArm`);

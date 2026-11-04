@@ -429,7 +429,9 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           // limbs and torso get edge loops along their length (still flat facets) so joints can bend
           const loops = (pc: Piece, m: any) => {
             const long = pc.kind === 'seg' ? Math.hypot(pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]) > 0.08 * spec.s : pc.part === 'torso' || (pc.kind === 'hull' && !!pc.loops);
-            return long ? keep(m.refineToLength(0.045 * spec.s)) : m;
+            // limbs built as hulls are thick: their rings' edges are already short around, so loops only
+            // need to cut along the length (a coarser target keeps the triangle count down)
+            return long ? keep(m.refineToLength((pc.kind === 'hull' && pc.part !== 'torso' ? 0.07 : pc.part === 'torso' ? 0.052 : 0.045) * spec.s)) : m;
           };
           const body = spec.pieces.map((pc) => mk(loops(pc, build(pc)), pc.part));
           const eyes = spec.eyes.map((pc) => mk(build(pc), pc.part));

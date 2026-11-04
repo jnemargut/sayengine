@@ -394,7 +394,7 @@ export function characterSpec(p: CharParams): CharSpec {
   if (birdLegs) {
     // plumage: a full skirt of body feathers over the hips and the tops of the legs
     pieces.push({ kind: 'hull', part: 'plumage', pts: [
-      ...ring(waistY, waistR * 1.04, waistZ * 1.04, 0.1 * s * dpt * 1.06, Math.max(tr, 10)),
+      ...ring(hipY + 0.04 * s, (hipR + waistR) * 0.53, (hipZ + waistZ) * 0.54, 0.1 * s * dpt * 1.08, Math.max(tr, 10)),
       ...ring(hipY - 0.03 * s, hipR * 1.14, hipZ * 1.2, 0.105 * s * dpt * 1.22, Math.max(tr, 10)),
       ...ring(hipY - 0.12 * s - 0.08 * (ulLen / s - 0.3) * s, hipR * 0.92, hipZ * 1.05, 0.105 * s * dpt * 1.08, Math.max(tr, 10)),
     ] });
@@ -450,7 +450,7 @@ export function characterSpec(p: CharParams): CharSpec {
       limb(midT, ul.tail, sh * 1.3, sh * 1.2, sh * 1.15, 0.5, `${side}UpperLeg.shank`, 0, 8);
       ball(ll.head, sh * 1.7, `${side}LowerLeg.shank`, 8);
       limb(ll.head, ll.tail, sh * 1.25, sh * 1.1, sh * 0.95, 0.4, `${side}LowerLeg.shank`, 0, 8);
-      for (const at of [0.55, 0.68, 0.81]) bandAlong(ll.head, ll.tail, at, sh * 1.18, 0.012 * s, `${side}LowerLeg.shank`, 8);
+      for (const at of [0.55, 0.68, 0.81]) bandAlong(ll.head, ll.tail, at, sh * 1.18, 0.012 * s, `${side}LowerLeg.shank`, 6);
       ball(ft.head, sh * 1.5, `${side}Foot`, 8);
       const fx = ft.head[0], fy = 0.012 * s;
       // three long toes splayed forward and one back
@@ -704,7 +704,7 @@ export function characterSpec(p: CharParams): CharSpec {
     const irisDeg = eyeStyle === 'dot' ? 70 : eyeStyle === 'big' ? 44 : 36, pupilDeg = eyeStyle === 'dot' ? 64 : eyeStyle === 'big' ? 22 : 16;
     eyes.push({ kind: 'ball', c, r: eyeR, sides: 24, part: `${side}Eye` });
     eyes.push({ kind: 'ball', c, r: eyeR * 1.01, sides: 48, cap: Math.cos((irisDeg * Math.PI) / 180), part: `${side}Eye.iris` });
-    eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: 96, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: pupilDeg > 30 ? 48 : 72, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
     // a catch-light: a small bright bead up and to the outer side of the pupil (eyes read as alive)
     const gd = norm([(side === 'Left' ? 1 : -1) * 0.28, 0.32, 0.9]);
     eyes.push({ kind: 'ball', c: add(c, mul(gd, eyeR * 0.98)), r: eyeR * (eyeStyle === 'dot' ? 0.2 : 0.17), sides: 12, part: `${side}Eye.glint` });
@@ -719,7 +719,7 @@ export function characterSpec(p: CharParams): CharSpec {
   if (p.tail) addTail(bones, pieces, [0, B.Hips.head[1] - 0.02 * s, addOnZ * 0.9], [0, -0.35, -1], 0.5 * H * (p.tailLength ?? 1), 0.035 * s * L, SIDES);
   if (p.wings) addWings(bones, pieces, [0, B.UpperChest.head[1], addOnZ * 1.05], 0.42 * H, 0.17 * H, 'UpperChest');
   return {
-    params: p, s, bones, pieces, head: { pts: headPts, refine: 0.012 * s, part: 'Head' }, cuts, mouth: mouthPieces, eyes, lids, palm,
+    params: p, s, bones, pieces, head: { pts: headPts, refine: 0.012 * s * Math.sqrt(Math.max(1, headH / (0.165 * H * 1.1))), part: 'Head' }, cuts, mouth: mouthPieces, eyes, lids, palm,
     face: {
       headBase: [0, hb, 0], headH, hw, hd,
       mouth: [0, mouthY, mouthZ], mouthW, slotH, jawPivot,
