@@ -237,6 +237,6 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
     for (let f = 0; f < n; f++) out.set(weightsAt((nme) => (clip.shapes[nme] ? Math.max(clip.shapes[nme][f] ?? 0, expr[nme] ?? 0) : undefined)), f * info.shapeNames.length);
     samplers.push({ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' });
     channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
-    anims.push({ name: `${prefix}${id}`, samplers, channels, extras: { motion: spec.kind, loop: clip.loop, speed: clip.speed, duration: clip.duration, ...(clip.stride ? { stride: clip.stride } : {}), ...(clip.turn !== undefined ? { turn: clip.turn } : {}), ...(spec.action ? { action: spec.action } : {}) } });
+    anims.push({ name: `${prefix}${id}`, samplers, channels, extras: { motion: spec.kind, loop: clip.loop, speed: clip.speed, duration: clip.duration, ...(clip.stride ? { stride: clip.stride } : {}), ...(clip.turn !== undefined ? { turn: clip.turn } : {}), ...(spec.action ? { action: spec.action } : {}), ...(clip.travel ? { travel: clip.travel, then: spec.kind === 'start' ? (spec.from ?? 'walk') : 'idle', ...(spec.kind === 'start' ? { phase: 0.5 } : {}) } : {}) } });
   }
 }

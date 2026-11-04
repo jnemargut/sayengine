@@ -124,6 +124,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       const opOrder = ['body'];
       let output = 'body';
       if (look.apron) {
+        (ops.body.args as any).apron = true;
         // a leather apron hung from the chest, in front of the legs (follows the hips and thighs)
         const hip = spec.bones.find((b) => b.name === 'Hips')!.head[1], chest = spec.bones.find((b) => b.name === 'UpperChest')!.head[1];
         const s = spec.s;
@@ -144,7 +145,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         hands: { left: { ...NAMED_HAND_POSES.relaxed }, right: { ...NAMED_HAND_POSES.relaxed } },
         expression: {},
         // every character can stand and walk in a game from the start (set-motion tunes or adds more)
-        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' } },
+        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' }, start: { kind: 'start' }, stop: { kind: 'stop' } },
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,
@@ -360,7 +361,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
     input: z.object({
       object: ObjRef,
       id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('clip name, e.g. walk, run, idle, turn-left, wave'),
-      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action']).optional().describe('required for a new motion'),
+      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop']).optional().describe('required for a new motion (start/stop: the steps into and out of a walk; the game plays them when movement begins and ends)'),
       speed: z.number().optional().describe('m/s (walk 0.3–2.2, default ~1.3; run 1.8–7, default ~3.4)'),
       stride: z.number().optional().describe('m per cycle (two steps); default from leg length and speed'),
       bounce: z.number().optional().describe('m of hip rise and fall'),
@@ -372,12 +373,13 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       turn: z.number().optional().describe('degrees, + = to the left (turn)'),
       action: z.string().optional().describe(`library action (action): ${Object.keys(ACTIONS).join(', ')}`),
       seed: z.number().optional().describe('blinks and glances'),
+      from: z.string().optional().describe('start/stop: the walk motion they pair with (default walk)'),
     }),
     example: `studio set-motion --object blacksmith --id walk --speed 1.1 --energy 0.3`,
     run(ctx, a) {
       const o = asCharacter(ctx.obj(a.object));
       const prev = o.character?.motions?.[a.id];
-      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action)`);
+      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action, start, stop)`);
       const { object: _o, id: _id, ...settings } = a;
       const spec: MotionSpec = { ...(prev ?? {}), ...Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined)) } as MotionSpec;
       if (prev && a.kind && a.kind !== prev.kind) for (const k of Object.keys(spec) as Array<keyof MotionSpec>) if (k !== 'kind' && !(k in settings && (settings as any)[k] !== undefined)) delete spec[k];
@@ -420,7 +422,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
           return [id, { spec, duration: c.duration, loop: c.loop, speed: c.speed, stride: c.stride, frames: c.frames, checks }];
         } catch (e: any) { return [id, { spec, error: e.message }]; }
       }));
-      return { motions, kinds: ['walk', 'run', 'idle', 'turn', 'action'], defaults: MOTION_DEFAULTS, actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, v]) => [k, `${v.label} (${v.duration} s)`])) };
+      return { motions, kinds: ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop'], defaults: MOTION_DEFAULTS, actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, v]) => [k, `${v.label} (${v.duration} s)`])) };
     },
   },
 ];

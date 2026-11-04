@@ -12,7 +12,7 @@ import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
 import { poseChecks, weightReport, mouthCheck, type PoseCheck } from './rig.ts';
-import { bakeMotion, motionReport, checkFrames } from './motion.ts';
+import { apronReport, bakeMotion, motionReport, checkFrames } from './motion.ts';
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
 
@@ -180,7 +180,7 @@ export class Studio {
   motionChecks(o: SceneObject, id: string): CheckResult[] {
     const spec = o.character?.motions?.[id];
     if (!spec) return [];
-    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output, id, spec, o.character?.hands, o.character?.holds]);
+    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output, id, spec, o.character?.hands, o.character?.holds, spec.kind === 'start' || spec.kind === 'stop' ? o.character?.motions?.[spec.from ?? 'walk'] : null]);
     const hit = this.motionCache.get(key);
     if (hit) return hit;
     const r = this.evaluate(o);
@@ -197,6 +197,8 @@ export class Studio {
         { id: `motion-${id}`, label: `Motion "${label}": feet planted${clip.loop ? ', loops' : ''}`, pass: rep.pass, detail: rep.detail },
         { id: `motion-${id}-skin`, label: `Motion "${label}": bends cleanly`, pass: !bad.length, detail: bad.length ? bad.map((p) => `${p.pose}: ${p.detail}`).join('; ') : `${skin.length} key frame(s): ${skin.map((p) => p.detail).sort()[0] ?? ''}` },
       ];
+      const ap = apronReport(r.rig.rig, clip);
+      if (ap) out.push({ id: `motion-${id}-apron`, label: `Motion "${label}": the apron follows the legs`, pass: ap.pass, detail: ap.detail });
     } catch (e: any) {
       out = [{ id: `motion-${id}`, label: `Motion "${label}"`, pass: false, detail: e.message }];
     }

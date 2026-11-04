@@ -159,8 +159,8 @@ export interface CharacterState {
  * walk/run/idle loop; turn and action play once.
  */
 export interface MotionSpec {
-  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action';
-  speed?: number;      // m/s (walk ~1.3, run ~3.5)
+  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action' | 'start' | 'stop';
+  speed?: number;      // m/s (walk ~1.3, run ~3.5; start/stop: the walk they lead into / out of)
   stride?: number;     // m per full cycle (two steps); default from leg length and speed
   bounce?: number;     // m of hip rise and fall
   armSwing?: number;   // degrees
@@ -171,6 +171,7 @@ export interface MotionSpec {
   turn?: number;       // degrees, + = to the character's left (turn)
   action?: string;     // a library action (action): wave, nod, shrug, point, hammer-strike, pick-up, look-around
   seed?: number;       // blinks and glances
+  from?: string;       // start/stop: the walk motion they pair with (default "walk"; its settings are used)
 }
 
 /** A game export profile (Decision 17): budgets shown as checks after every step. */

@@ -18,7 +18,16 @@ var avatar: Node3D
 var anim: AnimationPlayer
 var walk_clip := ""
 var idle_clip := ""
+var start_clip := ""
+var stop_clip := ""
+var clips_info := {}
 var clip_speed := 1.4
+# walk ↔ idle with real steps: "start" steps off into the walk, "stop" brings the feet together. The
+# body stands still while one plays (the clip carries the hips); when it ends the body jumps by the
+# clip's travel, so the feet never slide.
+var state := "idle"     # idle, starting, walk, stopping
+var state_t := 0.0
+var want := false
 const GRAVITY := 9.8
 
 func _ready() -> void:
@@ -38,6 +47,9 @@ func _ready() -> void:
 			CHARS.set_loops(anim, "", info.get("clips", {}))
 			walk_clip = CHARS.find_clip(anim, "walk")
 			idle_clip = CHARS.find_clip(anim, "idle")
+			start_clip = CHARS.find_clip(anim, "start")
+			stop_clip = CHARS.find_clip(anim, "stop")
+			clips_info = info.get("clips", {})
 			if idle_clip != "":
 				anim.play(idle_clip)
 	var shape := CollisionShape3D.new()
@@ -89,24 +101,64 @@ func _physics_process(delta: float) -> void:
 		dir = to / d if d > 0.05 else Vector3.ZERO
 	elif controlled:
 		dir = _input_dir()
+	want = dir.length() > 0.0
+	if state == "starting" or state == "stopping":
+		dir = Vector3.ZERO      # the step clip moves the hips; the body waits for it
 	v.x = dir.x * speed
 	v.z = dir.z * speed
 	if dir.length() > 0.0:
 		look_at(global_position + Vector3(dir.x, 0, dir.z), Vector3.UP)
 	velocity = v
 	move_and_slide()
-	_animate()
+	_animate(delta)
 
-func _animate() -> void:
+func _travel(clip: String) -> Vector3:
+	var t = clips_info.get(clip, {}).get("travel", null)
+	if t == null or avatar == null:
+		return Vector3.ZERO
+	# travel is in the character's own frame (+Z forward); the avatar node turns it into the world
+	return avatar.global_transform.basis * Vector3(float(t[0]), 0.0, float(t[2]))
+
+func _clip_len(clip: String) -> float:
+	return anim.get_animation(clip).length if anim and anim.has_animation(clip) else 0.0
+
+func _animate(delta: float = 0.0) -> void:
 	if anim == null:
 		return
 	var hs := Vector2(get_real_velocity().x, get_real_velocity().z).length()
+	if state == "starting" or state == "stopping":
+		state_t += delta
+		var clip := start_clip if state == "starting" else stop_clip
+		if state_t >= _clip_len(clip):
+			global_position += _travel("start" if state == "starting" else "stop")
+			if state == "starting":
+				state = "walk"
+				anim.play(walk_clip, 0.0)
+				anim.seek(_clip_len(walk_clip) * float(clips_info.get("start", {}).get("phase", 0.5)), true)
+			else:
+				state = "idle"
+				anim.play(idle_clip, 0.0)
+		return
+	if want and hs <= 0.15 and state == "idle" and start_clip != "" and walk_clip != "":
+		state = "starting"
+		state_t = 0.0
+		anim.play(start_clip, 0.12)
+		anim.speed_scale = 1.0
+		return
+	if not want and state == "walk" and stop_clip != "":
+		state = "stopping"
+		state_t = 0.0
+		anim.play(stop_clip, 0.1)
+		anim.speed_scale = 1.0
+		return
 	if hs > 0.15 and walk_clip != "":
+		state = "walk"
 		if anim.current_animation != walk_clip:
 			anim.play(walk_clip, 0.15)
 		# feet stay planted: the clip plays at the speed the body actually moves
 		anim.speed_scale = clamp(hs / max(clip_speed, 0.1), 0.3, 2.5)
 	elif idle_clip != "":
+		state = "idle"
 		if anim.current_animation != idle_clip:
 			anim.play(idle_clip, 0.25)
 		anim.speed_scale = 1.0

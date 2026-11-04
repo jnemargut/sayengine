@@ -26,7 +26,7 @@ export interface StudioGame {
 }
 
 // ── studio characters: NPCs play idle; the player (studio game import --player) walks ──
-interface ClipInfo { motion?: string; loop?: boolean; speed?: number }
+interface ClipInfo { motion?: string; loop?: boolean; speed?: number; duration?: number; travel?: V3; then?: string; phase?: number }
 interface CharInfo { name: string; prefix: string; height: number; clips: Record<string, ClipInfo>; play: string | null }
 interface Manifest { player: (CharInfo & { start: V3; rotation: number; walkSpeed: number }) | null; characters: CharInfo[] }
 export interface StudioCharacters {
@@ -217,6 +217,10 @@ class Player {
   vy = 0; radius = 0.3; half = 0.55; // capsule: 2*0.55 + 2*0.3 = 1.7 m
   walkSpeed = 1.4; clipSpeed = 1.4; heading = 0; hs = 0;
   mixer: THREE.AnimationMixer | null = null; walk: THREE.AnimationAction | null = null; idle: THREE.AnimationAction | null = null;
+  // walk ↔ idle with real steps: "start" steps off into the walk, "stop" brings the feet together; the
+  // body waits while one plays (the clip carries the hips) and jumps by the clip's travel when it ends
+  start: THREE.AnimationAction | null = null; stop: THREE.AnimationAction | null = null;
+  clips: Record<string, ClipInfo> = {}; state: 'idle' | 'starting' | 'walk' | 'stopping' = 'idle'; stateT = 0; want = false;
   name = 'capsule';
   constructor(private g: StudioGame, at: V3, heading = 0) {
     const R = g.RAPIER;
@@ -239,9 +243,11 @@ class Player {
       this.mesh.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
       this.mixer = new THREE.AnimationMixer(this.mesh);
       const clip = (n: string) => av.animations.find((a) => a.name === n);
-      const w = clip('walk'), i = clip('idle');
+      const w = clip('walk'), i = clip('idle'), st = clip('start'), sp = clip('stop');
       if (w) this.walk = this.mixer.clipAction(w);
       if (i) { this.idle = this.mixer.clipAction(i); this.idle.play(); }
+      this.clips = (info?.clips ?? {}) as Record<string, ClipInfo>;
+      for (const [a, c] of [['start', st], ['stop', sp]] as const) if (c) { const act = this.mixer.clipAction(c); act.setLoop(THREE.LoopOnce, 1); act.clampWhenFinished = true; this[a] = act; }
     } else this.mesh = new THREE.Mesh(new THREE.CapsuleGeometry(this.radius, this.half * 2, 6, 16), new THREE.MeshStandardMaterial({ color: '#d9613a', roughness: 0.6 }));
     this.mesh.name = 'StudioPlayer';
     g.scene.add(this.mesh);
@@ -249,6 +255,9 @@ class Player {
   }
   feet(): V3 { const t = this.body.translation(); return [t.x, t.y - this.half - this.radius, t.z]; }
   move(dir: [number, number], speed: number, dt: number) {
+    this.want = speed > 0 && !!(dir[0] || dir[1]);
+    // a step clip is playing: the body waits (only gravity), the clip moves the hips
+    if (this.state === 'starting' || this.state === 'stopping') { speed = 0; dir = [0, 0]; }
     const grounded = this.ctrl.computedGrounded();
     this.vy = grounded ? 0 : this.vy - 9.81 * dt;
     this.ctrl.computeColliderMovement(this.collider, { x: dir[0] * speed * dt, y: this.vy * dt, z: dir[1] * speed * dt });
@@ -264,13 +273,43 @@ class Player {
       // feet at the bottom of the capsule; studio characters face +Z
       this.mesh.position.set(t.x, t.y - this.half - this.radius, t.z);
       this.mesh.rotation.y = this.heading;
-      const moving = this.hs > 0.15 && this.walk;
-      if (moving && !this.walk!.isRunning()) { this.walk!.reset().play(); this.idle?.crossFadeTo(this.walk!, 0.15, false); }
-      if (!moving && this.idle && !this.idle.isRunning()) { this.idle.reset().play(); this.walk?.crossFadeTo(this.idle, 0.25, false); }
-      // the clip plays at the speed the body actually moves, so feet stay planted
-      if (this.walk) this.walk.timeScale = moving ? Math.min(2.5, Math.max(0.3, this.hs / this.clipSpeed)) : 1;
+      this.steps(dt);
       this.mixer.update(dt);
     } else this.mesh.position.set(t.x, t.y, t.z);
+  }
+  /** idle → start → walk → stop → idle; without start/stop clips, a cross-fade as before. */
+  private steps(dt: number) {
+    const only = (a: THREE.AnimationAction | null, fade: number) => {
+      if (!a) return;
+      for (const o of [this.idle, this.walk, this.start, this.stop]) if (o && o !== a && o.isRunning()) o.fadeOut(fade);
+      a.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(fade).play();
+    };
+    if (this.state === 'starting' || this.state === 'stopping') {
+      this.stateT += dt;
+      const key = this.state === 'starting' ? 'start' : 'stop', info = this.clips[key];
+      const act = this.state === 'starting' ? this.start! : this.stop!;
+      if (this.stateT >= act.getClip().duration) {
+        // jump the body to where the clip left the hips (travel is in the character's own frame, +Z forward)
+        const tr = info?.travel ?? [0, 0, 0], h = this.heading;
+        const t = this.body.translation();
+        const dx = tr[0] * Math.cos(h) + tr[2] * Math.sin(h), dz = -tr[0] * Math.sin(h) + tr[2] * Math.cos(h);
+        this.body.setTranslation({ x: t.x + dx, y: t.y, z: t.z + dz }, true);
+        this.mesh.position.x += dx; this.mesh.position.z += dz;
+        if (this.state === 'starting') {
+          this.state = 'walk'; only(this.walk, 0);
+          this.walk!.time = (info?.phase ?? 0.5) * this.walk!.getClip().duration;
+        } else { this.state = 'idle'; only(this.idle, 0); }
+      }
+      return;
+    }
+    if (this.want && this.state === 'idle' && this.start && this.walk) { this.state = 'starting'; this.stateT = 0; only(this.start, 0.12); return; }
+    if (!this.want && this.state === 'walk' && this.stop) { this.state = 'stopping'; this.stateT = 0; only(this.stop, 0.1); return; }
+    const moving = this.hs > 0.15 && this.walk;
+    if (moving && this.state !== 'walk') { this.state = 'walk'; only(this.walk, 0.15); }
+    if (!moving && this.state !== 'idle' && this.idle && !this.start) { this.state = 'idle'; only(this.idle, 0.25); }
+    if (!moving && this.state === 'walk' && !this.stop && this.idle) { this.state = 'idle'; only(this.idle, 0.25); }
+    // the clip plays at the speed the body actually moves, so feet stay planted
+    if (this.walk) this.walk.timeScale = this.state === 'walk' && moving ? Math.min(2.5, Math.max(0.3, this.hs / this.clipSpeed)) : 1;
   }
   remove() { this.g.world.removeCharacterController(this.ctrl); this.g.world.removeRigidBody(this.body); this.g.scene.remove(this.mesh); }
 }

@@ -20,6 +20,7 @@ export interface MotionClip {
   speed: number;                  // m/s the character travels while it plays (0 in place)
   turn?: number;                  // degrees turned by the end (turn clips)
   stride?: number;                // m per cycle (walk/run)
+  travel?: V3;                    // start/stop: where the hips end up (m, object space); the game moves the character by it when the clip ends
   local: Q[][];                   // [frame][bone] local rotations (frames + 1 entries: the last closes a loop)
   hips: V3[];                     // [frame] Hips offset from its rest position (object space)
   contacts: { left: boolean[]; right: boolean[] };   // foot planted (carrying weight) per frame
@@ -75,7 +76,10 @@ const lerpHand = (a: HandPose, b: HandPose, t: number): HandPose => ({
 // ([axis, degrees] pairs: [['y', 90], ['x', -60]] turns about Y, then about X), a hips drop (m, scaled
 // by height) and hand poses. Bones not named in a key stay in the standing posture.
 type Step = Array<['x' | 'y' | 'z', number]>;
-interface ActionKey { at: number; bones?: Record<string, Step>; drop?: number; hands?: { left?: string; right?: string } }
+/** One key of a library action. `ease` shapes the move INTO this key: smooth (default), in (accelerating:
+ *  a strike), out (decelerating: settling into a wind-up), back (overshoots, then settles). `shift` moves
+ *  the weight (hips, m × body scale: x to the character's left, z forward); `yaw` turns the hips. */
+interface ActionKey { at: number; bones?: Record<string, Step>; drop?: number; hands?: { left?: string; right?: string }; ease?: 'smooth' | 'in' | 'out' | 'back'; shift?: [number, number]; yaw?: number }
 export interface ActionDef { label: string; duration: number; keys: ActionKey[] }
 const armUp = (side: 'Left' | 'Right', fwd: number, raise: number): Step => [['y', side === 'Left' ? -fwd : fwd], ['x', -raise]];
 export const ACTIONS: Record<string, ActionDef> = {
@@ -109,12 +113,19 @@ export const ACTIONS: Record<string, ActionDef> = {
     keys: [{ at: 0 }, { at: 0.3, bones: { RightUpperArm: armUp('Right', 82, 8), RightLowerArm: [['y', 8]], Chest: [['y', -6]] }, hands: { right: 'point' } }, { at: 0.75, bones: { RightUpperArm: armUp('Right', 82, 8), RightLowerArm: [['y', 8]], Chest: [['y', -6]] }, hands: { right: 'point' } }, { at: 1 }],
   },
   'hammer-strike': {
-    label: 'Raise the right hand and strike down (holds whatever is in it)', duration: 1.4,
+    // anticipation (a slow wind-up: weight back, chest turns away, the hammer cocked high), a fast
+    // accelerating downswing, impact with the knees softening and the weight forward, a follow-through
+    // past the anvil, a small rebound, then settling back
+    label: 'Wind up and strike down with the right hand (holds whatever is in it)', duration: 1.8,
     keys: [
       { at: 0 },
-      { at: 0.42, bones: { RightUpperArm: armUp('Right', 84, 25), RightLowerArm: [['z', -120]], RightHand: [['z', -20]], Chest: [['x', -4], ['y', -8]], Spine: [['x', -2]] } },
-      { at: 0.58, bones: { RightUpperArm: armUp('Right', 84, -32), RightLowerArm: [['z', -12]], RightHand: [['z', 12]], Chest: [['x', 8], ['y', 4]], Spine: [['x', 6]] }, drop: 0.03 },
-      { at: 0.7, bones: { RightUpperArm: armUp('Right', 84, -28), RightLowerArm: [['z', -16]], Chest: [['x', 7], ['y', 3]], Spine: [['x', 5]] }, drop: 0.03 },
+      { at: 0.1, bones: { RightUpperArm: armUp('Right', 50, -20), RightLowerArm: [['z', -40]], Chest: [['y', -4]] }, shift: [0.005, -0.008] },
+      { at: 0.38, bones: { RightUpperArm: armUp('Right', 70, 62), RightLowerArm: [['z', -106]], RightHand: [['z', -38]], Chest: [['x', -7], ['y', -16]], Spine: [['x', -3], ['y', -6]], Neck: [['x', 4]], Head: [['x', 3]] }, shift: [0.01, -0.03], yaw: -7, ease: 'out' },
+      { at: 0.45, bones: { RightUpperArm: armUp('Right', 71, 64), RightLowerArm: [['z', -108]], RightHand: [['z', -40]], Chest: [['x', -7], ['y', -17]], Spine: [['x', -3], ['y', -6]], Neck: [['x', 4]], Head: [['x', 3]] }, shift: [0.01, -0.032], yaw: -7.5 },
+      { at: 0.54, bones: { RightUpperArm: armUp('Right', 84, -34), RightLowerArm: [['z', -8]], RightHand: [['z', 16]], Chest: [['x', 10], ['y', 7]], Spine: [['x', 7], ['y', 2]], Neck: [['x', -3]], Head: [['x', 4]] }, drop: 0.045, shift: [0, 0.035], yaw: 4, ease: 'in' },
+      { at: 0.6, bones: { RightUpperArm: armUp('Right', 85, -41), RightLowerArm: [['z', -3]], RightHand: [['z', 22]], Chest: [['x', 12], ['y', 9]], Spine: [['x', 8], ['y', 3]], Neck: [['x', -4]], Head: [['x', 5]] }, drop: 0.055, shift: [0, 0.04], yaw: 5, ease: 'out' },
+      { at: 0.7, bones: { RightUpperArm: armUp('Right', 84, -27), RightLowerArm: [['z', -20]], RightHand: [['z', 8]], Chest: [['x', 7], ['y', 4]], Spine: [['x', 5]], Neck: [['x', -2]], Head: [['x', 3]] }, drop: 0.032, shift: [0, 0.025], yaw: 2.5, ease: 'out' },
+      { at: 0.78, bones: { RightUpperArm: armUp('Right', 84, -30), RightLowerArm: [['z', -16]], RightHand: [['z', 10]], Chest: [['x', 8], ['y', 4]], Spine: [['x', 5]] }, drop: 0.036, shift: [0, 0.027], yaw: 3 },
       { at: 1 },
     ],
   },
@@ -133,17 +144,29 @@ export const ACTIONS: Record<string, ActionDef> = {
   },
 };
 
+/** Easing of a move into a key: smoothstep; accelerating (in); decelerating (out); overshoot and settle (back). */
+export function keyEase(kind: ActionKey['ease'], u: number): number {
+  const t = clamp(u);
+  if (kind === 'in') return t * t * t;
+  if (kind === 'out') return 1 - (1 - t) ** 3;
+  if (kind === 'back') { const c = 1.6; return 1 + (c + 1) * (t - 1) ** 3 + c * (t - 1) ** 2; }
+  return t * t * (3 - 2 * t);
+}
 const stepQ = (s: Step): Q => s.reduce<Q>((q, [ax, deg]) => qMul(ax === 'x' ? X(deg) : ax === 'y' ? Y(deg) : Z(deg), q), qIdentity());
 
 export const MOTION_DEFAULTS = {
   walk: { speed: 1.3, bounce: 0.022, armSwing: 16, lean: 3, sway: 0.018, duty: 0.62, lift: 0.07 },
-  run: { speed: 3.4, bounce: 0.035, armSwing: 32, lean: 9, sway: 0.008, duty: 0.32, lift: 0.17 },
+  // a real run: long flight (both feet off the ground ~40% of the cycle), forward lean, high knee drive
+  // and heel recovery, a strong arm pump, ~170 steps/min
+  run: { speed: 3.4, bounce: 0.045, armSwing: 46, lean: 19, sway: 0.008, duty: 0.26, lift: 0.3 },
   idle: { duration: 6, sway: 0.022 },
+  start: { duration: 0.8 },
+  stop: { duration: 0.9 },
 };
 
 /** Validate settings and fill defaults (throws a readable error). */
 export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
-  const kinds = ['walk', 'run', 'idle', 'turn', 'action'];
+  const kinds = ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop'];
   if (!kinds.includes(spec.kind)) throw new Error(`motion kind must be one of ${kinds.join(', ')}`);
   const num = (k: keyof MotionSpec, lo: number, hi: number) => {
     const v = spec[k];
@@ -195,7 +218,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
   };
   const breathe = (b: number): Record<string, Q> => ({ Chest: X(-0.9 * b), UpperChest: X(-1.4 * b), LeftShoulder: Z(1.2 * b), RightShoulder: Z(-1.2 * b) });
 
-  let frames: number, duration: number, loop: boolean, speed = 0, stride: number | undefined, turnDeg: number | undefined;
+  let frames: number, duration: number, loop: boolean, speed = 0, stride: number | undefined, turnDeg: number | undefined, travel: V3 | undefined;
   let make: (t: number) => Frame;
   const restFoot = (side: 'Left' | 'Right', widen = 1): V3 => { const a = side === 'Left' ? L.ankle : R.ankle; return [a[0] * widen, ankleY, a[2]]; };
   const flat = qIdentity();
@@ -205,12 +228,17 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     const run = S.kind === 'run';
     const v = S.speed ?? D.speed * Math.sqrt(s);
     const k = 0.6 + 0.8 * en;                                          // energy scales the flourishes
-    const strideWanted = S.stride ?? (run ? legLen * 2.7 * (v / (3.4 * Math.sqrt(s))) ** 0.55 : legLen * 1.55 * (v / (1.3 * Math.sqrt(s))) ** 0.42);
+    // runners lengthen the stride more than they quicken the step: ~170 steps/min at 3.4 m/s, ~180 sprinting
+    const strideWanted = S.stride ?? (run ? legLen * 3.28 * (v / (3.4 * Math.sqrt(s))) ** 0.85 : legLen * 1.55 * (v / (1.3 * Math.sqrt(s))) ** 0.42);
     frames = Math.max(12, Math.round((strideWanted / v) * fps));
     duration = frames / fps;
     stride = strideWanted; speed = stride / duration; loop = true;
-    const duty = D.duty, Lst = stride * duty;
-    const swing = (S.armSwing ?? D.armSwing) * k, lean = S.lean ?? D.lean, sway = (S.sway ?? D.sway * s);
+    // a faster run spends less of the stride on the ground (the stance stays about as long in metres;
+    // the extra length is flight)
+    const duty = run ? clamp(D.duty - (v / Math.sqrt(s) - 3.4) * 0.042, 0.16, 0.33) : D.duty, Lst = stride * duty;
+    const swing = (S.armSwing ?? D.armSwing) * k, sway = (S.sway ?? D.sway * s);
+    // a faster run leans further into it
+    const lean = S.lean ?? (run ? D.lean * (0.85 + 0.25 * clamp((v / Math.sqrt(s) - 3) / 3)) : D.lean);
     const yawAmp = (run ? 7 : 5) * k, lift = D.lift * s * (run ? 1 : 0.8 + 0.4 * en);
     // the foot rolls: it lands on the heel (toe up), goes flat, then the heel lifts and it pivots over
     // the ball of the foot (toes stay on the ground) before it leaves. The planted point — heel, then
@@ -236,8 +264,19 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       const r = restFoot(side, run ? 0.75 : 0.85);
       if (phi < duty) { const st = stance(r, phi / duty); return { p: st.p, q: X(st.deg), toes: st.deg > 0 ? X(-st.deg) : flat, down: true }; }
       const u = (phi - duty) / (1 - duty);
-      const a = stance(r, 1), b = stance(r, 0), e = ease(u);
-      const y = a.p[1] + (b.p[1] - a.p[1]) * e + lift * Math.sin(Math.PI * u) ** (run ? 1 : 1.3);
+      const a = stance(r, 1), b = stance(r, 0);
+      if (run) {
+        // heel recovery: the foot leaves behind and folds up toward the seat first, then the knee
+        // drives forward and the foot reaches out and comes down under the body
+        const e = ease(clamp((u - 0.12) / 0.8));
+        const up = Math.sin(Math.PI * clamp(u / 0.92) ** 0.7);
+        const y = a.p[1] + (b.p[1] - a.p[1]) * e + lift * up;
+        const back = -0.09 * s * Math.sin(Math.PI * clamp(u / 0.55));
+        const deg = a.deg + (b.deg - a.deg) * ease(u * 1.15) + 25 * Math.sin(Math.PI * clamp(u / 0.6));
+        return { p: [r[0], y, a.p[2] + (b.p[2] - a.p[2]) * e + back] as V3, q: X(deg), toes: X(-a.deg * (1 - ease(u / 0.35))), down: false };
+      }
+      const e = ease(u);
+      const y = a.p[1] + (b.p[1] - a.p[1]) * e + lift * Math.sin(Math.PI * u) ** 1.3;
       const deg = a.deg + (b.deg - a.deg) * ease(u * 1.2);
       return { p: [r[0], y, a.p[2] + (b.p[2] - a.p[2]) * e] as V3, q: X(deg), toes: X(-a.deg * (1 - ease(u / 0.35))), down: false };
     };
@@ -247,7 +286,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     const bounceWanted = (S.bounce ?? D.bounce * s) * k;
     const hipDrop = L.hip[1] - hipsRest[1];
     let baseY = hipsRest[1] - (run ? 0.03 * s : 0.004 * s);
-    const reach = legLen * (run ? 0.965 : 0.985);
+    const reach = legLen * (run ? 0.985 : 0.985);
     for (let i = 0; i < 64; i++) {
       const p = i / 64;
       for (const [side, ph] of [['Left', p], ['Right', (p + 0.5) % 1]] as const) {
@@ -288,7 +327,8 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       const hipsQ = qMul(Y(yaw), Z(1.5 * k * Math.sin(w - Math.PI * duty)));
       const breath = Math.sin((2 * Math.PI * t) / duration);
       const armR = swing * Math.cos(w), armLf = -swing * Math.cos(w);
-      const bend = run ? 82 : 12, bendExtra = run ? 10 : 18;
+      // a runner pumps the arms: elbows near 90°, closing as the hand drives forward
+      const bend = run ? 88 : 12, bendExtra = run ? 22 : 18;
       const body: Record<string, Q> = {
         Spine: qMul(X(lean * 0.5), Y(-yaw * 0.5)),
         Chest: qMul(X(lean * 0.3 + (run ? -0.6 * breath : 0)), Y(-yaw * 0.45)),
@@ -355,6 +395,101 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
         feet: { left: foot('Left'), right: foot('Right') },
       };
     };
+  } else if (S.kind === 'start' || S.kind === 'stop') {
+    // ── start / stop steps (the walk ↔ idle transitions): the hips travel inside the clip (the game moves
+    // the character by `travel` when it ends), the left foot stays planted the whole time, the right foot
+    // steps out into the walk (start) or comes in beside the left (stop) ──
+    const startK = S.kind === 'start';
+    const ws: MotionSpec = { ...(state?.motions?.[S.from ?? 'walk'] ?? { kind: 'walk' }), kind: 'walk', ...(S.speed ? { speed: S.speed } : {}) };
+    const W = bakeMotion('_walk', ws, rig, state, fps);
+    const I = bakeMotion('_idle', { kind: 'idle', energy: en, seed }, rig, state, fps);
+    duration = S.duration ?? MOTION_DEFAULTS[S.kind].duration;
+    frames = Math.max(10, Math.round(duration * fps)); duration = frames / fps; loop = false;
+    // start joins the walk at the right heel strike (phase 0.5); stop leaves it at the left heel strike (0)
+    const fW = startK ? Math.round(W.frames * 0.5) : 0;
+    const PW = forward(rig.bones, rig.parents, W.local[fW]);
+    const pitchOf = (side: 'Left' | 'Right') => { const q = PW.worldQ[idx.get(`${side}Foot`)!]; return (2 * Math.atan2(q[0], q[3])) / D2R; };
+    const toeJ = bone('LeftToes').head, ankZ = L.ankle[2];
+    const ballRel: V3 = [0, toeJ[1] - ankleY, toeJ[2] - ankZ], heelRel: V3 = [0, -ankleY, -0.035 * s];
+    const pivot = (pt: V3, rel: V3, deg: number): V3 => add(pt, qRot(X(deg), mul(rel, -1)));
+    const iL = I.feet.left[0], iR = I.feet.right[0];
+    const wL = W.feet.left[fW], wR = W.feet.right[fW];
+    const v = W.speed;
+    const restIdx = ['Hips', 'LeftUpperLeg', 'LeftLowerLeg', 'LeftFoot', 'LeftToes', 'RightUpperLeg', 'RightLowerLeg', 'RightFoot', 'RightToes'].map((n) => idx.get(n));
+    const upper = rig.bones.map((_, i) => i).filter((i) => !restIdx.includes(i));
+    const hipsI = idx.get('Hips')!;
+    const hermite = (u: number, D: number, m0: number, m1: number) => { const u2 = u * u, u3 = u2 * u; return (3 * u2 - 2 * u3) * D + (u3 - 2 * u2 + u) * m0 + (u3 - u2) * m1; };
+    if (startK) {
+      // the left (planted) foot: walk width, idle depth; by the end it rolls up onto the ball like the walk's
+      const degL = pitchOf('Left'), degR = pitchOf('Right');
+      const leftFlat: V3 = [wL[0], ankleY, iL[2]];
+      const ball: V3 = add(leftFlat, ballRel);
+      const leftEnd = pivot([ball[0], toeJ[1], ball[2]], ballRel, degL);
+      const D = leftEnd[2] - wL[2];
+      const dx = leftEnd[0] - wL[0];
+      const rightFrom: V3 = [iR[0], ankleY, iR[2]], rightTo: V3 = [wR[0] + dx, wR[1], wR[2] + D];
+      const m1 = Math.min(3 * D, v * duration);
+      travel = [dx, 0, D];
+      make = (t) => {
+        const u = t / duration;
+        const w = ease(u / 0.85);
+        const lift = clamp((u - 0.62) / 0.38);
+        const pL = lift > 0 ? pivot([ball[0], toeJ[1], ball[2]], ballRel, degL * ease(lift)) : leftFlat;
+        const k = clamp((u - 0.28) / 0.72);
+        let pR: V3 = rightFrom, qR = flat, downR = true;
+        if (k > 0) {
+          const e = ease(k);
+          pR = [rightFrom[0] + (rightTo[0] - rightFrom[0]) * e, rightFrom[1] + (rightTo[1] - rightFrom[1]) * e + 0.075 * s * Math.sin(Math.PI * k) ** 1.2, rightFrom[2] + (rightTo[2] - rightFrom[2]) * e];
+          qR = X(10 * Math.sin(Math.PI * k) * (1 - k) + degR * ease(k));
+          downR = k >= 1;
+        }
+        // weight shifts over the left foot before the right one lifts, then the hips go
+        const wx = 0.022 * s * Math.sin(Math.PI * clamp(u / 0.75));
+        const hz = hermite(u, D, 0, m1);
+        const hy = I.hips[0][1] + (W.hips[fW][1] - I.hips[0][1]) * w;
+        const hx = I.hips[0][0] + (W.hips[fW][0] + dx - I.hips[0][0]) * ease(u) + wx * (1 - ease(u));
+        const body: Record<string, Q> = {};
+        for (const i of upper) body[rig.bones[i].name] = qSlerp(I.local[0][i], W.local[fW][i], w);
+        // a little forward lean as it pushes off (anticipation of the first step)
+        body.Spine = qMul(body.Spine, X(3 * Math.sin(Math.PI * clamp(u / 0.8))));
+        return { hipsOff: [hx, hy, hz], hipsQ: qSlerp(I.local[0][hipsI], W.local[fW][hipsI], w), body, feet: { left: { p: pL, q: lift > 0 ? X(degL * ease(lift)) : flat, toes: lift > 0 ? X(-degL * ease(lift)) : undefined, down: true }, right: { p: pR, q: qR, down: downR } } };
+      };
+    } else {
+      // stop: the left heel has just struck; the foot rolls flat about the heel, the right foot pushes off,
+      // swings in and lands beside it at idle width; the hips slow to a stop over both feet
+      const degL = pitchOf('Left'), degR = pitchOf('Right');
+      const heel = add(wL, qRot(X(degL), heelRel));
+      const leftFlat: V3 = [wL[0], ankleY, heel[2] - heelRel[2]];
+      const rightTo: V3 = [wL[0] - (iL[0] - iR[0]), ankleY, leftFlat[2] + (iR[2] - iL[2])];
+      const hipsEnd: V3 = [(leftFlat[0] + rightTo[0]) / 2 - (iL[0] + iR[0]) / 2 + I.hips[0][0], I.hips[0][1], leftFlat[2] - iL[2]];
+      const D = hipsEnd[2];
+      const m0 = Math.min(3 * D, v * duration);
+      travel = [hipsEnd[0] - I.hips[0][0], 0, D];
+      make = (t) => {
+        const u = t / duration;
+        const w = ease(u / 0.9);
+        const roll = ease(u / 0.18);
+        const pL = pivot([heel[0], 0, heel[2]], heelRel, degL * (1 - roll));
+        const k = clamp((u - 0.1) / 0.6);
+        let pR: V3 = wR, qR = X(degR), downR = true, toesR: Q | undefined = X(-degR);
+        if (u <= 0.1) { qR = X(degR); }
+        else if (k < 1) {
+          const e = ease(k);
+          pR = [wR[0] + (rightTo[0] - wR[0]) * e, wR[1] + (rightTo[1] - wR[1]) * e + 0.05 * s * Math.sin(Math.PI * k), wR[2] + (rightTo[2] - wR[2]) * e];
+          qR = X(degR * (1 - ease(k * 1.4)));
+          toesR = X(-degR * (1 - ease(k / 0.35)));
+          downR = false;
+        } else { pR = rightTo; qR = flat; toesR = undefined; }
+        const hz = hermite(u, D, m0, 0);
+        const hy = W.hips[0][1] + (hipsEnd[1] - W.hips[0][1]) * w;
+        const hx = W.hips[0][0] + (hipsEnd[0] - W.hips[0][0]) * ease(u);
+        const body: Record<string, Q> = {};
+        for (const i of upper) body[rig.bones[i].name] = qSlerp(W.local[0][i], I.local[0][i], w);
+        // the body settles back a touch as it stops (follow-through of the deceleration)
+        body.Spine = qMul(body.Spine, X(-2.5 * Math.sin(Math.PI * clamp((u - 0.35) / 0.65))));
+        return { hipsOff: [hx, hy, hz], hipsQ: qSlerp(W.local[0][hipsI], I.local[0][hipsI], w), body, feet: { left: { p: pL, q: X(degL * (1 - roll)), down: true }, right: { p: pR, q: qR, toes: toesR, down: downR } } };
+      };
+    }
   } else {
     const def = ACTIONS[S.action!];
     duration = S.duration ?? def.duration;
@@ -365,7 +500,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     make = (t) => {
       const u = t / duration;
       const i = keyAt(u), a = def.keys[i], c = def.keys[Math.min(def.keys.length - 1, i + 1)];
-      const f = ease((u - a.at) / Math.max(1e-6, c.at - a.at));
+      const f = keyEase(c.ease, (u - a.at) / Math.max(1e-6, c.at - a.at));
       const names = new Set([...Object.keys(a.bones ?? {}), ...Object.keys(c.bones ?? {})]);
       const b = Math.sin(2 * Math.PI * u * Math.max(1, Math.round(duration / 3.5)));
       const body: Record<string, Q> = { ...breathe(b * 0.6), ...arm('Left', 0, 14), ...arm('Right', 0, 14) };
@@ -377,9 +512,11 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
         const A0 = qa ? (isArm ? qa : qMul(base, qa)) : base, C0 = qc ? (isArm ? qc : qMul(base, qc)) : base;
         body[n] = qSlerp(A0, C0, f);
       }
-      const drop = ((a.drop ?? 0) + ((c.drop ?? 0) - (a.drop ?? 0)) * f) * s;
-      const hands = { left: lerpHand(handOf(a, 'left'), handOf(c, 'left'), f), right: lerpHand(handOf(a, 'right'), handOf(c, 'right'), f) };
-      return { hipsOff: [0, -0.012 * s - drop, -drop * 0.35], hipsQ: qIdentity(), body, hands, feet: { left: { p: fl, q: flat, down: true }, right: { p: fr, q: flat, down: true } } };
+      const lerpK = (x: number | undefined, y: number | undefined) => (x ?? 0) + ((y ?? 0) - (x ?? 0)) * f;
+      const drop = lerpK(a.drop, c.drop) * s;
+      const sx = lerpK(a.shift?.[0], c.shift?.[0]) * s, sz = lerpK(a.shift?.[1], c.shift?.[1]) * s;
+      const hands = { left: lerpHand(handOf(a, 'left'), handOf(c, 'left'), clamp(f)), right: lerpHand(handOf(a, 'right'), handOf(c, 'right'), clamp(f)) };
+      return { hipsOff: [sx, -0.012 * s - drop, -drop * 0.35 + sz], hipsQ: Y(lerpK(a.yaw, c.yaw)), body, hands, feet: { left: { p: fl, q: flat, down: true }, right: { p: fr, q: flat, down: true } } };
     };
   }
 
@@ -429,6 +566,8 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     fpL.push(fr.feet.left.p); fpR.push(fr.feet.right.p);
   }
 
+  apronSwing(rig, local, hips, fps, loop, frames);
+
   // ── the life layer: blinks (shape keys + lids) and glances (eyes), on top of the posture ──
   const life = ambientLife(duration, fps, seed, { loop, glance: S.kind === 'idle' ? 1 : S.kind === 'action' ? 0.5 : 0.35, energy: en });
   const lids = rig.spec.lids;
@@ -442,14 +581,20 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
   const blinkCurve = Array.from({ length: frames + 1 }, (_, f) => life.blink[loop ? f % frames : Math.min(f, frames)] ?? 0);
   return {
     id, kind: S.kind, fps, frames, duration: +duration.toFixed(4), loop, speed: +speed.toFixed(4),
-    ...(turnDeg !== undefined ? { turn: turnDeg } : {}), ...(stride !== undefined ? { stride: +stride.toFixed(4) } : {}),
+    ...(turnDeg !== undefined ? { turn: turnDeg } : {}), ...(travel ? { travel: travel.map((x) => +x.toFixed(4)) as V3 } : {}), ...(stride !== undefined ? { stride: +stride.toFixed(4) } : {}),
     local, hips, contacts: { left: cl, right: cr }, feet: { left: fpL, right: fpR },
     shapes: { eyeBlinkLeft: blinkCurve, eyeBlinkRight: blinkCurve }, reachMiss: +reachMiss.toFixed(4), settings: S,
   };
 }
 
 // ── checks (the authority on motion, Decision 6): planted feet, ground, reach, loops ──────────────
-export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pelvis?: number; stanceKnee?: number; pass: boolean; detail: string }
+export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pelvis?: number; stanceKnee?: number; run?: { flight: number; cadence: number; lean: number; heelRecovery: number; pelvis: number }; strike?: { windup: number; downswing: number; dip: number; settle: boolean }; pass: boolean; detail: string }
+
+/** A run must read as a run: both feet off the ground for part of the stride, a forward lean, the heel
+ *  folding up behind (swing knee), a quick cadence, without the hips sinking into a crouch. */
+export const RUN_FORM = { flight: 0.2, lean: 8, heelRecovery: 95, cadence: [150, 195] as [number, number], pelvis: 0.87 };
+/** A strike must wind up, come down fast, sink into the knees at impact and settle. */
+export const STRIKE_FORM = { windup: 0.4, downswing: 0.24, dip: 0.02 };
 
 /** A walk mustn't crouch: hips on average at least this share of standing height, and the planted knee nearly straight at mid-stance. */
 export const WALK_UPRIGHT = { pelvis: 0.95, stanceKnee: 165 };
@@ -516,6 +661,39 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
       if (best >= 0) stanceKnee = Math.min(stanceKnee, 180 - qAngle(clip.local[best][idx.get(`${side}LowerLeg`)!], qIdentity()));
     }
   }
+  let run: MotionReport['run'];
+  if (clip.kind === 'run') {
+    const stand = rig.bones[idx.get('Hips')!].head[1];
+    let air = 0, swingKnee = 0;
+    for (let f = 0; f < clip.frames; f++) {
+      if (!clip.contacts.left[f] && !clip.contacts.right[f]) air++;
+      for (const side of ['Left', 'Right'] as const) if (!(side === 'Left' ? clip.contacts.left : clip.contacts.right)[f]) swingKnee = Math.max(swingKnee, qAngle(clip.local[f][idx.get(`${side}LowerLeg`)!], qIdentity()));
+    }
+    const P0 = clipPose(rig, clip, 0);
+    const neck = P0.worldP[idx.get('Neck')!], hp = P0.worldP[idx.get('Hips')!];
+    const lean = Math.atan2(neck[2] - hp[2], neck[1] - hp[1]) / D2R;
+    run = { flight: +(air / clip.frames).toFixed(3), cadence: +((2 / clip.duration) * 60).toFixed(0), lean: +lean.toFixed(1), heelRecovery: +swingKnee.toFixed(0), pelvis: +(clip.hips.slice(0, clip.frames).reduce((a, h) => a + stand + h[1], 0) / clip.frames / stand).toFixed(3) };
+  }
+  let strike: MotionReport['strike'];
+  if (clip.kind === 'action' && clip.settings.action === 'hammer-strike') {
+    const hi = idx.get('RightHand')!, stand = rig.bones[idx.get('Hips')!].head[1];
+    const ys: number[] = [];
+    for (let f = 0; f <= clip.frames; f++) ys.push(clipPose(rig, clip, f).worldP[hi][1]);
+    // the downswing: around the fastest downward hand speed; it starts where the hand was last still or
+    // rising (the top of the wind-up) and ends at the first low point (impact)
+    let fast = 1;
+    for (let f = 1; f <= clip.frames; f++) if (ys[f] - ys[f - 1] < ys[fast] - ys[fast - 1]) fast = f;
+    let leave = fast - 1;
+    while (leave > 0 && ys[leave] - ys[leave - 1] < -0.004 * s) leave--;
+    let imp = fast;
+    while (imp + 1 <= clip.frames && ys[imp + 1] <= ys[imp] + 1e-5) imp++;
+    const top = leave;
+    const dip = -Math.min(...clip.hips.slice(Math.max(0, imp - 3), imp + 4).map((h) => h[1])) - 0.012 * s;
+    const after = ys.slice(imp);
+    const settle = after.length > 2 && Math.max(...after) - ys[imp] > 0.01 * s;
+    strike = { windup: +(top / clip.fps).toFixed(2), downswing: +((imp - leave) / clip.fps).toFixed(2), dip: +Math.max(0, dip).toFixed(3), settle };
+    void stand;
+  }
   let loopGap = 0;
   if (clip.loop) for (let i = 0; i < rig.bones.length; i++) loopGap = Math.max(loopGap, qAngle(clip.local[0][i], clip.local[clip.frames][i]));
   const fails: string[] = [];
@@ -527,18 +705,153 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
   if (elbowWorst > 155) fails.push(`an elbow bends ${elbowWorst.toFixed(0)}°`);
   if (pelvis !== undefined && pelvis < WALK_UPRIGHT.pelvis) fails.push(`walks in a crouch: hips average ${(pelvis * 100).toFixed(0)}% of standing height (want ≥ ${WALK_UPRIGHT.pelvis * 100}%)`);
   if (stanceKnee !== undefined && stanceKnee < WALK_UPRIGHT.stanceKnee) fails.push(`the planted knee is bent to ${stanceKnee.toFixed(0)}° at mid-stance (want ≥ ${WALK_UPRIGHT.stanceKnee}°, nearly straight)`);
+  if (run) {
+    if (run.flight < RUN_FORM.flight) fails.push(`a run needs both feet off the ground for part of each stride (${(run.flight * 100).toFixed(0)}% of the cycle, want ≥ ${RUN_FORM.flight * 100}%)`);
+    if (run.lean < RUN_FORM.lean) fails.push(`the runner leans only ${run.lean}° forward (want ≥ ${RUN_FORM.lean}°)`);
+    if (run.heelRecovery < RUN_FORM.heelRecovery) fails.push(`the swinging heel doesn't fold up behind (knee ${run.heelRecovery}°, want ≥ ${RUN_FORM.heelRecovery}°)`);
+    if (run.cadence < RUN_FORM.cadence[0] || run.cadence > RUN_FORM.cadence[1]) fails.push(`cadence ${run.cadence} steps/min (a run is ${RUN_FORM.cadence[0]}–${RUN_FORM.cadence[1]})`);
+    if (run.pelvis < RUN_FORM.pelvis) fails.push(`runs in a crouch: hips average ${(run.pelvis * 100).toFixed(0)}% of standing height (want ≥ ${RUN_FORM.pelvis * 100}%)`);
+  }
+  if (strike) {
+    if (strike.windup < STRIKE_FORM.windup) fails.push(`the strike barely winds up (${strike.windup} s to the top, want ≥ ${STRIKE_FORM.windup} s)`);
+    if (strike.downswing > STRIKE_FORM.downswing) fails.push(`the downswing is slow (${strike.downswing} s, want ≤ ${STRIKE_FORM.downswing} s)`);
+    if (strike.dip < STRIKE_FORM.dip * s) fails.push(`the knees don't soften at impact (hips dip ${(strike.dip * 100).toFixed(1)} cm, want ≥ ${(STRIKE_FORM.dip * 100).toFixed(0)} cm)`);
+    if (!strike.settle) fails.push('the strike stops dead at impact (no rebound or settle)');
+  }
   const pass = !fails.length;
   const detail = pass
-    ? `${clip.loop ? 'loops cleanly; ' : ''}planted feet slide ≤ ${(slip * 1000).toFixed(0)} mm, nothing below the floor${pelvis !== undefined ? `; upright: hips ${(pelvis * 100).toFixed(0)}% of standing, planted knee ${stanceKnee!.toFixed(0)}°` : ''}${clip.speed ? `; ${clip.speed.toFixed(2)} m/s, ${clip.stride?.toFixed(2)} m stride, ${clip.duration.toFixed(2)} s cycle` : `; ${clip.duration.toFixed(2)} s`}`
+    ? `${clip.loop ? 'loops cleanly; ' : ''}planted feet slide ≤ ${(slip * 1000).toFixed(0)} mm, nothing below the floor${pelvis !== undefined ? `; upright: hips ${(pelvis * 100).toFixed(0)}% of standing, planted knee ${stanceKnee!.toFixed(0)}°` : ''}${run ? `; run: ${(run.flight * 100).toFixed(0)}% flight, ${run.cadence} steps/min, ${run.lean}° lean, heel folds to ${run.heelRecovery}°` : ''}${strike ? `; strike: ${strike.windup} s wind-up, ${strike.downswing} s downswing, knees dip ${(strike.dip * 100).toFixed(1)} cm` : ''}${clip.travel ? `; travels ${len(clip.travel).toFixed(2)} m` : ''}${clip.speed ? `; ${clip.speed.toFixed(2)} m/s, ${clip.stride?.toFixed(2)} m stride, ${clip.duration.toFixed(2)} s cycle` : `; ${clip.duration.toFixed(2)} s`}`
     : fails.join('; ');
-  return { slip: +slip.toFixed(4), below: +below.toFixed(4), reachMiss: clip.reachMiss, loopGap: +loopGap.toFixed(2), kneeWorst: +kneeWorst.toFixed(1), elbowWorst: +elbowWorst.toFixed(1), ...(pelvis !== undefined ? { pelvis: +pelvis.toFixed(3), stanceKnee: +stanceKnee!.toFixed(1) } : {}), pass, detail };
+  return { slip: +slip.toFixed(4), below: +below.toFixed(4), reachMiss: clip.reachMiss, loopGap: +loopGap.toFixed(2), kneeWorst: +kneeWorst.toFixed(1), elbowWorst: +elbowWorst.toFixed(1), ...(pelvis !== undefined ? { pelvis: +pelvis.toFixed(3), stanceKnee: +stanceKnee!.toFixed(1) } : {}), ...(run ? { run } : {}), ...(strike ? { strike } : {}), pass, detail };
 }
 
 /** Frames worth a skin check: the extremes of a cycle, or an action's keys. */
 export function checkFrames(clip: MotionClip): number[] {
   if (clip.kind === 'walk' || clip.kind === 'run') return [0, Math.round(clip.frames * 0.25)];
   if (clip.kind === 'idle') return [Math.round(clip.frames * 0.25)];
-  if (clip.kind === 'turn') return [Math.round(clip.frames * 0.5)];
+  if (clip.kind === 'turn' || clip.kind === 'start' || clip.kind === 'stop') return [Math.round(clip.frames * 0.5)];
   const def = ACTIONS[clip.settings.action!];
   return def.keys.filter((k) => k.bones).map((k) => Math.min(clip.frames, Math.round(k.at * clip.frames))).filter((f, i, a) => a.indexOf(f) === i).slice(0, 3);
+}
+
+// ── secondary motion: a hanging apron (the kit's ApronUpper/ApronLower bones) ─────────────────────
+/** Physical properties of the apron's swing: a spring per panel (Hz, damping ratio), how much the lower
+ *  panel lags the upper, and how far in front of the bone line the thigh and shin fronts sit (× body scale). */
+export const APRON = { upperHz: 1.9, upperDamp: 0.32, lowerHz: 2.8, lowerDamp: 0.28, lag: 0.55, thigh: 0.072, shin: 0.055 };
+
+/** Knee and ankle in the hips' frame, and the angle the upper panel must swing forward to clear the thighs. */
+function apronNeeds(rig: Rig, q: Q[]) {
+  const idx = new Map(rig.bones.map((b, i) => [b.name, i]));
+  const s = rig.spec.s;
+  const hi = idx.get('Hips')!, iu = idx.get('ApronUpper')!, il = idx.get('ApronLower')!;
+  const P = forward(rig.bones, rig.parents, q);
+  const hq = P.worldQ[hi], inv: Q = [-hq[0], -hq[1], -hq[2], hq[3]];
+  const toHips = (p: V3) => qRot(inv, sub(p, P.worldP[hi]));
+  const up = rig.bones[iu], lo = rig.bones[il];
+  const head = sub(up.head, rig.bones[hi].head);
+  const lenU = len(sub(up.tail, up.head)), lenL = len(sub(lo.tail, lo.head));
+  const back = -0.016 * s;                                      // the cloth's back face, behind the bone line
+  let needU = 0;
+  const kneeRel: V3[] = [], ankleRel: V3[] = [];
+  for (const side of ['Left', 'Right']) {
+    const knee = toHips(P.worldP[idx.get(`${side}LowerLeg`)!]), ankle = toHips(P.worldP[idx.get(`${side}Foot`)!]);
+    kneeRel.push(knee); ankleRel.push(ankle);
+    // the thigh's front at the knee and halfway up: the panel (through its head) passes in front of both
+    for (const [pt, r] of [[knee, APRON.thigh], [mul(knee, 0.5), APRON.thigh * 1.1]] as const) {
+      const dz = pt[2] + r * s - (head[2] + back), dy = head[1] - pt[1];
+      if (dy > 0.02 * s) needU = Math.max(needU, Math.atan2(dz, dy) / D2R);
+    }
+  }
+  return { head, lenU, lenL, back, needU: Math.max(0, needU), kneeRel, ankleRel, iu, il };
+}
+
+/** The lower panel's forward angle (relative to the upper) needed to clear the knees and shins. */
+function apronLowerNeed(n: ReturnType<typeof apronNeeds>, thetaDeg: number, s: number) {
+  const th = thetaDeg * D2R;
+  const tail: V3 = [0, n.head[1] - n.lenU * Math.cos(th), n.head[2] + n.lenU * Math.sin(th)];
+  let need = -90;
+  for (let k = 0; k < 2; k++) {
+    const kn = n.kneeRel[k], an = n.ankleRel[k];
+    const yb = tail[1] - n.lenL;
+    const tt = clamp((kn[1] - yb) / Math.max(1e-6, kn[1] - an[1]));
+    const shin: V3 = [0, kn[1] + (an[1] - kn[1]) * tt, kn[2] + (an[2] - kn[2]) * tt + APRON.shin * s];
+    const kneeFront: V3 = [0, kn[1], kn[2] + APRON.thigh * s];
+    for (const q of [kneeFront, shin]) {
+      const dy = tail[1] - q[1];
+      if (dy <= 0.01 * s) continue;
+      need = Math.max(need, Math.atan2(q[2] - (tail[2] + n.back), dy) / D2R - thetaDeg);
+    }
+  }
+  return need;
+}
+
+/**
+ * Swing the apron: each panel is a damped spring hanging from the one above (the upper from the hips),
+ * pushed forward by the knees and shins (never behind them) and lagging the hips' motion, so the cloth
+ * bends, sways and settles instead of turning with the body like a board. Loops are simulated until
+ * they repeat, so the swing closes the loop.
+ */
+export function apronSwing(rig: Rig, local: Q[][], hips: V3[], fps: number, loop: boolean, frames: number) {
+  const iu = rig.bones.findIndex((b) => b.name === 'ApronUpper');
+  if (iu < 0) return;
+  const s = rig.spec.s, dt = 1 / fps;
+  const needs = local.map((q) => apronNeeds(rig, q));
+  const il = needs[0].il;
+  const n = local.length;
+  const period = loop ? frames : n;
+  const acc = (f: number) => {
+    const a = hips[loop ? (f - 1 + period) % period : Math.max(0, f - 1)], b = hips[f], c = hips[loop ? (f + 1) % period : Math.min(n - 1, f + 1)];
+    return [(a[0] - 2 * b[0] + c[0]) / (dt * dt), (a[1] - 2 * b[1] + c[1]) / (dt * dt), (a[2] - 2 * b[2] + c[2]) / (dt * dt)];
+  };
+  const wU = 2 * Math.PI * APRON.upperHz, wL = 2 * Math.PI * APRON.lowerHz;
+  let th = needs[0].needU, thV = 0, ph = Math.max(0, apronLowerNeed(needs[0], th, s)), phV = 0;
+  const outU: number[] = new Array(n).fill(0), outL: number[] = new Array(n).fill(0);
+  const passes = loop ? 4 : 1;
+  for (let pass = 0; pass < passes; pass++) {
+    for (let f = 0; f < period; f++) {
+      const N = needs[f];
+      const a = acc(f);
+      // the cloth swings back when the hips accelerate forward (and the other way), in degrees/s²
+      const push = (-a[2] / Math.max(0.05, N.lenU)) / D2R;
+      const thA = -wU * wU * th - 2 * APRON.upperDamp * wU * thV + push;
+      const thPrevV = thV;
+      thV += thA * dt; th += thV * dt;
+      if (th < N.needU) { th = N.needU; thV = Math.max(thV, 0); }
+      const thAcc = (thV - thPrevV) / dt;
+      const needL = apronLowerNeed(N, th, s);
+      const phA = -wL * wL * ph - 2 * APRON.lowerDamp * wL * phV - APRON.lag * thAcc;
+      phV += phA * dt; ph += phV * dt;
+      if (ph < needL) { ph = needL; phV = Math.max(phV, 0); }
+      ph = clamp(ph, -35, 70);
+      if (pass === passes - 1) { outU[f] = th; outL[f] = ph; }
+    }
+  }
+  if (loop) { outU[frames] = outU[0]; outL[frames] = outL[0]; }
+  for (let f = 0; f < n; f++) {
+    local[f][iu] = X(-outU[f]);
+    local[f][il] = X(-outL[f]);
+  }
+}
+
+/** How the apron behaves in a clip: the most it passes behind a thigh or shin (degrees, ≤ 0 is clear), and how much it bends and swings (degrees). */
+export function apronReport(rig: Rig, clip: MotionClip): { clearance: number; bend: number; swing: number; pass: boolean; detail: string } | null {
+  const iu = rig.bones.findIndex((b) => b.name === 'ApronUpper');
+  if (iu < 0) return null;
+  const il = rig.bones.findIndex((b) => b.name === 'ApronLower');
+  const s = rig.spec.s;
+  let worst = -90, bendMin = Infinity, bendMax = -Infinity, swMin = Infinity, swMax = -Infinity;
+  for (let f = 0; f <= clip.frames; f++) {
+    const q = clip.local[f];
+    const N = apronNeeds(rig, q);
+    const th = -(2 * Math.atan2(q[iu][0], q[iu][3])) / D2R, ph = -(2 * Math.atan2(q[il][0], q[il][3])) / D2R;
+    worst = Math.max(worst, N.needU - th, apronLowerNeed(N, th, s) - ph);
+    bendMin = Math.min(bendMin, ph); bendMax = Math.max(bendMax, ph);
+    swMin = Math.min(swMin, th); swMax = Math.max(swMax, th);
+  }
+  const bend = bendMax - bendMin, swing = swMax - swMin;
+  const moving = clip.kind === 'walk' || clip.kind === 'run';
+  const fails: string[] = [];
+  if (worst > 1.5) fails.push(`the apron passes ${worst.toFixed(1)}° behind a knee or shin`);
+  if (moving && bend < 3) fails.push(`the apron moves like a board: its lower half bends only ${bend.toFixed(1)}°`);
+  return { clearance: +worst.toFixed(2), bend: +bend.toFixed(1), swing: +swing.toFixed(1), pass: !fails.length, detail: fails.length ? fails.join('; ') : `apron clears the legs, swings ${swing.toFixed(0)}° and bends ${bend.toFixed(0)}°` };
 }

@@ -161,7 +161,7 @@ export function charactersManifest(sceneGlb: string, player: { id: string; name:
         if (prefix && !a.name.startsWith(prefix)) continue;
         const nm = a.name.slice(prefix.length);
         if (!prefix && j.nodes.some((m: any) => m.extras?.character?.clipPrefix && a.name.startsWith(m.extras.character.clipPrefix))) continue;
-        clips[nm] = a.extras?.motion ? { motion: a.extras.motion, loop: !!a.extras.loop, speed: a.extras.speed ?? 0, duration: a.extras.duration } : { line: nm.startsWith('line:'), loop: false };
+        clips[nm] = a.extras?.motion ? { motion: a.extras.motion, loop: !!a.extras.loop, speed: a.extras.speed ?? 0, duration: a.extras.duration, ...(a.extras.travel ? { travel: a.extras.travel, then: a.extras.then, ...(a.extras.phase !== undefined ? { phase: a.extras.phase } : {}) } : {}) } : { line: nm.startsWith('line:'), loop: false };
       }
       let lo = Infinity, hi = -Infinity;
       for (const p of j.meshes[n.mesh].primitives) { const acc = j.accessors[p.attributes.POSITION]; if (acc?.min) { lo = Math.min(lo, acc.min[1]); hi = Math.max(hi, acc.max[1]); } }
