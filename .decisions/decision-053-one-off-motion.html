@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 53: One-Off Motions From Words — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.seq { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.k { display:grid; grid-template-columns:38px 1fr; gap:6px; padding:3px 0; border-bottom:1px solid #f1f5f9; }
+.k b { color:#23466f; }
+.lst div { padding:3px 0; border-bottom:1px solid #f1f5f9; display:grid; grid-template-columns:1fr auto; gap:6px; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.yes { background:#edf6f0; color:#2c6e48; } .no { background:#fbecea; color:#a83a32; } .mid { background:#fdf6e9; color:#8a5208; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 53 of 55 · Animate anything</span>
+  <h1>How One-Off Motions Get Made From Words</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Rig parts (decision 52) handle ongoing motion: walking, swimming, flapping, rolling, swaying. But many things you'll ask for are one-off actions: "the octopus pours a cup of tea", "the windmill creaks to a stop", "the dog jumps onto the bench and spins". This decides how those get made. Research: AI text-to-motion models are humanoid-only, most can't be used commercially (their training data bans it), and the good ones need a 24 GB NVIDIA GPU. Video capture works on a Mac but only for human motion.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: Claude directs key poses</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Claude Directs Key Poses, the Studio Solves the Rest</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="seq">
+        <div class="k"><b>0.0 s</b><span>Tentacle 2 reaches the teapot handle; tentacle 5 steadies the cup</span></div>
+        <div class="k"><b>0.8 s</b><span>Lift, body leans back slightly (anticipation)</span></div>
+        <div class="k"><b>1.6 s</b><span>Tip the pot 40°, spout over cup; other tentacles curl in</span></div>
+        <div class="k"><b>2.8 s</b><span>Level the pot, small overshoot and settle</span></div>
+        <div class="k"><b>3.4 s</b><span>Set it down; tentacles relax back to idle</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> "the octopus pours a cup of tea". Claude writes a few key moments as goals for each part (where tentacle tips go, where the body leans, when), and the studio solves the in-between with IK, easing and follow-through from springs. It checks contacts and limits, and you review the clip like any change. "Pour slower, and more nervously" adjusts timing and style.</div>
+    </div>
+    <div class="option-summary">
+      Claude acts as the animator: it writes a short list of key moments for the parts involved (where hands, feet, tentacle tips or the body go, and when), the way recent research uses language models to plan just the end points and lets a solver do the rest. The studio fills in the motion with IK, timing curves and follow-through from spring parts, runs the checks (decision 54), and makes it a reviewable clip. It works on any rig built from parts, runs locally and is yours to ship. Your notes ("slower", "more nervous", "bigger anticipation") edit it. For human actions, you can optionally film yourself as a starting point (local, free).
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Any creature or object, not just people</li>
+        <li>You direct in words and notes</li>
+        <li>Local, free, safe to ship</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Complex actions need several rounds of notes</li>
+        <li>Subtle human acting is hardest</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">A Local AI Text-to-Motion Model</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="seq lst">
+        <div><span>"A person pours tea"</span><span class="pill yes">good</span></div>
+        <div><span>"The octopus pours tea"</span><span class="pill no">humans only</span></div>
+        <div><span>Runs on 8 GB Mac</span><span class="pill no">mostly not</span></div>
+        <div><span>Safe to ship commercially</span><span class="pill no">training data bans it</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> type a sentence and get natural human motion. But only human, mostly not on your Mac, and the weights can't be used in a game you sell.</div>
+    </div>
+    <div class="option-summary">
+      Use a text-to-motion model to generate the action. Natural-looking human motion from a sentence. But they only do human bodies, most need far more memory than an 8 GB Mac, and nearly all are trained on data (AMASS) whose licence bans commercial use, which taints the model. Newer any-skeleton models exist only as papers or need NVIDIA GPUs.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Human motion, personal projects, a big GPU</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Humans only</li>
+        <li>Licence and hardware</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Film Yourself, Copy the Motion</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="seq lst">
+        <div><span>You act it out on your webcam</span><span class="pill yes">local, free</span></div>
+        <div><span>33 body points tracked (MediaPipe)</span><span class="pill mid">jittery, smoothed</span></div>
+        <div><span>Onto a human character</span><span class="pill yes">works</span></div>
+        <div><span>Onto an octopus</span><span class="pill mid">hands → tentacle tips</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> real human timing and acting, which is great for people. You do have to perform it, and mapping your arms onto tentacles is a stretch.</div>
+    </div>
+    <div class="option-summary">
+      You act the motion out on camera; a free local tracker (MediaPipe, Apache-licensed) captures 33 body points, which are smoothed and mapped onto the character. Real human timing and acting. But you have to perform everything, tracking is jittery, and non-human bodies only get a loose mapping (your hands to tentacle tips). Best as an optional starting point inside A.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Human acting, gestures</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>You perform everything</li>
+        <li>Loose on non-humans</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Library of Ready-Made Clips</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="seq lst">
+        <div><span>Free packs (KayKit, CC0)</span><span class="pill yes">ready</span></div>
+        <div><span>"Wave", "jump", "sit"</span><span class="pill yes">in the library</span></div>
+        <div><span>"Octopus pours tea"</span><span class="pill no">not in any library</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> instant, polished clips for common actions. Anything specific to your game isn't there.</div>
+    </div>
+    <div class="option-summary">
+      Build a library of ready-made clips from free packs and retarget them. Instant and polished for common actions. But only for what's in the library, almost entirely human, and nothing specific to your game.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Common human actions</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Only what's in the library</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Key-posed motion made by a language model is only as good as its sense of timing and weight, and subtle human acting (a hesitant reach, a shrug) is where A will look most mechanical; an AI motion model would do human actions more naturally today, if you accepted the licence and hardware limits. Complex actions may take several rounds of notes, and each round is a render to watch. The research behind A (planning just the end points) is recent and mostly shown on humans.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the rig parts from decision 52 expose goals Claude can set (tip positions, body lean, hinge angles) and the studio solves the rest.</li>
+    <li>Assumes webcam capture (MediaPipe, local) is an optional starting point for human actions, not the main path.</li>
+    <li>Tripwire: if a commercially safe any-skeleton motion model appears that runs on your Mac, add it as a draft generator inside A.</li>
+    <li>Tripwire: if common human actions keep taking three or more rounds of notes, add a small free clip library (D) as starting points.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Claude key-poses</th><th class="col-b">B · AI model</th><th class="col-c">C · Film yourself</th><th class="col-d">D · Clip library</th></tr></thead>
+    <tbody>
+      <tr><td>Works on any creature or object</td><td class="col-pick">Yes</td><td>Humans only</td><td>Loosely</td><td>Mostly humans</td></tr>
+      <tr><td>Anything you describe</td><td class="col-pick">Yes, with notes</td><td>Human actions</td><td>What you can act</td><td>What's in the library</td></tr>
+      <tr><td>Natural human acting</td><td class="col-pick">Fair</td><td>Best</td><td>Good</td><td>Good</td></tr>
+      <tr><td>Runs on your Mac</td><td class="col-pick">Yes</td><td>Mostly not</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Safe to ship commercially</td><td class="col-pick">Yes</td><td>Mostly not</td><td>Yes</td><td>CC0 packs yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: others can feed in as drafts</td><td>Medium</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Language models as keyframers: FreeMotion designs keyframes then fills the motion; Re2MoGen plans only the body and end points and lets a solver do the rest.<a class="cite" href="https://arxiv.org/abs/2406.10740">FreeMotion</a><a class="cite" href="https://arxiv.org/abs/2604.17807">Re2MoGen</a></li>
+    <li>Language models can also edit motion by writing small programs of edit operations.<a class="cite" href="https://arxiv.org/abs/2312.11538">Iterative Motion Editing</a></li>
+    <li>AMASS, the dataset most text-to-motion models train on, bans training networks for commercial use.<a class="cite" href="https://amass.is.tue.mpg.de/license.html">AMASS licence</a></li>
+    <li>HY-Motion needs 24–26 GB of GPU memory; MotionLCM is research-only; MoMask is humans-only on an old stack.<a class="cite" href="https://huggingface.co/tencent/HY-Motion-1.0">HY-Motion</a><a class="cite" href="https://huggingface.co/spaces/wxDai/MotionLCM/blob/main/LICENSE">MotionLCM licence</a></li>
+    <li>Any-skeleton motion (AnyTop, UniMate) needs CUDA or has unreleased weights.<a class="cite" href="https://arxiv.org/abs/2502.17327">AnyTop</a><a class="cite" href="https://arxiv.org/abs/2609.05415">UniMate</a></li>
+    <li>MediaPipe tracks 33 body points locally (Apache 2.0) but is jittery; the higher-quality video trackers are non-commercial or need CUDA.<a class="cite" href="https://github.com/google-ai-edge/mediapipe/blob/master/docs/solutions/pose.md">MediaPipe</a><a class="cite" href="https://raw.githubusercontent.com/zju3dv/GVHMR/main/LICENSE">GVHMR licence</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 54, checking any motion is believable.</p>
+</div>
+</body>
+</html>

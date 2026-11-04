@@ -539,3 +539,62 @@ The studio makes characters from words, starting with each one's skeleton. Every
 | Computed motion has enough character | A body plan still looks generic after its style pass → hand-tuned walk override | D48 |
 | Face parts blend into the head | Parts look stuck on → blend step | D49 |
 | Imports are rare | You import unrigged models repeatedly → add a skeleton-adder | D50 |
+
+
+# Phase 8: Animate Anything (decisions 52–55, decided 2026-11-04)
+
+## What We're Building
+Anything you ask for moves. Skeletons are built from rig parts, and each part brings its own procedural motion. Claude directs one-off actions as key poses, and IK fills in the rest. Each part declares what "correct" means for it, so checks come for free. All of this is local, free and shippable; the research found that every AI motion model is humanoid-only, non-commercial, or needs CUDA.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 52 | Skeletons | Rig parts: legs ×N, chains, wings, fins/body wave, wheels/tracks, hinges/sliders, springs, shader sway. Body plans become part combos | Strong | One-way |
+| 53 | One-off motion | Claude writes key moments as part goals; the studio solves with IK, easing and spring follow-through; your notes edit it; an optional webcam (MediaPipe) start for human actions | Strong | One-way |
+| 54 | Checks | Each part declares its contacts, limits and form; universal checks for penetration, balance, pops, loops and the idle end; a timeline of failures; clip plus key-moment stills | Strong | Two-way |
+| 55 | When | Core parts in weeks 13–14, Pocket Raleigh in weeks 15–20 with wings, fins and one-off actions alongside, your game in week 21 | Lean | Two-way |
+
+## Implementation Steps
+### Weeks 13–14: framework and core parts
+- [ ] Rig-part framework. Each part has bones, goals (tip/foot targets, angles), a procedural motion generator, style settings, and declared checks.
+- [ ] Legs ×N:
+  - gait scheduling for 2/4/6/8 legs
+  - IK foot targets that step when out of reach
+  - body height and tilt follow the feet
+- [ ] Chains:
+  - follow-the-leader and FABRIK
+  - wave, coil and reach
+  - snake serpentine motion
+- [ ] Wheels and tracks: roll at ground speed, steer, springy suspension.
+- [ ] Hinges and sliders, with limits.
+- [ ] Springs.
+- [ ] Shader sway for plants and flags.
+- [ ] Re-express the human, chibi, lanky, stocky, beaked and quadruped plans (after the craft pass) as part combos, with no visual or motion change and all existing checks still green.
+- [ ] Universal checks:
+  - foot/contact sliding, body-relative
+  - self and world penetration
+  - balance for legged bodies
+  - joint and hinge limits
+  - velocity and jerk pops
+  - loop closure
+  - ending in idle
+- [ ] Failure timeline in the preview.
+- [ ] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips.
+### Weeks 15–20, alongside Pocket Raleigh
+- [ ] Wings: flap, glide, fold, hover, flight cycle.
+- [ ] Fins and body wave.
+- [ ] Octopus and spider presets.
+- [ ] One-off actions:
+  - `perform-action "the octopus pours tea"` → key moments → solve → checks → a reviewable clip
+  - notes edit timing and style
+  - optional MediaPipe webcam start for human actions
+- [ ] Bench tasks: a crab robot with a whip tail, an octopus pouring tea, a windmill creaking to a stop, a car on a bumpy road.
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| Procedural parts look alive with style settings | A part looks generic → hand-tuned overrides per creature | D52 |
+| Godot 4.6 IK nodes are usable | They misbehave → bake those motions to clips for Godot | D52 |
+| Claude's key poses read well | Common human actions take 3+ rounds of notes → a small CC0 clip library as starting points | D53 |
+| General checks catch most problems | You spot a problem the checks passed → add the rule to that part | D54 |
+| The framework is done in 2 weeks | Not done by the end of week 14 → start Pocket Raleigh anyway | D55 |

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 52: How Any Shape Gets a Skeleton — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.parts { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+.p { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:5px 7px; }
+.p b { display:block; color:#23466f; font-size:0.62rem; }
+.combo { margin-top:7px; display:grid; grid-template-columns:1fr; gap:3px; }
+.combo div { background:#efeaf8; border-radius:6px; padding:3px 7px; font-size:0.6rem; }
+.lst { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; }
+.lst div { padding:3px 0; border-bottom:1px solid #f1f5f9; display:grid; grid-template-columns:1fr auto; gap:6px; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.yes { background:#edf6f0; color:#2c6e48; } .no { background:#fbecea; color:#a83a32; } .mid { background:#fdf6e9; color:#8a5208; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 52 of 55 · Animate anything</span>
+  <h1>How Any Shape Gets a Skeleton</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You want anything you ask for to move: snakes, octopuses, spiders, fish, flying birds, mechs, cars, doors, windmills, plants in the wind. Today the studio animates six body plans plus tails and wings, each with motion computed from its proportions (decisions 47–48). This decides the general way any shape gets bones and knows how to move. Research found that every option that's local, free and safe to ship commercially is procedural: AI motion models are humanoid-only, non-commercial, or need a 24 GB NVIDIA GPU.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: parts that know how to move</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Rig Parts That Know How to Move</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="parts">
+        <div class="grid">
+          <div class="p"><b>legs ×N</b>Gait for 2, 4, 6 or 8; feet placed by IK; body height and tilt follow the feet</div>
+          <div class="p"><b>chain</b>Spines, necks, tails, tentacles, snakes: wave, follow, coil, reach</div>
+          <div class="p"><b>wings</b>Flap, glide, fold, hover</div>
+          <div class="p"><b>fins and body wave</b>Swimming: a wave travels down the body</div>
+          <div class="p"><b>wheels and tracks</b>Roll with speed, steer, springy suspension</div>
+          <div class="p"><b>hinge and slider</b>Doors, lids, jaws, pistons, windmill sails, with limits</div>
+          <div class="p"><b>springs</b>Ears, hair, cloth, antennae, leaves react to motion</div>
+          <div class="p"><b>sway</b>Plants and flags in wind (cheap, in the shader)</div>
+        </div>
+        <div class="combo">
+          <div>"six-legged robot crab with a whip tail" = legs ×6 + chain</div>
+          <div>"octopus" = body + chain ×8 (reach, curl, swim pulse)</div>
+          <div>"windmill" = hinge (sails) + hinge (cap) + sway (grass)</div>
+          <div>Today's human, chibi, dog, heron = ready-made part combos</div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> you say "a crab robot with a whip tail" and the studio assembles six legs and a tail chain. It walks sideways right away, legs stepping when they can no longer reach, body riding on its feet, tail lashing. "Make the tail lazier" is one setting.</div>
+    </div>
+    <div class="option-summary">
+      The studio builds every skeleton from a small set of parts, and each part comes with its own procedural motion (the approach Spore used to animate creatures nobody had seen before). Legs of any count step and plant by IK, chains ripple, coil and reach, wings flap and glide, fins and bodies swim with a travelling wave, wheels roll on springy suspension, hinges and sliders swing within limits, springs add follow-through, and plants sway in the shader. Today's body plans become ready-made combinations. Exports bake clips for both engines, and interactive parts (feet on uneven ground, wheels) also run live using Godot 4.6's new IK nodes and a matching web runtime.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"Anything I ask for" moves right away</li>
+        <li>New creatures from parts you already have</li>
+        <li>Local, free, safe to ship</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Eight part types to build and tune</li>
+        <li>Procedural motion needs style settings to feel alive</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Many More Fixed Body Types</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lst">
+        <div><span>Snake</span><span class="pill yes">hand-built</span></div>
+        <div><span>Fish</span><span class="pill yes">hand-built</span></div>
+        <div><span>Spider</span><span class="pill yes">hand-built</span></div>
+        <div><span>Flying bird</span><span class="pill mid">next month</span></div>
+        <div><span>Robot crab with a whip tail</span><span class="pill no">not a body type</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> each new body type is carefully made and looks good. But "robot crab with a whip tail" doesn't exist until someone builds that type.</div>
+    </div>
+    <div class="option-summary">
+      Keep adding hand-built body types: snake, fish, spider, flying bird, octopus, vehicle and so on, each with tuned motion. Each looks crafted. But the list never ends, combinations (a spider with wings) don't exist until built, and "anything I say" stays a promise for whatever's on the list.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>A few creature types, high polish</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The list never ends</li>
+        <li>No combinations</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Fit a Skeleton to Any Finished Shape</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lst">
+        <div><span>Model first, any shape</span><span class="pill yes">free</span></div>
+        <div><span>Skeleton guessed from the shape</span><span class="pill mid">heuristic on a Mac</span></div>
+        <div><span>Which way does a tentacle bend?</span><span class="pill no">guess</span></div>
+        <div><span>How does it move?</span><span class="pill no">still needs A or B</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> any shape at all, then the studio tries to work out its bones. But knowing where the bones are doesn't say how it moves, and the good auto-riggers need an NVIDIA GPU.</div>
+    </div>
+    <div class="option-summary">
+      Model any shape freely, then fit a skeleton to it afterwards. Maximum freedom of shape. But the research auto-riggers that handle unusual shapes all need NVIDIA GPUs; a Mac version would be guesswork; and a skeleton alone doesn't say how the thing should move, so motion still needs A or B on top.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Odd shapes that only need simple motion</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Guessed bones</li>
+        <li>No motion by itself</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Physics-Driven Bodies</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lst">
+        <div><span>Every body part a physics object with motors</span><span class="pill mid">simulated</span></div>
+        <div><span>Reacts to bumps and slopes</span><span class="pill yes">naturally</span></div>
+        <div><span>"Walk with a swagger"</span><span class="pill no">hard to direct</span></div>
+        <div><span>Same in Godot and web</span><span class="pill no">physics differ</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> squishy, reactive creatures in the style of Rain World. But hard to direct, and the two engines' physics won't match.</div>
+    </div>
+    <div class="option-summary">
+      Every creature is physics bodies joined by motors, and motion emerges from simulation, the way Rain World's creatures work. Wonderfully reactive. But hard to direct ("swagger" isn't a physics setting), slow to tune, and the two engines' physics engines won't produce the same motion.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Physics-comedy or squishy-creature games</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Hard to direct</li>
+        <li>Differs between engines</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Spore's own team said it took weeks to learn which motions generalise across shapes, and generalised procedural motion tends to look correct but generic. Eight part types is a big build, and Godot's new IK nodes are only weeks old, with bugs reported. B's hand-built body types would look better for the few creatures you actually use, and if your games mostly need people and a dog, the general system may be more than you need.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes today's six body plans re-express as part combinations without changing how they look or move.</li>
+    <li>Assumes interactive parts run live in both engines (Godot 4.6 IK nodes; a matching web runtime), and everything else bakes to clips.</li>
+    <li>Tripwire: if a part type looks generic after its style settings, allow hand-tuned overrides per creature (B on top of A).</li>
+    <li>Tripwire: if Godot's IK nodes misbehave, bake those motions to clips for Godot instead of running them live.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Rig parts</th><th class="col-b">B · More body types</th><th class="col-c">C · Fit to shape</th><th class="col-d">D · Physics bodies</th></tr></thead>
+    <tbody>
+      <tr><td>"Anything I ask for" moves</td><td class="col-pick">Most things, right away</td><td>What's on the list</td><td>Bones only</td><td>Most things, loosely</td></tr>
+      <tr><td>Combinations (winged spider)</td><td class="col-pick">Yes</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Easy to direct</td><td class="col-pick">Style settings</td><td>Yes</td><td>Needs A or B</td><td>Hard</td></tr>
+      <tr><td>Same in Godot and web</td><td class="col-pick">Baked clips + matched runtime</td><td>Yes</td><td>Depends</td><td>No</td></tr>
+      <tr><td>Local, free, shippable</td><td class="col-pick">Yes</td><td>Yes</td><td>Guesswork on a Mac</td><td>Yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: hand overrides fit on top</td><td>Low</td><td>Low</td><td>High</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Spore animated creatures nobody had seen by keying motion per body part, then mapping it to IK goals on any shape; it took weeks to learn what generalises.<a class="cite" href="https://chrishecker.com/Real-time_Motion_Retargeting_to_Highly_Varied_User-Created_Morphologies">Hecker et al., SIGGRAPH 2008</a></li>
+    <li>Procedural spider walking: feet aimed ahead, a leg steps when its target is too far or out of reach, body height and tilt follow the feet.<a class="cite" href="https://80.lv/articles/ik-driven-procedural-spider-locomotion-in-godot-4-5">80.lv</a><a class="cite" href="https://github.com/PhilS94/Unity-Procedural-IK-Wall-Walking-Spider">Wall-walking spider</a></li>
+    <li>Godot 4.6 brought IK back: two-bone, chain, spline, FABRIK and more, on top of spring bones; early bug reports.<a class="cite" href="https://godotengine.org/article/inverse-kinematics-returns-to-godot-4-6/">Godot blog</a></li>
+    <li>Fish swim with a wave in the vertex shader, cheap enough for thousands at once.<a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/performance/vertex_animation/animating_thousands_of_fish.html">Godot docs</a></li>
+    <li>Rain World's creatures are physics chunks with procedural limbs.<a class="cite" href="https://gamedeveloper.com/art/video-animating-i-rain-world-i-and-its-many-squishy-stretchy-creatures">Game Developer</a></li>
+    <li>Any-skeleton AI motion (AnyTop, UniMate) needs CUDA or has unreleased weights; most text-to-motion weights inherit AMASS's ban on commercial training.<a class="cite" href="https://arxiv.org/abs/2502.17327">AnyTop</a><a class="cite" href="https://amass.is.tue.mpg.de/license.html">AMASS licence</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 53, one-off motions from words.</p>
+</div>
+</body>
+</html>
