@@ -216,12 +216,17 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     // the ball of the foot (toes stay on the ground) before it leaves. The planted point — heel, then
     // sole, then ball — moves back at exactly the ground's speed. Runners land flatter.
     const ankleZ = L.ankle[2];
+    const front = run ? 0.5 : 0.4;
     const toeJoint = bone('LeftToes').head;
     const heelRel: V3 = [0, -ankleY, -0.035 * s], ballRel: V3 = [0, toeJoint[1] - ankleY, toeJoint[2] - ankleZ];
-    const strikeU = run ? 0.04 : 0.12, strikeDeg = run ? -4 : -12, offU = run ? 0.42 : 0.58, offDeg = run ? 34 : 30;
+    // a faster walk pushes off harder over the toes (that, not a deeper dip, makes the longer step)
+    const brisk = clamp((v / Math.sqrt(s) - 1.2) / 0.7);
+    const strikeU = run ? 0.04 : 0.12, strikeDeg = run ? -4 : -14, offU = run ? 0.42 : 0.55 - 0.08 * brisk, offDeg = run ? 34 : 32 + 16 * brisk;
     const pivot = (pt: V3, rel: V3, deg: number): V3 => { const o = qRot(X(deg), mul(rel, -1)); return add(pt, o); };
     const stance = (r: V3, u: number) => {
-      const zA = r[2] + Lst / 2 - u * Lst;                               // where the ankle would be with the foot flat
+      // where the ankle would be with the foot flat: a walker lands a little ahead and pushes off further
+      // behind (rolling over the toes), so the hips stay high; a runner lands under the body
+      const zA = r[2] + Lst * front - u * Lst;
       if (u < strikeU) { const deg = strikeDeg * (1 - ease(u / strikeU)); return { p: pivot([r[0], 0, zA + heelRel[2]], heelRel, deg), deg }; }
       if (u < offU) return { p: [r[0], ankleY, zA] as V3, deg: 0 };
       const deg = offDeg * ease((u - offU) / (1 - offU));
@@ -255,12 +260,30 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       }
     }
     const bounce = bounceWanted;
+    const walkReach = legLen * 0.995;
     make = (t) => {
       const p = t / duration, w = 2 * Math.PI * p;
       const fl = footPath('Left', p % 1), fr = footPath('Right', (p + 0.5) % 1);
       // hips: lowest when a foot lands (walk) / mid-stance (run); shift over the standing foot; turn with the legs
       const bob = bobAt(p);
-      const hipsOff: V3 = [sway * Math.cos(w - Math.PI * duty), baseY - hipsRest[1] + bounce * bob, 0];
+      const swayX = sway * Math.cos(w - Math.PI * duty);
+      let hipY = baseY + bounce * bob;
+      if (!run) {
+        // a walk vaults over the planted leg (an inverted pendulum): the hips ride as high as the
+        // planted leg reaches nearly straight, highest at mid-stance, lowest where both feet are down
+        // (a soft minimum rounds that corner), never above standing height
+        const k = 0.012 * s;
+        let acc = 0;
+        for (const [side, f] of [['Left', fl], ['Right', fr]] as const) {
+          if (!f.down) continue;
+          const hx = (side === 'Left' ? L : R).hip[0] + swayX;
+          const dx = f.p[0] - hx, dz = f.p[2];
+          const top = f.p[1] + Math.sqrt(Math.max(0, walkReach ** 2 - dx * dx - dz * dz)) - hipDrop;
+          acc += Math.exp(-(top - hipsRest[1]) / k);
+        }
+        hipY = Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+      }
+      const hipsOff: V3 = [swayX, hipY - hipsRest[1], 0];
       const yaw = -yawAmp * Math.cos(w);
       const hipsQ = qMul(Y(yaw), Z(1.5 * k * Math.sin(w - Math.PI * duty)));
       const breath = Math.sin((2 * Math.PI * t) / duration);
@@ -381,7 +404,8 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       const d = sub(target.p, H);
       const dist0 = len(d);
       const maxR = (lg.l1 + lg.l2) * 0.9995, minR = Math.abs(lg.l1 - lg.l2) + 1e-3;
-      if (dist0 > maxR) reachMiss = Math.max(reachMiss, dist0 - maxR);
+      // a planted foot must be reached; a swinging foot falling a little short only straightens the knee
+      if (dist0 > maxR && target.down) reachMiss = Math.max(reachMiss, dist0 - maxR);
       const dist = clamp(dist0, minR, maxR);
       const dh = norm(d);
       const cosA = clamp((lg.l1 ** 2 + dist ** 2 - lg.l2 ** 2) / (2 * lg.l1 * dist), -1, 1);
@@ -425,7 +449,10 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
 }
 
 // ── checks (the authority on motion, Decision 6): planted feet, ground, reach, loops ──────────────
-export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pass: boolean; detail: string }
+export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pelvis?: number; stanceKnee?: number; pass: boolean; detail: string }
+
+/** A walk mustn't crouch: hips on average at least this share of standing height, and the planted knee nearly straight at mid-stance. */
+export const WALK_UPRIGHT = { pelvis: 0.95, stanceKnee: 165 };
 
 /** Forward-kinematics a clip's frame (object space, in place). */
 export function clipPose(rig: Rig, clip: MotionClip, f: number) {
@@ -476,6 +503,19 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
       elbowWorst = Math.max(elbowWorst, qAngle(clip.local[f][ei], qIdentity()));
     }
   }
+  // upright walk: the hips near standing height, the planted leg nearly straight when it's under the body
+  let pelvis: number | undefined, stanceKnee: number | undefined;
+  if (clip.kind === 'walk') {
+    const stand = rig.bones[idx.get('Hips')!].head[1];
+    pelvis = clip.hips.slice(0, clip.frames).reduce((a, h) => a + stand + h[1], 0) / clip.frames / stand;
+    stanceKnee = 180;
+    for (const side of ['Left', 'Right'] as const) {
+      const down = side === 'Left' ? clip.contacts.left : clip.contacts.right, feet = side === 'Left' ? clip.feet.left : clip.feet.right;
+      let best = -1, bz = Infinity;
+      for (let f = 0; f < clip.frames; f++) if (down[f] && Math.abs(feet[f][2]) < bz) { bz = Math.abs(feet[f][2]); best = f; }
+      if (best >= 0) stanceKnee = Math.min(stanceKnee, 180 - qAngle(clip.local[best][idx.get(`${side}LowerLeg`)!], qIdentity()));
+    }
+  }
   let loopGap = 0;
   if (clip.loop) for (let i = 0; i < rig.bones.length; i++) loopGap = Math.max(loopGap, qAngle(clip.local[0][i], clip.local[clip.frames][i]));
   const fails: string[] = [];
@@ -485,11 +525,13 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
   if (loopGap > 1.5) fails.push(`the loop jumps ${loopGap.toFixed(1)}° where it wraps`);
   if (kneeWorst > 150) fails.push(`a knee bends ${kneeWorst.toFixed(0)}°`);
   if (elbowWorst > 155) fails.push(`an elbow bends ${elbowWorst.toFixed(0)}°`);
+  if (pelvis !== undefined && pelvis < WALK_UPRIGHT.pelvis) fails.push(`walks in a crouch: hips average ${(pelvis * 100).toFixed(0)}% of standing height (want ≥ ${WALK_UPRIGHT.pelvis * 100}%)`);
+  if (stanceKnee !== undefined && stanceKnee < WALK_UPRIGHT.stanceKnee) fails.push(`the planted knee is bent to ${stanceKnee.toFixed(0)}° at mid-stance (want ≥ ${WALK_UPRIGHT.stanceKnee}°, nearly straight)`);
   const pass = !fails.length;
   const detail = pass
-    ? `${clip.loop ? 'loops cleanly; ' : ''}planted feet slide ≤ ${(slip * 1000).toFixed(0)} mm, nothing below the floor${clip.speed ? `; ${clip.speed.toFixed(2)} m/s, ${clip.stride?.toFixed(2)} m stride, ${clip.duration.toFixed(2)} s cycle` : `; ${clip.duration.toFixed(2)} s`}`
+    ? `${clip.loop ? 'loops cleanly; ' : ''}planted feet slide ≤ ${(slip * 1000).toFixed(0)} mm, nothing below the floor${pelvis !== undefined ? `; upright: hips ${(pelvis * 100).toFixed(0)}% of standing, planted knee ${stanceKnee!.toFixed(0)}°` : ''}${clip.speed ? `; ${clip.speed.toFixed(2)} m/s, ${clip.stride?.toFixed(2)} m stride, ${clip.duration.toFixed(2)} s cycle` : `; ${clip.duration.toFixed(2)} s`}`
     : fails.join('; ');
-  return { slip: +slip.toFixed(4), below: +below.toFixed(4), reachMiss: clip.reachMiss, loopGap: +loopGap.toFixed(2), kneeWorst: +kneeWorst.toFixed(1), elbowWorst: +elbowWorst.toFixed(1), pass, detail };
+  return { slip: +slip.toFixed(4), below: +below.toFixed(4), reachMiss: clip.reachMiss, loopGap: +loopGap.toFixed(2), kneeWorst: +kneeWorst.toFixed(1), elbowWorst: +elbowWorst.toFixed(1), ...(pelvis !== undefined ? { pelvis: +pelvis.toFixed(3), stanceKnee: +stanceKnee!.toFixed(1) } : {}), pass, detail };
 }
 
 /** Frames worth a skin check: the extremes of a cycle, or an action's keys. */

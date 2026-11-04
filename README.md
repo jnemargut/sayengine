@@ -66,6 +66,8 @@ The studio makes assets; real engines run games. Game projects live in `games/<n
 ./studio game import --project forge               # export + engine round trip: objects, triangles, materials, warnings
 ./studio game screenshot --project forge --views iso,front
 ./studio game walk-to --project forge --target "Walnut stool"
+./studio game import --project forge --player Apprentice   # a studio character is the player: walk/idle clips, WASD in the game
+./studio game walk-to --project forge --target Anvil --video true
 ./studio game test --project forge --assertions '[{"kind":"on","node":"Vase","target":"Walnut stool"}]'
 ```
 

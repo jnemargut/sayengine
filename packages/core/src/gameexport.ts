@@ -13,8 +13,7 @@ import { materialForPart } from './materials.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
 import { GlbBuilder } from './glb.ts';
-import { addCharacterNodes, addSkin, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
-import { forward, localRotations, qAxisAngle, qMul, qRot, type Q, type V3 } from './rig.ts';
+import { addCharacterNodes, addSkin, attachHeldProps, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
 
 type V3 = [number, number, number];
 export type Target = 'godot' | 'web';
@@ -432,31 +431,7 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     reports.push(report);
   }
   if (!reports.length) throw new Error('nothing to export (no evaluated, non-reference objects)');
-  // a prop in a hand rides on the hand joint, so it follows every clip (walk, actions, lines)
-  for (const { obj } of items) {
-    if (obj.place?.kind !== 'held') continue;
-    const c = charNodes.get(obj.place.target), ni = propNodes.get(obj.id);
-    if (!c || ni === undefined) continue;
-    const rig = c.res.rig!.rig;
-    const bi = rig.bones.findIndex((b) => b.name === `${obj.place!.hand === 'left' ? 'Left' : 'Right'}Hand`);
-    const k = c.info.kept.indexOf(bi);
-    if (k < 0) continue;
-    const posed = forward(rig.bones, rig.parents, localRotations(rig, c.obj.character));
-    const qc = qAxisAngle([0, 1, 0], c.obj.rotation ?? 0);
-    const hq: Q = qMul(qc, posed.worldQ[bi]);
-    const hp = qRot(qc, posed.worldP[bi]);
-    const handP: V3 = [c.obj.position[0] + hp[0], c.obj.position[1] + hp[1], c.obj.position[2] + hp[2]];
-    const inv: Q = [-hq[0], -hq[1], -hq[2], hq[3]];
-    const node = B.gltf.nodes[ni];
-    const t = node.translation as number[];
-    node.translation = qRot(inv, [t[0] - handP[0], t[1] - handP[1], t[2] - handP[2]]).map((v) => +v.toFixed(6));
-    node.rotation = inv.map((v) => +v.toFixed(7));
-    node.extras = { ...(node.extras ?? {}), heldBy: { character: c.obj.name, hand: obj.place.hand } };
-    const roots = B.gltf.scenes[0].nodes as number[];
-    roots.splice(roots.indexOf(ni), 1);
-    const joint = B.gltf.nodes[c.info.jointNodes[k]];
-    (joint.children ??= []).push(ni);
-  }
+  attachHeldProps(B, items.map((i) => i.obj), charNodes, propNodes);
   return { glb: B.build(), objects: reports };
 }
 

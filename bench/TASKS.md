@@ -41,6 +41,10 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 26 | `/studio give the blacksmith a hammer` *(after 24)* | Claude builds a hammer and uses `hold`; "Fingers clear of Hammer" passes; `--views hands` render Read |
 | 27 | `/studio get the apprentice ready for a mobile web game` | `web-mobile` profile: finger bones folded on export, shapes ≤ 33, triangle budget handled |
 | 28 | `/studio have the blacksmith say "Bring me the big hammer"` *(after 24)* | `say` with the local voice; phonemes drive all 15 shapes; closure, F/V and OO, held and sync checks pass; teeth stay behind the lips; blinks and eye darts in the clip; `line-preview --video true`; Claude Reads the stills (closed, open, TH, F, OO, blink) |
+| 29 | `/game make the forge yard a Godot game where I'm the apprentice` *(after 31)* | `game import --player Apprentice`; clean round trip; the blacksmith idles with his hammer; `characters.json` has the clips and speeds |
+| 30 | `/game walk the apprentice up to the anvil` *(after 29)* | `walk-to --target Anvil --video true`: reached, as the apprentice, at the walk clip's speed; Claude Reads the stills (feet planted, idle at the end); walking through the forge is blocked |
+| 31 | `/studio make a blacksmith and a little forge yard` | ~10 props with the godot-desktop profile and collision, the blacksmith holding a hammer, the apprentice; every check green (overlaps, grounding, one piece, motions) — `bench/forge.ts` is the reference |
+| 32 | `/studio make him walk slower and more tired, and wave hello` | `set-motion --id walk --speed 0.9 --energy 0.15`, `set-motion --id wave --kind action --action wave`; motion checks green; `motion-preview --video true` stills Read |
 
 ## What to record (from `node bench/score.ts`)
 

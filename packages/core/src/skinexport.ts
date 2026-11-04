@@ -8,8 +8,39 @@
 import type { EvalResult } from './kernel.ts';
 import type { SceneObject } from './types.ts';
 import { GlbBuilder } from './glb.ts';
-import { forward, localRotations, qAxisAngle, qMul, type Q } from './rig.ts';
+import { forward, localRotations, qAxisAngle, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { bakeMotion } from './motion.ts';
+
+/**
+ * A prop in a hand rides on the hand joint (a child node), so it follows every clip — walk, actions,
+ * lines. Its transform is relative to the hand as the character is posed in the studio.
+ */
+export function attachHeldProps(B: GlbBuilder, objs: SceneObject[], chars: Map<string, { obj: SceneObject; res: EvalResult; info: SkinInfo }>, propNodes: Map<string, number>) {
+  for (const obj of objs) {
+    if (obj.place?.kind !== 'held') continue;
+    const c = chars.get(obj.place.target), ni = propNodes.get(obj.id);
+    if (!c || ni === undefined) continue;
+    const rig = c.res.rig!.rig;
+    const bi = rig.bones.findIndex((b) => b.name === `${obj.place!.hand === 'left' ? 'Left' : 'Right'}Hand`);
+    const k = c.info.kept.indexOf(bi);
+    if (k < 0) continue;
+    const posed = forward(rig.bones, rig.parents, localRotations(rig, c.obj.character));
+    const qc = qAxisAngle([0, 1, 0], c.obj.rotation ?? 0);
+    const hq: Q = qMul(qc, posed.worldQ[bi]);
+    const hp = qRot(qc, posed.worldP[bi]);
+    const handP: V3 = [c.obj.position[0] + hp[0], c.obj.position[1] + hp[1], c.obj.position[2] + hp[2]];
+    const inv: Q = [-hq[0], -hq[1], -hq[2], hq[3]];
+    const node = B.gltf.nodes[ni];
+    const t = (node.translation as number[] | undefined) ?? [0, 0, 0];
+    node.translation = qRot(inv, [t[0] - handP[0], t[1] - handP[1], t[2] - handP[2]]).map((v) => +v.toFixed(6));
+    node.rotation = inv.map((v) => +v.toFixed(7));
+    node.extras = { ...(node.extras ?? {}), heldBy: { character: c.obj.name, hand: obj.place.hand } };
+    const roots = B.gltf.scenes[0].nodes as number[];
+    roots.splice(roots.indexOf(ni), 1);
+    const joint = B.gltf.nodes[c.info.jointNodes[k]];
+    (joint.children ??= []).push(ni);
+  }
+}
 
 /** Vertex id of every triangle corner, in triangle order. */
 export function cornerVerts(res: EvalResult, tris: number[]): Uint32Array {

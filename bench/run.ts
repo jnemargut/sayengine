@@ -381,6 +381,25 @@ const tasks: Task[] = [
       return j.animations.some((a: any) => a.name === 'line:mama') ? null : 'no line:mama clip';
     },
   },
+  {
+    name: '32. "Make him walk slower and more tired, and wave hello" — tune a motion, add a library action; feet stay planted',
+    run(s, step) {
+      step('new-character', { name: 'Smith', preset: 'blacksmith' });
+      step('set-motion', { object: 'smith', id: 'walk', speed: 0.9, energy: 0.15 });
+      step('set-motion', { object: 'smith', id: 'wave', kind: 'action', action: 'wave' });
+    },
+    async expect(s) {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const motions = s.checks('smith').filter((c) => c.id.startsWith('motion-'));
+      if (motions.length !== 6) return `${motions.length} motion checks (want idle, walk, wave × 2)`;
+      const obj = s.doc().objects.smith;
+      const j = gltfJson(toGLB([{ obj, res: s.evaluate(obj) }], {}));
+      const walk = j.animations.find((a: any) => a.name === 'walk');
+      if (!walk || Math.abs(walk.extras.speed - 0.9) > 0.05) return `walk clip speed ${walk?.extras.speed}`;
+      return j.animations.some((a: any) => a.name === 'wave' && a.extras.loop === false) ? null : 'no one-off wave clip';
+    },
+  },
 ];
 
 let failed = 0;

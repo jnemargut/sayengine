@@ -11,3 +11,10 @@ checkpoint-week4/*
 !checkpoint-week4/lines.mp4
 !checkpoint-week4/stills/
 !checkpoint-week4/README.md
+
+# weeks 5-6 checkpoint: only videos, stills and README are kept (regenerate: node bench/week6.ts)
+checkpoint-week6/*
+!checkpoint-week6/*.mp4
+!checkpoint-week6/stills/
+!checkpoint-week6/README.md
+!checkpoint-week6/gait/

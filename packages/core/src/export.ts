@@ -4,7 +4,7 @@ import type { EvalResult } from './kernel.ts';
 import type { Material, SceneObject } from './types.ts';
 import { materialForPart } from './materials.ts';
 import { GlbBuilder } from './glb.ts';
-import { addCharacterNodes, addSkin, cornerVerts, rigAttributes } from './skinexport.ts';
+import { addCharacterNodes, addSkin, attachHeldProps, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
 
 type Item = { obj: SceneObject; res: EvalResult };
 export interface ExportOpts { includeReferences?: boolean }
@@ -59,6 +59,8 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
   const B = new GlbBuilder();
   const matIndex = new Map<string, number>();
   const characterCount = usable(items, opts).filter((i) => i.res.rig).length;
+  const chars = new Map<string, { obj: SceneObject; res: EvalResult; info: SkinInfo }>();
+  const propNodes = new Map<string, number>();
   for (const { obj, res: posedRes } of usable(items, opts)) {
     // characters: bind pose (T-pose, neutral face) + skin + face shapes + clips; others: world-space mesh
     const rigged = !!posedRes.rig;
@@ -86,9 +88,10 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
     B.gltf.meshes.push({ name: obj.name, primitives });
     const mesh = B.gltf.meshes.length - 1;
     const extras = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])) };
-    if (skin) B.gltf.scenes[0].nodes.push(...addCharacterNodes(B, obj, posedRes, mesh, skin, extras, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' }));
-    else { B.gltf.nodes.push({ name: obj.name, mesh, extras }); B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1); }
+    if (skin) { B.gltf.scenes[0].nodes.push(...addCharacterNodes(B, obj, posedRes, mesh, skin, extras, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' })); chars.set(obj.id, { obj, res: posedRes, info: skin }); }
+    else { B.gltf.nodes.push({ name: obj.name, mesh, extras }); propNodes.set(obj.id, B.gltf.nodes.length - 1); B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1); }
   }
+  attachHeldProps(B, usable(items, opts).map((i) => i.obj), chars, propNodes);
   return B.build();
 }
 

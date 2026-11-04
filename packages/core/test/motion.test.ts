@@ -29,6 +29,27 @@ test('every motion kind and library action bakes with planted feet, nothing belo
   }
 });
 
+test('a walk stays upright (hips ≥ 95% of standing, planted knee ≥ 165° at mid-stance); a crouch fails the check', () => {
+  for (const preset of ['default', 'blacksmith', 'apprentice']) {
+    const { rig } = kit(preset);
+    for (const speed of [0.9, 1.3, 1.8]) {
+      const c = bakeMotion('walk', { kind: 'walk', speed }, rig(), undefined);
+      const r = motionReport(rig(), c);
+      assert.ok(r.pass && r.pelvis! >= 0.95 && r.stanceKnee! >= 165, `${preset} ${speed} m/s: ${r.detail}`);
+      const bob = Math.max(...c.hips.map((h) => h[1])) - Math.min(...c.hips.map((h) => h[1]));
+      assert.ok(bob > 0.02 && bob < 0.085, `${preset} ${speed} m/s: hips bob ${bob.toFixed(3)} m`);
+    }
+  }
+  const { rig } = kit();
+  const c = bakeMotion('walk', { kind: 'walk' }, rig(), undefined);
+  const knee = rig().bones.findIndex((b) => b.name === 'LeftLowerLeg'), kneeR = rig().bones.findIndex((b) => b.name === 'RightLowerLeg');
+  const crouch = { ...c, hips: c.hips.map((h) => [h[0], h[1] - 0.1, h[2]] as [number, number, number]), local: c.local.map((q) => { const n = q.slice(); n[knee] = [Math.sin((40 * Math.PI) / 360), 0, 0, Math.cos((40 * Math.PI) / 360)]; n[kneeR] = n[knee]; return n; }) };
+  const r = motionReport(rig(), crouch);
+  assert.equal(r.pass, false);
+  assert.match(r.detail, /crouch/);
+  assert.match(r.detail, /planted knee/);
+});
+
 test('walk fits the body: longer legs → longer stride at the same speed; faster → longer and quicker', () => {
   const short = kit('default', { legLength: 0.85 }), long = kit('default', { legLength: 1.2 });
   const a = bakeMotion('walk', { kind: 'walk', speed: 1.3 }, short.rig(), undefined);
@@ -119,6 +140,8 @@ test('a held hammer rides on the hand joint (follows every clip); two characters
   const j = json(g.glb);
   const hand = j.nodes.find((n: any) => n.name === 'RightHand' && (n.children ?? []).some((c: number) => j.nodes[c].name === 'Hammer'));
   assert.ok(hand, 'the hammer node is a child of the right hand joint');
+  const plain = json(toGLB(items));
+  assert.ok(plain.nodes.some((n: any) => n.name === 'RightHand' && (n.children ?? []).some((c: number) => plain.nodes[c].name === 'Hammer')), 'plain GLB too');
   const names = j.animations.map((a: any) => a.name);
   for (const want of ['smith:walk', 'smith:idle', 'smith:strike', 'smith:pose', 'apprentice:walk', 'apprentice:idle']) assert.ok(names.includes(want), `${want} in ${names.join(', ')}`);
 });

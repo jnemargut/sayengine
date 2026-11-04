@@ -33,6 +33,10 @@ The user's request: **$ARGUMENTS**
 
 Studio characters import as one skinned mesh with a Godot humanoid skeleton (plus `LeftUpperLid`/`RightUpperLid`), face shapes as glTF morph targets named in `extras.targetNames`, and animations: `pose` (the studio pose and expression, step keys) and one `line:<id>` per spoken line (face-shape weights at 30 fps; the clip's `extras` carry the text, audio asset and emotion). Play a line by starting its clip and its audio together; use only the bone tracks of `pose` while a line plays so the two don't average. On `web-mobile` finger bones are folded into the hands.
 
+Motions arrive as clips named by their id (`idle`, `walk`, `wave`…; several characters in one file → `<id>:walk`), in place, with `extras.speed`. A prop in a hand is a child of the hand joint. `game import` writes `assets/studio/characters.json` (clips, loops, speeds); the managed `studio/characters.gd` (Godot) and `startCharacters()` in `studio/harness.ts` (web) start every character on its idle, each on its own player/mixer.
+
+**The player is a studio character**: `./studio game import --project forge --player Apprentice` exports that character on its own (`player.glb`, with what it holds) and leaves it out of the scene. It starts where it stood in the studio; `walk-to` and the game's own controls (arrow keys / WASD in the generated main scene, camera following) play its walk clip at the speed the body actually moves and idle when it stops. `--player none` goes back to a capsule. Characters in the scene block the way with a capsule. `./studio game walk-to --project forge --target Anvil --video true` records the walk from a following camera (MP4 + 3 stills): Read the stills — feet planted, facing the way it walks, idle at the end.
+
 ## Rules
 
 - **Never edit the engine copies of studio assets** (`assets/studio/`). Change the model with `/studio`, then `game import` again. Materials come from the studio on every import.
