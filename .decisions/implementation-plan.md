@@ -145,6 +145,8 @@ It's six months later and the game tools didn't work. Most likely reasons:
 - Week 1 ✓ export contract: game profiles, collision/LOD ops, auto-unwrap + bake, glTF validator (merged)
 - Week 2 ✓ `/game` skill: Godot + three.js back ends; export round-trips through the target engine (merged)
 - Weeks 3–6 above are **superseded by Phase 3 below**, which builds the kit with faces and hands from the start.
+- Godot upgraded to 4.7.2 (Homebrew) for IK, spring bones and retargeting; game tests and benchmarks pass on it.
+- Next: Phase 3 week 3, to start when you say "auto mode".
 
 ## Low-Confidence Picks Worth Revisiting
 - **D12 (E vs A):** if the bake step slips past week 1, ship week-5 assets with presets only (A) and add the bake after. Same shapes, no rework.
@@ -178,6 +180,7 @@ Characters that act in cutscenes: stylized faces that speak and emote, real fing
 ### Week 4: voice and lip sync + checkpoint (D21)
 - [ ] `studio line` tool: audio file + script → alignment (Rhubarb, Whisper timings) → 15 shapes → smoothing (coarticulation, M/B/P closure, emotion scale)
 - [ ] Checks: lips closed on every M/B/P; no shape held unnaturally; sync offset
+- [ ] Test voices: a **local, free** text-to-speech model (user's call, 2026-11-04), no paid services. Candidates: Kokoro-82M (Apache-2.0, runs locally via kokoro-js / ONNX) first, Piper as fallback; confirm each voice's licence before use
 - [ ] **Checkpoint:** one close-up line rendered for you to judge. Tripwire: not reading as speech after a week of tuning → revisit 19–21
 
 ### Week 5: motion, life and hands (D16, D22, D23)
