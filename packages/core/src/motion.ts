@@ -737,7 +737,7 @@ export function checkFrames(clip: MotionClip): number[] {
 // ── secondary motion: a hanging apron (the kit's ApronUpper/ApronLower bones) ─────────────────────
 /** Physical properties of the apron's swing: a spring per panel (Hz, damping ratio), how much the lower
  *  panel lags the upper, and how far in front of the bone line the thigh and shin fronts sit (× body scale). */
-export const APRON = { upperHz: 1.9, upperDamp: 0.32, lowerHz: 2.8, lowerDamp: 0.28, lag: 0.55, thigh: 0.072, shin: 0.055 };
+export const APRON = { upperHz: 1.7, upperDamp: 0.3, lowerHz: 2.2, lowerDamp: 0.18, lag: 1.3, thigh: 0.072, shin: 0.055 };
 
 /** Knee and ankle in the hips' frame, and the angle the upper panel must swing forward to clear the thighs. */
 function apronNeeds(rig: Rig, q: Q[]) {

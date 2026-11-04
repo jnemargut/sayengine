@@ -201,6 +201,37 @@ Characters that act in cutscenes: stylized faces that speak and emote, real fing
 - [ ] Export → generated Godot AnimationPlayer scene; three.js cutscene player
 - [ ] **"The Forge Lesson"**: 2 characters, 4 shots, 3 lines, plays in both engines. Bench tasks; tripwire: not playing in Godot → defer three.js player
 
+### Status of weeks 5–8 (2026-11-04)
+- **Week 5: built** (bee38ea).
+  - Parametric walk, run, idle and turn motions, plus library actions, with IK legs and planted feet.
+  - A life layer in idle and in lines.
+  - Hands and held props carried through motion.
+  - The crouched walk is fixed and has its own check: hips ≥ 95% of standing height, planted knee ≥ 165°.
+- **Week 6: built.**
+  - The forge yard plays in Godot and on the web, with the apprentice as the player walking up to the anvil.
+- **Week 7: built.** `perform` adds one performance per line:
+  - emotion on the face, and beats that change it mid-line
+  - posture
+  - gaze toward the listener
+  - gestures on words from a 15-gesture library: the stroke lands just before the stressed syllable, the forearm and hand trail, close gestures flow into each other, and a hand holding a prop is left alone
+  
+  It compiles onto the idle as one full-body `line:<id>` clip, with a performance check. `--auto` picks gestures from the words. Webcam capture was not built.
+- **Week 7–8 motion fixes** (required by you). Each has a check:
+  - The apron swings on two spring-driven bones that never pass behind the knees, and it bends.
+  - The run has flight, lean, heel recovery and 150–195 steps/min.
+  - The hammer strike has a wind-up, a fast downswing, knees that soften at impact, and a settle.
+  - Start and stop steps: feet stay planted (≤ 3 mm), and both game players use them when movement starts and stops.
+- **Week 8: built.**
+  - The cutscene file: shots framed on characters (close, medium, two-shot, over-shoulder, wide, custom, with push-in, pull-out and drift), lines with listeners, actions, events, and an engine escape hatch.
+  - Checks: speakers in frame, cuts between words, and the 180° rule; an unspecified side keeps to the established axis.
+  - `cutscene-preview`: a storyboard plus an MP4.
+  - `game import` writes a generated Godot AnimationPlayer scene and the three.js player.
+  - `game cutscene` plays it in either engine.
+- **"The Forge Lesson": done.** Two characters, four shots and three lines in local Kokoro voices play in both engines. `node bench/forge-lesson.ts` writes `checkpoint-week8/`.
+- **Not done:**
+  - Storyboard thumbnails inside the studio's own view (the storyboard is an HTML page next to the preview).
+  - The webcam override.
+
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
 |---|---|---|

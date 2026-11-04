@@ -45,6 +45,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 30 | `/game walk the apprentice up to the anvil` *(after 29)* | `walk-to --target Anvil --video true`: reached, as the apprentice, at the walk clip's speed; Claude Reads the stills (feet planted, idle at the end); walking through the forge is blocked |
 | 31 | `/studio make a blacksmith and a little forge yard` | ~10 props with the godot-desktop profile and collision, the blacksmith holding a hammer, the apprentice; every check green (overlaps, grounding, one piece, motions) — `bench/forge.ts` is the reference |
 | 32 | `/studio make him walk slower and more tired, and wave hello` | `set-motion --id walk --speed 0.9 --energy 0.15`, `set-motion --id wave --kind action --action wave`; motion checks green; `motion-preview --video true` stills Read |
+| 33 | `/studio have him say it firmly, pressing his hand down on "still" and pointing at "this"` *(after 28)* | `perform --gestures "palm-down@still, point@this" --emotion firm`; with the hammer in his right hand the gestures go to the left; the performance check passes (strokes on the words, no pops, ends on the idle) — `bench/lesson.ts` is the reference |
+| 34 | `/studio the apron looks like a board, the run looks like a jog, the strike is stiff, and he just slides from walking to standing` | the motion checks catch each (apron bend, run form, strike form, start/stop steps planted); the kit's apron bones, run, hammer strike and start/stop motions pass them |
+| 35 | `/studio make "The Forge Lesson": a wide on the strike, then the three lines` *(after 31, 33)* | `new-cutscene` + four `set-shot`s (wide, medium, over-shoulder, close; lines `to` the listener); cutscene checks green (speakers in frame, cuts between words, 180° rule); `cutscene-preview --video true`; Claude Reads the storyboard frames |
+| 36 | `/game play the cutscene in Godot and on the web` *(after 35)* | `game import` writes the cutscene (Godot: a generated AnimationPlayer scene); `game cutscene --id forge-lesson --video true` plays to the end in both, every clip found |
+| 37 | `/game walk the apprentice to the anvil` *(after 34)* | the walk starts with a step off and ends with a stop step (feet planted), in both engines (`walk-to --video true`, stills Read) |
 
 ## What to record (from `node bench/score.ts`)
 
