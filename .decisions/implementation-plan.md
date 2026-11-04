@@ -532,6 +532,29 @@ The studio makes characters from words, starting with each one's skeleton. Every
 - Artefacts: `checkpoint-phase7/cast/lineup.png`, `faces.png`, `turntable.mp4`; per-plan clips in `checkpoint-phase7/motions/`.
 - Weak spots to judge: the dog's head is a long-snouted version of the human head (reads fox/horse more than dog); the quadruped's sit is a pose blend, not a weight shift; wings have no feathers; the cast check is an outline + face-part score, not a learned judgement.
 
+### Craft and appeal pass (2026-11-04, branch `phase7/craft`, not merged)
+You chose this before Pocket Raleigh because the cast "no longer look alike, but don't look designed yet".
+- **Shape language** (`--shape round|square|triangle`, defaulting to each plan's): head widths, the torso's taper and boxiness, and the jaw.
+  - The smith and the robot are square, the apprentice, goblin and heron triangle, the kid, elder, marsh bird and dog round.
+- **Limbs with volume:** each limb segment is three oval rings hulled (start, muscle bulge, end), so arms swell at the deltoid and biceps and narrow to the wrist, and legs swell at the thigh and calf and narrow to the ankle. The lanky plan is thicker (0.66 → 0.82).
+- **Hands:** bigger (hand ×1.12–1.5 per plan), with padded palms and chunkier fingers spaced so they don't fuse. Shoes have a heel and a toe cap.
+- **Head planes:** a brow ridge, cheekbones and jaw corners (square) or a pointed chin (triangle). Brows sit on the ridge and are bolder.
+- **Eyes:** about 15% bigger and wider set, with a catch-light bead on each eye.
+- **Clothes with thickness:** a collar, a belt with an accent-colour buckle, sleeve hems (short sleeves) or cuffs (long sleeves), and trouser hems. Each look has a value plan and one accent colour.
+- **Bird legs** (`legs: bird`, on the marsh bird and heron): a short feathered drumstick under a plumage skirt, a thin scaled shank with joint bands, and three splayed toes plus a back toe.
+- **Dog:**
+  - floppy ears (a new `floppy` ear part) and a shorter, boxier muzzle narrower than the skull
+  - a broad dark nose pad (`nose.pad`) and a deeper barrel
+  - The legs are still thinner than ideal: thicker ones failed the lie/sit skin checks.
+- **Wings:** layered feather cards. Four secondaries, five fanned primaries and a covert pad per wing. The flap sweeps back and rises higher, so both wings read from the side.
+- **The Forge Lesson:**
+  - the wide shot now favours the face of whoever acts in it, so the smith is three-quarter front at the anvil
+  - he stands at the anvil, so the hammer lands on it
+  - a motion's still is taken at its key moment (the strike's impact) in both engines
+- **Budgets:** every cast member is under 20k triangles (13.3k–18.4k). Hull limbs use coarser edge loops, big heads refine less, and big pupils use fewer segments.
+- **Checks:** 101 tests; `run`, `game`, `diorama` and `lesson` benches all green; `build:view` green; every cast member passes all its checks.
+- **Artefacts:** `checkpoint-craft/before|after/` (`lineup.png`, `faces.png`, `bodies.png` at the same cameras: the "before" set is the Phase 7 GLBs re-rendered), `checkpoint-craft/forge-lesson/` (before/after strike stills, both engines' MP4s), `checkpoint-craft/motions/`.
+
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
 |---|---|---|
