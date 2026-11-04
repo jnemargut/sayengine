@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { TOOLS } from '../core/src/tools.ts';
 import { DAEMON_TOOLS } from '../daemon/src/daemon-tools.ts';
 import { ensureDaemon, callTool } from '../cli/client.ts';
+import { GAME_TOOLS } from '../game/src/tools.ts';
 
 const PROTOCOL = '2025-06-18';
 
@@ -27,6 +28,10 @@ const tools = [
   ...DAEMON_TOOLS.map((t) => ({
     name: t.name, description: t.description, inputSchema: t.flags,
     annotations: { readOnlyHint: t.name === 'selection' || t.name === 'status' || t.name === 'render' },
+  })),
+  ...GAME_TOOLS.map((t) => ({
+    name: t.name, description: `${t.description}\nCLI equivalent: ${t.example}`, inputSchema: t.flags,
+    annotations: { readOnlyHint: t.name === 'game-status' || t.name === 'game-screenshot', destructiveHint: false },
   })),
 ];
 
@@ -50,11 +55,19 @@ async function handle(m: any) {
       const name = params?.name;
       if (!tools.find((t) => t.name === name)) return fail(id, -32602, `unknown tool ${name}`);
       try {
-        await ensureDaemon();
-        const r = await callTool(name, params?.arguments ?? {}, process.env.STUDIO_AUTHOR ?? 'mcp');
+        let r: any;
+        if (name.startsWith('game-')) {
+          const { runGame } = await import('../game/src/index.ts');
+          const { gameContext } = await import('../cli/game.ts');
+          r = await runGame(name, params?.arguments ?? {}, await gameContext());
+        } else {
+          await ensureDaemon();
+          r = await callTool(name, params?.arguments ?? {}, process.env.STUDIO_AUTHOR ?? 'mcp');
+        }
         const content: any[] = [{ type: 'text', text: JSON.stringify(r, null, 2) }];
-        if (name === 'render' && r.ok) {
-          for (const f of r.result.images ?? []) {
+        if ((name === 'render' || name === 'game-screenshot' || name === 'game-walk-to') && r.ok) {
+          for (const im of r.result?.images ?? []) {
+            const f = typeof im === 'string' ? im : im.file;
             try { content.push({ type: 'image', mimeType: 'image/png', data: fs.readFileSync(f).toString('base64') }); } catch { /* path still in text */ }
           }
         }

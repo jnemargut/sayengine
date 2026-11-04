@@ -1,0 +1,3 @@
+# engine cache and studio scratch output (screenshots, command files)
+.godot/
+.studio-game/

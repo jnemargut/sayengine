@@ -15,12 +15,13 @@
     "build:view": "node apps/view/build.ts",
     "serve": "node packages/cli/studio.ts serve",
     "test": "node --test packages/*/test/*.test.ts apps/*/test/*.test.ts",
-    "bench": "node bench/run.ts"
+    "bench": "node bench/run.ts && node bench/game.ts"
   },
   "engines": {
     "node": ">=23.6"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
     "esbuild": "^0.28.2",
     "gltf-validator": "^2.0.0-dev.3.10",
     "manifold-3d": "^3.5.4",

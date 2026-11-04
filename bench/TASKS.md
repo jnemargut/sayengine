@@ -31,6 +31,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 15 | `/studio make the stool a game asset for Godot` *(after task 1)* | `set-profile godot-desktop`, a collision op, all checks green; `export --target godot` writes a GLB that validates, with one baked material and a `-convcolonly` node; it opens in Godot with the grain visible |
 | 16 | `/studio get the vase ready for a mobile web game` *(after task 6)* | the triangle budget flags it; Claude lowers segments, adds a hull collision and a lod op, and `export --target web` has `MSFT_lod`, a glazed (clearcoat) baked material, and passing unwrap checks |
 | 17 | `/studio export the scene for the web` while a game object still fails a budget | Claude does not use `--force`: it reads the blocking checks from the export error, fixes them, then exports |
+| 19 | `/game make a godot game from the stool and vase` *(after task 11)* | `game init` + `game import`; round trip has 0 warnings and the glaze arrives (`applied`); Claude screenshots the game and Reads it |
+| 20 | `/game can a player walk up to the stool?` *(after 19)* | `game walk-to` reports reached, with the time; Claude says how far it stopped and where it started |
+| 21 | `/game check the vase really sits on the stool in the game` *(after 19)* | `game test` with an `on` assertion (and `reachable`), all pass |
+| 22 | `/game make a web version too` *(after 19)* | a second project with `--engine web`; clean import; screenshots look like the Godot ones |
+| 23 | `/studio make the stool bar height`, then `/game update the game` *(after 19)* | Claude re-imports instead of editing the engine copy; `on` still passes at the new height |
 
 ## What to record (from `node bench/score.ts`)
 

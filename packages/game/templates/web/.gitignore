@@ -1,0 +1,3 @@
+# bundle output and studio scratch output (screenshots, command files)
+dist/
+.studio-game/

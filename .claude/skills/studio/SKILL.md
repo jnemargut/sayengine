@@ -146,3 +146,4 @@ Tell the user the file path, the triangle count against the budget, and the unwr
 - Never claim something is finished while a check fails.
 - Don't invent commands or flags — `./studio help`, `./studio <command> --help`.
 - If the daemon or view misbehaves: `./studio status`; restart with `./studio stop`, then any command.
+- To put models into a game (Godot or a three.js web game), use `/game` — `./studio game --help`.

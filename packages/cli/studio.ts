@@ -52,10 +52,19 @@ ${toolsHelp()}
 ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   serve             Start the engine daemon in the foreground (normally auto-started).
   stop              Stop the daemon.
-  mcp               Run the MCP adapter on stdio (same tools, for other agents).`);
+  mcp               Run the MCP adapter on stdio (same tools, for other agents).
+
+[game]  (studio game <command> --help for flags)
+  game init         Create a game project (Godot or web/three.js) under games/<name>.
+  game import       Export the studio scene into the game and round-trip it through the engine.
+  game run          Run the game headlessly; report what loaded plus engine warnings/errors.
+  game screenshot   Render the running game; returns PNG paths to Read.
+  game walk-to      Play-test: walk a capsule player to an object; reached / blocked / path.
+  game test         Engine-side assertions (exists, grounded, on, count, reachable) + test scripts.
+  game status       Game projects here and which engines are available.`);
     return;
   }
-  if (rest.includes('--help')) return printToolHelp(cmd);
+  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-')) return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
     const flags = parseFlags(rest);
@@ -65,6 +74,13 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     return;
   }
   if (cmd === 'mcp') { await import('../mcp/server.ts'); return; }
+  if (cmd === 'game' || cmd.startsWith('game-')) {
+    const { gameCli } = await import('./game.ts');
+    const body = await gameCli(cmd, rest, parseFlags, closest);
+    console.log(JSON.stringify(body, null, 2));
+    if (body.ok === false) process.exitCode = 1;
+    return;
+  }
   if (cmd === 'stop') {
     if (!(await healthy())) { console.log(JSON.stringify({ ok: true, stopped: false, note: 'daemon was not running' })); return; }
     try { await fetch(`${BASE}/api/shutdown`, { method: 'POST', signal: AbortSignal.timeout(2000) }); } catch { /* exiting */ }

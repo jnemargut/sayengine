@@ -36,6 +36,7 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | **Import** | `studio import` (or drop a file on the view): STL/OBJ/GLB become translucent, measurable reference objects (watertight ones can be cut or joined with a `mesh` op); PNG/JPG become a backdrop plane (front/side/top) that renders include, so Claude can model to match a sketch. References are never exported. |
 | **Game assets** | `set-profile godot-desktop \| web \| web-mobile` turns budgets into checks after every step (triangles, baked texture, materials, bones), pending while still building. `collision` ops (box, hull, capsule, sphere) with a "covers the mesh" check; `lod` ops make distance versions. |
 | **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). `export --target godot\|web` unwraps every part (xatlas), has the view bake materials, wood grain included, into one lighting-free texture pair per asset, reports texel density, island padding and stretch, and writes collision nodes (Godot `-convcolonly`, `extras.collision` for three.js) and distance versions (web, `MSFT_lod`). Every GLB passes the Khronos glTF validator or isn't written; after-export hooks (the engine round-trip) can fail an export. |
+| **Games** | `/game` turns studio scenes into games: `studio game init --engine godot` (standalone) or `--engine web` (three.js + Rapier), then `import` (round-trips the GLB through the engine and fails on any warning), `screenshot` (the engine's own renderer), `walk-to` (a capsule player with physics: reached / blocked), `test` (on, grounded, reachable… assertions) and `run`, all headless. |
 | **Other agents** | `studio mcp` serves the same tools over MCP: `claude mcp add studio -- node /path/to/AI3DModel/packages/cli/studio.ts mcp`. |
 | **Theme** | Light/dark follows your OS; the header button cycles auto → light → dark. |
 
@@ -47,10 +48,28 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | `packages/daemon` | Owns the Studio, persists `.studio/repo.json`, serves the view, relays renders and selection, code-mode sandbox (`sandbox.ts`) |
 | `packages/cli` | `studio.ts` (the CLI the skill calls; generated from the registry; JSON out; did-you-mean on bad commands/flags) + `client.ts` |
 | `packages/mcp` | MCP stdio adapter generated from the same registry |
+| `packages/game` | `/game` back ends: Godot driven from its command line (`godot.ts`, templates/godot with a post-import script and a play-test runner) and three.js + Rapier in headless Chrome (`web.ts`, `chrome.ts`, templates/web with a harness). `roundTrip(glb, engine)` for export checks |
 | `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking, gizmo and drop-to-import · inspector with live sliders · Claude Code feed + review · history. `look.ts` holds the shared look (PBR materials, wood-grain shader, environment light, shadows) |
 | `.claude/skills/studio/SKILL.md` | The `/studio` playbook Claude Code follows |
+| `.claude/skills/game/SKILL.md` | The `/game` playbook: import, look, play-test, assert, run |
 | `bench/` | `run.ts` reference solutions (16 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
 | `.decisions/` | The 10 architecture decisions, live preview, design tokens (light + dark), implementation plan |
+
+## Games (`/game`)
+
+The studio makes assets; real engines run games. Game projects live in `games/<name>/` with their own `.gitignore` for engine caches.
+
+```bash
+./studio game init --name forge --engine godot     # or --engine web (three.js + Rapier)
+./studio game import --project forge               # export + engine round trip: objects, triangles, materials, warnings
+./studio game screenshot --project forge --views iso,front
+./studio game walk-to --project forge --target "Walnut stool"
+./studio game test --project forge --assertions '[{"kind":"on","node":"Vase","target":"Walnut stool"}]'
+```
+
+- **Godot**: Godot 4 (`brew install --cask godot`, or set `GODOT_BIN`). Import, run and tests run headless; screenshots open a window off-screen for a moment (headless Godot has no renderer). A post-import script re-applies studio material features Godot's glTF importer drops (glaze clearcoat, glass transmission) and adds collision.
+- **Web**: Google Chrome (or `CHROME_BIN`). The game is bundled with esbuild from `src/main.ts`; three.js and Rapier come from the studio's `node_modules`.
+- Never edit `assets/studio/` or `studio/` inside a game: they're rewritten on every import. Your game code goes in `game/` (Godot) or `src/` (web).
 
 ## Commands
 
@@ -61,8 +80,8 @@ Environment: `STUDIO_PORT` (default 4517), `STUDIO_DIR` (default: current folder
 ## Tests
 
 ```bash
-npm test        # 47 tests: engine, ops, checks, materials, scenes, drags, imports, export, game profiles + bake export, daemon, sandbox, CLI, MCP, view focus
-npm run bench   # reference solutions for the 16 benchmark tasks
+npm test        # all tests: engine, ops, checks, materials, scenes, drags, imports, game profiles + bake export, /game back ends, daemon, sandbox, CLI, MCP, view focus
+npm run bench   # reference solutions: studio tasks + /game tasks on each installed engine
 ```
 
 ## Known limitations
