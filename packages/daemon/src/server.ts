@@ -6,7 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { runSandboxed } from './sandbox.ts';
-import { curvesFromCues, syncOffset, restInSilence, EMOTION_SCALE } from '../../core/src/lipsync.ts';
+import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence, EMOTION_SCALE } from '../../core/src/lipsync.ts';
+import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../../core/src/phonemes.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
@@ -114,10 +115,20 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const fps = 30;
         const energy = voice.loudness(wav, 100);
         const cues = restInSilence(aligned.cues, energy, 100);
-        const curves = curvesFromCues(cues, aligned.duration, fps, emotion);
+        // all 15 speech shapes: the text's phonemes (local eSpeak NG), placed in time on Rhubarb's
+        // shapes and silences; Rhubarb's 9 shapes alone when the text can't be phonemized
+        const ipa = args.phonemes === false ? null : await voice.phonemize(text);
+        const phonemes = ipa ? alignPhonemes(ipaTokens(ipa), cues, aligned.duration) : [];
+        const curves = phonemes.length
+          ? curvesFromVisemeCues(phonemeVisemeCues(phonemes, aligned.duration), aligned.duration, fps, emotion)
+          : curvesFromCues(cues, aligned.duration, fps, emotion);
         const sync = syncOffset(curves, fps, energy, 100);
         const id = String(args.id ?? (text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').split('-').slice(0, 4).join('-') || 'line'));
-        const line = { text, audio, ...(voiceName ? { voice: voiceName, voiceLicence: 'Kokoro-82M, Apache-2.0' } : {}), emotion, duration: +aligned.duration.toFixed(3), fps, cues, curves, aligner: 'rhubarb-1.14.0', sync };
+        const line = {
+          text, audio, ...(voiceName ? { voice: voiceName, voiceLicence: 'Kokoro-82M, Apache-2.0' } : {}), emotion, duration: +aligned.duration.toFixed(3), fps, cues, curves,
+          ...(phonemes.length ? { phonemes: phonemes.map(({ mix: _m, ...p }) => p) } : {}),
+          aligner: phonemes.length ? 'rhubarb-1.14.0 + espeak-ng phonemes' : 'rhubarb-1.14.0', sync,
+        };
         const r = studio.call('set-line', { object: obj.id, id, line }, author);
         if (r.ok) (r as any).result = { ...(r.result as any), audio: `/assets/${audio}`, sync, shapes: [...new Set(cues.map((c) => c.shape))].join('') };
         return r;
@@ -226,7 +237,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const glb = toGLB([{ obj, res }], {});
         const validation = await validateGlb(glb);
         if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
-        const lines = picked.map(([id, l]) => ({ id, text: l.text, emotion: l.emotion, duration: l.duration, cues: l.cues, wav: studio.assets.get(l.audio) }));
+        const lines = picked.map(([id, l]) => ({ id, text: l.text, emotion: l.emotion, duration: l.duration, cues: l.cues, phonemes: l.phonemes, blinks: l.life?.blinks, wav: studio.assets.get(l.audio) }));
         const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-lines`);
         const lp = await import('./lineplayer/make.ts');
         try {

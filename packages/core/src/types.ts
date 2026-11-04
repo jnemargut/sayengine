@@ -131,6 +131,16 @@ export interface LineClip {
   curves: Record<string, number[]>;                            // speech shape → weight per frame (0..1)
   aligner: string;
   sync?: number;                 // ms the mouth trails the voice (negative = leads), measured at record time
+  phonemes?: Array<{ start: number; end: number; ph: string; viseme: string; stress: number; word: number }>; // when the text was phonemized: what drives the 15 shapes
+  life?: LineLife;               // blinks, eye darts and brow lifts while speaking (seeded; see life.ts)
+}
+
+/** The face's life during a line (the start of week 5's life layer): extra shape-key curves and the gaze, per frame. */
+export interface LineLife {
+  seed: number;
+  curves: Record<string, number[]>;        // e.g. eyeBlinkLeft/Right, browInnerUp (0..1)
+  gaze: { yaw: number[]; pitch: number[] }; // degrees, added to the eyes' pose (+yaw = character's left, +pitch = up)
+  blinks: number[];                         // blink start times (s)
 }
 
 export interface CharacterState {

@@ -6,6 +6,7 @@ import { freeSpot, type ToolDef } from './tools.ts';
 import type { CharacterState, GripSocket, HandPose, LineClip, Material, SceneObject } from './types.ts';
 import { CHAR_DEFAULTS, EXPRESSIONS, NAMED_HAND_POSES, SHAPE_KEYS, VISEMES, characterSpec, charParams, weightReport, type V3 } from './rig.ts';
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
+import { lineLife } from './life.ts';
 import { placeVerts } from './kernel.ts';
 
 const ObjRef = z.string().optional().describe('object id or name (defaults to the only/last object)');
@@ -51,7 +52,9 @@ function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
     { parts: 'hair', material: mat('hair', l.hair, 0.85) },
     { parts: 'brow.*', material: mat('hair', l.hair, 0.85) },
     { parts: 'lip*', material: mat('lips', l.lips, 0.5) },
-    { parts: 'mouthInner', material: mat('mouth', '#4a1f1c', 0.6) },
+    { parts: 'mouthInner', material: mat('mouth', '#542220', 0.75) },
+    { parts: 'teeth*', material: mat('teeth', '#ece4d4', 0.35) },
+    { parts: 'tongue', material: mat('tongue', '#b0605a', 0.55) },
     { parts: 'eyeSocket', material: mat('skin', shade(l.skin, 0.8), 0.7) },
     { parts: '*Eye', material: mat('eye white', '#f3efe8', 0.25) },
     { parts: '*Eye.iris', material: mat('iris', l.iris, 0.3) },
@@ -321,8 +324,11 @@ export const CHARACTER_TOOLS: ToolDef[] = [
     input: z.object({ object: ObjRef, id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/), line: z.any() }),
     run(ctx, a) {
       const o = asCharacter(ctx.obj(a.object));
-      const l = a.line as LineClip;
+      let l = a.line as LineClip;
       if (!l || typeof l.text !== 'string' || !l.curves || !l.duration) throw new Error('line needs text, duration and curves (use studio say)');
+      // blinks, eye darts and brow lifts come with every line (seeded by its text); life: null opts out
+      if ((l as any).life === null) { const { life: _drop, ...rest } = l as any; l = rest; }
+      else if (!l.life) l = { ...l, life: lineLife(l) };
       const lines = { ...(o.character?.lines ?? {}), [a.id]: l };
       ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), lines });
       ctx.summary(`${o.name} says "${l.text}" (${l.duration.toFixed(1)} s, ${l.emotion}${l.voice ? `, voice ${l.voice}` : ''})`);

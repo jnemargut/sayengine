@@ -423,7 +423,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
             return keep(keep(Manifold.cylinder(len, pc.r1, pc.r2, pc.sides)).transform([...x, 0, ...y, 0, ...z, 0, ...pc.a, 1]));
           };
           const head = mk(keep(keep(Manifold.hull(spec.head.pts)).refineToLength(spec.head.refine)), spec.head.part);
-          const cutters = spec.cuts.map((c) => mk(c.kind === 'box' ? keep(Manifold.cube(c.size, true)).translate(c.c) : keep(Manifold.sphere(c.r, c.sides)).translate(c.c), c.part));
+          const cutters = spec.cuts.map((c) => mk(c.kind === 'box' ? keep(Manifold.cube(c.size, true)).translate(c.c) : c.kind === 'hull' ? keep(Manifold.hull(c.pts)) : keep(Manifold.sphere(c.r, c.sides)).translate(c.c), c.part));
           const face = keep(Manifold.difference([head, ...cutters]));
           // limbs and torso get edge loops along their length (still flat facets) so joints can bend
           const loops = (pc: Piece, m: any) => {
@@ -443,7 +443,9 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           });
           const eyeL = keep(Manifold.union(eyes.filter((_, i) => i < 3)));
           const eyeR = keep(Manifold.union(eyes.filter((_, i) => i >= 3)));
-          out = { m: keep(Manifold.union([face, ...body, eyeL, eyeR, ...lids])), parts };
+          // teeth and tongue: separate shells inside the mouth chamber (they never touch its walls)
+          const mouth = spec.mouth.map((pc) => mk(build(pc), pc.part));
+          out = { m: keep(Manifold.union([face, ...body, eyeL, eyeR, ...lids, ...mouth])), parts };
           break;
         }
         case 'collision': {

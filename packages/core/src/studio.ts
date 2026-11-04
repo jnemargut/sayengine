@@ -11,7 +11,7 @@ import { codeView } from './codeview.ts';
 import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
-import { poseChecks, weightReport, type PoseCheck } from './rig.ts';
+import { poseChecks, weightReport, mouthCheck, type PoseCheck } from './rig.ts';
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
 
@@ -152,6 +152,8 @@ export class Studio {
     const out: CheckResult[] = [];
     const w = weightReport(r.rig.rig);
     out.push({ id: 'skin-weights', label: 'Skin weights', pass: !w.unbound && !w.badSum && w.maxInfluences <= 4, detail: w.unbound || w.badSum ? `${w.unbound} unbound vertices, ${w.badSum} whose weights don't sum to 1` : `every vertex bound, ≤ ${w.maxInfluences} bones each, weights sum to 1` });
+    const mouth = mouthCheck(r.rig.rig, r.rig.rest, r.rig.vertPart);
+    out.push({ id: 'mouth-inside', label: 'Teeth and tongue stay behind the lips', pass: mouth.pass, detail: mouth.detail });
     const poses = this.poseChecks(o);
     const bad = poses.filter((p) => !p.pass);
     out.push({

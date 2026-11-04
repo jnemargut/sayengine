@@ -40,7 +40,7 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 25 | `/studio make him smile and look a bit worried` *(after 24)* | `set-expression` with ARKit names (a wrong name is corrected from the suggestion); Claude renders `--views face` and Reads it |
 | 26 | `/studio give the blacksmith a hammer` *(after 24)* | Claude builds a hammer and uses `hold`; "Fingers clear of Hammer" passes; `--views hands` render Read |
 | 27 | `/studio get the apprentice ready for a mobile web game` | `web-mobile` profile: finger bones folded on export, shapes ≤ 33, triangle budget handled |
-| 28 | `/studio have the blacksmith say "Bring me the big hammer"` *(after 24)* | `say` with the local voice; closure/held/sync checks pass; `line-preview --video true`; Claude Reads the stills and reports closed-on-M/B/P |
+| 28 | `/studio have the blacksmith say "Bring me the big hammer"` *(after 24)* | `say` with the local voice; phonemes drive all 15 shapes; closure, F/V and OO, held and sync checks pass; teeth stay behind the lips; blinks and eye darts in the clip; `line-preview --video true`; Claude Reads the stills (closed, open, TH, F, OO, blink) |
 
 ## What to record (from `node bench/score.ts`)
 

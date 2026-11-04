@@ -11,7 +11,12 @@ import { withPage } from '../../../game/src/chrome.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-export interface PreviewLine { id: string; text: string; emotion: string; duration: number; wav: Uint8Array; cues?: Array<{ start: number; end: number; shape: string }> }
+export interface PreviewLine {
+  id: string; text: string; emotion: string; duration: number; wav: Uint8Array;
+  cues?: Array<{ start: number; end: number; shape: string }>;
+  phonemes?: Array<{ start: number; end: number; ph: string; viseme: string }>;
+  blinks?: number[];
+}
 export interface PreviewResult { dir: string; page: string; video?: string; frames?: number; seconds?: number; stills?: string[]; note?: string }
 
 /** Gap of rest face before, between and after lines in the video (seconds). */
@@ -65,7 +70,8 @@ export async function captureVideo(outDir: string, lines: PreviewLine[], opts: {
   const video = path.join(outDir, 'lines.mp4');
   const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(fps), '-i', path.join(frameDir, '%05d.png'), ...inputs, '-filter_complex', filt, '-map', '0:v', '-map', '[aout]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', '-c:a', 'aac', '-b:a', '160k', '-t', total.toFixed(3), video], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`ffmpeg failed: ${r.stderr.trim().split('\n').slice(-3).join(' ')}`);
-  // stills to look at: per line, the rest face, a lip closure (M/B/P) and the widest vowel
+  // stills to look at: per line, the rest face, a lip closure (M/B/P) and the widest vowel; then the
+  // first TH, F/V, OO and blink anywhere (the sounds that are easiest to get wrong)
   const stillDir = path.join(outDir, 'stills');
   fs.rmSync(stillDir, { recursive: true, force: true });
   fs.mkdirSync(stillDir, { recursive: true });
@@ -77,13 +83,21 @@ export async function captureVideo(outDir: string, lines: PreviewLine[], opts: {
     stills.push(dst);
   };
   keep(segs[0].start * 0.5, '00-rest');
+  const mid = (c: { start: number; end: number }) => (c.start + c.end) / 2;
   segs.forEach((s, i) => {
-    const cues = lines[i].cues ?? [];
-    const closure = cues.find((c) => c.shape === 'A');
-    const open = cues.filter((c) => c.shape === 'D' || c.shape === 'C').sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
-    if (closure) keep(s.start + (closure.start + closure.end) / 2, `${i + 1}-${s.id}-closed`);
-    if (open) keep(s.start + (open.start + open.end) / 2, `${i + 1}-${s.id}-open`);
+    const cues = lines[i].cues ?? [], ph = lines[i].phonemes ?? [];
+    const closure = ph.length ? ph.find((p) => p.viseme === 'PP') : cues.find((c) => c.shape === 'A');
+    const open = (ph.length ? ph.filter((p) => p.viseme === 'aa' || p.viseme === 'E') : cues.filter((c) => c.shape === 'D' || c.shape === 'C')).sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
+    if (closure) keep(s.start + mid(closure), `${i + 1}-${s.id}-closed`);
+    if (open) keep(s.start + mid(open), `${i + 1}-${s.id}-open`);
   });
+  for (const [v, label, longest] of [['TH', 'th', false], ['FF', 'f', false], ['ou', 'oo', true]] as const) {
+    const hits = segs.flatMap((s, i) => (lines[i].phonemes ?? []).filter((p) => p.viseme === v).map((p) => ({ s, i, p })));
+    const hit = longest ? hits.sort((a, b) => (b.p.end - b.p.start) - (a.p.end - a.p.start))[0] : hits[0];
+    if (hit) keep(hit.s.start + mid(hit.p), `${hit.i + 1}-${hit.s.id}-${label}`);
+  }
+  const blink = segs.flatMap((s, i) => (lines[i].blinks ?? []).map((b) => ({ s, i, b })))[0];
+  if (blink) keep(blink.s.start + blink.b + 0.085, `${blink.i + 1}-${blink.s.id}-blink`);
   if (!opts.keepFrames) fs.rmSync(frameDir, { recursive: true, force: true });
   return { dir: outDir, page: path.join(outDir, 'index.html'), video, frames: n, seconds: +total.toFixed(2), stills };
 }

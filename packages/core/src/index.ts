@@ -16,6 +16,8 @@ export * from './gameexport.ts';
 export * from './rig.ts';
 export * from './grip.ts';
 export * from './lipsync.ts';
+export * from './phonemes.ts';
+export * from './life.ts';
 export * from './charactertools.ts';
 export * from './glb.ts';
 export * from './skinexport.ts';

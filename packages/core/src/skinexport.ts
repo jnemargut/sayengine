@@ -6,7 +6,7 @@
 import type { EvalResult } from './kernel.ts';
 import type { SceneObject } from './types.ts';
 import { GlbBuilder } from './glb.ts';
-import { forward, localRotations, qAxisAngle, type Q } from './rig.ts';
+import { forward, localRotations, qAxisAngle, qMul, type Q } from './rig.ts';
 
 /** Vertex id of every triangle corner, in triangle order. */
 export function cornerVerts(res: EvalResult, tris: number[]): Uint32Array {
@@ -120,17 +120,46 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
   samplers.push({ input: t0, output: B.typed(new Float32Array(weightsAt(() => undefined)), 'SCALAR'), interpolation: 'STEP' });
   channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
   anims.push({ name: 'pose', samplers, channels });
-  // one clip per spoken line: speech-shape curves over time (the rest of the face holds its expression)
+  // one clip per spoken line: speech-shape curves over time (the rest of the face holds its expression),
+  // plus the line's life: blinks and brow lifts as shape keys, the eyelids and eyes as bone rotations
+  const jointOf = (name: string) => { const bi = rig.bones.findIndex((b) => b.name === name); const k = bi >= 0 ? info.kept.indexOf(bi) : -1; return k >= 0 ? { bi, node: info.jointNodes[k] } : null; };
   for (const [id, line] of Object.entries(obj.character?.lines ?? {})) {
     const frames = line.curves.sil?.length ?? 0;
     if (!frames) continue;
+    const life = line.life;
     const times = new Float32Array(frames).map((_, f) => f / line.fps);
     const out = new Float32Array(frames * info.shapeNames.length);
+    const lifeAt = (nme: string, f: number) => life?.curves[nme]?.[f];
     for (let f = 0; f < frames; f++) {
-      const w = weightsAt((nme) => (line.curves[nme] ? line.curves[nme][f] : undefined));
+      const w = weightsAt((nme) => {
+        const sp = line.curves[nme]?.[f], lv = lifeAt(nme, f);
+        if (lv === undefined) return sp;
+        const base = Math.max(sp ?? 0, expr[nme] ?? 0);
+        // a blink closes the eye whatever the expression; brow lifts add to the expression
+        return nme.startsWith('eyeBlink') ? Math.max(base, lv) : Math.min(1, base + lv);
+      });
       out.set(w, f * info.shapeNames.length);
     }
     const input = B.typed(times, 'SCALAR', { minmax: true });
-    anims.push({ name: `line:${id}`, samplers: [{ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' }], channels: [{ sampler: 0, target: { node: meshNode, path: 'weights' } }], extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion, ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}) } });
+    const samplers: any[] = [{ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' }];
+    const channels: any[] = [{ sampler: 0, target: { node: meshNode, path: 'weights' } }];
+    if (life) {
+      const rotTrack = (node: number, q: (f: number) => Q) => {
+        const o = new Float32Array(frames * 4);
+        for (let f = 0; f < frames; f++) o.set(q(f), f * 4);
+        samplers.push({ input, output: B.typed(o, 'VEC4'), interpolation: 'LINEAR' });
+        channels.push({ sampler: samplers.length - 1, target: { node, path: 'rotation' } });
+      };
+      for (const l of rig.spec.lids) {
+        const j = jointOf(l.bone);
+        const key = l.bone === 'LeftUpperLid' ? 'eyeBlinkLeft' : 'eyeBlinkRight';
+        if (j) rotTrack(j.node, (f) => qAxisAngle([1, 0, 0], l.closeDeg * Math.min(1, Math.max(expr[key] ?? 0, life.curves[key]?.[f] ?? 0))));
+      }
+      for (const side of ['LeftEye', 'RightEye']) {
+        const j = jointOf(side);
+        if (j) rotTrack(j.node, (f) => qMul(local[j.bi], qMul(qAxisAngle([0, 1, 0], life.gaze.yaw[f] ?? 0), qAxisAngle([1, 0, 0], -(life.gaze.pitch[f] ?? 0)))));
+      }
+    }
+    anims.push({ name: `line:${id}`, samplers, channels, extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion, ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}), ...(life ? { life: { seed: life.seed, blinks: life.blinks } } : {}) } });
   }
 }

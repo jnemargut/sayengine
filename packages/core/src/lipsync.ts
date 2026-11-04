@@ -55,8 +55,27 @@ export function restInSilence(cues: Cue[], energy: number[], energyFps: number, 
   return out;
 }
 
-/** Smoothed speech-shape curves (0..1 per frame) from aligner cues. */
-export function curvesFromCues(cues: Cue[], duration: number, fps = 30, emotion = 'neutral'): Record<string, number[]> {
+/** A timed speech shape (or mix of them) — from Rhubarb's cues or from aligned phonemes. */
+export interface VisemeCue { start: number; end: number; mix: Partial<Record<string, number>> }
+
+/** Rhubarb's cues as speech-shape cues. */
+export const rhubarbVisemeCues = (cues: Cue[]): VisemeCue[] => cues.map((c) => ({ start: c.start, end: c.end, mix: RHUBARB_TO_VISEMES[c.shape] ?? { sil: 1 } }));
+
+/**
+ * Shapes that must be seen even when the sound is short (smoothing would otherwise average them
+ * away): the lips close on M/B/P, the lower lip meets the teeth on F/V, the lips round on OO/O.
+ * `peak` is the weight guaranteed for at least `hold` seconds; `damp` scales the shapes that fight it.
+ */
+export const MUST_SHOW: Record<string, { peak: number; hold: number; damp: number; against: string[] }> = {
+  PP: { peak: 1, hold: 0.06, damp: 0.12, against: ['TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'ih', 'oh', 'ou', 'FF'] },
+  FF: { peak: 0.9, hold: 0.07, damp: 0.3, against: ['aa', 'E', 'ih', 'oh', 'ou', 'kk', 'DD', 'RR', 'PP'] },
+  ou: { peak: 0.85, hold: 0.08, damp: 0.35, against: ['aa', 'E', 'ih', 'SS', 'DD', 'TH', 'kk', 'nn'] },
+  oh: { peak: 0.8, hold: 0.08, damp: 0.4, against: ['E', 'ih', 'SS', 'TH'] },
+};
+const mainShape = (mix: Partial<Record<string, number>>) => Object.entries(mix).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0]?.[0] ?? 'sil';
+
+/** Smoothed speech-shape curves (0..1 per frame) from speech-shape cues. */
+export function curvesFromVisemeCues(cues: VisemeCue[], duration: number, fps = 30, emotion = 'neutral'): Record<string, number[]> {
   const frames = Math.max(2, Math.ceil(duration * fps) + 1);
   const curves: Record<string, number[]> = Object.fromEntries(VISEMES.map((v) => [v, new Array(frames).fill(0)]));
   const attack = 0.07, decay = 0.08;
@@ -76,23 +95,31 @@ export function curvesFromCues(cues: Cue[], duration: number, fps = 30, emotion 
       const a = env(t, c.start, c.end);
       if (!a) continue;
       total += a;
-      for (const [k, w] of Object.entries(RHUBARB_TO_VISEMES[c.shape] ?? { sil: 1 })) acc[k] = (acc[k] ?? 0) + a * (w ?? 0);
+      for (const [k, w] of Object.entries(c.mix)) acc[k] = (acc[k] ?? 0) + a * (w ?? 0);
     }
     const norm = Math.max(1, total);
-    for (const [k, v] of Object.entries(acc)) curves[k][f] = Math.min(1, (v / norm) * (OPEN.has(k) ? scale : 1));
+    for (const [k, v] of Object.entries(acc)) if (curves[k]) curves[k][f] = Math.min(1, (v / norm) * (OPEN.has(k) ? scale : 1));
   }
-  // M / B / P: lips fully closed for the whole sound (at least 60 ms), the open shapes suppressed
+  // shapes that must show: held at their peak for the whole sound (and at least `hold`), rivals damped
   for (const c of cues) {
-    if (c.shape !== 'A') continue;
-    const mid = (c.start + c.end) / 2, half = Math.max(0.03, (c.end - c.start) / 2);
-    for (let f = Math.max(0, Math.floor((mid - half) * fps)); f <= Math.min(frames - 1, Math.ceil((mid + half) * fps)); f++) {
-      curves.PP[f] = 1;
-      for (const k of OPEN) curves[k][f] *= 0.12;
+    const k = mainShape(c.mix);
+    const rule = MUST_SHOW[k];
+    if (!rule || (c.mix[k] ?? 0) < 0.6) continue;
+    const mid = (c.start + c.end) / 2, half = Math.max(rule.hold / 2, (c.end - c.start) / 2);
+    const f0 = Math.max(0, Math.floor((mid - half) * fps)), f1 = Math.min(frames - 1, Math.ceil((mid + half) * fps));
+    for (let f = f0; f <= f1; f++) {
+      curves[k][f] = Math.max(curves[k][f], rule.peak);
+      for (const r of rule.against) curves[r][f] *= rule.damp;
       curves.sil[f] = 0;
     }
   }
   for (const k of VISEMES) curves[k] = curves[k].map((v) => +v.toFixed(3));
   return curves;
+}
+
+/** Smoothed speech-shape curves (0..1 per frame) from Rhubarb's cues. */
+export function curvesFromCues(cues: Cue[], duration: number, fps = 30, emotion = 'neutral'): Record<string, number[]> {
+  return curvesFromVisemeCues(rhubarbVisemeCues(cues), duration, fps, emotion);
 }
 
 /** How open the mouth is per frame (jaw-weighted sum of the open shapes). */
@@ -132,7 +159,7 @@ export function syncOffset(curves: Record<string, number[]>, fps: number, energy
 export function lineChecks(id: string, l: LineClip): CheckResult[] {
   const out: CheckResult[] = [];
   const fps = l.fps;
-  const closures = l.cues.filter((c) => c.shape === 'A');
+  const closures = l.phonemes?.length ? l.phonemes.filter((p) => p.viseme === 'PP') : l.cues.filter((c) => c.shape === 'A');
   const missed = closures.filter((c) => {
     const a = Math.floor(c.start * fps), b = Math.max(a, Math.ceil(c.end * fps));
     return Math.max(...(l.curves.PP ?? []).slice(a, b + 1), 0) < 0.85;
@@ -140,6 +167,18 @@ export function lineChecks(id: string, l: LineClip): CheckResult[] {
   out.push({
     id: `line-${id}-closures`, label: `"${id}": lips close on M/B/P`, pass: !missed.length,
     detail: closures.length ? (missed.length ? `${missed.length} of ${closures.length} closures don't fully close (at ${missed.map((c) => c.start.toFixed(2) + ' s').join(', ')})` : `${closures.length} closure${closures.length === 1 ? '' : 's'}, all fully closed`) : 'no M/B/P sounds in this line',
+  });
+  // short F/V and OO sounds still reach their shape (smoothing mustn't average them away)
+  const want = l.phonemes?.length
+    ? l.phonemes.filter((p) => p.viseme === 'FF' || p.viseme === 'ou').map((p) => ({ start: p.start, end: p.end, k: p.viseme }))
+    : l.cues.filter((c) => c.shape === 'G' || c.shape === 'F').map((c) => ({ start: c.start, end: c.end, k: c.shape === 'G' ? 'FF' : 'ou' }));
+  const weak = want.filter((w) => {
+    const a = Math.floor(w.start * fps), b = Math.max(a, Math.ceil(w.end * fps));
+    return Math.max(...(l.curves[w.k] ?? []).slice(a, b + 1), 0) < 0.75;
+  });
+  out.push({
+    id: `line-${id}-shapes`, label: `"${id}": F/V and OO sounds show`, pass: !weak.length,
+    detail: want.length ? (weak.length ? `${weak.length} of ${want.length} F/V or OO sounds don't reach their shape (at ${weak.map((w) => `${w.start.toFixed(2)} s`).join(', ')})` : `${want.length} F/V or OO sound${want.length === 1 ? '' : 's'}, all clearly shaped`) : 'no F/V or OO sounds in this line',
   });
   // the mouth shouldn't hold one open shape for long (reads as a frozen face)
   let worst = 0, worstAt = 0;

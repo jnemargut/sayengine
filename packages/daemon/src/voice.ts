@@ -73,6 +73,20 @@ export async function speak(text: string, voice = 'bm_george'): Promise<Uint8Arr
   return bytes;
 }
 
+/**
+ * The line's phonemes (IPA, one string per phrase), locally: eSpeak NG compiled to WebAssembly, via
+ * the `phonemizer` package that kokoro-js already brings (Apache-2.0 wrapper; eSpeak NG is GPL-3.0,
+ * see THIRD_PARTY.md). Null when it isn't installed: the caller falls back to Rhubarb's shapes.
+ */
+export async function phonemize(text: string, lang = 'en-us'): Promise<string[] | null> {
+  let mod: any;
+  try { mod = await import('phonemizer'); } catch { return null; }
+  try {
+    const out = await mod.phonemize(text, lang);
+    return Array.isArray(out) && out.length ? out.map(String) : null;
+  } catch { return null; }
+}
+
 /** Decode a PCM16 or float32 WAV to mono samples. */
 export function decodeWav(b: Uint8Array): { rate: number; samples: Float32Array } {
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);

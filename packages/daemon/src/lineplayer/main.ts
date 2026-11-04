@@ -39,8 +39,11 @@ const mixer = new THREE.AnimationMixer(gltf.scene);
 
 // "pose": bones from it always; its face weights only between lines (a line's clip owns the face)
 const poseClip = gltf.animations.find((c) => c.name === 'pose');
-const poseBones = poseClip ? new THREE.AnimationClip('pose-bones', 0, poseClip.tracks.filter((t) => !t.name.endsWith('.morphTargetInfluences'))) : null;
-const poseFace = poseClip ? new THREE.AnimationClip('pose-face', 0, poseClip.tracks.filter((t) => t.name.endsWith('.morphTargetInfluences'))) : null;
+// (bones a line animates too — eyes, eyelids — belong to the face part, so the two never fight)
+const lineNodes = new Set(gltf.animations.filter((c) => c.name.startsWith('line:')).flatMap((c) => c.tracks.map((t) => t.name.split('.')[0])));
+const isFace = (t: THREE.KeyframeTrack) => t.name.endsWith('.morphTargetInfluences') || lineNodes.has(t.name.split('.')[0]);
+const poseBones = poseClip ? new THREE.AnimationClip('pose-bones', 0, poseClip.tracks.filter((t) => !isFace(t))) : null;
+const poseFace = poseClip ? new THREE.AnimationClip('pose-face', 0, poseClip.tracks.filter(isFace)) : null;
 if (poseBones) mixer.clipAction(poseBones).play();
 const faceAction = poseFace ? mixer.clipAction(poseFace) : null;
 faceAction?.play();
