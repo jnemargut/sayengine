@@ -522,7 +522,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
     input: z.object({
       object: ObjRef,
       id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('clip name, e.g. walk, run, idle, turn-left, wave'),
-      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop']).optional().describe('required for a new motion (start/stop: the steps into and out of a walk; the game plays them when movement begins and ends)'),
+      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop', 'trot', 'gallop', 'sit', 'lie']).optional().describe('required for a new motion (start/stop: the steps into and out of a walk; the game plays them when movement begins and ends; trot, gallop, sit, lie: four-legged bodies)'),
       speed: z.number().optional().describe('m/s (walk 0.3–2.2, default ~1.3; run 1.8–7, default ~3.4)'),
       stride: z.number().optional().describe('m per cycle (two steps); default from leg length and speed'),
       bounce: z.number().optional().describe('m of hip rise and fall'),
@@ -535,12 +535,14 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       action: z.string().optional().describe(`library action (action): ${Object.keys(ACTIONS).join(', ')}`),
       seed: z.number().optional().describe('blinks and glances'),
       from: z.string().optional().describe('start/stop: the walk motion they pair with (default walk)'),
+      style: z.enum(['waddle', 'swagger', 'shuffle', 'bounce']).optional().describe('walk/run gait character (each body plan has its own default)'),
+      flap: z.number().optional().describe('wing beats per second during this motion (characters with wings; 0 = folded)'),
     }),
     example: `studio set-motion --object blacksmith --id walk --speed 1.1 --energy 0.3`,
     run(ctx, a) {
       const o = asCharacter(ctx.obj(a.object));
       const prev = o.character?.motions?.[a.id];
-      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action, start, stop)`);
+      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action, start, stop; four legs: walk, trot, gallop, idle, sit, lie)`);
       const { object: _o, id: _id, ...settings } = a;
       const spec: MotionSpec = { ...(prev ?? {}), ...Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined)) } as MotionSpec;
       if (prev && a.kind && a.kind !== prev.kind) for (const k of Object.keys(spec) as Array<keyof MotionSpec>) if (k !== 'kind' && !(k in settings && (settings as any)[k] !== undefined)) delete spec[k];

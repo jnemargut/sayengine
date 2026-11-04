@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { initKernel, Studio, MemoryAssets, toGLB, toSTL, exportGame, validateGlb, curvesFromCues } from '../packages/core/src/index.ts';
+import { initKernel, Studio, MemoryAssets, toGLB, toSTL, exportGame, validateGlb, curvesFromCues, selectForExport } from '../packages/core/src/index.ts';
 import { solidPng } from '../packages/core/test/png.ts';
 
 await initKernel();
@@ -399,6 +399,72 @@ const tasks: Task[] = [
       const walk = j.animations.find((a: any) => a.name === 'walk');
       if (!walk || Math.abs(walk.extras.speed - 0.9) > 0.05) return `walk clip speed ${walk?.extras.speed}`;
       return j.animations.some((a: any) => a.name === 'wave' && a.extras.loop === false) ? null : 'no one-off wave clip';
+    },
+  },
+  // ── characters that don't look alike (Phase 7, decisions 47–51); numbered C1… ──
+  {
+    name: 'C1. "A cast of five for a fantasy market, none alike" — five plans and mouths, every cast-outline check passes',
+    run(_s, step) {
+      for (const [name, preset] of [['Smith', 'blacksmith'], ['Prentice', 'apprentice'], ['Goblin', 'goblin'], ['Porter', 'robot'], ['Mossy', 'bird']]) step('new-character', { name, preset });
+    },
+    expect(s) {
+      const ids = s.doc().objectOrder;
+      for (const id of ids) {
+        const c = s.checks(id).find((k) => k.id === 'cast-outline');
+        if (!c?.pass) return `${id}: ${c?.detail ?? 'no cast check'}`;
+      }
+      const plans = new Set(ids.map((id) => s.evaluate(s.doc().objects[id]).rig!.rig.spec.plan));
+      const mouths = new Set(ids.map((id) => s.evaluate(s.doc().objects[id]).rig!.rig.spec.face.kind));
+      return plans.size >= 3 && mouths.size >= 3 ? null : `only ${plans.size} plans and ${mouths.size} mouths`;
+    },
+  },
+  {
+    name: 'C2. "Bring in this rigged character and make it walk" — bone map, retargeted motions, honest report; an unrigged mesh stays a prop',
+    run(s, step) {
+      step('new-character', { name: 'Kid', preset: 'kid' });
+      const g = toGLB(selectForExport(s, s.doc(), { object: 'kid', atOrigin: true }), {});
+      const file = path.join(os.tmpdir(), 'bench-outside-kid.glb');
+      fs.writeFileSync(file, g);
+      step('import-character', { file, name: 'Outside kid' });
+    },
+    async expect(s) {
+      const ref = Object.values(s.doc().objects).find((o: any) => o.imported) as any;
+      if (!ref) return 'no imported character';
+      const r = ref.imported.report;
+      if (!r.rigged || r.bones.matched < 50) return `bones ${JSON.stringify(r.bones)}`;
+      if (!r.motions.includes('walk')) return `motions ${r.motions}`;
+      return r.carried.length && r.face.mode !== 'none' ? null : `report ${JSON.stringify(r).slice(0, 200)}`;
+    },
+  },
+  {
+    name: 'C3. "A dog that walks, trots and sits" — four legs, lateral-sequence walk, diagonal trot, paws planted, the back holds',
+    run(_s, step) { step('new-character', { name: 'Dog', preset: 'dog' }); },
+    async expect(s) {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const motions = s.checks('dog').filter((c) => /^motion-(walk|trot|sit)$/.test(c.id));
+      if (motions.length !== 3) return `motion checks ${motions.map((c) => c.id)}`;
+      const walk = motions.find((c) => c.id === 'motion-walk')!.detail;
+      if (!/footfalls/.test(walk)) return walk;
+      const obj = s.doc().objects.dog;
+      const glb = toGLB([{ obj, res: s.evaluate(obj) }], {});
+      if (!(await validateGlb(glb)).ok) return 'GLB does not validate';
+      return ['walk', 'trot', 'sit'].every((m) => gltfJson(glb).animations.some((a: any) => a.name === m)) ? null : 'missing clips';
+    },
+  },
+  {
+    name: 'C4. "Wings and a tail on the heron, flapping while it waits" — add-ons on a biped, flap clip, checks green',
+    run(_s, step) {
+      step('new-character', { name: 'Heron', preset: 'birdfolk' });
+      step('set-motion', { object: 'heron', id: 'flap', kind: 'idle', flap: 2, duration: 3 });
+    },
+    async expect(s) {
+      const bad = allPass(s);
+      if (bad) return bad;
+      const obj = s.doc().objects.heron;
+      const j = gltfJson(toGLB([{ obj, res: s.evaluate(obj) }], {}));
+      if (!['LeftWing1', 'RightWing2', 'Tail1'].every((n) => j.nodes.some((x: any) => x.name === n))) return 'missing wing/tail joints';
+      return j.animations.some((a: any) => a.name === 'flap') ? null : 'no flap clip';
     },
   },
   // ── printing (Decisions 43–46); numbered P1… so they never collide with the game-track tasks ──

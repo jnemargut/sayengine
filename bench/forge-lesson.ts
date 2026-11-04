@@ -16,7 +16,7 @@ import { buildCutscenePreview, captureCutscene, writeStoryboard } from '../packa
 import { buildMotionPreview, captureMotionVideo, showTime } from '../packages/daemon/src/motionplayer/make.ts';
 import { buildForge } from './forge.ts';
 
-const OUT = path.resolve(import.meta.dirname, '..', 'checkpoint-week8');
+const OUT = process.env.FORGE_OUT ? path.resolve(process.env.FORGE_OUT) : path.resolve(import.meta.dirname, '..', 'checkpoint-week8');   // Phase 7 recast: FORGE_OUT=checkpoint-phase7/forge-lesson
 const only = process.argv.slice(2);
 const want = (k: string) => !only.length || only.includes(k);
 fs.mkdirSync(path.join(OUT, 'stills'), { recursive: true });

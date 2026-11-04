@@ -492,30 +492,45 @@ The studio makes characters from words, starting with each one's skeleton. Every
 
 ## Implementation Steps
 ### Week 9: bodies
-- [ ] Body plans: today's human, plus chibi, lanky, stocky and beaked biped. Standard humanoid bone names apply where they fit.
-- [ ] Bodies are smooth-blended shapes around the bones, with automatic skin weights.
-- [ ] Style families and palettes.
-- [ ] Cast outline check: a new character must differ from the existing cast.
-- [ ] A reference picture can steer proportions and colour.
+- [x] Body plans: today's human, plus chibi, lanky, stocky and beaked biped. Standard humanoid bone names apply where they fit.
+- [x] Bodies are smooth-blended shapes around the bones, with automatic skin weights.
+- [x] Style families and palettes.
+- [x] Cast outline check: a new character must differ from the existing cast.
+- [x] A reference picture can steer proportions and colour.
 ### Week 10: motion and faces
-- [ ] Generalise the week 5–6 walk, run, idle and turn:
+- [x] Generalise the week 5–6 walk, run, idle and turn:
   - stride and cadence scale with leg length
   - feet placed with IK
   - style settings: waddle, swagger, shuffle, bounce
-- [ ] Make the checks body-relative: upright, no foot slide, no crouch.
-- [ ] Face parts: the human mouth (with teeth and tongue), a cartoon mouth, a beak, a muzzle, and a grille. Each defines the same 15 speech shapes and the same expression names. Add 3 eye and brow styles.
-- [ ] A blend step where parts meet the head.
-- [ ] Per-face checks: M/B/P closure, and speech shapes that look distinct from each other.
+- [x] Make the checks body-relative: upright, no foot slide, no crouch.
+- [x] Face parts: the human mouth (with teeth and tongue), a cartoon mouth, a beak, a muzzle, and a grille. Each defines the same 15 speech shapes and the same expression names. Add 3 eye and brow styles.
+- [x] A blend step where parts meet the head.
+- [x] Per-face checks: M/B/P closure, and speech shapes that look distinct from each other.
 ### Week 11: side door and proof
-- [ ] Import rigged glTF/GLB/VRM:
+- [x] Import rigged glTF/GLB/VRM:
   - automatic map to humanoid names
   - our own retargeter (rest-pose fix and hip-height scale)
   - faces from the model's own shapes, in order: ARKit → VRM vowels with synthesised consonants → jaw → eyes
   - read the VRM licence and warn
   - a "what carried over" report
   - unrigged models stay props
-- [ ] Recast The Forge Lesson with two new, clearly different characters, in both engines.
-- [ ] Bench tasks, plus a cast-variety benchmark.
+- [x] Recast The Forge Lesson with two new, clearly different characters, in both engines.
+- [x] Bench tasks, plus a cast-variety benchmark.
+
+### Week 12 (added 2026-11-04 at your request): four legs, tails and wings
+- [x] Quadruped body plan (`--plan quadruped`, `--preset dog`), skeleton first: a level spine (Hips → Spine → Chest → UpperChest), neck and head forward, front legs on the arm bone names and hind legs on the leg names, so export and both engines treat it like any character. The face is the studio's face kit on a long snout (muzzle by default, so the same 15 speech shapes and lip sync), with new upright ears.
+- [x] Gaits from leg length (Froude number): walk (lateral sequence LH → LF → RH → RF), trot (diagonal pairs land together), rotary gallop; stride per Alexander, capped by what the legs reach; IK paws, with the cannon swinging with the leg. Life: idle (breathing, head turns, tail wag), sit (paws step under, hocks flat), lie down (paws step out). `set-motion --kind trot|gallop|sit|lie`.
+- [x] Checks: planted paws don't slide, all four paws grounded in stance, the back doesn't sag between hips and withers, legs reach; footfall order named in the detail. Canonical skin poses for four legs are mid-trot, sit and lie.
+- [x] Tail add-on (`--tail`, any plan): a bone chain that wags (travelling wave) and lags the body's rise and fall. Wings add-on (`--wings`, any plan): folded on edge along the body, a flap cycle (`set-motion --flap 2`, beats per second; whole beats per loop). No flight.
+- [x] Proof: the Dog and the Heron Courier (a lanky skeleton with a beak, wings and a tail) in the cast lineup; dog walk → trot → gallop → sit → lie, heron walk + flap, in `checkpoint-phase7/motions/`. Bench tasks C3, C4.
+
+### Status (2026-11-04, branch `phase7/characters`, not merged)
+- Weeks 9–12 built. 101 tests, every bench green (`run`, `game`, `diorama`, `lesson`; C1–C4 are new), `build:view` green.
+- Body plans: human, chibi, lanky, stocky, beaked, quadruped. Face parts: 5 mouths, 3 eye styles, 3 brow styles, 5 noses, 4 ears, 4 hairs; 3 style families; 5 palettes; 10 presets. Every plan × gait style passes the upright walk and run checks.
+- The Forge Lesson is recast: a stocky, bald, bushy-browed smith (1.42 m, swagger) and a lanky, tufted apprentice (1.9 m), both engines (bench 36g/36w, `checkpoint-phase7/forge-lesson/`).
+- Import: Mixamo, VRM 0/1 and generic names (and VRoid `J_Bip_`); rest-pose fix tested on an A-posed rig; KayKit was not downloaded, the test uses a generated outside rig.
+- Artefacts: `checkpoint-phase7/cast/lineup.png`, `faces.png`, `turntable.mp4`; per-plan clips in `checkpoint-phase7/motions/`.
+- Weak spots to judge: the dog's head is a long-snouted version of the human head (reads fox/horse more than dog); the quadruped's sit is a pose blend, not a weight shift; wings have no feathers; the cast check is an outline + face-part score, not a learned judgement.
 
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
