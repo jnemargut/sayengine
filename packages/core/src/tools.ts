@@ -8,6 +8,7 @@ import { describePlacement } from './scene.ts';
 import { formatOf, imageSize, parseMesh, FORMAT_DEFAULTS, type MeshFormat } from './importers.ts';
 import { PROFILES, budgetFor, type ProfileName } from './profiles.ts';
 import type { Material, Placement } from './types.ts';
+import { CHARACTER_TOOLS } from './charactertools.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -238,6 +239,8 @@ export const TOOLS: ToolDef[] = [
       object: ObjRef, profile: z.enum(['godot-desktop', 'web', 'web-mobile', 'none']),
       triangles: z.number().int().positive().optional(), texture: z.number().int().refine((v) => [128, 256, 512, 1024, 2048, 4096].includes(v), 'texture must be 128, 256, 512, 1024, 2048 or 4096').optional(),
       materials: z.number().int().positive().optional(), collision: z.boolean().optional(),
+      fingers: z.boolean().optional().describe('characters: keep finger bones (web-mobile drops them by default)'),
+      shapes: z.number().int().positive().optional().describe('characters: face shape-key budget'),
     }),
     example: `studio set-profile --object stool --profile godot-desktop`,
     run(ctx, a) {
@@ -249,7 +252,7 @@ export const TOOLS: ToolDef[] = [
         return { profile: null };
       }
       const prof: any = { ...(o.profile?.name === a.profile ? o.profile : {}), name: a.profile };
-      for (const k of ['triangles', 'texture', 'materials', 'collision'] as const) if (a[k] !== undefined) prof[k] = a[k];
+      for (const k of ['triangles', 'texture', 'materials', 'collision', 'fingers', 'shapes'] as const) if (a[k] !== undefined) prof[k] = a[k];
       ctx.set(['objects', o.id, 'profile'], prof);
       const b = budgetFor(prof);
       ctx.summary(`${o.name}: game profile ${a.profile} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
@@ -685,6 +688,7 @@ export const OP_REFERENCE = {
     extrude: '{ profile:[[a,b],…], h, axis?: "y"|"z"|"x", center?: bool, at?, twist?: deg, scaleTop?: n|[sa,sb] (scales the far end toward profile point [0,0]) } — a polygon pushed along an axis (either winding). axis y (default): profile [[x,z]] seen from above, pushed up (shaped tops, brackets, floor plans). axis z: profile [[x,y]] seen from the front, pushed back along +Z (gable roofs, arches, chair-back outlines). axis x: profile [[z,y]] seen from the side, pushed along +X. center:true centres it on "at" along the axis. curve:true smooths the outline through its points (sharp turns stay sharp).',
     revolve: '{ profile:[[radius,y],…], curve?: true, at?, degrees?: 360, segments? } — lathe around the vertical axis. Use for vases, turned legs, lamp bases, bowls. curve:true runs a smooth spline through the profile points (keeps sharp turns like a lip or foot sharp) — use it for any flowing silhouette instead of many points.',
     mesh: '{ asset, format, units?, up?, scale?, at? } — an imported, watertight mesh (from `studio import`) as a solid you can union/cut with.',
+    character: '{ height?, build?: 0..1, headSize?, armLength?, legLength?, handSize?, hair?: "short"|"none" } — the humanoid kit (made by `studio new-character`): low-poly body, stylized face, full hands, born rigged (56 Godot humanoid bones, skin weights, 33 face shapes). Faces +Z, feet on y = 0. Add clothes/hair/tools as ordinary ops unioned with it; they follow the nearest bones.',
   },
   modifiers: {
     round: 'inputs:[a] { r, segments? } — Minkowski with a sphere: rounds all edges by r but also GROWS the shape by r on every side (shrink the input by r first). Keep inputs < 20k triangles.',
@@ -719,7 +723,7 @@ export const OP_REFERENCE = {
 };
 
 /** Where a new object starts: the origin in an empty scene, otherwise clear to the right of everything. */
-function freeSpot(ctx: ToolCtx): [number, number, number] {
+export function freeSpot(ctx: ToolCtx): [number, number, number] {
   let maxX = -Infinity;
   for (const id of ctx.doc.objectOrder) {
     const o = ctx.doc.objects[id];
@@ -736,6 +740,8 @@ function newMaterial(name: string | undefined, color: string | undefined): Mater
   if (!preset && !color) m.color = '#a8a29e';
   return m;
 }
+
+TOOLS.push(...CHARACTER_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

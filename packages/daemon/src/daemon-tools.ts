@@ -35,6 +35,20 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     } },
   },
   {
+    name: 'say',
+    description: 'Give a character a spoken line (Decision 21): the line is voiced by a local, free text-to-speech model (Kokoro-82M; --voice bm_george, bm_lewis, am_michael, am_adam, af_heart, bf_emma…) or comes from your recording (--audio path.wav), is aligned with the script by Rhubarb Lip Sync, and becomes smoothed curves for the 15 speech shapes (neighbouring sounds overlap, lips always close on M/B/P, --emotion scales how wide the mouth opens: neutral, calm, gentle, firm, happy, excited, angry, sad, scared, whisper). One reviewable step; checks report closures, held shapes and sync. Exports carry it as a "line:<id>" animation clip.',
+    flags: { type: 'object', required: ['text'], properties: {
+      object: { type: 'string' }, text: { type: 'string', description: 'the words spoken (also the alignment script)' }, id: { type: 'string', description: 'line id (default: from the first words)' },
+      voice: { type: 'string', description: 'local voice (Kokoro): bm_george, bm_lewis, am_michael, am_adam, af_heart, bf_emma…' }, audio: { type: 'string', description: 'your own .wav instead of the local voice' },
+      emotion: { type: 'string', enum: ['neutral', 'calm', 'gentle', 'firm', 'happy', 'excited', 'angry', 'sad', 'scared', 'whisper'], default: 'neutral' },
+    } },
+  },
+  {
+    name: 'line-preview',
+    description: 'Review a character\'s spoken lines: writes a folder with the exported character (GLB with its "line:<id>" clips), the line audio and a player page (click a line: the three.js character speaks it in close-up, in sync with the audio). --video true also renders every frame in headless Chrome and muxes an MP4 with ffmpeg (lines.mp4), plus stills. [--object id] [--out dir]',
+    flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, lines: { type: 'string', description: 'comma-separated line ids (default: all)' } } },
+  },
+  {
     name: 'run',
     description: 'Code mode: run JavaScript in a QuickJS WASM sandbox with a `studio` API (studio.call(tool,args) or studio.setParam({...}), camelCase per tool) and console.log: --file x.js|x.ts or --code "…". No fs/network; 5 s, 64 MB. Each call is a normal commit. Use for loops/many similar parts.',
     flags: { type: 'object', properties: { file: { type: 'string' }, code: { type: 'string' } } },

@@ -120,9 +120,16 @@ function b64(s: string): ArrayBuffer {
 }
 
 const geoCache = new Map<string, THREE.BufferGeometry>(); // creased-normal geometry per mesh payload
+/** FNV-1a over the whole string: a pose or expression only moves vertices in the middle of the buffer. */
+function hashStr(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(36);
+}
+
 function geometryFor(o: PackedObj): THREE.BufferGeometry | null {
   if (!o.positions) return null;
-  const key = o.positions.length + ':' + o.positions.slice(0, 64) + o.positions.slice(-64) + o.indices.slice(-32);
+  const key = o.positions.length + ':' + hashStr(o.positions) + ':' + hashStr(o.indices);
   const hit = geoCache.get(key);
   if (hit) return hit.clone();
   const pos = new Float32Array(b64(o.positions));
@@ -337,6 +344,57 @@ function unionBox(objs: PackedObj[]): THREE.Box3 {
 }
 
 const VIEW_DIRS: Record<string, V3> = { front: [0, 0, 1], side: [1, 0, 0], top: [0, 1, 0.0001], iso: [1, 0.75, 1.15], back: [0, 0, -1], hero: [1, 0.5, 1.3], low: [1, 0.18, 1.35] };
+
+// ── characters: grouped labels and close-up views ───────────────────────
+const HEAD_RE = /^(Head|nose|lip|mouthInner|eyeSocket|ear\.|brow\.|hair|LeftEye|RightEye|Neck)/;
+/** Characters have ~60 parts; label them as a person would name them. */
+function charGroup(part: string): string {
+  if (HEAD_RE.test(part) && part !== 'Neck') return 'head';
+  const side = part.startsWith('Left') ? 'left' : part.startsWith('Right') ? 'right' : '';
+  if (side && /(Hand|Thumb|Index|Middle|Ring|Little)/.test(part)) return `${side} hand`;
+  if (side && /Arm/.test(part)) return `${side} arm`;
+  if (side && /Leg/.test(part)) return `${side} leg`;
+  if (side && /(Foot|Toes)/.test(part)) return `${side} foot`;
+  if (part === 'torso' || part === 'Neck') return 'body';
+  return part;
+}
+interface LabelGroup { name: string; parts: string[]; bbox: { min: V3; max: V3 } }
+function labelGroups(o: PackedObj): LabelGroup[] {
+  const shown = o.parts.filter((p) => !p.name.startsWith('~'));
+  if (o.type !== 'character') return shown.map((p) => ({ name: p.name, parts: [p.name], bbox: p.bbox }));
+  const m = new Map<string, LabelGroup>();
+  for (const p of shown) {
+    const g = charGroup(p.name);
+    const e = m.get(g) ?? { name: g, parts: [], bbox: { min: [...p.bbox.min] as V3, max: [...p.bbox.max] as V3 } };
+    e.parts.push(p.name);
+    for (let k = 0; k < 3; k++) { e.bbox.min[k] = Math.min(e.bbox.min[k], p.bbox.min[k]); e.bbox.max[k] = Math.max(e.bbox.max[k], p.bbox.max[k]); }
+    m.set(g, e);
+  }
+  return [...m.values()];
+}
+/** Close-ups on characters: the face (front / three-quarter) and the hands. Turned with the character. */
+const CLOSE_UPS: Record<string, { parts: (p: string) => boolean; dir: V3; fill: number }> = {
+  face: { parts: (p) => HEAD_RE.test(p) && p !== 'Neck' && p !== 'hair', dir: [0, 0.06, 1], fill: 0.5 },
+  'face-34': { parts: (p) => HEAD_RE.test(p) && p !== 'Neck' && p !== 'hair', dir: [0.75, 0.1, 1], fill: 0.5 },
+  hands: { parts: (p) => /(Hand|Thumb|Index|Middle|Ring|Little)/.test(p), dir: [0, 0.25, 1], fill: 0.62 },
+};
+function closeUp(objs: PackedObj[], view: string, cam: THREE.PerspectiveCamera): boolean {
+  const spec = CLOSE_UPS[view];
+  const chars = objs.filter((o) => o.type === 'character');
+  if (!spec || !chars.length) return false;
+  const o = chars[0];
+  const b = new THREE.Box3();
+  for (const p of o.parts) if (spec.parts(p.name)) { b.expandByPoint(new THREE.Vector3(...p.bbox.min)); b.expandByPoint(new THREE.Vector3(...p.bbox.max)); }
+  if (b.isEmpty()) return false;
+  const c = b.getCenter(new THREE.Vector3()), size = b.getSize(new THREE.Vector3()).length();
+  const d = new THREE.Vector3(...spec.dir).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(o.rotation ?? 0));
+  const dist = (size * spec.fill) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  cam.position.copy(c).addScaledVector(d, dist);
+  cam.near = dist / 100; cam.far = dist * 50; cam.updateProjectionMatrix();
+  cam.up.set(0, 1, 0);
+  cam.lookAt(c);
+  return true;
+}
 
 function frame(objs: PackedObj[], view: string, cam: THREE.Camera, ctl?: OrbitControls, fill = 0.62) {
   const b = unionBox(objs);
@@ -660,12 +718,13 @@ async function handleRender(msg: any) {
     const legend: { n: number; object: string; part: string; failing: boolean }[] = [];
     if (!presentation) for (const o of models) {
       const failing = new Set(o.checks.flatMap((c) => (c.pass ? [] : c.parts ?? [])));
-      for (const p of o.parts) if (!p.name.startsWith('~')) legend.push({ n: legend.length + 1, object: o.name, part: p.name, failing: failing.has(p.name) });
+      for (const gr of labelGroups(o)) legend.push({ n: legend.length + 1, object: o.name, part: gr.name, failing: gr.parts.some((p) => failing.has(p)) });
     }
     const images = (msg.views as string[]).map((view) => {
-      const persp = view === 'iso' || presentation;
-      const cam = persp ? new THREE.PerspectiveCamera(presentation ? 28 : 35, W / H, 0.01, 100) : new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
-      frame(presentation ? models : objs!, presentation && !VIEW_DIRS[view] ? 'hero' : view, cam, undefined, presentation ? 0.5 : 0.62);
+      const close = !!CLOSE_UPS[view];
+      const persp = view === 'iso' || presentation || close;
+      const cam = persp ? new THREE.PerspectiveCamera(presentation || close ? 28 : 35, W / H, 0.01, 100) : new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+      if (!(close && closeUp(models, view, cam as THREE.PerspectiveCamera))) frame(presentation ? models : objs!, presentation && !VIEW_DIRS[view] ? 'hero' : view, cam, undefined, presentation ? 0.5 : 0.62);
       rr.setClearColor(0x000000, 0);
       rr.render(s, cam);
       const c = document.createElement('canvas');
@@ -680,8 +739,7 @@ async function handleRender(msg: any) {
       g.drawImage(rr.domElement, 0, 0);
       if (msg.labels && !presentation) {
         let k = 0;
-        for (const o of models) for (const p of o.parts) {
-          if (p.name.startsWith('~')) continue;
+        for (const o of models) for (const p of labelGroups(o)) {
           const L = legend[k++];
           const ctr = new THREE.Vector3((p.bbox.min[0] + p.bbox.max[0]) / 2, (p.bbox.min[1] + p.bbox.max[1]) / 2, (p.bbox.min[2] + p.bbox.max[2]) / 2).project(cam);
           const x = (ctr.x * 0.5 + 0.5) * W, y = (-ctr.y * 0.5 + 0.5) * H;

@@ -20,6 +20,7 @@ export const OP_NAMES = [
   'round', 'smooth', 'trim',
   'mesh',
   'collision', 'lod',
+  'character',
 ] as const;
 /** Ops that make a side product (a physics shape, a distance version) instead of feeding the output. */
 export const AUX_OPS: readonly string[] = ['collision', 'lod'];
@@ -62,7 +63,8 @@ export type Placement =
   | { kind: 'nextTo'; target: string; side: 'left' | 'right' | 'front' | 'back'; gap: number; offset?: [number, number] }
   | { kind: 'align'; target: string; axis: 'x' | 'z'; edge: 'min' | 'center' | 'max'; offset?: [number, number] }
   | { kind: 'around'; target: string; index: number; count: number; radius?: number; start?: number; face?: Facing; rotate?: number; offset?: [number, number] }
-  | { kind: 'along'; target: string; index: number; count: number; side: 'left' | 'right' | 'front' | 'back'; spacing?: number; gap?: number; face?: Facing; rotate?: number; offset?: [number, number] };
+  | { kind: 'along'; target: string; index: number; count: number; side: 'left' | 'right' | 'front' | 'back'; spacing?: number; gap?: number; face?: Facing; rotate?: number; offset?: [number, number] }
+  | { kind: 'held'; target: string; hand: 'left' | 'right' };   // a prop in a character's hand (grip socket → hand)
 export type Facing = 'target' | 'away' | 'none';
 
 /** Imported reference: a mesh to model around, or an image backdrop to model to match. */
@@ -88,7 +90,54 @@ export interface SceneObject {
   role?: 'model' | 'reference';  // references are shown translucent and excluded from export/overlap checks
   reference?: Reference;
   profile?: GameProfile;         // game export profile: adds budget checks, drives export --target
+  orientation?: [number, number, number, number]; // full 3D rotation (quaternion x,y,z,w); set by "held" placement, overrides rotation
+  grip?: GripSocket;             // where a hand holds this object (props)
+  character?: CharacterState;    // pose, expression, hands and dialogue lines (characters)
   rules: Rule[];
+}
+
+/**
+ * Where and how a hand holds a prop, in the prop's object space (Decision 22).
+ * axis points from the grip toward the working end (a hammer's head); side is perpendicular to it.
+ */
+export interface GripSocket {
+  kind: 'power' | 'pinch';
+  center: [number, number, number];
+  axis: [number, number, number];
+  side: [number, number, number];
+  radius: number;                // handle radius (power) or half the pinched thickness (pinch)
+  curl?: number;                 // finger curl that wraps the handle without passing through (0..1)
+  thumb?: number;
+  auto?: boolean;                // generated from the shape (studio set-grip overrides)
+}
+
+/** A hand pose as settings (Decision 22): curl per finger 0 (straight) … 1 (fist), spread, thumb. */
+export interface HandPose {
+  thumb: number; index: number; middle: number; ring: number; little: number;
+  spread: number;
+  name?: string;                 // the named pose it started from (relaxed, fist, point, pinch, open-palm)
+}
+
+/** A spoken line (Decision 21): audio + script aligned into speech-shape curves, reviewable. */
+export interface LineClip {
+  text: string;
+  audio: string;                 // asset name (wav)
+  voice?: string;                // local text-to-speech voice, when generated
+  emotion: string;
+  duration: number;              // s
+  fps: number;
+  cues: Array<{ start: number; end: number; shape: string }>;   // aligner output (Rhubarb A–H, X), rests in pauses
+  curves: Record<string, number[]>;                            // speech shape → weight per frame (0..1)
+  aligner: string;
+  sync?: number;                 // ms the mouth trails the voice (negative = leads), measured at record time
+}
+
+export interface CharacterState {
+  pose?: Record<string, [number, number, number]>;  // bone → local rotation (degrees, XYZ)
+  expression?: Record<string, number>;              // shape key → weight 0..1
+  hands?: { left?: HandPose; right?: HandPose };
+  holds?: { left?: string; right?: string };        // object ids held in each hand
+  lines?: Record<string, LineClip>;
 }
 
 /** A game export profile (Decision 17): budgets shown as checks after every step. */
@@ -100,6 +149,8 @@ export interface GameProfile {
   materials?: number;
   bones?: number;
   weights?: number;
+  shapes?: number;               // face shape keys (morph targets) per character
+  fingers?: boolean;             // keep finger bones (web-mobile drops them by default)
   collision?: boolean;           // require a collision shape
 }
 
@@ -121,6 +172,7 @@ export const DEFAULT_RULES: Record<string, Rule[]> = {
   table: [{ kind: 'grounded', parts: 'leg*' }, { kind: 'connected' }, { kind: 'aboveFloor' }],
   bench: [{ kind: 'grounded', parts: 'leg*' }, { kind: 'connected' }, { kind: 'aboveFloor' }],
   shelf: [{ kind: 'connected' }, { kind: 'aboveFloor' }],
+  character: [{ kind: 'aboveFloor' }],
   reference: [],
   default: [{ kind: 'connected' }],
 };

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { runSandboxed } from './sandbox.ts';
+import { curvesFromCues, syncOffset, restInSilence, EMOTION_SCALE } from '../../core/src/lipsync.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
@@ -87,8 +88,40 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
     });
   }
 
-  async function daemonTool(name: string, args: any): Promise<any> {
+  async function daemonTool(name: string, args: any, author = 'claude'): Promise<any> {
     switch (name) {
+      case 'say': {
+        // a spoken line: local voice (or your recording) → Rhubarb alignment with the script →
+        // smoothed speech-shape curves → one reviewable step (set-line)
+        const voice = await import('./voice.ts');
+        const doc = studio.doc();
+        const obj = studio.findObject(doc, args.object);
+        if (obj.semanticType !== 'character') return { ok: false, tool: name, error: `${obj.name} is not a character` };
+        const text = String(args.text ?? '').trim();
+        if (!text) return { ok: false, tool: name, error: 'say needs --text (the words spoken)', hint: `studio say --object ${obj.id} --text "Hold still."` };
+        const emotion = String(args.emotion ?? 'neutral');
+        if (!EMOTION_SCALE[emotion]) return { ok: false, tool: name, error: `unknown emotion "${emotion}"`, hint: `one of ${Object.keys(EMOTION_SCALE).join(', ')}` };
+        let wav: Uint8Array, voiceName: string | undefined;
+        try {
+          if (args.audio) wav = new Uint8Array(fs.readFileSync(path.resolve(dir, String(args.audio))));
+          else { voiceName = String(args.voice ?? 'bm_george'); wav = await voice.speak(text, voiceName); }
+        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+        const audio = studio.assets.put(wav, 'wav');
+        const tmp = path.join(stateDir, 'assets', audio);
+        const wavPath = fs.existsSync(tmp) ? tmp : (() => { const t = path.join(stateDir, `line-${Date.now()}.wav`); fs.writeFileSync(t, wav); return t; })();
+        let aligned;
+        try { aligned = await voice.align(wavPath, text); } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+        const fps = 30;
+        const energy = voice.loudness(wav, 100);
+        const cues = restInSilence(aligned.cues, energy, 100);
+        const curves = curvesFromCues(cues, aligned.duration, fps, emotion);
+        const sync = syncOffset(curves, fps, energy, 100);
+        const id = String(args.id ?? (text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').split('-').slice(0, 4).join('-') || 'line'));
+        const line = { text, audio, ...(voiceName ? { voice: voiceName } : {}), emotion, duration: +aligned.duration.toFixed(3), fps, cues, curves, aligner: 'rhubarb-1.14.0', sync };
+        const r = studio.call('set-line', { object: obj.id, id, line }, author);
+        if (r.ok) (r as any).result = { ...(r.result as any), audio: `/assets/${audio}`, sync, shapes: [...new Set(cues.map((c) => c.shape))].join('') };
+        return r;
+      }
       case 'selection': {
         if (!selection) return { ok: true, tool: name, result: { selected: null, note: 'nothing selected — ask the human to click a part in the view, or name it' } };
         const doc = studio.doc();
@@ -179,6 +212,29 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const result = { file: out, bytes: bytes.length, objects: ids.length - bad.length - refs.length, skipped: bad, ...(refs.length ? { referencesLeftOut: refs } : {}), ...(validation ? { validation: { errors: validation.errors, warnings: validation.warnings, ...(validation.messages.length ? { messages: validation.messages } : {}) } } : {}), ...extra, ...(hooks.length ? { afterExport: hooks } : {}) };
         return hooksOk ? { ok: true, tool: name, result } : { ok: false, tool: name, error: `after-export check failed: ${hooks.filter((h) => !h.ok).map((h) => `${h.name}: ${h.detail}`).join('; ')}`, result };
       }
+      case 'line-preview': {
+        // the character's lines as a reviewable folder: GLB + audio + player page (+ MP4 with --video)
+        const doc = studio.doc();
+        const obj = studio.findObject(doc, args.object);
+        const all = Object.entries(obj.character?.lines ?? {});
+        if (!all.length) return { ok: false, tool: name, error: `${obj.name} has no lines yet`, hint: `studio say --object ${obj.id} --text "…"` };
+        const want = args.lines ? String(args.lines).split(',').map((x) => x.trim()) : null;
+        const picked = want ? all.filter(([id]) => want.includes(id)) : all;
+        if (!picked.length) return { ok: false, tool: name, error: `no line ${want!.join(', ')}`, hint: `lines: ${all.map(([id]) => id).join(', ')}` };
+        const res = studio.evaluate(obj);
+        if (!res.ok) return { ok: false, tool: name, error: `${obj.name} does not build` };
+        const glb = toGLB([{ obj, res }], {});
+        const validation = await validateGlb(glb);
+        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
+        const lines = picked.map(([id, l]) => ({ id, text: l.text, emotion: l.emotion, duration: l.duration, cues: l.cues, wav: studio.assets.get(l.audio) }));
+        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-lines`);
+        const lp = await import('./lineplayer/make.ts');
+        try {
+          let r = await lp.buildLinePreview(out, obj.name, glb, lines);
+          if (args.video) r = { ...r, ...(await lp.captureVideo(out, lines)) };
+          return { ok: true, tool: name, summary: `${lines.length} line(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, lines: lines.map((l) => l.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server, since it loads files)${r.video ? '; the MP4 plays anywhere' : ''}` } };
+        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+      }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
         const file = args.file ? path.resolve(dir, args.file) : 'inline.js';
@@ -211,7 +267,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         let body = '';
         for await (const chunk of req) body += chunk;
         const { tool, args = {}, author = 'claude' } = JSON.parse(body || '{}');
-        const d = await daemonTool(tool, args);
+        const d = await daemonTool(tool, args, author);
         return json(200, d ?? studio.call(tool, args, author));
       }
       if (url.pathname === '/api/state') return json(200, studio.snapshot());

@@ -3,6 +3,8 @@
 import type { EvalResult } from './kernel.ts';
 import type { Material, SceneObject } from './types.ts';
 import { materialForPart } from './materials.ts';
+import { GlbBuilder } from './glb.ts';
+import { addCharacterNodes, addSkin, cornerVerts, rigAttributes } from './skinexport.ts';
 
 type Item = { obj: SceneObject; res: EvalResult };
 export interface ExportOpts { includeReferences?: boolean }
@@ -20,8 +22,8 @@ function flatten(res: EvalResult, tris?: number[]) {
     const ux = p[1][0] - p[0][0], uy = p[1][1] - p[0][1], uz = p[1][2] - p[0][2];
     const vx = p[2][0] - p[0][0], vy = p[2][1] - p[0][1], vz = p[2][2] - p[0][2];
     let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const l = Math.hypot(nx, ny, nz) || 1;
-    nx /= l; ny /= l; nz /= l;
+    const l = Math.hypot(nx, ny, nz);
+    if (l > 1e-20) { nx /= l; ny /= l; nz /= l; } else { nx = 0; ny = 1; nz = 0; } // degenerate sliver: any unit normal
     for (let k = 0; k < 3; k++) {
       pos.set(p[k], (t + k) * 3);
       nor.set([nx, ny, nz], (t + k) * 3);
@@ -54,19 +56,13 @@ export function gltfMaterial(m: Material, used: Set<string>) {
 }
 
 export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
-  const buffers: Uint8Array[] = [];
-  let offset = 0;
-  const bufferViews: any[] = [], accessors: any[] = [], meshes: any[] = [], nodes: any[] = [], materials: any[] = [];
+  const B = new GlbBuilder();
   const matIndex = new Map<string, number>();
-  const used = new Set<string>();
-  const add = (arr: Float32Array) => {
-    const bytes = new Uint8Array(arr.buffer.slice(0));
-    bufferViews.push({ buffer: 0, byteOffset: offset, byteLength: bytes.length, target: 34962 });
-    buffers.push(bytes);
-    offset += bytes.length;
-    return bufferViews.length - 1;
-  };
-  for (const { obj, res } of usable(items, opts)) {
+  for (const { obj, res: posedRes } of usable(items, opts)) {
+    // characters: bind pose (T-pose, neutral face) + skin + face shapes + clips; others: world-space mesh
+    const rigged = !!posedRes.rig;
+    const res = rigged ? { ...posedRes, positions: posedRes.rig!.rest } : posedRes;
+    const skin = rigged ? addSkin(B, posedRes) : null;
     // group the object's triangles by the material their part resolves to
     const groups = new Map<string, { mat: Material; tris: number[] }>();
     const parts = res.parts.length ? res.parts : [{ name: obj.output ?? 'object', ranges: [[0, res.indices.length / 3]] as Array<[number, number]> }];
@@ -81,39 +77,18 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
     for (const [key, g] of groups) {
       if (!g.tris.length) continue;
       const { pos, nor } = flatten(res, g.tris);
-      const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
-      for (let i = 0; i < pos.length; i += 3) for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], pos[i + k]); max[k] = Math.max(max[k], pos[i + k]); }
-      const pv = add(pos), nv = add(nor);
-      accessors.push({ bufferView: pv, componentType: 5126, count: pos.length / 3, type: 'VEC3', min, max });
-      accessors.push({ bufferView: nv, componentType: 5126, count: nor.length / 3, type: 'VEC3' });
-      if (!matIndex.has(key)) { materials.push(gltfMaterial(g.mat, used)); matIndex.set(key, materials.length - 1); }
-      primitives.push({ attributes: { POSITION: accessors.length - 2, NORMAL: accessors.length - 1 }, material: matIndex.get(key) });
+      if (!matIndex.has(key)) { B.gltf.materials.push(gltfMaterial(g.mat, B.used)); matIndex.set(key, B.gltf.materials.length - 1); }
+      const prim: any = { attributes: { POSITION: B.accessor(pos, 'VEC3', true), NORMAL: B.accessor(nor, 'VEC3') }, material: matIndex.get(key) };
+      if (skin) { const rg = rigAttributes(B, posedRes, cornerVerts(posedRes, g.tris), skin); Object.assign(prim.attributes, rg.attributes); prim.targets = rg.targets; }
+      primitives.push(prim);
     }
-    meshes.push({ name: obj.name, primitives });
-    nodes.push({ name: obj.name, mesh: meshes.length - 1, extras: { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])) } });
+    B.gltf.meshes.push({ name: obj.name, primitives });
+    const mesh = B.gltf.meshes.length - 1;
+    const extras = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])) };
+    if (skin) B.gltf.scenes[0].nodes.push(...addCharacterNodes(B, obj, posedRes, mesh, skin, extras));
+    else { B.gltf.nodes.push({ name: obj.name, mesh, extras }); B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1); }
   }
-  const bin = new Uint8Array(offset);
-  let o = 0;
-  for (const b of buffers) { bin.set(b, o); o += b.length; }
-  const gltf = {
-    asset: { version: '2.0', generator: 'ai-3d-studio' },
-    ...(used.size ? { extensionsUsed: [...used] } : {}),
-    scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }], nodes, meshes, materials, accessors, bufferViews,
-    buffers: [{ byteLength: bin.length }],
-  };
-  const pad = (n: number) => (4 - (n % 4)) % 4;
-  let json = new TextEncoder().encode(JSON.stringify(gltf));
-  json = Uint8Array.from([...json, ...new Array(pad(json.length)).fill(0x20)]);
-  const binPadded = new Uint8Array(bin.length + pad(bin.length));
-  binPadded.set(bin);
-  const total = 12 + 8 + json.length + 8 + binPadded.length;
-  const out = new Uint8Array(total);
-  const dv = new DataView(out.buffer);
-  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
-  dv.setUint32(12, json.length, true); dv.setUint32(16, 0x4e4f534a, true); out.set(json, 20);
-  const bo = 20 + json.length;
-  dv.setUint32(bo, binPadded.length, true); dv.setUint32(bo + 4, 0x004e4942, true); out.set(binPadded, bo + 8);
-  return out;
+  return B.build();
 }
 
 export function toOBJ(items: Item[], opts: ExportOpts = {}): string {

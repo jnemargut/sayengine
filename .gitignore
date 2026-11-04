@@ -6,3 +6,8 @@ apps/view/dist/
 .bettercompact/
 .scratch/
 .claude/worktrees/
+# line-preview checkpoint: only the video, stills and README are kept (regenerate: node bench/talking-face.ts)
+checkpoint-week4/*
+!checkpoint-week4/lines.mp4
+!checkpoint-week4/stills/
+!checkpoint-week4/README.md

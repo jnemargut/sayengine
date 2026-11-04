@@ -17,15 +17,17 @@ export interface Budget {
   materials: number;             // glTF materials per object (≈ draw calls)
   bones: number;
   weights: number;               // skin influences per vertex
+  shapes: number;                // face shape keys (morph targets) per character
+  fingers: boolean;              // export finger bones (otherwise fingers follow the hand bone)
   collision: boolean;            // a collision shape is required
   lod: 'engine' | 'required';    // engine = Godot generates distance versions on import
   lodAbove: number;              // with lod 'required': objects above this many triangles need a lod op
 }
 
 export const PROFILES: Record<ProfileName, Budget> = {
-  'godot-desktop': { description: 'Godot 4, desktop (Steam). Godot makes its own distance versions on import.', triangles: 20000, texture: 1024, textureMax: 2048, materials: 4, bones: 64, weights: 4, collision: true, lod: 'engine', lodAbove: Infinity },
-  web: { description: 'three.js in a desktop browser.', triangles: 10000, texture: 1024, textureMax: 1024, materials: 3, bones: 64, weights: 4, collision: true, lod: 'required', lodAbove: 3000 },
-  'web-mobile': { description: 'three.js on phones: small downloads, few draw calls.', triangles: 5000, texture: 512, textureMax: 512, materials: 2, bones: 32, weights: 4, collision: true, lod: 'required', lodAbove: 1500 },
+  'godot-desktop': { description: 'Godot 4, desktop (Steam). Godot makes its own distance versions on import.', triangles: 20000, texture: 1024, textureMax: 2048, materials: 4, bones: 64, weights: 4, shapes: 64, fingers: true, collision: true, lod: 'engine', lodAbove: Infinity },
+  web: { description: 'three.js in a desktop browser.', triangles: 10000, texture: 1024, textureMax: 1024, materials: 3, bones: 64, weights: 4, shapes: 48, fingers: true, collision: true, lod: 'required', lodAbove: 3000 },
+  'web-mobile': { description: 'three.js on phones: small downloads, few draw calls.', triangles: 5000, texture: 512, textureMax: 512, materials: 2, bones: 32, weights: 4, shapes: 33, fingers: false, collision: true, lod: 'required', lodAbove: 1500 },
 };
 
 /** The profile's budgets with the object's overrides applied. */
@@ -37,6 +39,8 @@ export function budgetFor(p: GameProfile): Budget {
   if (p.materials) b.materials = p.materials;
   if (p.bones !== undefined) b.bones = p.bones;
   if (p.weights) b.weights = p.weights;
+  if (p.shapes !== undefined) b.shapes = p.shapes;
+  if (p.fingers !== undefined) b.fingers = p.fingers;
   if (p.collision !== undefined) b.collision = p.collision;
   return b;
 }
@@ -99,8 +103,19 @@ export function profileChecks(obj: SceneObject, res: EvalResult, ctx: ProfileCtx
     id: 'budget-materials', label: `Materials within ${name} budget`, pass: groups.length <= b.materials,
     detail: `${groups.length} / ${b.materials} (${groups.map((g) => g.textured ? `baked: ${g.parts.length} part${g.parts.length === 1 ? '' : 's'}${g.material.clearcoat ? ' + glaze' : ''}` : `${g.material.name}: ${g.parts.join(', ')}`).join('; ')})`,
   }));
-  // bones/weights: no skinned shapes yet (character kits add skeletons) — report, don't invent
-  out.push({ id: 'budget-bones', label: `Bones within ${name} budget`, pass: true, detail: `no skeleton (0 / ${b.bones} bones, ≤ ${b.weights} weights per vertex)` });
+  if (res.rig) {
+    const all = res.rig.rig.bones.length;
+    const fingers = res.rig.rig.bones.filter((x) => /(Thumb|Index|Middle|Ring|Little)/.test(x.name)).length;
+    const bones = b.fingers ? all : all - fingers;
+    out.push(budget({
+      id: 'budget-bones', label: `Bones within ${name} budget`, pass: bones <= b.bones,
+      detail: `${bones} / ${b.bones} bones${b.fingers ? '' : ` (finger bones dropped: fingers follow the hand)`}, ≤ ${b.weights} weights per vertex${bones > b.bones ? ` — set-profile --fingers false drops the ${fingers} finger bones` : ''}`,
+    }));
+    const shapes = res.rig.rig.shapeNames.length;
+    out.push(budget({ id: 'budget-shapes', label: `Face shapes within ${name} budget`, pass: shapes <= b.shapes, detail: `${shapes} / ${b.shapes} shape keys (15 speech + ${shapes - 15} expression)` }));
+  } else {
+    out.push({ id: 'budget-bones', label: `Bones within ${name} budget`, pass: true, detail: `no skeleton (0 / ${b.bones} bones, ≤ ${b.weights} weights per vertex)` });
+  }
 
   const cols = obj.opOrder.filter((id) => obj.ops[id]?.op === 'collision');
   if (!cols.length) {

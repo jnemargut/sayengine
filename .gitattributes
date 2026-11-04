@@ -1,0 +1,9 @@
+games/**/*.glb filter=lfs diff=lfs merge=lfs -text
+games/**/*.wav filter=lfs diff=lfs merge=lfs -text
+games/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+games/**/*.png filter=lfs diff=lfs merge=lfs -text
+games/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+games/**/*.m4a filter=lfs diff=lfs merge=lfs -text
+games/**/*.cube filter=lfs diff=lfs merge=lfs -text
+games/**/*.woff filter=lfs diff=lfs merge=lfs -text
+games/**/*.webm filter=lfs diff=lfs merge=lfs -text

@@ -6,6 +6,7 @@ import Module from 'manifold-3d';
 import { num, vec3, type ParamValues } from './expr.ts';
 import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
+import { buildRig, charParams, characterSpec, forward, localRotations, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
 
 type V3 = [number, number, number];
 export interface BBox { min: V3; max: V3 }
@@ -34,6 +35,15 @@ export interface EvalResult {
   manifold?: boolean;              // false for an imported mesh that isn't watertight (shown, not usable in booleans)
   uvs?: Float32Array;              // per-vertex UVs when the shape brings its own (character templates); export unwraps otherwise
   collision?: CollisionInfo;       // set when the root op is a collision op
+  rig?: CharacterRig;              // characters: skeleton, skin weights, face shapes, current pose
+}
+
+/** A character's rig on its final mesh. positions (above) are the posed result; rest is the bind pose. */
+export interface CharacterRig {
+  rig: Rig;
+  rest: Float32Array;              // object space, bind pose (T-pose, neutral face)
+  vertPart: string[];              // part name per vertex
+  posed: Posed;                    // current pose (object space)
 }
 
 /** What a collision op fitted, in object space before placement (for engines that want primitives). */
@@ -118,6 +128,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
   // collision/lod ops are side products, never "unused"
   const unused = () => obj.opOrder.filter((id) => !reached.has(id) && !AUX_OPS.includes(obj.ops[id]?.op));
   let collisionInfo: CollisionInfo | undefined;
+  let charSpec: CharSpec | null = null;
 
   const boxOf = (m: any): BBox => {
     const b = m.boundingBox();
@@ -388,6 +399,53 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           out = { m: inst.length === 1 ? inst[0] : keep(Manifold.union(inst)), parts };
           break;
         }
+        case 'character': {
+          // The humanoid kit (Decision 14 A): proportions are params; the skeleton, skin weights and
+          // face shapes come with it (attached to the final mesh below). Faces +Z, feet on y = 0.
+          const keys = ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize'] as const;
+          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair }));
+          charSpec = spec;
+          const parts = new Map<number, Part>();
+          const mk = (m: any, name: string) => { const o = keep(m.asOriginal()); parts.set(o.originalID(), { name, ops: new Set([id]) }); return o; };
+          const build = (pc: Piece): any => {
+            if (pc.kind === 'ball') {
+              const sph = keep(Manifold.sphere(pc.r, pc.sides));
+              return keep((pc.cap !== undefined ? keep(sph.trimByPlane([0, 0, 1], pc.cap * pc.r)) : sph).translate(pc.c));
+            }
+            if (pc.kind === 'hull') return keep(Manifold.hull(pc.pts));
+            const d: RV3 = [pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]];
+            const len = Math.hypot(...d);
+            const z: RV3 = [d[0] / len, d[1] / len, d[2] / len];
+            const helper: RV3 = Math.abs(z[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+            let x: RV3 = [helper[1] * z[2] - helper[2] * z[1], helper[2] * z[0] - helper[0] * z[2], helper[0] * z[1] - helper[1] * z[0]];
+            const xl = Math.hypot(...x); x = [x[0] / xl, x[1] / xl, x[2] / xl];
+            const y: RV3 = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+            return keep(keep(Manifold.cylinder(len, pc.r1, pc.r2, pc.sides)).transform([...x, 0, ...y, 0, ...z, 0, ...pc.a, 1]));
+          };
+          const head = mk(keep(keep(Manifold.hull(spec.head.pts)).refineToLength(spec.head.refine)), spec.head.part);
+          const cutters = spec.cuts.map((c) => mk(c.kind === 'box' ? keep(Manifold.cube(c.size, true)).translate(c.c) : keep(Manifold.sphere(c.r, c.sides)).translate(c.c), c.part));
+          const face = keep(Manifold.difference([head, ...cutters]));
+          // limbs and torso get edge loops along their length (still flat facets) so joints can bend
+          const loops = (pc: Piece, m: any) => {
+            const long = pc.kind === 'seg' ? Math.hypot(pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]) > 0.08 * spec.s : pc.part === 'torso';
+            return long ? keep(m.refineToLength(0.045 * spec.s)) : m;
+          };
+          const body = spec.pieces.map((pc) => mk(loops(pc, build(pc)), pc.part));
+          const eyes = spec.eyes.map((pc) => mk(build(pc), pc.part));
+          // eyeballs: white first, then iris and pupil on top (later wins where they overlap)
+          // eyelids: a shell between eyeball and socket, kept above a plane through the eye centre
+          const lids = spec.lids.map((l) => {
+            const shell = keep(Manifold.difference(keep(Manifold.sphere(l.rOut, 24)), keep(Manifold.sphere(l.rIn, 24))));
+            const e = (l.edgeDeg * Math.PI) / 180;
+            const n: RV3 = [0, Math.cos(e), -Math.sin(e)];
+            const cap = keep(shell.trimByPlane(n, 0));
+            return mk(keep(cap.translate(l.c)), l.part);
+          });
+          const eyeL = keep(Manifold.union(eyes.filter((_, i) => i < 3)));
+          const eyeR = keep(Manifold.union(eyes.filter((_, i) => i >= 3)));
+          out = { m: keep(Manifold.union([face, ...body, eyeL, eyeR, ...lids])), parts };
+          break;
+        }
         case 'collision': {
           // A simple physics shape fitted to its input: box | hull | capsule | sphere (object space).
           need(1);
@@ -475,7 +533,6 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
     const nv = mesh.vertProperties.length / np;
     const positions = new Float32Array(nv * 3);
     for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) positions[i * 3 + k] = mesh.vertProperties[i * np + k];
-    placeVerts(positions, obj);
     const indices = new Uint32Array(mesh.triVerts);
     const partMap = new Map<string, PartInfo>();
     const runIndex: Uint32Array = mesh.runIndex, runId: Uint32Array = mesh.runOriginalID;
@@ -506,6 +563,19 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
       }
     }
     const cut = { name: '~cut', ops: new Set<string>() };
+    // characters: rig the final mesh (object space), pose it, then place it
+    let characterRig: CharacterRig | undefined;
+    let finalPositions = positions;
+    if (charSpec) {
+      const vertPart = Array.from(vertLabel, (l) => (l >= 0 ? infos[l].name : '~cut'));
+      const rig = buildRig(charSpec, positions, vertPart);
+      const posed = forward(rig.bones, rig.parents, localRotations(rig, obj.character));
+      finalPositions = poseVertices(rig, positions, posed, obj.character?.expression);
+      characterRig = { rig, rest: positions, vertPart, posed };
+    }
+    if (finalPositions === positions) finalPositions = new Float32Array(positions);
+    placeVerts(finalPositions, obj);
+    const placed = finalPositions;
     for (let t = 0; t < nTri; ) {
       let e = t + 1;
       while (e < nTri && triLabel[e] === triLabel[t]) e++;
@@ -519,7 +589,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
       for (let i = t * 3; i < e * 3; i++) {
         const v = indices[i];
         for (let k = 0; k < 3; k++) {
-          const c = positions[v * 3 + k];
+          const c = placed[v * 3 + k];
           if (c < p.bbox.min[k]) p.bbox.min[k] = c;
           if (c > p.bbox.max[k]) p.bbox.max[k] = c;
         }
@@ -529,16 +599,17 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
     const comps = res.m.decompose();
     const components = comps.length;
     comps.forEach((c: any) => c.delete());
-    const b = res.m.isEmpty() ? null : boundsOf(positions);
+    const b = res.m.isEmpty() ? null : boundsOf(placed);
     return {
       ok: status === 'NoError' && !res.m.isEmpty(),
       error: res.m.isEmpty() ? 'result is empty (did a difference remove everything?)' : status !== 'NoError' ? status : undefined,
-      positions, indices,
+      positions: placed, indices,
       parts: [...partMap.values()].sort((a, c) => a.name.localeCompare(c.name, undefined, { numeric: true })),
       bbox: b, status, components,
       volume: res.m.volume(), genus: res.m.genus(), triangles: indices.length / 3,
       unusedOps: unused(),
       ...(collisionInfo ? { collision: collisionInfo } : {}),
+      ...(characterRig ? { rig: characterRig } : {}),
     };
   } catch (e: any) {
     if (e instanceof NotManifold) {
@@ -607,8 +678,20 @@ export function curveProfile(pts: Array<[number, number]>, cornerDeg = 55, sub =
 }
 
 /** Object transform: rotate about Y (degrees) around the object's origin, then move to its position. */
-function placeVerts(p: Float32Array, obj: Pick<SceneObject, 'position' | 'rotation'>) {
+export function placeVerts(p: Float32Array, obj: Pick<SceneObject, 'position' | 'rotation' | 'orientation'>) {
   const [ox, oy, oz] = obj.position;
+  if (obj.orientation) {
+    // full 3D rotation (a prop held in a hand)
+    const [qx, qy, qz, qw] = obj.orientation;
+    for (let i = 0; i < p.length; i += 3) {
+      const x = p[i], y = p[i + 1], z = p[i + 2];
+      const tx = 2 * (qy * z - qz * y), ty = 2 * (qz * x - qx * z), tz = 2 * (qx * y - qy * x);
+      p[i] = x + qw * tx + (qy * tz - qz * ty) + ox;
+      p[i + 1] = y + qw * ty + (qz * tx - qx * tz) + oy;
+      p[i + 2] = z + qw * tz + (qx * ty - qy * tx) + oz;
+    }
+    return;
+  }
   const t = ((obj.rotation ?? 0) * Math.PI) / 180;
   const c = Math.cos(t), s = Math.sin(t);
   for (let i = 0; i < p.length; i += 3) {

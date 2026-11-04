@@ -12,6 +12,8 @@ import type { Material, SceneObject } from './types.ts';
 import { materialForPart } from './materials.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
+import { GlbBuilder } from './glb.ts';
+import { addCharacterNodes, addSkin, cornerVerts, rigAttributes } from './skinexport.ts';
 
 type V3 = [number, number, number];
 export type Target = 'godot' | 'web';
@@ -52,6 +54,7 @@ export interface ObjectReport {
   object: string; name: string; triangles: number; materials: string[];
   uv?: UvReport; collision: Array<{ op: string; shape: string; node: string }>; lods: Array<{ op: string; triangles: number }>;
   baked: boolean;
+  rig?: { bones: number; shapes: number; clips: number };
 }
 export interface GameExportResult { glb: Uint8Array; objects: ObjectReport[] }
 
@@ -90,7 +93,7 @@ export function creasedNormals(res: EvalResult, tris: number[], creaseDeg = 35):
   const fill = count.slice(0, nv);
   for (let i = 0; i < I.length; i++) faces[fill[I[i]]++] = (i / 3) | 0;
   const cos = Math.cos((creaseDeg * Math.PI) / 180);
-  const unit = (t: number) => { const x = fn[t * 3], y = fn[t * 3 + 1], z = fn[t * 3 + 2]; const l = Math.hypot(x, y, z) || 1; return [x / l, y / l, z / l]; };
+  const unit = (t: number) => { const x = fn[t * 3], y = fn[t * 3 + 1], z = fn[t * 3 + 2]; const l = Math.hypot(x, y, z); return l > 1e-20 ? [x / l, y / l, z / l] : [0, 1, 0]; };
   const out = new Float32Array(tris.length * 9);
   tris.forEach((t, k) => {
     const nT = unit(t);
@@ -102,8 +105,8 @@ export function creasedNormals(res: EvalResult, tris: number[], creaseDeg = 35):
         const nF = unit(f);
         if (nF[0] * nT[0] + nF[1] * nT[1] + nF[2] * nT[2] >= cos) { x += fn[f * 3]; y += fn[f * 3 + 1]; z += fn[f * 3 + 2]; }
       }
-      const l = Math.hypot(x, y, z) || 1;
-      out.set([x / l, y / l, z / l], (k * 3 + corner) * 3);
+      const l = Math.hypot(x, y, z);
+      out.set(l > 1e-20 ? [x / l, y / l, z / l] : nT, (k * 3 + corner) * 3);
     }
   });
   return out;
@@ -273,58 +276,20 @@ export function measureUv(list: Unwrapped[], size: number, padding: number): UvR
 }
 
 // ── GLB assembly ───────────────────────────────────────────────────────
-class GlbBuilder {
-  buffers: Uint8Array[] = []; offset = 0;
-  gltf: any = { asset: { version: '2.0', generator: 'ai-3d-studio' }, scene: 0, scenes: [{ nodes: [] }], nodes: [], meshes: [], materials: [], accessors: [], bufferViews: [], images: [], textures: [], samplers: [] };
-  used = new Set<string>();
-  view(bytes: Uint8Array, target?: number) {
-    const pad = (4 - (this.offset % 4)) % 4;
-    if (pad) { this.buffers.push(new Uint8Array(pad)); this.offset += pad; }
-    this.gltf.bufferViews.push({ buffer: 0, byteOffset: this.offset, byteLength: bytes.length, ...(target ? { target } : {}) });
-    this.buffers.push(bytes); this.offset += bytes.length;
-    return this.gltf.bufferViews.length - 1;
-  }
-  accessor(arr: Float32Array, type: 'VEC2' | 'VEC3', minmax = false) {
-    const comps = type === 'VEC2' ? 2 : 3;
-    const acc: any = { bufferView: this.view(new Uint8Array(arr.buffer.slice(arr.byteOffset, arr.byteOffset + arr.byteLength)), 34962), componentType: 5126, count: arr.length / comps, type };
-    if (minmax) {
-      const mn = Array(comps).fill(Infinity), mx = Array(comps).fill(-Infinity);
-      for (let i = 0; i < arr.length; i += comps) for (let k = 0; k < comps; k++) { mn[k] = Math.min(mn[k], arr[i + k]); mx[k] = Math.max(mx[k], arr[i + k]); }
-      acc.min = mn; acc.max = mx;
-    }
-    this.gltf.accessors.push(acc);
-    return this.gltf.accessors.length - 1;
-  }
-  image(png: Uint8Array, name: string) {
-    this.gltf.images.push({ name, mimeType: 'image/png', bufferView: this.view(png) });
-    if (!this.gltf.samplers.length) this.gltf.samplers.push({ magFilter: 9729, minFilter: 9987, wrapS: 33071, wrapT: 33071 });
-    this.gltf.textures.push({ source: this.gltf.images.length - 1, sampler: 0 });
-    return this.gltf.textures.length - 1;
-  }
-  build(): Uint8Array {
-    const g = this.gltf;
-    for (const k of ['images', 'textures', 'samplers', 'materials']) if (!g[k].length) delete g[k];
-    if (this.used.size) g.extensionsUsed = [...this.used];
-    const bin = new Uint8Array(this.offset);
-    let o = 0;
-    for (const b of this.buffers) { bin.set(b, o); o += b.length; }
-    g.buffers = [{ byteLength: bin.length }];
-    const pad = (n: number) => (4 - (n % 4)) % 4;
-    let json = new TextEncoder().encode(JSON.stringify(g));
-    json = Uint8Array.from([...json, ...new Array(pad(json.length)).fill(0x20)]);
-    const binPadded = new Uint8Array(bin.length + pad(bin.length));
-    binPadded.set(bin);
-    const total = 12 + 8 + json.length + 8 + binPadded.length;
-    const out = new Uint8Array(total);
-    const dv = new DataView(out.buffer);
-    dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
-    dv.setUint32(12, json.length, true); dv.setUint32(16, 0x4e4f534a, true); out.set(json, 20);
-    const bo = 20 + json.length;
-    dv.setUint32(bo, binPadded.length, true); dv.setUint32(bo + 4, 0x004e4942, true); out.set(binPadded, bo + 8);
-    return out;
-  }
-}
 
+const concatU = (list: Uint32Array[]) => { const out = new Uint32Array(list.reduce((n, a) => n + a.length, 0)); let o = 0; for (const a of list) { out.set(a, o); o += a.length; } return out; };
+/** A character's bind pose placed at its position (no rotation: the node carries that), so sub(origin) gives object space. */
+function restWorld(res: EvalResult, obj: SceneObject): EvalResult {
+  const rest = res.rig!.rest, [ox, oy, oz] = obj.position;
+  const positions = new Float32Array(rest.length);
+  for (let i = 0; i < rest.length; i += 3) { positions[i] = rest[i] + ox; positions[i + 1] = rest[i + 1] + oy; positions[i + 2] = rest[i + 2] + oz; }
+  const parts = res.parts.map((p) => {
+    const bbox = { min: [Infinity, Infinity, Infinity] as V3, max: [-Infinity, -Infinity, -Infinity] as V3 };
+    for (const [s, n] of p.ranges) for (let i = s * 3; i < (s + n) * 3; i++) { const v = res.indices[i]; for (let k = 0; k < 3; k++) { bbox.min[k] = Math.min(bbox.min[k], positions[v * 3 + k]); bbox.max[k] = Math.max(bbox.max[k], positions[v * 3 + k]); } }
+    return { ...p, bbox };
+  });
+  return { ...res, positions, parts };
+}
 const sub = (a: Float32Array, [ox, oy, oz]: number[]) => { const r = new Float32Array(a.length); for (let i = 0; i < a.length; i += 3) { r[i] = a[i] - ox; r[i + 1] = a[i + 1] - oy; r[i + 2] = a[i + 2] - oz; } return r; };
 
 function flatCorners(res: EvalResult, tris: number[]): Float32Array {
@@ -342,12 +307,16 @@ const trisOf = (res: EvalResult, parts: string[]) => {
 export async function exportGame(items: GameExportItem[], opts: GameExportOpts): Promise<GameExportResult> {
   const B = new GlbBuilder();
   const reports: ObjectReport[] = [];
-  for (const { obj, res } of items) {
-    if (obj.role === 'reference' || !res.ok) continue;
+  for (const { obj, res: posedRes } of items) {
+    if (obj.role === 'reference' || !posedRes.ok) continue;
+    // characters export in their bind pose (T-pose, neutral face); the current pose/face become the "pose" clip
+    const res: EvalResult = posedRes.rig ? restWorld(posedRes, obj) : posedRes;
+    const budget = obj.profile ? budgetFor(obj.profile) : null;
+    const skin = res.rig ? addSkin(B, res, budget ? !budget.fingers : false) : null;
     const size = opts.texture ?? (obj.profile ? budgetFor(obj.profile).texture : 1024);
     const padding = Math.max(2, Math.round(size / 256));
     const origin = obj.position;
-    const lodOps = opts.target === 'web' ? obj.opOrder.filter((id) => obj.ops[id]?.op === 'lod') : [];
+    const lodOps = opts.target === 'web' && !res.rig ? obj.opOrder.filter((id) => obj.ops[id]?.op === 'lod') : [];
     const lodRes = lodOps.map((id) => ({ id, res: opts.evaluateOp(obj, id) })).filter((l) => l.res.ok);
     const groups: MaterialGroup[] = opts.baker ? materialGroups(obj, res) : plainGroups(obj, res);
     const report: ObjectReport = { object: obj.id, name: obj.name, triangles: res.triangles, materials: [], collision: [], lods: [], baked: !!opts.baker };
@@ -395,20 +364,32 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
         if (g.textured && tex) {
           const us = unwrapped.filter((u) => u.chunk.lod === lod && parts.includes(u.chunk.name));
           const pos = concat(us.map((u) => sub(u.corners, origin))), nor = concat(us.map((u) => u.normals)), uv = concat(us.map((u) => u.uvs));
-          prims.push({ attributes: { POSITION: B.accessor(pos, 'VEC3', true), NORMAL: B.accessor(nor, 'VEC3'), TEXCOORD_0: B.accessor(uv, 'VEC2') }, material: materialFor(g) });
+          const prim: any = { attributes: { POSITION: B.accessor(pos, 'VEC3', true), NORMAL: B.accessor(nor, 'VEC3'), TEXCOORD_0: B.accessor(uv, 'VEC2') }, material: materialFor(g) };
+          if (skin && !lod) { const rg = rigAttributes(B, r, concatU(us.map((u) => cornerVerts(u.chunk.res, u.chunk.tris))), skin, opts.target === 'web'); Object.assign(prim.attributes, rg.attributes); prim.targets = rg.targets; }
+          prims.push(prim);
         } else {
           const tris = trisOf(r, parts);
           if (!tris.length) continue;
-          prims.push({ attributes: { POSITION: B.accessor(sub(flatCorners(r, tris), origin), 'VEC3', true), NORMAL: B.accessor(creasedNormals(r, tris), 'VEC3') }, material: materialFor(g) });
+          const prim: any = { attributes: { POSITION: B.accessor(sub(flatCorners(r, tris), origin), 'VEC3', true), NORMAL: B.accessor(creasedNormals(r, tris), 'VEC3') }, material: materialFor(g) };
+          if (skin && !lod) { const rg = rigAttributes(B, r, cornerVerts(r, tris), skin, opts.target === 'web'); Object.assign(prim.attributes, rg.attributes); prim.targets = rg.targets; }
+          prims.push(prim);
         }
       }
       B.gltf.meshes.push({ name: lod ? `${obj.name} ${lod}` : obj.name, primitives: prims });
       return B.gltf.meshes.length - 1;
     };
-    const node: any = { name: obj.name, mesh: meshFor(res), translation: [...origin], extras: { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])), ...(obj.profile ? { profile: obj.profile.name } : {}) } };
-    B.gltf.nodes.push(node);
-    const nodeIndex = B.gltf.nodes.length - 1;
-    B.gltf.scenes[0].nodes.push(nodeIndex);
+    const extras: any = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])), ...(obj.profile ? { profile: obj.profile.name } : {}) };
+    let node: any;
+    if (skin) {
+      const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}) } });
+      node = B.gltf.nodes[roots[0]];
+      B.gltf.scenes[0].nodes.push(...roots);
+      report.rig = { bones: skin.kept.length, shapes: skin.shapeNames.length, clips: B.gltf.animations?.length ?? 0 };
+    } else {
+      node = { name: obj.name, mesh: meshFor(res), translation: [...origin], extras };
+      B.gltf.nodes.push(node);
+      B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1);
+    }
     // distance versions: MSFT_lod (loaders without it just show the full mesh); not for Godot, which makes its own
     if (lodRes.length) {
       const ids: number[] = [];

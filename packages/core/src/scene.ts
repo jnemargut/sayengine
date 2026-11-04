@@ -3,6 +3,8 @@
 // changing the stool's height keeps the vase on it. Stored positions of placed objects are ignored.
 import type { BBox, EvalResult } from './kernel.ts';
 import type { Placement, SceneDoc, SceneObject } from './types.ts';
+import { autoGrip, heldPlacement } from './grip.ts';
+import { qAxisAngle, qMul, qRot } from './rig.ts';
 
 type V3 = [number, number, number];
 const GEOMETRY_FIELDS = ['params', 'ops', 'opOrder', 'output', 'material', 'partMaterials', 'rules', 'semanticType', 'profile'] as const;
@@ -45,6 +47,23 @@ export function solvePlacements(doc: SceneDoc, evalAt: (o: SceneObject) => EvalR
     if (errors[id]) { state.set(id, 'done'); return; }
     const tr = evalAt(t);
     if (!tr.bbox) { errors[id] = `"${t.name}" has no geometry yet to place against`; state.set(id, 'done'); return; }
+    if (p.kind === 'held') {
+      // a prop in a character's hand: the grip socket goes where the posed hand holds
+      if (!tr.rig) { errors[id] = `"${t.name}" is not a character, so it can't hold things`; state.set(id, 'done'); return; }
+      let grip = o.grip;
+      if (!grip) {
+        const local = evalAt({ ...o, position: [0, 0, 0], rotation: 0, orientation: undefined });
+        try { grip = autoGrip(local.positions, local.indices); } catch (e: any) { errors[id] = e.message; state.set(id, 'done'); return; }
+      }
+      const h = heldPlacement(tr.rig, p.hand, grip);
+      const qc = qAxisAngle([0, 1, 0], t.rotation ?? 0);
+      const wp = qRot(qc, h.p);
+      o.orientation = qMul(qc, h.q).map((v) => +v.toFixed(7)) as [number, number, number, number];
+      o.position = [wp[0] + t.position[0], wp[1] + t.position[1], wp[2] + t.position[2]].map((v) => +v.toFixed(6)) as V3;
+      o.rotation = 0;
+      state.set(id, 'done');
+      return;
+    }
     const tb = tr.bbox, tc = centre(tb);
     const [dx, dz] = p.offset ?? [0, 0];
     // rotation first (around/along face the target), then the local bounds at that rotation
@@ -122,5 +141,6 @@ export function describePlacement(p: Placement, name: (id: string) => string): s
     case 'align': return `aligned with ${name(p.target)} (${p.edge === 'center' ? 'centres' : `${p.edge} edges`} in ${p.axis})${off}`;
     case 'around': return `${p.index + 1} of ${p.count} around ${name(p.target)}${p.radius !== undefined ? ` at ${fmtM(p.radius)}` : ''}${p.face === 'away' ? ', facing out' : p.face === 'none' ? '' : ', facing it'}${off}`;
     case 'along': return `${p.index + 1} of ${p.count} along the ${p.side} of ${name(p.target)}${off}`;
+    case 'held': return `held in ${name(p.target)}'s ${p.hand} hand`;
   }
 }

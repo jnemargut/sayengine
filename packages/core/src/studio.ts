@@ -11,6 +11,9 @@ import { codeView } from './codeview.ts';
 import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
+import { poseChecks, weightReport, type PoseCheck } from './rig.ts';
+import { fingerPenetration } from './grip.ts';
+import { lineChecks } from './lipsync.ts';
 
 export interface CallResult {
   ok: boolean;
@@ -110,7 +113,8 @@ export class Studio {
   }
 
   evalKey(obj: SceneObject): string {
-    return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0]);
+    const c = obj.character;
+    return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0, obj.orientation ?? null, c ? [c.pose, c.expression, c.hands] : null]);
   }
 
   checks(id: string, doc = this.doc()): CheckResult[] {
@@ -120,10 +124,51 @@ export class Studio {
     if (o.role === 'reference') {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }
-    const base = [...runChecks(o, r), ...this.sceneChecks(o, doc)];
+    const base = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc)];
     if (!o.profile) return base;
     const midBuild = base.some((c) => c.pending);
     return [...base, ...profileChecks(o, r, { evaluateOp: (x, id) => this.evaluateOp(x, id), overlap: (a, b) => overlapVolume(a, b) }, midBuild)];
+  }
+
+  private poseCache = new Map<string, PoseCheck[]>();
+  /** The canonical pose set for a character (cached per geometry: pose/expression changes don't rerun it). */
+  poseChecks(o: SceneObject): PoseCheck[] {
+    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output]);
+    let v = this.poseCache.get(key);
+    if (!v) {
+      const r = this.evaluate(o);
+      if (!r.rig) return [];
+      v = poseChecks(r.rig.rig, r.rig.rest, r.indices, r.rig.vertPart);
+      if (this.poseCache.size > 20) this.poseCache.delete(this.poseCache.keys().next().value!);
+      this.poseCache.set(key, v);
+    }
+    return v;
+  }
+
+  /** Characters: skin weights, the canonical pose set, fingers clear of held props, spoken lines. */
+  characterChecks(o: SceneObject, doc: SceneDoc): CheckResult[] {
+    const r = this.evaluate(o);
+    if (!r.ok || !r.rig) return [];
+    const out: CheckResult[] = [];
+    const w = weightReport(r.rig.rig);
+    out.push({ id: 'skin-weights', label: 'Skin weights', pass: !w.unbound && !w.badSum && w.maxInfluences <= 4, detail: w.unbound || w.badSum ? `${w.unbound} unbound vertices, ${w.badSum} whose weights don't sum to 1` : `every vertex bound, ≤ ${w.maxInfluences} bones each, weights sum to 1` });
+    const poses = this.poseChecks(o);
+    const bad = poses.filter((p) => !p.pass);
+    out.push({
+      id: 'pose-checks', label: `Bends cleanly in ${poses.length} test poses`, pass: !bad.length,
+      detail: bad.length ? bad.map((p) => `${p.pose}: ${p.detail}`).join('; ') + ' (studio pose-check for all)' : `worst: ${[...poses].sort((a, b) => a.volume - b.volume)[0]?.detail ?? ''}`,
+    });
+    for (const hand of ['left', 'right'] as const) {
+      const pid = o.character?.holds?.[hand];
+      const p = pid ? doc.objects[pid] : undefined;
+      if (!pid) continue;
+      if (!p) { out.push({ id: `hold-${hand}`, label: `Holds something in the ${hand} hand`, pass: false, detail: `holds "${pid}", which no longer exists — studio release --character ${o.id} --hand ${hand}` }); continue; }
+      const pr = this.evaluate(p);
+      const n = pr.ok ? fingerPenetration(r.rig, r.positions, hand, { P: pr.positions, I: pr.indices }) : 0;
+      out.push({ id: `hold-${hand}`, label: `Fingers clear of ${p.name}`, pass: n === 0, detail: n ? `${n} finger points pass through ${p.name} — loosen the grip (set-hand --curl) or adjust its grip (set-grip)` : `${hand} hand wraps ${p.name} without passing through it` });
+    }
+    for (const [id, line] of Object.entries(o.character?.lines ?? {})) out.push(...lineChecks(id, line));
+    return out;
   }
 
   /** Checks that involve other objects: placement solved, resting on its support, no overlaps. */
@@ -148,6 +193,8 @@ export class Studio {
     for (const id of doc.objectOrder) {
       const other = doc.objects[id];
       if (id === o.id || !other || other.role === 'reference') continue;
+      // a prop in a hand touches the hand by design (the finger check covers it)
+      if ((o.place?.kind === 'held' && o.place.target === id) || (other.place?.kind === 'held' && other.place.target === o.id)) continue;
       const v = this.overlap(o, other);
       if (v > 1e-7) hits.push(`${other.name} by ${(v * 1e6).toFixed(1)} cm³`);
     }
