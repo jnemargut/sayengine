@@ -52,7 +52,23 @@ test('smooth subdivides, round grows by r, trim cuts at the floor', () => {
   assert.ok(near(rd.bbox.max[0], 0.12));
   const tr = studioWith([['add-op', box], ['add-op', { id: 'a', op: 'trim', inputs: ['b'], output: true }]]).info;
   assert.ok(near(tr.bbox.min[1], 0) && near(tr.bbox.max[1], 0.1));
-  assert.ok(!tr.parts.some((p: any) => p.name === 'unknown'), 'cut faces are named ~cut, not unknown');
+  assert.ok(!tr.parts.some((p: any) => p.name === 'unknown' || p.name === '~cut'), 'trim caps join the part they cut');
+});
+
+test('trimmed legs keep their own part on the cut feet (so metal legs get metal feet)', () => {
+  const s = new Studio();
+  const ok = (t: string, a: object) => { const r = s.call(t, a); assert.ok(r.ok, `${t}: ${r.error}`); return r; };
+  ok('new-object', { name: 'Stool', type: 'stool' });
+  ok('add-op', { id: 'seat', op: 'box', part: 'seat', args: { size: [0.36, 0.03, 0.36], at: [0, 0.435, 0] } });
+  ok('add-op', { id: 'leg', op: 'cylinder', part: 'leg', output: false, args: { r: 0.015, h: 0.44 } });
+  ok('add-op', { id: 'legs', op: 'placeAt', inputs: ['leg'], output: false, args: { target: 'seat', anchor: 'corners:bottom', inset: 0.05, splay: 10 } });
+  ok('add-op', { id: 'body', op: 'union', inputs: ['seat', 'legs'], output: false });
+  ok('add-op', { id: 'stool', op: 'trim', inputs: ['body'], output: true });
+  const parts = (s.call('inspect').result as any).parts as Array<{ name: string; min: number[] }>;
+  assert.ok(!parts.some((p) => p.name === '~cut'), `no orphan cut faces: ${parts.map((p) => p.name)}`);
+  const legs = parts.filter((p) => p.name.startsWith('leg'));
+  assert.equal(legs.length, 4);
+  for (const l of legs) assert.ok(Math.abs(l.min[1]) < 1e-4, `${l.name} reaches the floor (its cut foot is part of it)`);
 });
 
 test('splayed legs + trim: grounded and nothing below the floor', () => {

@@ -479,24 +479,52 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
     const indices = new Uint32Array(mesh.triVerts);
     const partMap = new Map<string, PartInfo>();
     const runIndex: Uint32Array = mesh.runIndex, runId: Uint32Array = mesh.runOriginalID;
+    // Label every triangle with its part. Faces a cut creates (trim caps, the flat feet of trimmed
+    // legs) belong to no input part; give each to the part it touches, so a metal leg keeps a metal
+    // foot instead of taking the object's main material. Only faces touching nothing stay "~cut".
+    const nTri = indices.length / 3;
+    const infos: Array<{ name: string; ops: Set<string> }> = [];
+    const triLabel = new Int32Array(nTri).fill(-1);
     for (let r = 0; r < runId.length; r++) {
-      const info = res.parts.get(runId[r]) ?? { name: '~cut', ops: new Set<string>() }; // faces created by trim/cuts
-      const triStart = runIndex[r] / 3, triCount = (runIndex[r + 1] - runIndex[r]) / 3;
-      if (triCount === 0) continue;
+      const info = res.parts.get(runId[r]);
+      if (!info) continue;
+      let li = infos.indexOf(info);
+      if (li < 0) { infos.push(info); li = infos.length - 1; }
+      for (let t = runIndex[r] / 3; t < runIndex[r + 1] / 3; t++) triLabel[t] = li;
+    }
+    const vertLabel = new Int32Array(nv).fill(-1);
+    for (let t = 0; t < nTri; t++) if (triLabel[t] >= 0) for (let k = 0; k < 3; k++) if (vertLabel[indices[t * 3 + k]] < 0) vertLabel[indices[t * 3 + k]] = triLabel[t];
+    for (let pass = 0, changed = true; changed && pass < 64; pass++) {
+      changed = false;
+      for (let t = 0; t < nTri; t++) {
+        if (triLabel[t] >= 0) continue;
+        for (let k = 0; k < 3; k++) {
+          const l = vertLabel[indices[t * 3 + k]];
+          if (l >= 0) { triLabel[t] = l; changed = true; break; }
+        }
+        if (triLabel[t] >= 0) for (let k = 0; k < 3; k++) if (vertLabel[indices[t * 3 + k]] < 0) vertLabel[indices[t * 3 + k]] = triLabel[t];
+      }
+    }
+    const cut = { name: '~cut', ops: new Set<string>() };
+    for (let t = 0; t < nTri; ) {
+      let e = t + 1;
+      while (e < nTri && triLabel[e] === triLabel[t]) e++;
+      const info = triLabel[t] >= 0 ? infos[triLabel[t]] : cut;
       let p = partMap.get(info.name);
       if (!p) {
         p = { name: info.name, ranges: [], bbox: { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] }, ops: [...info.ops] };
         partMap.set(info.name, p);
       }
-      p.ranges.push([triStart, triCount]);
-      for (let t = triStart * 3; t < (triStart + triCount) * 3; t++) {
-        const v = indices[t];
+      p.ranges.push([t, e - t]);
+      for (let i = t * 3; i < e * 3; i++) {
+        const v = indices[i];
         for (let k = 0; k < 3; k++) {
           const c = positions[v * 3 + k];
           if (c < p.bbox.min[k]) p.bbox.min[k] = c;
           if (c > p.bbox.max[k]) p.bbox.max[k] = c;
         }
       }
+      t = e;
     }
     const comps = res.m.decompose();
     const components = comps.length;
