@@ -4,11 +4,20 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { initKernel, Studio, MemoryAssets, toGLB, toSTL } from '../packages/core/src/index.ts';
+import { initKernel, Studio, MemoryAssets, toGLB, toSTL, exportGame, validateGlb } from '../packages/core/src/index.ts';
+import { solidPng } from '../packages/core/test/png.ts';
 
 await initKernel();
 
-type Task = { name: string; run(s: Studio, step: (t: string, a?: object) => any): void; expect(s: Studio): string | null };
+type Task = { name: string; run(s: Studio, step: (t: string, a?: object) => any): void | Promise<void>; expect(s: Studio): string | null | Promise<string | null> };
+
+// Game export without a browser: a fake baker returns solid textures (the real bake runs in the view).
+const fakeBaker = async (req: { size: number }) => ({ baseColor: solidPng(req.size, req.size, [94, 63, 44, 255]), metallicRoughness: solidPng(req.size, req.size, [0, 140, 0, 255]) });
+const gltfJson = (glb: Uint8Array) => JSON.parse(new TextDecoder().decode(glb.subarray(20, 20 + new DataView(glb.buffer, glb.byteOffset).getUint32(12, true))));
+const gameExport = (s: Studio, target: 'godot' | 'web', ids?: string[]) => {
+  const doc = s.doc();
+  return exportGame((ids ?? doc.objectOrder).map((id) => ({ obj: doc.objects[id], res: s.evaluate(doc.objects[id]) })), { target, baker: fakeBaker, evaluateOp: (o, id) => s.evaluateOp(o, id) });
+};
 
 const allPass = (s: Studio, id?: string) => {
   const doc = s.doc();
@@ -232,6 +241,70 @@ const tasks: Task[] = [
       return json.nodes.length === 1 ? allPass(s) : 'reference was exported';
     },
   },
+  {
+    name: '15. Game asset for Godot: profile, collision, baked export that validates',
+    run(s, step) {
+      buildStool(step);
+      step('set-profile', { profile: 'godot-desktop' });
+      step('add-op', { id: 'col', op: 'collision', inputs: ['stool'], args: { shape: 'hull' } });
+    },
+    async expect(s) {
+      const fail = allPass(s);
+      if (fail) return fail;
+      const out = await gameExport(s, 'godot');
+      const v = await validateGlb(out.glb);
+      if (!v.ok) return `validator: ${JSON.stringify(v.messages)}`;
+      const j = gltfJson(out.glb);
+      if (!j.nodes.some((n: any) => /-convcolonly$/.test(n.name))) return 'no Godot collision node';
+      if (j.materials.length !== 1 || !j.materials[0].pbrMetallicRoughness.baseColorTexture) return `expected one baked material, got ${JSON.stringify(j.materials.map((m: any) => m.name))}`;
+      const uv = out.objects[0].uv!;
+      return uv.checks.every((c) => c.pass) ? null : uv.checks.filter((c) => !c.pass).map((c) => c.detail).join('; ');
+    },
+  },
+  {
+    name: '16. Mobile web budget: a too-detailed vase is flagged, then fixed with fewer segments, a hull and a lod',
+    run(s, step) {
+      step('new-object', { name: 'Vase', type: 'vase', material: 'glazed-ceramic', color: '#3f6f8a' });
+      step('set-profile', { profile: 'web-mobile' });
+      step('set-params', { values: { h: 0.3, t: 0.006, rBase: 0.065, rBelly: 0.105, rNeck: 0.04, rLip: 0.052 } });
+      const r = step('add-op', { id: 'body', op: 'revolve', args: { curve: true, profile: [[0, 0], ['$rBase', 0], ['$rBelly', '$h*0.38'], ['$rNeck', '$h*0.84'], ['$rLip', '$h'], ['$rLip - $t', '$h'], ['$rNeck - $t', '$h*0.84'], ['$rBelly - $t', '$h*0.38'], ['$rBase - $t', '$t'], [0, '$t']] } });
+      if (!r.checks.vase.failures.some((f: any) => f.id === 'budget-triangles')) throw new Error('triangle budget was not flagged');
+      step('set-op', { id: 'body', args: { segments: 24 } });
+      step('add-op', { id: 'col', op: 'collision', inputs: ['body'], args: { shape: 'hull' } });
+      step('add-op', { id: 'lod1', op: 'lod', inputs: ['body'], args: { ratio: 0.4 } });
+    },
+    async expect(s) {
+      const fail = allPass(s);
+      if (fail) return fail;
+      const out = await gameExport(s, 'web');
+      const v = await validateGlb(out.glb);
+      if (!v.ok) return `validator: ${JSON.stringify(v.messages)}`;
+      const j = gltfJson(out.glb);
+      const main = j.nodes.find((n: any) => n.name === 'Vase');
+      if (!main?.extensions?.MSFT_lod?.ids?.length) return 'no distance version (MSFT_lod)';
+      const glaze = j.materials.find((m: any) => m.extensions?.KHR_materials_clearcoat);
+      return glaze?.pbrMetallicRoughness?.baseColorTexture ? null : 'glazed material lost its clearcoat or texture';
+    },
+  },
+  {
+    name: '17. Over budget mid-build is pending, finished is failing; a capsule that misses the mesh is caught',
+    run(s, step) {
+      step('new-object', { name: 'Crate', type: 'prop', material: 'oak' });
+      step('set-profile', { profile: 'web-mobile', triangles: 100 });
+      step('add-op', { id: 'box', op: 'roundedBox', args: { size: [0.4, 0.4, 0.4], r: 0.03, at: [0, 0.2, 0] } });
+      step('add-op', { id: 'spare', op: 'box', output: false, args: { size: [0.1, 0.1, 0.1] } });
+    },
+    expect(s) {
+      const pend = s.checks('crate').find((c) => c.id === 'budget-triangles');
+      if (!pend || pend.pass || !pend.pending) return `mid-build budget should be pending: ${JSON.stringify(pend)}`;
+      s.call('remove-op', { id: 'spare' });
+      const done = s.checks('crate').find((c) => c.id === 'budget-triangles');
+      if (!done || done.pass || done.pending) return `finished over-budget should fail: ${JSON.stringify(done)}`;
+      s.call('add-op', { id: 'col', op: 'collision', inputs: ['box'], args: { shape: 'capsule', axis: 'x' } });
+      const col = s.checks('crate').find((c) => c.id === 'collision-col');
+      return col && !col.pass ? null : `a capsule around a cube should not cover it: ${JSON.stringify(col)}`;
+    },
+  },
 ];
 
 let failed = 0;
@@ -246,7 +319,7 @@ for (const t of tasks) {
     return r;
   };
   let problem: string | null;
-  try { t.run(s, step); problem = t.expect(s); } catch (e: any) { problem = e.message; }
+  try { await t.run(s, step); problem = await t.expect(s); } catch (e: any) { problem = e.message; }
   const ms = (performance.now() - t0).toFixed(0);
   console.log(`${problem ? 'FAIL' : 'pass'}  ${t.name}  (${calls} calls, ${errors} errors, ${ms} ms)${problem ? `\n      ${problem}` : ''}`);
   if (problem) failed++;

@@ -19,7 +19,10 @@ export const OP_NAMES = [
   'placeAt', 'array',
   'round', 'smooth', 'trim',
   'mesh',
+  'collision', 'lod',
 ] as const;
+/** Ops that make a side product (a physics shape, a distance version) instead of feeding the output. */
+export const AUX_OPS: readonly string[] = ['collision', 'lod'];
 export type OpName = (typeof OP_NAMES)[number];
 
 export interface OpNode {
@@ -84,7 +87,20 @@ export interface SceneObject {
   instanceOf?: string;           // linked copy: geometry, params and materials come from this object
   role?: 'model' | 'reference';  // references are shown translucent and excluded from export/overlap checks
   reference?: Reference;
+  profile?: GameProfile;         // game export profile: adds budget checks, drives export --target
   rules: Rule[];
+}
+
+/** A game export profile (Decision 17): budgets shown as checks after every step. */
+export interface GameProfile {
+  name: 'godot-desktop' | 'web' | 'web-mobile';
+  triangles?: number;            // overrides of the profile's budgets
+  texture?: number;              // baked texture size in px (square)
+  textureMax?: number;
+  materials?: number;
+  bones?: number;
+  weights?: number;
+  collision?: boolean;           // require a collision shape
 }
 
 export interface SceneDoc {

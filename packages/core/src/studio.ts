@@ -2,6 +2,7 @@
 import { History, getAt, setAt, type Change, type Commit, type RepoData } from './history.ts';
 import { evaluateObject, overlapVolume, setMeshLoader, supportOf, type EvalResult } from './kernel.ts';
 import { runChecks, type CheckResult } from './checks.ts';
+import { profileChecks } from './profiles.ts';
 import { MemoryAssets, type AssetStore } from './assets.ts';
 import { parseMesh, type MeshFormat, type RawMesh } from './importers.ts';
 import { fillInstances, solvePlacements, describePlacement } from './scene.ts';
@@ -28,7 +29,7 @@ export interface Activity { time: string; author: string; tool: string; args: st
 const clone = <T>(x: T): T => structuredClone(x);
 
 /** Tools that change an object's geometry/params/materials — not allowed on a linked copy. */
-const SOURCE_ONLY = new Set(['set-param', 'set-params', 'add-op', 'set-op', 'remove-op', 'set-output', 'add-rule', 'set-material']);
+const SOURCE_ONLY = new Set(['set-param', 'set-params', 'add-op', 'set-op', 'remove-op', 'set-output', 'add-rule', 'set-material', 'set-profile']);
 
 export class Studio {
   history: History;
@@ -96,6 +97,18 @@ export class Studio {
     return r;
   }
 
+  /** Evaluate a side-product op (collision / lod) with the object's placement. */
+  evaluateOp(obj: SceneObject, opId: string): EvalResult {
+    const key = this.evalKey(obj) + '#' + opId;
+    let r = this.evalCache.get(key);
+    if (!r) {
+      r = evaluateObject(obj, opId);
+      if (this.evalCache.size > 300) this.evalCache.delete(this.evalCache.keys().next().value!);
+      this.evalCache.set(key, r);
+    }
+    return r;
+  }
+
   evalKey(obj: SceneObject): string {
     return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0]);
   }
@@ -107,7 +120,10 @@ export class Studio {
     if (o.role === 'reference') {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }
-    return [...runChecks(o, r), ...this.sceneChecks(o, doc)];
+    const base = [...runChecks(o, r), ...this.sceneChecks(o, doc)];
+    if (!o.profile) return base;
+    const midBuild = base.some((c) => c.pending);
+    return [...base, ...profileChecks(o, r, { evaluateOp: (x, id) => this.evaluateOp(x, id), overlap: (a, b) => overlapVolume(a, b) }, midBuild)];
   }
 
   /** Checks that involve other objects: placement solved, resting on its support, no overlaps. */
@@ -272,7 +288,7 @@ export class Studio {
     const r4 = (v: number[]) => v.map((x) => +x.toFixed(4));
     return {
       id, name: o.name, type: o.semanticType, description: o.description,
-      material: resolveMaterial(o.material), partMaterials: o.partMaterials,
+      material: resolveMaterial(o.material), partMaterials: o.partMaterials, profile: o.profile ?? null,
       position: o.position, rotation: o.rotation ?? 0,
       placement: o.place ? { ...o.place, description: describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) } : null,
       linkedCopyOf: o.instanceOf, role: o.role ?? 'model', reference: o.reference,

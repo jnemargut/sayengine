@@ -4,7 +4,7 @@
 
 import Module from 'manifold-3d';
 import { num, vec3, type ParamValues } from './expr.ts';
-import type { SceneObject, OpNode } from './types.ts';
+import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
 
 type V3 = [number, number, number];
@@ -32,7 +32,12 @@ export interface EvalResult {
   triangles: number;
   unusedOps: string[];
   manifold?: boolean;              // false for an imported mesh that isn't watertight (shown, not usable in booleans)
+  uvs?: Float32Array;              // per-vertex UVs when the shape brings its own (character templates); export unwraps otherwise
+  collision?: CollisionInfo;       // set when the root op is a collision op
 }
+
+/** What a collision op fitted, in object space before placement (for engines that want primitives). */
+export interface CollisionInfo { shape: 'box' | 'hull' | 'capsule' | 'sphere'; center: V3; size?: V3; radius?: number; height?: number; axis?: 'x' | 'y' | 'z' }
 
 /** Imported meshes are resolved through this hook (the Studio wires it to its asset store). */
 type MeshLoader = (args: Record<string, unknown>) => RawMesh;
@@ -91,7 +96,11 @@ function anchorPoints(b: BBox, anchor: string, inset: number): V3[] {
 type Part = { name: string; ops: Set<string> };
 type Val = { m: any; parts: Map<number, Part> };
 
-export function evaluateObject(obj: SceneObject): EvalResult {
+/**
+ * Evaluate an object's op graph. `root` defaults to the output; pass a collision or lod op id to
+ * evaluate that side product instead (same parts, placement and caching rules).
+ */
+export function evaluateObject(obj: SceneObject, root: string | null = obj.output): EvalResult {
   if (!wasm) throw new Error('kernel not initialised — call initKernel() first');
   const { Manifold } = wasm;
   const params: ParamValues = Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value]));
@@ -104,8 +113,11 @@ export function evaluateObject(obj: SceneObject): EvalResult {
   const empty = (extra: Partial<EvalResult>): EvalResult => ({
     ok: false, positions: new Float32Array(), indices: new Uint32Array(), parts: [], bbox: null,
     status: 'Empty', components: 0, volume: 0, genus: 0, triangles: 0,
-    unusedOps: obj.opOrder.filter((id) => !reached.has(id)), ...extra,
+    unusedOps: unused(), ...extra,
   });
+  // collision/lod ops are side products, never "unused"
+  const unused = () => obj.opOrder.filter((id) => !reached.has(id) && !AUX_OPS.includes(obj.ops[id]?.op));
+  let collisionInfo: CollisionInfo | undefined;
 
   const boxOf = (m: any): BBox => {
     const b = m.boundingBox();
@@ -376,6 +388,71 @@ export function evaluateObject(obj: SceneObject): EvalResult {
           out = { m: inst.length === 1 ? inst[0] : keep(Manifold.union(inst)), parts };
           break;
         }
+        case 'collision': {
+          // A simple physics shape fitted to its input: box | hull | capsule | sphere (object space).
+          need(1);
+          const shape = String(A.shape ?? 'hull');
+          const b = boxOf(ins[0].m);
+          const c: V3 = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
+          const size: V3 = [b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]];
+          const pad = P('padding', 0);
+          let m: any;
+          if (shape === 'box') {
+            const sz = size.map((v) => v + 2 * pad) as V3;
+            m = keep(Manifold.cube(sz, true)).translate(c);
+            collisionInfo = { shape: 'box', center: c, size: sz };
+          } else if (shape === 'hull') {
+            m = Manifold.hull([ins[0].m]);
+            collisionInfo = { shape: 'hull', center: c, size };
+          } else if (shape === 'sphere' || shape === 'capsule') {
+            const verts = ins[0].m.getMesh();
+            const np = verts.numProp, vp: Float32Array = verts.vertProperties;
+            const ax = shape === 'capsule' ? String(A.axis ?? (['x', 'y', 'z'][size.indexOf(Math.max(...size))])) as 'x' | 'y' | 'z' : 'y';
+            const k = ax === 'x' ? 0 : ax === 'y' ? 1 : 2;
+            let r = 0;
+            for (let i = 0; i < vp.length; i += np) {
+              const d = shape === 'sphere'
+                ? Math.hypot(vp[i] - c[0], vp[i + 1] - c[1], vp[i + 2] - c[2])
+                : Math.hypot(...[0, 1, 2].filter((j) => j !== k).map((j) => vp[i + j] - c[j]));
+              if (d > r) r = d;
+            }
+            r += pad;
+            const seg = P('segments', 24);
+            if (shape === 'sphere') {
+              m = keep(Manifold.sphere(r, seg)).translate(c);
+              collisionInfo = { shape: 'sphere', center: c, radius: r };
+            } else {
+              // capsule: end caps sit so the whole input fits between them
+              const half = Math.max(0, size[k] / 2 + pad - r);
+              const a = [...c] as V3, z = [...c] as V3;
+              a[k] -= half; z[k] += half;
+              m = half > 0 ? Manifold.hull([keep(keep(Manifold.sphere(r, seg)).translate(a)), keep(keep(Manifold.sphere(r, seg)).translate(z))]) : keep(Manifold.sphere(r, seg)).translate(c);
+              collisionInfo = { shape: 'capsule', center: c, radius: r, height: 2 * (half + r), axis: ax };
+            }
+          } else throw new Error('collision shape must be box | hull | capsule | sphere');
+          out = original(keep(m), node.part ?? 'collision', id);
+          break;
+        }
+        case 'lod': {
+          // A simplified copy for distance: ratio = target share of the input's triangles (0.05–0.95).
+          need(1);
+          const ratio = P('ratio', 0.5);
+          if (!(ratio > 0 && ratio < 1)) throw new Error('lod ratio must be between 0 and 1 (e.g. 0.5 = half the triangles)');
+          const src = ins[0].m;
+          const target = Math.max(4, Math.floor(src.numTri() * ratio));
+          const b = boxOf(src);
+          const diag = Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
+          // binary search the smallest tolerance that reaches the target triangle count
+          let lo = 0, hi = diag * 0.2, best: any = null;
+          for (let i = 0; i < 14; i++) {
+            const mid = (lo + hi) / 2;
+            const cand = keep(src.simplify(mid));
+            if (cand.numTri() <= target) { best = cand; hi = mid; } else lo = mid;
+          }
+          if (!best) best = keep(src.simplify(hi));
+          out = { m: best, parts: withOp(ins[0].parts, id) };
+          break;
+        }
         default:
           throw new Error(`unknown op "${(node as OpNode).op}"`);
       }
@@ -390,8 +467,8 @@ export function evaluateObject(obj: SceneObject): EvalResult {
   };
 
   try {
-    if (!obj.output) return empty({ ok: true, status: 'NoOutput' });
-    const res = ev(obj.output);
+    if (!root) return empty({ ok: true, status: 'NoOutput' });
+    const res = ev(root);
     const status: string = res.m.status();
     const mesh = res.m.getMesh();
     const np = mesh.numProp;
@@ -432,7 +509,8 @@ export function evaluateObject(obj: SceneObject): EvalResult {
       parts: [...partMap.values()].sort((a, c) => a.name.localeCompare(c.name, undefined, { numeric: true })),
       bbox: b, status, components,
       volume: res.m.volume(), genus: res.m.genus(), triangles: indices.length / 3,
-      unusedOps: obj.opOrder.filter((id) => !reached.has(id)),
+      unusedOps: unused(),
+      ...(collisionInfo ? { collision: collisionInfo } : {}),
     };
   } catch (e: any) {
     if (e instanceof NotManifold) {

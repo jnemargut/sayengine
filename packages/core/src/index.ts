@@ -11,3 +11,5 @@ export * from './materials.ts';
 export * from './assets.ts';
 export * from './importers.ts';
 export * from './scene.ts';
+export * from './profiles.ts';
+export * from './gameexport.ts';

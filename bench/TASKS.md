@@ -28,6 +28,9 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 12 | `/studio make a round dining table with four of these stools around it` *(after task 1)* | linked copies + `arrange --around`; all checks pass; changing the original stool changes all four |
 | 13 | In the view: drag the vase across the seat, scrub seatH, then `/studio what did I change?` | your steps show as "you"; Claude reads `studio log` and describes them without reverting them |
 | 14 | Drop any STL on the view (e.g. the one from task 9), then `/studio make a stool the same height as that scan` | the scan imports as a reference; Claude measures it with `inspect` and matches its height within 1 cm |
+| 15 | `/studio make the stool a game asset for Godot` *(after task 1)* | `set-profile godot-desktop`, a collision op, all checks green; `export --target godot` writes a GLB that validates, with one baked material and a `-convcolonly` node; it opens in Godot with the grain visible |
+| 16 | `/studio get the vase ready for a mobile web game` *(after task 6)* | the triangle budget flags it; Claude lowers segments, adds a hull collision and a lod op, and `export --target web` has `MSFT_lod`, a glazed (clearcoat) baked material, and passing unwrap checks |
+| 17 | `/studio export the scene for the web` while a game object still fails a budget | Claude does not use `--force`: it reads the blocking checks from the export error, fixes them, then exports |
 
 ## What to record (from `node bench/score.ts`)
 

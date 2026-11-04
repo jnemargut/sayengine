@@ -5,7 +5,7 @@ import type { BBox, EvalResult } from './kernel.ts';
 import type { Placement, SceneDoc, SceneObject } from './types.ts';
 
 type V3 = [number, number, number];
-const GEOMETRY_FIELDS = ['params', 'ops', 'opOrder', 'output', 'material', 'partMaterials', 'rules', 'semanticType'] as const;
+const GEOMETRY_FIELDS = ['params', 'ops', 'opOrder', 'output', 'material', 'partMaterials', 'rules', 'semanticType', 'profile'] as const;
 
 /** Copy geometry from the source of a linked copy (follows chains, stops on cycles). */
 export function fillInstances(doc: SceneDoc, errors: Record<string, string>) {

@@ -7,7 +7,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { focusOnState, validFocus } from './focus.ts';
-import { makeMaterial, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
+import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
 
 type V3 = [number, number, number];
 interface BBox { min: V3; max: V3 }
@@ -704,6 +704,91 @@ async function handleRender(msg: any) {
   }
 }
 
+// ── texture bake for game export (Decision 15) ─────────────────────────
+// The daemon sends unwrapped parts (world positions + UVs); each part's material is drawn into
+// UV space with the same grain shader the viewport uses, lighting-free, then islands are dilated
+// so mipmaps don't bleed background into the edges. Two textures: base colour (sRGB) and
+// glTF metallic-roughness (linear: G = roughness, B = metalness).
+const br = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true, alpha: true, premultipliedAlpha: false });
+br.setPixelRatio(1);
+br.toneMapping = THREE.NoToneMapping;
+const UV_VERTEX = 'gl_Position = vec4(bakeUv.x * 2.0 - 1.0, 1.0 - bakeUv.y * 2.0, 0.0, 1.0);';
+
+function dilate(img: ImageData, passes: number) {
+  const { width: W, height: H, data } = img;
+  let filled = new Uint8Array(W * H);
+  let sum = [0, 0, 0], n = 0;
+  for (let i = 0; i < W * H; i++) if (data[i * 4 + 3] > 0) { filled[i] = 1; sum[0] += data[i * 4]; sum[1] += data[i * 4 + 1]; sum[2] += data[i * 4 + 2]; n++; }
+  for (let p = 0; p < passes; p++) {
+    const next = filled.slice();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (filled[i]) continue;
+      let r = 0, g = 0, b = 0, c = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const X = x + dx, Y = y + dy;
+        if (X < 0 || Y < 0 || X >= W || Y >= H) continue;
+        const j = Y * W + X;
+        if (!filled[j]) continue;
+        r += data[j * 4]; g += data[j * 4 + 1]; b += data[j * 4 + 2]; c++;
+      }
+      if (c) { data[i * 4] = r / c; data[i * 4 + 1] = g / c; data[i * 4 + 2] = b / c; data[i * 4 + 3] = 255; next[i] = 1; }
+    }
+    filled = next;
+  }
+  const avg = n ? sum.map((v) => v / n) : [128, 128, 128];
+  for (let i = 0; i < W * H; i++) { if (!filled[i]) { data[i * 4] = avg[0]; data[i * 4 + 1] = avg[1]; data[i * 4 + 2] = avg[2]; } data[i * 4 + 3] = 255; }
+}
+
+function bakePass(parts: any[], size: number, padding: number, kind: 'base' | 'mr'): string {
+  br.outputColorSpace = kind === 'base' ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+  br.setSize(size, size, false);
+  br.setClearColor(0x000000, 0);
+  const s = new THREE.Scene();
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  for (const p of parts) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(p.pos, 3));
+    g.setAttribute('bakeUv', new THREE.BufferAttribute(p.uv, 2));
+    const m: Mat = p.material;
+    const mat = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, toneMapped: false, depthTest: false, depthWrite: false });
+    if (kind === 'base') mat.color.set(m.color);
+    else mat.color.setRGB(0, m.roughness ?? 0.6, m.metalness ?? 0, THREE.LinearSRGBColorSpace);
+    addGrain(mat, kind === 'base' ? m : { ...m, grain: null }, p.bbox, { vertexDecl: 'attribute vec2 bakeUv;\n', vertex: UV_VERTEX });
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.frustumCulled = false;
+    s.add(mesh);
+  }
+  br.render(s, cam);
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const g2 = c.getContext('2d', { willReadFrequently: true })!;
+  g2.drawImage(br.domElement, 0, 0);
+  const img = g2.getImageData(0, 0, size, size);
+  dilate(img, padding * 2);
+  g2.putImageData(img, 0, 0);
+  disposeTree(s);
+  return c.toDataURL('image/png');
+}
+
+async function handleBake(msg: any) {
+  const reply = (body: object) => ws?.send(JSON.stringify({ type: 'bake-result', id: msg.id, ...body }));
+  try {
+    const parts = (msg.parts as any[]).map((p) => ({ ...p, pos: decodeF32(p.positions), uv: decodeF32(p.uvs) }));
+    const baseColor = bakePass(parts, msg.size, msg.padding, 'base');
+    const metallicRoughness = bakePass(parts, msg.size, msg.padding, 'mr');
+    reply({ baseColor, metallicRoughness });
+  } catch (e: any) {
+    reply({ error: e.message ?? String(e) });
+  }
+}
+function decodeF32(b64: string): Float32Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Float32Array(bytes.buffer);
+}
+
 // ── connection ────────────────────────────────────────────────────────
 function connect() {
   const conn = $('#conn');
@@ -724,6 +809,7 @@ function connect() {
       if (previewQueued) { const q = previewQueued; previewQueued = null; requestPreview(q.object, q.params); }
     }
     else if (m.type === 'render') void handleRender(m);
+    else if (m.type === 'bake') void handleBake(m);
     else if (m.type === 'call-result' && !m.result.ok) toast(m.result.error ?? 'error');
   };
 }

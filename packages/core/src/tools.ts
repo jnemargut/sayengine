@@ -6,6 +6,7 @@ import { ANCHORS } from './kernel.ts';
 import { MATERIAL_PRESETS, presetName, resolveMaterial, describeMaterial } from './materials.ts';
 import { describePlacement } from './scene.ts';
 import { formatOf, imageSize, parseMesh, FORMAT_DEFAULTS, type MeshFormat } from './importers.ts';
+import { PROFILES, budgetFor, type ProfileName } from './profiles.ts';
 import type { Material, Placement } from './types.ts';
 
 export interface ToolCtx {
@@ -119,7 +120,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'add-op', mode: 'create', mutates: true,
-    description: 'Add a construction op (level 3). Primitives: box{size,at} (centered at "at"), cylinder{r|r1,r2,h,at} (Y-up, base at "at"), sphere{r,at}, roundedBox{size,r,at}, extrude{profile,h,axis?:y|z|x,center?,curve?,at}, revolve{profile:[[r,y]…],curve?,at}, mesh{asset} (an import). Modifiers take inputs:[id]: round{r}, smooth{levels}, trim{normal?,offset?}. Transforms take inputs:[id]: translate{by}, rotate{deg,about?}, scale{by}, mirror{normal,keep?}. Booleans: union/difference/intersect/hull with inputs. Instancers: placeAt{target,anchor,inset?,splay?,align?} with inputs:[part], array{count,step}. The first op added becomes the output unless --output false; pass --output true to make this op the output.',
+    description: 'Add a construction op (level 3). Primitives: box{size,at} (centered at "at"), cylinder{r|r1,r2,h,at} (Y-up, base at "at"), sphere{r,at}, roundedBox{size,r,at}, extrude{profile,h,axis?:y|z|x,center?,curve?,at}, revolve{profile:[[r,y]…],curve?,at}, mesh{asset} (an import). Modifiers take inputs:[id]: round{r}, smooth{levels}, trim{normal?,offset?}. Transforms take inputs:[id]: translate{by}, rotate{deg,about?}, scale{by}, mirror{normal,keep?}. Booleans: union/difference/intersect/hull with inputs. Instancers: placeAt{target,anchor,inset?,splay?,align?} with inputs:[part], array{count,step}. Game side products (never the output): collision{shape:box|hull|capsule|sphere} and lod{ratio} with inputs:[output]. The first op added becomes the output unless --output false; pass --output true to make this op the output.',
     input: z.object({
       object: ObjRef, id: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/), op: z.enum(OP_NAMES),
       args: z.record(z.string(), z.any()).default({}), inputs: z.array(z.string()).optional(),
@@ -228,6 +229,31 @@ export const TOOLS: ToolDef[] = [
         ctx.summary(`${o.name} → ${describeMaterial(base)}`);
       }
       return { material: resolveMaterial(base), part: a.part ?? null };
+    },
+  },
+  {
+    name: 'set-profile', mode: 'modify', mutates: true,
+    description: `Make an object a game asset: --profile godot-desktop | web | web-mobile (or none to remove). The profile adds budget checks after every step (triangles, baked texture size, materials, bones), requires a collision shape, and asks for distance versions (lod ops) on web. Over-budget while still building shows as pending. Override a budget with --triangles, --texture (baked px), --materials, --collision false. Export it with \`studio export --target godot|web\`.`,
+    input: z.object({
+      object: ObjRef, profile: z.enum(['godot-desktop', 'web', 'web-mobile', 'none']),
+      triangles: z.number().int().positive().optional(), texture: z.number().int().refine((v) => [128, 256, 512, 1024, 2048, 4096].includes(v), 'texture must be 128, 256, 512, 1024, 2048 or 4096').optional(),
+      materials: z.number().int().positive().optional(), collision: z.boolean().optional(),
+    }),
+    example: `studio set-profile --object stool --profile godot-desktop`,
+    run(ctx, a) {
+      const o = ctx.obj(a.object);
+      if (a.profile === 'none') {
+        if (!o.profile) throw new Error(`${o.name} has no game profile`);
+        ctx.set(['objects', o.id, 'profile'], undefined);
+        ctx.summary(`${o.name} is no longer a game asset`);
+        return { profile: null };
+      }
+      const prof: any = { ...(o.profile?.name === a.profile ? o.profile : {}), name: a.profile };
+      for (const k of ['triangles', 'texture', 'materials', 'collision'] as const) if (a[k] !== undefined) prof[k] = a[k];
+      ctx.set(['objects', o.id, 'profile'], prof);
+      const b = budgetFor(prof);
+      ctx.summary(`${o.name}: game profile ${a.profile} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
+      return { profile: prof, budget: { ...b, lodAbove: Number.isFinite(b.lodAbove) ? b.lodAbove : null }, note: PROFILES[a.profile as ProfileName].description };
     },
   },
   {
@@ -671,6 +697,10 @@ export const OP_REFERENCE = {
     scale: 'inputs:[a] { by: n | [x,y,z] }',
     mirror: 'inputs:[a] { normal:[x,y,z], keep?: true } — keep=true unions original + mirror',
   },
+  game: {
+    collision: 'inputs:[output] { shape?: "hull" (default) | "box" | "capsule" | "sphere", padding?: m, axis?: x|y|z (capsule) } — a physics shape fitted to its input. A side product: shown in checks, exported as a collision node, never part of the visible mesh.',
+    lod: 'inputs:[output] { ratio: 0.05–0.95 } — a simplified copy with about ratio × the triangles, for distance. Exported as a distance version (MSFT_lod); engines without LOD support just show the full mesh.',
+  },
   booleans: { union: 'inputs:[a,b,…]', difference: 'inputs:[a, cutters…]', intersect: 'inputs:[a,b,…]', hull: 'inputs:[a,b,…]' },
   instancers: {
     placeAt: `inputs:[part] { target: opId, anchor: ${ANCHORS.join(' | ')}, inset?: m, splay?: deg (tilts instances outward about the anchor), align?: top|bottom|center } — instances named part#1..n`,
@@ -684,6 +714,7 @@ export const OP_REFERENCE = {
     'Organic shape? Start from a revolve or a coarse box/hull, then smooth{levels:2}.',
     'Materials: new-object --material walnut (a preset) gives real wood grain; set-material --part "leg*" --preset black-metal changes just the legs.',
     'Several objects? place-object (on / next-to / under) and arrange keep relations as sizes change; never hand-compute positions from bounding boxes.',
+    'Game asset? set-profile --profile godot-desktop|web, add a collision op, keep the budget checks green, then export --target godot|web (bakes materials into textures).',
   ],
 };
 

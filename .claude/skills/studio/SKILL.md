@@ -1,6 +1,6 @@
 ---
 name: studio
-description: Model 3D objects and small scenes in the AI-first studio — create, modify, give materials, arrange, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches, drags and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, furnish, arrange, render, import a reference for, or export a 3D object (furniture, props, vases, buildings, parts) in this project.
+description: Model 3D objects and small scenes in the AI-first studio — create, modify, give materials, arrange, check, look at, and propose changes to parametric 3D models through the `studio` CLI while the human watches, drags and reviews in the browser view. Use for /studio, or when the user asks to make, model, design, change, fix, compare, furnish, arrange, render, import a reference for, or export a 3D object (furniture, props, vases, buildings, parts) in this project — including game-ready assets for Godot or three.js (budgets, collision, baked textures).
 ---
 
 # /studio — model in the AI-first 3D studio
@@ -76,6 +76,15 @@ Common fixes:
 - `./studio import --file sketch.png --plane front --size 0.6` puts an image behind the model (front/side/top, width in m); front/side renders include it, so model until the outline matches it.
 - The human can also drop files on the view; they show up as `human` import steps.
 
+## Game assets (Godot / three.js)
+
+When the request mentions a game, Godot, three.js, the web, "game-ready", or a triangle/texture budget:
+1. `./studio set-profile --profile godot-desktop` (Steam/desktop, Godot) · `web` (three.js, desktop browser) · `web-mobile` (phones). The profile adds checks after every step: triangles, baked texture size, materials, bones, "Has a collision shape", and on web "Distance versions (LOD)". Over budget while still building shows as *pending*; once the object is finished it fails — fix it like any other check (the detail says how).
+2. Add a physics shape: `add-op --id col --op collision --inputs '["<output>"]' --args '{"shape":"hull"}'` (`box` for crates, `capsule` for characters/posts, `sphere`). The "covers the mesh" check must pass — if it says only 77% is inside, use `hull`.
+3. Too many triangles: lower `segments` on cylinders/revolves first; on web add `add-op --id lod1 --op lod --inputs '["<output>"]' --args '{"ratio":0.4}'` for distance. collision and lod ops are side products: never use them as inputs, never set them as the output.
+4. Materials stay presets: export bakes every opaque part (wood grain, colour, roughness, metalness) into one texture pair, so walnut + black metal is still one material. Glaze (clearcoat) and glass get their own. Keep the "Materials within budget" check green by not mixing glaze and glass on mobile.
+5. `./studio export --target godot` (or `web`) — needs the view open (it paints the textures). It refuses while game checks fail, writes `.studio/exports/<object>.<target>.glb`, and reports the unwrap: even texel density, padded islands, no stretch — all must pass. `--texture 512` lowers the bake; `--bake false` exports untextured per-part materials when no view is open. Every GLB passes the Khronos validator or isn't written.
+
 ## Code mode (loops, many similar parts)
 
 `./studio run --code "…"` or `--file script.js` runs JavaScript in a sandbox (no filesystem or network, 5 s): `studio.addOp({...})`, `studio.setParam({...})`, `studio.call('tool-name', {...})`, `console.log(...)`. Every call is still a normal, reviewable commit. Prefer plain tool calls for fewer than ~5 edits.
@@ -84,7 +93,7 @@ Common fixes:
 
 - `./studio check` — everything passes, or say plainly what still fails and why.
 - Summarize in 2–4 lines: what you made, key dimensions, what to look at in the view.
-- Export only when asked: `./studio export --format glb|obj|stl` → path in `.studio/exports/`. STL is millimetres, Z-up, for 3D printing.
+- Export only when asked: `./studio export --format glb|obj|stl` → path in `.studio/exports/`. STL is millimetres, Z-up, for 3D printing. For games: `./studio export --target godot|web` (see Game assets).
 
 ## Example: "/studio make a walnut stool"
 
@@ -120,6 +129,16 @@ A real vessel is hollow: trace the outside up, then the inside back down (wall t
 ./studio check                                   # Clear of other objects, Rests on Walnut stool
 ./studio render --style presentation             # then Read it
 ```
+
+## Example: "/studio make the stool a game asset for Godot"
+
+```bash
+./studio set-profile --object walnut-stool --profile godot-desktop     # budgets appear as checks
+./studio add-op --object walnut-stool --id col --op collision --inputs '["stool"]' --args '{"shape":"hull"}'
+./studio check --object walnut-stool                                   # all green, incl. "Collision covers the mesh"
+./studio export --target godot --object walnut-stool                   # bake + validate → .studio/exports/walnut-stool.godot.glb
+```
+Tell the user the file path, the triangle count against the budget, and the unwrap report (texel density, islands, stretch).
 
 ## Rules
 

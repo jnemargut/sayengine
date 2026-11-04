@@ -22,10 +22,12 @@
   },
   "dependencies": {
     "esbuild": "^0.28.2",
+    "gltf-validator": "^2.0.0-dev.3.10",
     "manifold-3d": "^3.5.4",
     "quickjs-emscripten": "^0.31.0",
     "three": "^0.187.0",
     "ws": "^8.22.1",
+    "xatlasjs": "^0.2.0",
     "zod": "^4.6.7"
   }
 }

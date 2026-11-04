@@ -27,8 +27,12 @@ export const DAEMON_TOOLS: DaemonTool[] = [
   },
   {
     name: 'export',
-    description: 'Write GLB (PBR materials per part), OBJ or STL (mm, Z-up for printing): --format glb|obj|stl [--object id] [--out path]. Uses the active branch. Imported references are left out unless --include-references true.',
-    flags: { type: 'object', properties: { format: { type: 'string', enum: ['glb', 'obj', 'stl'], default: 'glb' }, object: { type: 'string' }, out: { type: 'string' }, includeReferences: { type: 'boolean', default: false } } },
+    description: 'Write an asset. Plain: --format glb|obj|stl (GLB keeps PBR materials per part; STL is mm, Z-up for printing). Game: --target godot|web unwraps every part, bakes materials (colour, wood grain, roughness, metalness) into one texture pair per object through the open view, adds collision nodes (Godot -convcolonly; extras.collision for three.js) and distance versions (web: MSFT_lod), and refuses if game checks fail (--force true overrides). --texture px overrides the profile; --bake false skips textures. Every GLB is checked by the Khronos glTF validator (errors = not written). [--object id] [--out path]; references are left out unless --include-references true.',
+    flags: { type: 'object', properties: {
+      format: { type: 'string', enum: ['glb', 'obj', 'stl'], default: 'glb' }, target: { type: 'string', enum: ['godot', 'web'] },
+      texture: { type: 'number', enum: [128, 256, 512, 1024, 2048, 4096] }, bake: { type: 'boolean', default: true }, force: { type: 'boolean', default: false },
+      object: { type: 'string' }, out: { type: 'string' }, includeReferences: { type: 'boolean', default: false },
+    } },
   },
   {
     name: 'run',

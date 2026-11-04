@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { runSandboxed } from './sandbox.ts';
-import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, type RepoData } from '../../core/src/index.ts';
+import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
@@ -37,6 +37,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
 
   const clients = new Set<WebSocket>();
   const pendingRenders = new Map<string, (msg: any) => void>();
+  const pendingBakes = new Map<string, (msg: any) => void>();
   let renderSeq = 0;
   let selection: { object: string; part: string | null; time: string } | null = null;
   let broadcastTimer: NodeJS.Timeout | null = null;
@@ -49,6 +50,22 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
     if (broadcastTimer) clearTimeout(broadcastTimer);
     broadcastTimer = setTimeout(() => sendState(), 40);
   });
+
+  /** Ask the open view to paint unwrapped parts into textures (lighting-free, islands dilated). */
+  function bakeViaView(view: WebSocket, req: BakeRequest): Promise<BakeResult> {
+    const id = `b${++renderSeq}`;
+    const b64 = (a: Float32Array) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => { pendingBakes.delete(id); reject(new Error('the view did not finish the texture bake within 90 s')); }, 90000);
+      pendingBakes.set(id, (m) => {
+        clearTimeout(t);
+        if (m.error) return reject(new Error(`bake failed in the view: ${m.error}`));
+        const png = (d: string) => new Uint8Array(Buffer.from(d.replace(/^data:image\/png;base64,/, ''), 'base64'));
+        resolve({ baseColor: png(m.baseColor), metallicRoughness: png(m.metallicRoughness) });
+      });
+      view.send(JSON.stringify({ type: 'bake', id, size: req.size, padding: req.padding, parts: req.parts.map((p) => ({ name: p.name, material: p.material, bbox: p.bbox, positions: b64(p.positions), uvs: b64(p.uvs) })) }));
+    });
+  }
 
   async function daemonTool(name: string, args: any): Promise<any> {
     switch (name) {
@@ -98,14 +115,49 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const bad = items.filter((i) => !i.res.ok).map((i) => i.obj.name);
         const opts = { includeReferences: !!args.includeReferences };
         const refs = items.filter((i) => i.obj.role === 'reference' && !opts.includeReferences).map((i) => i.obj.name);
-        const fmt = (args.format ?? 'glb').toLowerCase();
+        const target: 'godot' | 'web' | undefined = args.target;
+        if (target && !['godot', 'web'].includes(target)) return { ok: false, tool: name, error: '--target must be godot or web' };
+        const fmt = target ? 'glb' : (args.format ?? 'glb').toLowerCase();
+        if (target && args.format && args.format !== 'glb') return { ok: false, tool: name, error: 'game export (--target) writes GLB; drop --format' };
         const base = args.object ? ids[0] : 'scene';
-        const out = args.out ? path.resolve(dir, args.out) : path.join(stateDir, 'exports', `${base}.${fmt}`);
-        if (fmt === 'glb') fs.writeFileSync(out, toGLB(items, opts));
-        else if (fmt === 'obj') fs.writeFileSync(out, toOBJ(items, opts));
-        else if (fmt === 'stl') fs.writeFileSync(out, toSTL(items, opts));
+        const out = args.out ? path.resolve(dir, args.out) : path.join(stateDir, 'exports', target ? `${base}.${target}.glb` : `${base}.${fmt}`);
+        let bytes: Uint8Array;
+        let extra: Record<string, unknown> = {};
+        if (target) {
+          const models = items.filter((i) => i.obj.role !== 'reference' && i.res.ok);
+          if (!models.length) return { ok: false, tool: name, error: 'nothing to export: no finished, non-reference objects' };
+          // game checks must be green (pending = still building) unless --force
+          const blocking = models.flatMap((i) => studio.checks(i.obj.id, doc).filter((c) => !c.pass && /^(budget-|collision|lod)/.test(c.id)).map((c) => `${i.obj.name}: ${c.label} — ${c.detail}`));
+          if (blocking.length && !args.force) return { ok: false, tool: name, error: `game checks not green:\n${blocking.join('\n')}`, hint: 'fix them (studio check), or --force true to export anyway' };
+          const bake = args.bake !== false;
+          const view = [...clients].reverse().find((c) => c.readyState === 1);
+          if (bake && !view) return { ok: false, tool: name, error: 'the texture bake needs the browser view, and none is connected', hint: `open http://localhost:${port} (or --bake false for untextured per-part materials)` };
+          let res;
+          try {
+            res = await exportGame(models, { target, baker: bake ? (req) => bakeViaView(view!, req) : null, evaluateOp: (o, id) => studio.evaluateOp(o, id), ...(args.texture ? { texture: Number(args.texture) } : {}) });
+          } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+          bytes = res.glb;
+          const noProfile = models.filter((i) => !i.obj.profile).map((i) => i.obj.name);
+          extra = { target, objectsReport: res.objects, ...(noProfile.length ? { noProfile: `${noProfile.join(', ')}: no game profile, so no budgets were checked (studio set-profile)` } : {}) };
+        } else if (fmt === 'glb') bytes = toGLB(items, opts);
+        else if (fmt === 'obj') bytes = new TextEncoder().encode(toOBJ(items, opts));
+        else if (fmt === 'stl') bytes = toSTL(items, opts);
         else return { ok: false, tool: name, error: 'format must be glb, obj or stl' };
-        return { ok: true, tool: name, result: { file: out, objects: ids.length - bad.length - refs.length, skipped: bad, ...(refs.length ? { referencesLeftOut: refs } : {}) } };
+        let validation;
+        if (fmt === 'glb') {
+          validation = await validateGlb(bytes);
+          if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s) — not written`, result: { validation } };
+        }
+        fs.writeFileSync(out, bytes);
+        // after-export hooks (the engine round-trip plugs in here); a failing hook fails the export
+        const hooks = [];
+        for (const h of afterExport) {
+          try { const r = await h({ file: out, target: target ?? null, glb: bytes, objects: ids }); if (r) hooks.push(r); }
+          catch (e: any) { hooks.push({ name: 'hook', ok: false, detail: e.message }); }
+        }
+        const hooksOk = hooks.every((h) => h.ok);
+        const result = { file: out, bytes: bytes.length, objects: ids.length - bad.length - refs.length, skipped: bad, ...(refs.length ? { referencesLeftOut: refs } : {}), ...(validation ? { validation: { errors: validation.errors, warnings: validation.warnings, ...(validation.messages.length ? { messages: validation.messages } : {}) } } : {}), ...extra, ...(hooks.length ? { afterExport: hooks } : {}) };
+        return hooksOk ? { ok: true, tool: name, result } : { ok: false, tool: name, error: `after-export check failed: ${hooks.filter((h) => !h.ok).map((h) => `${h.name}: ${h.detail}`).join('; ')}`, result };
       }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
@@ -208,6 +260,9 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         }
       } else if (m.type === 'select') {
         selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, time: new Date().toISOString() } : null;
+      } else if (m.type === 'bake-result') {
+        pendingBakes.get(m.id)?.(m);
+        pendingBakes.delete(m.id);
       } else if (m.type === 'render-result') {
         pendingRenders.get(m.id)?.(m);
         pendingRenders.delete(m.id);

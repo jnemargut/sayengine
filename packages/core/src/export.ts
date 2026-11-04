@@ -37,7 +37,7 @@ function hexToLinear(hex: string): [number, number, number] {
 }
 
 /** glTF material from a resolved PBR material (clearcoat / transmission / ior as KHR extensions). */
-function gltfMaterial(m: Material, used: Set<string>) {
+export function gltfMaterial(m: Material, used: Set<string>) {
   const out: any = {
     name: m.name,
     pbrMetallicRoughness: { baseColorFactor: [...hexToLinear(m.color), m.opacity ?? 1], metallicFactor: m.metalness ?? 0, roughnessFactor: m.roughness ?? 0.6 },

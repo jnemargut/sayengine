@@ -80,26 +80,39 @@ export function makeMaterial(m: Mat, opts: { bbox?: { min: V3; max: V3 }; overri
     wireframe: !!opts.wireframe,
     polygonOffset: opts.polygonOffset !== false, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   });
-  if (m.grain && !opts.override && !opts.wireframe) {
-    const b = opts.bbox;
-    const axis = b ? longestAxis(b.min, b.max) : new THREE.Vector3(1, 0, 0);
-    const centre = b ? new THREE.Vector3((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2) : new THREE.Vector3();
-    const uniforms = {
+  if (m.grain && !opts.override && !opts.wireframe) addGrain(mat, m, opts.bbox);
+  return mat;
+}
+
+/**
+ * Inject the procedural wood grain into any built-in material that has the standard
+ * begin_vertex / color_fragment chunks (MeshPhysicalMaterial in the views, MeshBasicMaterial in
+ * the texture bake), so the bake paints exactly what the viewport shows. `extraVertex` is appended
+ * after the projection (the bake uses it to draw into UV space).
+ */
+export function addGrain(mat: THREE.Material, m: Mat, bbox?: { min: V3; max: V3 }, extra?: { vertexDecl?: string; vertex?: string }) {
+  const uniforms: Record<string, { value: unknown }> = {};
+  if (m.grain) {
+    const axis = bbox ? longestAxis(bbox.min, bbox.max) : new THREE.Vector3(1, 0, 0);
+    const centre = bbox ? new THREE.Vector3((bbox.min[0] + bbox.max[0]) / 2, (bbox.min[1] + bbox.max[1]) / 2, (bbox.min[2] + bbox.max[2]) / 2) : new THREE.Vector3();
+    Object.assign(uniforms, {
       grainColor: { value: new THREE.Color(m.grain.color2) },
       grainScale: { value: m.grain.scale },
       grainContrast: { value: m.grain.contrast },
       grainAxis: { value: axis },
       grainCenter: { value: centre },
-      grainSide: { value: b ? thinnestAxis(b.min, b.max, axis) : new THREE.Vector3(0, 1, 0) },
-    };
-    mat.onBeforeCompile = (sh) => {
-      Object.assign(sh.uniforms, uniforms);
-      sh.vertexShader = GRAIN_VERT_DECL + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrainPos = position;');
-      sh.fragmentShader = GRAIN_FRAG_DECL + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + GRAIN_FRAG);
-    };
-    mat.customProgramCacheKey = () => 'studio-grain';
+      grainSide: { value: bbox ? thinnestAxis(bbox.min, bbox.max, axis) : new THREE.Vector3(0, 1, 0) },
+    });
   }
-  return mat;
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uniforms);
+    let vs = (m.grain ? GRAIN_VERT_DECL : '') + (extra?.vertexDecl ?? '') + sh.vertexShader;
+    if (m.grain) vs = vs.replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrainPos = position;');
+    if (extra?.vertex) vs = vs.replace('#include <project_vertex>', '#include <project_vertex>\n' + extra.vertex);
+    sh.vertexShader = vs;
+    if (m.grain) sh.fragmentShader = GRAIN_FRAG_DECL + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + GRAIN_FRAG);
+  };
+  mat.customProgramCacheKey = () => `studio-grain-${!!m.grain}-${extra?.vertex ? 'bake' : 'view'}`;
 }
 
 const envCache = new WeakMap<THREE.WebGLRenderer, THREE.Texture>();

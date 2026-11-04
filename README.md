@@ -34,7 +34,8 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | **Review** | AI edits to existing things arrive as proposals: hover a change to highlight it, hold Space for "before", Keep/Undo each change, compare alternatives as thumbnails, then Commit. |
 | **Script** | `studio run --code "…"` runs JavaScript in a QuickJS WebAssembly sandbox (no filesystem or network, 5 s, 64 MB); every call is still a normal commit. |
 | **Import** | `studio import` (or drop a file on the view): STL/OBJ/GLB become translucent, measurable reference objects (watertight ones can be cut or joined with a `mesh` op); PNG/JPG become a backdrop plane (front/side/top) that renders include, so Claude can model to match a sketch. References are never exported. |
-| **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). |
+| **Game assets** | `set-profile godot-desktop \| web \| web-mobile` turns budgets into checks after every step (triangles, baked texture, materials, bones), pending while still building. `collision` ops (box, hull, capsule, sphere) with a "covers the mesh" check; `lod` ops make distance versions. |
+| **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). `export --target godot\|web` unwraps every part (xatlas), has the view bake materials, wood grain included, into one lighting-free texture pair per asset, reports texel density, island padding and stretch, and writes collision nodes (Godot `-convcolonly`, `extras.collision` for three.js) and distance versions (web, `MSFT_lod`). Every GLB passes the Khronos glTF validator or isn't written; after-export hooks (the engine round-trip) can fail an export. |
 | **Other agents** | `studio mcp` serves the same tools over MCP: `claude mcp add studio -- node /path/to/AI3DModel/packages/cli/studio.ts mcp`. |
 | **Theme** | Light/dark follows your OS; the header button cycles auto → light → dark. |
 
@@ -48,7 +49,7 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | `packages/mcp` | MCP stdio adapter generated from the same registry |
 | `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking, gizmo and drop-to-import · inspector with live sliders · Claude Code feed + review · history. `look.ts` holds the shared look (PBR materials, wood-grain shader, environment light, shadows) |
 | `.claude/skills/studio/SKILL.md` | The `/studio` playbook Claude Code follows |
-| `bench/` | `run.ts` reference solutions (8 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
+| `bench/` | `run.ts` reference solutions (16 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
 | `.decisions/` | The 10 architecture decisions, live preview, design tokens (light + dark), implementation plan |
 
 ## Commands
@@ -60,8 +61,8 @@ Environment: `STUDIO_PORT` (default 4517), `STUDIO_DIR` (default: current folder
 ## Tests
 
 ```bash
-npm test        # 36 tests: engine, ops, checks, materials, scenes, drags, imports, export, daemon, sandbox, CLI, MCP, view focus
-npm run bench   # reference solutions for the 13 benchmark tasks
+npm test        # 47 tests: engine, ops, checks, materials, scenes, drags, imports, export, game profiles + bake export, daemon, sandbox, CLI, MCP, view focus
+npm run bench   # reference solutions for the 16 benchmark tasks
 ```
 
 ## Known limitations
