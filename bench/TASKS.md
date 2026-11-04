@@ -28,6 +28,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 12 | `/studio make a round dining table with four of these stools around it` *(after task 1)* | linked copies + `arrange --around`; all checks pass; changing the original stool changes all four |
 | 13 | In the view: drag the vase across the seat, scrub seatH, then `/studio what did I change?` | your steps show as "you"; Claude reads `studio log` and describes them without reverting them |
 | 14 | Drop any STL on the view (e.g. the one from task 9), then `/studio make a stool the same height as that scan` | the scan imports as a reference; Claude measures it with `inspect` and matches its height within 1 cm |
+| 19 | `/game make a godot game from the stool and vase` *(after task 11)* | `game init` + `game import`; round trip has 0 warnings and the glaze arrives (`applied`); Claude screenshots the game and Reads it |
+| 20 | `/game can a player walk up to the stool?` *(after 19)* | `game walk-to` reports reached, with the time; Claude says how far it stopped and where it started |
+| 21 | `/game check the vase really sits on the stool in the game` *(after 19)* | `game test` with an `on` assertion (and `reachable`), all pass |
+| 22 | `/game make a web version too` *(after 19)* | a second project with `--engine web`; clean import; screenshots look like the Godot ones |
+| 23 | `/studio make the stool bar height`, then `/game update the game` *(after 19)* | Claude re-imports instead of editing the engine copy; `on` still passes at the new height |
 
 ## What to record (from `node bench/score.ts`)
 

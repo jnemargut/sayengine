@@ -35,6 +35,7 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | **Script** | `studio run --code "…"` runs JavaScript in a QuickJS WebAssembly sandbox (no filesystem or network, 5 s, 64 MB); every call is still a normal commit. |
 | **Import** | `studio import` (or drop a file on the view): STL/OBJ/GLB become translucent, measurable reference objects (watertight ones can be cut or joined with a `mesh` op); PNG/JPG become a backdrop plane (front/side/top) that renders include, so Claude can model to match a sketch. References are never exported. |
 | **Export** | GLB (with materials), OBJ, STL (mm, Z-up for slicers). |
+| **Games** | `/game` turns studio scenes into games: `studio game init --engine godot` (standalone) or `--engine web` (three.js + Rapier), then `import` (round-trips the GLB through the engine and fails on any warning), `screenshot` (the engine's own renderer), `walk-to` (a capsule player with physics: reached / blocked), `test` (on, grounded, reachable… assertions) and `run`, all headless. |
 | **Other agents** | `studio mcp` serves the same tools over MCP: `claude mcp add studio -- node /path/to/AI3DModel/packages/cli/studio.ts mcp`. |
 | **Theme** | Light/dark follows your OS; the header button cycles auto → light → dark. |
 
@@ -46,10 +47,28 @@ Then in Claude Code, from this folder: `/studio make a walnut stool`.
 | `packages/daemon` | Owns the Studio, persists `.studio/repo.json`, serves the view, relays renders and selection, code-mode sandbox (`sandbox.ts`) |
 | `packages/cli` | `studio.ts` (the CLI the skill calls; generated from the registry; JSON out; did-you-mean on bad commands/flags) + `client.ts` |
 | `packages/mcp` | MCP stdio adapter generated from the same registry |
+| `packages/game` | `/game` back ends: Godot driven from its command line (`godot.ts`, templates/godot with a post-import script and a play-test runner) and three.js + Rapier in headless Chrome (`web.ts`, `chrome.ts`, templates/web with a harness). `roundTrip(glb, engine)` for export checks |
 | `apps/view` | Three.js view in the Soft Premium tokens: scene tree · viewport with picking, gizmo and drop-to-import · inspector with live sliders · Claude Code feed + review · history. `look.ts` holds the shared look (PBR materials, wood-grain shader, environment light, shadows) |
 | `.claude/skills/studio/SKILL.md` | The `/studio` playbook Claude Code follows |
+| `.claude/skills/game/SKILL.md` | The `/game` playbook: import, look, play-test, assert, run |
 | `bench/` | `run.ts` reference solutions (8 tasks), `TASKS.md` AI benchmark + results, `score.ts`, `break.ts` |
 | `.decisions/` | The 10 architecture decisions, live preview, design tokens (light + dark), implementation plan |
+
+## Games (`/game`)
+
+The studio makes assets; real engines run games. Game projects live in `games/<name>/` with their own `.gitignore` for engine caches.
+
+```bash
+./studio game init --name forge --engine godot     # or --engine web (three.js + Rapier)
+./studio game import --project forge               # export + engine round trip: objects, triangles, materials, warnings
+./studio game screenshot --project forge --views iso,front
+./studio game walk-to --project forge --target "Walnut stool"
+./studio game test --project forge --assertions '[{"kind":"on","node":"Vase","target":"Walnut stool"}]'
+```
+
+- **Godot**: Godot 4 (`brew install --cask godot`, or set `GODOT_BIN`). Import, run and tests run headless; screenshots open a window off-screen for a moment (headless Godot has no renderer). A post-import script re-applies studio material features Godot's glTF importer drops (glaze clearcoat, glass transmission) and adds collision.
+- **Web**: Google Chrome (or `CHROME_BIN`). The game is bundled with esbuild from `src/main.ts`; three.js and Rapier come from the studio's `node_modules`.
+- Never edit `assets/studio/` or `studio/` inside a game: they're rewritten on every import. Your game code goes in `game/` (Godot) or `src/` (web).
 
 ## Commands
 
@@ -61,7 +80,7 @@ Environment: `STUDIO_PORT` (default 4517), `STUDIO_DIR` (default: current folder
 
 ```bash
 npm test        # 36 tests: engine, ops, checks, materials, scenes, drags, imports, export, daemon, sandbox, CLI, MCP, view focus
-npm run bench   # reference solutions for the 13 benchmark tasks
+npm run bench   # reference solutions: 13 studio tasks + /game tasks 19–21 on each installed engine
 ```
 
 ## Known limitations
