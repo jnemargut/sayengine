@@ -20,6 +20,9 @@ export const CAST: Array<{ name: string; args: Record<string, unknown> }> = [
   { name: 'Marsh Bird', args: { preset: 'bird', palette: 'forest' } },
   { name: 'Kid', args: { preset: 'kid' } },
   { name: 'Elder', args: { preset: 'elder' } },
+  // week 12: four legs, a tail and wings
+  { name: 'Dog', args: { preset: 'dog' } },
+  { name: 'Heron Courier', args: { preset: 'birdfolk' } },
 ];
 
 /** Build the cast in a studio (used by the bench runner too). */
@@ -47,30 +50,38 @@ if (import.meta.main) {
     const items = selectForExport(studio, doc, { object: id, atOrigin: true });
     const glb = toGLB(items, {});
     if (!(await validateGlb(glb)).ok) throw new Error(`${id}: GLB does not validate`);
-    cast.push({ id, name: o.name, label, glb, height: sp.params.height, idle: 'idle', headH: sp.face.headH, headY: sp.face.headBase[1] });
+    cast.push({ id, name: o.name, label, glb, height: sp.params.height, idle: 'idle', headH: sp.face.headH, headY: sp.face.headBase[1], headZ: sp.face.headBase[2] });
   }
   fs.writeFileSync(path.join(OUT, 'checks.txt'), report.join('\n') + '\n');
   console.log(report.join('\n'));
   const castDir = path.join(OUT, 'cast');
   fs.rmSync(castDir, { recursive: true, force: true });
-  await buildCastLineup(castDir, 'The cast: one studio, five body plans', cast);
+  await buildCastLineup(castDir, 'The cast: one studio, six body plans, tails and wings', cast);
   const cap = await captureCast(castDir);
   console.log(`lineup: ${cap.still}${cap.video ? `, turntable ${cap.video}` : ` (${cap.note})`}`);
 
   // a motion preview per body plan: its walk (in its own gait), a run and an idle
-  const per = [['blacksmith', 'stocky'], ['apprentice', 'lanky'], ['marsh-bird', 'beaked'], ['kid', 'chibi'], ['elder', 'human']] as const;
+  const biped = { run: { kind: 'run' } };
+  const per: Array<[string, string, string[], Record<string, any>]> = [
+    ['blacksmith', 'stocky', ['walk', 'run', 'idle'], biped], ['apprentice', 'lanky', ['walk', 'run', 'idle'], biped], ['marsh-bird', 'beaked', ['walk', 'run', 'idle'], biped],
+    ['kid', 'chibi', ['walk', 'run', 'idle'], biped], ['elder', 'human', ['walk', 'run', 'idle'], biped],
+    // the dog: walk → trot → gallop → sit (and lie down); the bird-person walks, then beats its wings
+    ['dog', 'quadruped', ['walk', 'trot', 'gallop', 'sit', 'lie', 'idle'], { gallop: { kind: 'gallop' }, lie: { kind: 'lie' } }],
+    ['heron-courier', 'beaked-winged', ['walk', 'flap', 'idle'], { flap: { kind: 'idle', flap: 2.2, duration: 3 } }],
+  ];
   fs.mkdirSync(path.join(OUT, 'motions'), { recursive: true });
-  for (const [id, plan] of process.env.CAST_ONLY ? [] : per) {
+  const only = process.env.ONLY?.split(',');
+  for (const [id, plan, mids, extra] of process.env.CAST_ONLY ? [] : per.filter((p) => !only || only.includes(p[0]))) {
     const o = doc.objects[id];
-    const solo = { ...o, character: { ...o.character, motions: { ...o.character!.motions, run: { kind: 'run' } } } };
+    const solo = { ...o, character: { ...o.character, motions: { ...o.character!.motions, ...extra } } };
     const sdoc = { ...doc, objects: { ...doc.objects, [id]: solo as any } };
     const items = selectForExport(studio, sdoc, { object: id, atOrigin: true });
     const glb = toGLB(items, {});
     const rig = items[0].res.rig!.rig;
-    const motions = (['walk', 'run', 'idle'] as const).map((mid) => {
+    const motions = mids.map((mid) => {
       const spec = (solo.character.motions as any)[mid];
       const c = bakeMotion(mid, spec, rig, solo.character);
-      return { id: mid, kind: spec.kind, label: `${o.name} (${plan}): ${mid}${spec.style ? ` — ${spec.style}` : ''}${c.speed ? `, ${c.speed.toFixed(2)} m/s, ${Math.round((2 / c.duration) * 60)} steps/min` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: showTime(c) };
+      return { id: mid, kind: spec.kind, label: `${o.name} (${plan}): ${mid}${spec.style ? ` — ${spec.style}` : ''}${c.speed ? `, ${c.speed.toFixed(2)} m/s, ${Math.round(((c.paws ? 4 : 2) / c.duration) * 60)} ${c.paws ? 'footfalls' : 'steps'}/min` : ''}${spec.flap ? `, wings ${spec.flap}/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: showTime(c) };
     });
     const dir = path.join(os.tmpdir(), `phase7-${id}-motions`);
     fs.rmSync(dir, { recursive: true, force: true });

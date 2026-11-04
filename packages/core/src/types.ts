@@ -185,7 +185,7 @@ export interface CharacterState {
  * walk/run/idle loop; turn and action play once.
  */
 export interface MotionSpec {
-  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action' | 'start' | 'stop';
+  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action' | 'start' | 'stop' | 'trot' | 'gallop' | 'sit' | 'lie';   // trot, gallop, sit, lie: four-legged bodies
   speed?: number;      // m/s (walk ~1.3, run ~3.5; start/stop: the walk they lead into / out of)
   stride?: number;     // m per full cycle (two steps); default from leg length and speed
   bounce?: number;     // m of hip rise and fall
@@ -199,6 +199,7 @@ export interface MotionSpec {
   seed?: number;       // blinks and glances
   from?: string;       // start/stop: the walk motion they pair with (default "walk"; its settings are used)
   style?: 'waddle' | 'swagger' | 'shuffle' | 'bounce';   // walk/run gait character (body plans have their own default)
+  flap?: number;       // wing beats per second during this motion (characters with wings; 0 / unset = folded)
 }
 
 /** A 3D-print profile (Decisions 43–46): one printer, one filament, the fit gaps measured for it. */

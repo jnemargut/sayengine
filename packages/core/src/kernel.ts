@@ -404,7 +404,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           // The humanoid kit (Decision 14 A): proportions are params; the skeleton, skin weights and
           // face shapes come with it (attached to the final mesh below). Faces +Z, feet on y = 0.
           const keys = ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize'] as const;
-          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears }));
+          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears, tail: A.tail, wings: A.wings, tailLength: A.tailLength }));
           charSpec = spec;
           const parts = new Map<number, Part>();
           const mk = (m: any, name: string) => { const o = keep(m.asOriginal()); parts.set(o.originalID(), { name, ops: new Set([id]) }); return o; };

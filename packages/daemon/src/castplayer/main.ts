@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-interface Member { id: string; name: string; label: string; glb: string; height: number; idle: string | null; headH?: number; headY?: number }
+interface Member { id: string; name: string; label: string; glb: string; height: number; idle: string | null; headH?: number; headY?: number; headZ?: number }
 interface Config { title: string; cast: Member[] }
 
 const params = new URLSearchParams(location.search);
@@ -96,8 +96,9 @@ function frame(t: number, yaw: number) {
     const cx = (i % cols) * cw, cy = Math.floor(i / cols) * ch;
     const hh = mb.m.headH ?? mb.m.height * 0.17, hy = (mb.m.headY ?? mb.m.height - hh) + hh * 0.45;
     const d = (hh * 1.5) / Math.tan((22 * Math.PI) / 360);
-    cam.position.set(mb.x + d * 0.42, hy + hh * 0.12, d * 0.9);
-    cam.lookAt(mb.x, hy - hh * 0.05, 0);
+    const hz = mb.m.headZ ?? 0;   // a four-legged body's head is well forward of its feet
+    cam.position.set(mb.x + d * 0.42, hy + hh * 0.12, hz + d * 0.9);
+    cam.lookAt(mb.x, hy - hh * 0.05, hz);
     renderer.setViewport(cx, H - cy - ch, cw, ch);
     renderer.setScissor(cx, H - cy - ch, cw, ch);
     renderer.render(scene, cam);

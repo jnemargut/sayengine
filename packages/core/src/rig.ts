@@ -9,6 +9,7 @@
 // DOM-free and Node-free.
 import type { CharacterState, HandPose } from './types.ts';
 
+import { addTail, addWings, quadrupedSpec, type QuadDims } from './quadruped.ts';
 export type V3 = [number, number, number];
 export type Q = [number, number, number, number];
 
@@ -61,14 +62,14 @@ export interface BoneDef { name: string; parent: string | null; head: V3; tail: 
 
 /** Body plans (Decision 47 A): the skeleton comes first, then a body, face and outfit on it. Every plan
  *  keeps the standard humanoid bone names, so motion, export and the engines treat them alike. */
-export const BODY_PLANS = ['human', 'chibi', 'lanky', 'stocky', 'beaked'] as const;
+export const BODY_PLANS = ['human', 'chibi', 'lanky', 'stocky', 'beaked', 'quadruped'] as const;
 export type BodyPlan = typeof BODY_PLANS[number];
 /** Face parts (Decision 49 A): each mouth answers to the same 15 speech shapes in its own way. */
 export const MOUTHS = ['human', 'cartoon', 'beak', 'muzzle', 'grille'] as const;
 export const EYE_STYLES = ['natural', 'big', 'dot'] as const;
 export const BROW_STYLES = ['bar', 'bushy', 'none'] as const;
 export const NOSES = ['human', 'long', 'button', 'big', 'none'] as const;
-export const EARS = ['human', 'pointy', 'none'] as const;
+export const EARS = ['human', 'pointy', 'upright', 'none'] as const;
 export const HAIRS = ['short', 'none', 'tuft', 'bun'] as const;
 /** Style families: how the low-poly shapes are cut (facet count and chunkiness). */
 export const STYLE_FAMILIES = ['faceted', 'toy', 'smooth'] as const;
@@ -98,6 +99,9 @@ export const PLANS: Record<BodyPlan, PlanDef> = {
     face: { mouth: 'human', eyes: 'natural', brows: 'bushy', nose: 'big', ears: 'human', hair: 'none' }, walk: 'swagger' },
   beaked: { label: 'round egg body, short legs, a beak', height: 1.22, build: 0.6, head: 0.25, leg: 0.27, arm: 0.74, shoulder: 0.9, limb: 0.82, hand: 0.82, foot: 1.6, neck: 0.35, headW: 1.0, headD: 1.06, torso: [1.4, 1.62, 1.22, 1.45, 0.42], eyeY: 0.56,
     face: { mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', hair: 'tuft' }, walk: 'waddle' },
+  // four legs (quadruped.ts builds it): height is nose-up standing height; the human fields only steer the face kit
+  quadruped: { label: 'four legs, a level back, a tail', height: 0.95, build: 0.55, head: 0.165, leg: 0.47, arm: 1, shoulder: 1, limb: 1, hand: 1, foot: 1, neck: 1, headW: 1.0, headD: 1.1, torso: [1, 1, 1, 1, 0], eyeY: 0.56,
+    face: { mouth: 'muzzle', eyes: 'natural', brows: 'none', nose: 'none', ears: 'upright', hair: 'none' } },
 };
 
 /** Parameters of a character (all have defaults; the plan sets proportions and face parts). */
@@ -117,6 +121,10 @@ export interface CharParams {
   brows?: typeof BROW_STYLES[number];
   nose?: typeof NOSES[number];
   ears?: typeof EARS[number];
+  tail?: boolean;      // a tail (a spring-driven bone chain); quadrupeds have one unless tail is false
+  tailLength?: number; // ×
+  snout?: number;      // muzzle length (× the default snout; four-legged heads have long ones)
+  wings?: boolean;     // a pair of wings on the upper back (folded at rest, a flap cycle in motion)
 }
 export const CHAR_DEFAULTS: CharParams = { height: 1.75, build: 0.55, headSize: 1, armLength: 1, legLength: 1, handSize: 1, hair: 'short' };
 /** Where an apron hangs (its back face, object space z) for a build: the kit's apron op and the apron bones share it. */
@@ -156,6 +164,7 @@ export interface CharSpec {
   palm: Record<'Left' | 'Right', { c: V3; len: number; width: number; thick: number }>;
   plan: BodyPlan;
   walk?: WalkStyle;
+  quad?: QuadDims;                                        // set for four-legged bodies
 }
 
 const pick = <T extends readonly string[]>(list: T, v: unknown, what: string): T[number] | undefined => {
@@ -183,12 +192,16 @@ export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharP
     armLength: n('armLength', 0.7, 1.4), legLength: n('legLength', 0.7, 1.4), handSize: n('handSize', 0.6, 1.6),
     hair: pick(HAIRS, a.hair, 'hair') ?? (plan ? PLANS[plan].face.hair : 'short'),
     ...(a.apron === true || a.apron === 'true' || a.apron === 1 ? { apron: true } : {}),
+    ...(a.wings === true || a.wings === 'true' || a.wings === 1 ? { wings: true } : {}),
+    ...(a.tail === true || a.tail === 'true' || a.tail === 1 ? { tail: true } : a.tail === false || a.tail === 'false' || a.tail === 0 ? { tail: false } : {}),
+    ...(a.tailLength !== undefined ? { tailLength: n('tailLength', 0.3, 2) } : {}),
     ...opt,
   };
 }
 
 /** The humanoid template: bones, pieces and face landmarks from the parameters. Faces +Z; its left is +X. */
 export function characterSpec(p: CharParams): CharSpec {
+  if (p.plan === 'quadruped') return quadrupedSpec(p);
   const plan: BodyPlan = p.plan ?? 'human';
   const PD = PLANS[plan];
   const F0 = PD.face;
@@ -255,7 +268,7 @@ export function characterSpec(p: CharParams): CharSpec {
   const mouthY01 = mouthKind === 'beak' ? 0.3 : mouthKind === 'muzzle' ? 0.2 : 0.24;
   const mouthY = headBaseY + mouthY01 * headH;
   // a muzzle pushes the mouth forward on a snout (the head hull takes the snout's points)
-  const snoutZ = mouthKind === 'muzzle' ? surfZ(mouthY01) + 0.3 * headH : 0;
+  const snoutZ = mouthKind === 'muzzle' ? surfZ(mouthY01) + 0.3 * (p.snout ?? 1) * headH : 0;
   const mouthZ = mouthKind === 'muzzle' ? snoutZ : surfZ(mouthY01);
   const jawPivot: V3 = [0, headBaseY + 0.42 * headH, -0.08 * hd];
   bone('LeftEye', 'Head', [eyeX, eyeY, eyeZ], [eyeX, eyeY, eyeZ + eyeR]);
@@ -490,6 +503,13 @@ export function characterSpec(p: CharParams): CharSpec {
         [sx * hw * 0.9, hb + 0.38 * headH, -0.02 * hd], [sx * hw * 0.9, hb + 0.62 * headH, -0.1 * hd], [sx * hw * 1.06, hb + 0.4 * headH, -0.06 * hd],
         [sx * hw * 1.1, hb + 0.58 * headH, -0.16 * hd], [sx * hw * 1.62, hb + 0.86 * headH, -0.36 * hd], [sx * hw * 0.95, hb + 0.5 * headH, -0.24 * hd],
       ] });
+    } else if (earKind === 'upright') {
+      // tall triangular ears standing on top of the head (dogs, cats, foxes), a little cupped forward
+      const ey = hb + 0.82 * headH;
+      pieces.push({ kind: 'hull', part: sx > 0 ? 'ear.L' : 'ear.R', pts: [
+        [sx * hw * 0.3, ey, 0.12 * hd], [sx * hw * 0.82, ey - 0.1 * headH, 0.04 * hd], [sx * hw * 0.3, ey, -0.22 * hd], [sx * hw * 0.82, ey - 0.1 * headH, -0.26 * hd],
+        [sx * hw * 0.72, ey + 0.52 * headH, -0.12 * hd], [sx * hw * 0.6, ey + 0.2 * headH, 0.04 * hd],
+      ] });
     }
   }
   if (mouthKind === 'beak') {
@@ -562,6 +582,10 @@ export function characterSpec(p: CharParams): CharSpec {
   const rimTop = (Math.atan2(Math.sqrt(1.13 ** 2 - 0.68 ** 2), 0.68) * 180) / Math.PI;
   const lids = (['Left', 'Right'] as const).map((side) => ({ c: B[`${side}Eye`].head, rIn: eyeR * 1.05, rOut: eyeR * 1.105, edgeDeg: rimTop - 18, closeDeg: rimTop - 18 + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid` }));
   const palm = Object.fromEntries((['Left', 'Right'] as const).map((side) => [side, { c: [B[`${side}Hand`].head[0] + (side === 'Left' ? 1 : -1) * palmLen * 0.5, B[`${side}Hand`].head[1], 0] as V3, len: palmLen, width: palmW, thick: palmT }])) as CharSpec['palm'];
+  // add-ons: a tail from the base of the back, wings from between the shoulder blades
+  const addOnZ = -0.11 * s * T[3] * (0.9 + 0.3 * b);
+  if (p.tail) addTail(bones, pieces, [0, B.Hips.head[1] - 0.02 * s, addOnZ * 0.9], [0, -0.35, -1], 0.5 * H * (p.tailLength ?? 1), 0.035 * s * L, SIDES);
+  if (p.wings) addWings(bones, pieces, [0, B.UpperChest.head[1], addOnZ * 1.05], 0.42 * H, 0.17 * H, 'UpperChest');
   return {
     params: p, s, bones, pieces, head: { pts: headPts, refine: 0.012 * s, part: 'Head' }, cuts, mouth: mouthPieces, eyes, lids, palm,
     face: {
@@ -598,7 +622,8 @@ export const VISEME_MIX: Record<string, Partial<Record<'jaw' | 'wide' | 'round' 
  *  opens wider for vowels, a little for consonants, closes on M/B/P); a speaker grille opens and widens. */
 export function visemeMix(kind: string | undefined, v: string): Partial<Record<string, number>> {
   const m = VISEME_MIX[v];
-  if (kind === 'beak') return { jaw: Math.min(1.2, (m.jaw ?? 0) * 1.25 + (m.round ?? 0) * 0.18 + (m.wide ?? 0) * 0.1), ...(m.press ? { press: m.press } : {}) };
+  if (kind === 'beak') return { jaw: m.press ? 0 : Math.min(1.2, (m.jaw ?? 0) * 1.25 + (m.round ?? 0) * 0.18 + (m.wide ?? 0) * 0.1),   // a pressed beak is shut, whatever the lips would do
+    ...(m.press ? { press: m.press } : {}) };
   if (kind === 'grille') return { jaw: (m.jaw ?? 0) * 1.1 + (m.round ?? 0) * 0.15, wide: (m.wide ?? 0) * 1.2 - (m.round ?? 0) * 0.6, ...(m.press ? { press: m.press } : {}) };
   return m;
 }
@@ -792,8 +817,8 @@ function allowedBones(part: string, bones: BoneDef[], byName: Map<string, number
     const b = bones[id(base)];
     const set = new Set([base]);
     if (b.parent && b.parent !== 'Root') set.add(b.parent);
-    for (const k of kids(base)) if (!/Eye|Jaw/.test(k)) set.add(k);
-    if (/Hand$/.test(base)) for (const k of kids(base)) set.add(k);
+    for (const k of kids(base)) if (!/Eye|Jaw/.test(k) && !(spec.quad && /Thumb|Index|Middle|Ring|Little/.test(k))) set.add(k);
+    if (/Hand$/.test(base) && !spec.quad) for (const k of kids(base)) set.add(k);   // a paw's toe bones carry nothing
     if (/UpperLeg$/.test(base)) set.add('Hips');
     return [...set].map(id);
   }
@@ -832,7 +857,22 @@ export function buildRig(spec: CharSpec, pos: Float32Array, vertPart: string[]):
       if (bone !== 'Hips') return smooth(hipY - 0.01 * s, hipY + 0.07 * s, p[1]);
       return 1;
     }
+    if (spec.quad && bone === 'Hips' && /UpperLeg$/.test(part)) {
+      // the haunch above the hip joint is part of the rump: it moves with the hips, not the thigh
+      const j = bones[byName.get(part)!].head;
+      return 1 + 120 * smooth(j[1] - 0.07 * spec.quad.wither, j[1] + 0.12 * spec.quad.wither, p[1]) ** 2;
+    }
     if (part !== 'torso') return 1;
+    if (spec.quad) {
+      // a level body: the legs take the underside near their hip/shoulder, the neck the front end
+      const Qd = spec.quad;
+      const side = smooth(0.15 * Qd.legX, 0.75 * Qd.legX, Math.abs(p[0])) * (Math.sign(p[0]) === (/^Left/.test(bone) ? 1 : -1) ? 1 : 0);
+      if (/UpperLeg$/.test(bone)) return side * smooth(Qd.hipY - 0.1 * Qd.bodyR, Qd.hipY - 0.8 * Qd.bodyR, p[1]) * smooth(Qd.zRump + 0.5 * Qd.bodyR + 0.25 * Qd.wither, Qd.zRump + 0.2 * Qd.wither, p[2]);
+      if (/UpperArm$/.test(bone)) return side * smooth(Qd.chestY - 0.1 * Qd.bodyR, Qd.chestY - 0.9 * Qd.bodyR, p[1]) * smooth(Qd.zChest - 0.5 * Qd.bodyR - 0.2 * Qd.wither, Qd.zChest - 0.15 * Qd.wither, p[2]);
+      if (/Shoulder$/.test(bone)) return 0.5 * smooth(Qd.zChest - 0.3 * Qd.wither, Qd.zChest, p[2]);
+      if (bone === 'Neck') return smooth(Qd.zChest - 0.02 * Qd.wither, Qd.zChest + 0.12 * Qd.wither, p[2]);
+      return 1;
+    }
     if (/UpperLeg$/.test(bone)) return smooth(hipY + 0.13 * s, hipY - 0.1 * s, p[1]);
     if (/Shoulder$/.test(bone)) return smooth(shY - 0.16 * s, shY - 0.02 * s, p[1]);
     if (/UpperArm$/.test(bone)) return smooth(shY - 0.14 * s, shY - 0.03 * s, p[1]) * smooth(shX * 0.55, shX * 0.95, Math.abs(p[0]));
@@ -868,8 +908,42 @@ export function buildRig(spec: CharSpec, pos: Float32Array, vertPart: string[]):
     sum = kept.reduce((s, c) => s + c[1], 0);
     kept.forEach((c, k) => { joints[v * 4 + k] = c[0]; weights[v * 4 + k] = c[1] / sum; });
   }
+  if (spec.quad) smoothWeights(pos, vertPart, joints, weights, 0.06 * spec.quad.wither, 6);
   const shapes = faceShapes(spec, pos, vertPart);
   return { bones, parents: bones.map((b) => (b.parent ? byName.get(b.parent)! : -1)), joints, weights, shapes, shapeNames: [...SHAPE_KEYS], spec };
+}
+
+/** Average skin weights with nearby vertices (a few passes): where a level body meets four legs the
+ *  nearest-bone weights change too abruptly, and the skin tears when a leg swings far. Face parts,
+ *  eyes and wings keep their own weights. */
+function smoothWeights(pos: Float32Array, vertPart: string[], joints: Uint16Array, weights: Float32Array, r: number, iters: number) {
+  const n = pos.length / 3;
+  const skip = (v: number) => { const p = vertPart[v] ?? ''; return isFacePart(p) || /Eye|Wing|^lid/.test(p); };
+  const cell = (x: number) => Math.floor(x / r);
+  const grid = new Map<string, number[]>();
+  for (let v = 0; v < n; v++) { if (skip(v)) continue; const k = `${cell(pos[v * 3])},${cell(pos[v * 3 + 1])},${cell(pos[v * 3 + 2])}`; (grid.get(k) ?? grid.set(k, []).get(k)!).push(v); }
+  const nbrs: number[][] = [];
+  for (let v = 0; v < n; v++) {
+    if (skip(v)) { nbrs.push([]); continue; }
+    const cx = cell(pos[v * 3]), cy = cell(pos[v * 3 + 1]), cz = cell(pos[v * 3 + 2]), out: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) for (const u of grid.get(`${cx + dx},${cy + dy},${cz + dz}`) ?? []) {
+      // stay on the same side of the body (the two legs never share weights)
+      if (Math.abs(pos[u * 3] - pos[v * 3]) + Math.abs(pos[u * 3 + 1] - pos[v * 3 + 1]) + Math.abs(pos[u * 3 + 2] - pos[v * 3 + 2]) < r * 1.5) out.push(u);
+    }
+    nbrs.push(out);
+  }
+  for (let it = 0; it < iters; it++) {
+    const nj = joints.slice(), nw = weights.slice();
+    for (let v = 0; v < n; v++) {
+      if (!nbrs[v].length) continue;
+      const acc = new Map<number, number>();
+      for (const u of nbrs[v]) for (let k = 0; k < 4; k++) { const w = weights[u * 4 + k]; if (w > 0) acc.set(joints[u * 4 + k], (acc.get(joints[u * 4 + k]) ?? 0) + w); }
+      const top = [...acc.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const sum = top.reduce((s, c) => s + c[1], 0);
+      for (let k = 0; k < 4; k++) { nj[v * 4 + k] = top[k]?.[0] ?? 0; nw[v * 4 + k] = top[k] ? top[k][1] / sum : 0; }
+    }
+    joints.set(nj); weights.set(nw);
+  }
 }
 
 // ── posing ───────────────────────────────────────────────────────────────
@@ -1041,7 +1115,9 @@ export function poseChecks(rig: Rig, rest: Float32Array, indices: Uint32Array, v
     if (/^(Head|Neck|Jaw|LeftEye|RightEye|LeftUpperLid|RightUpperLid)/.test(name)) return 'H';
     return 'T';
   };
-  const NEIGHBOURS = new Set(['LH|LLA', 'RH|RLA', 'LLA|LUA', 'RLA|RUA', 'LUA|T', 'RUA|T', 'LLL|LUL', 'RLL|RUL', 'LUL|T', 'RUL|T', 'H|T', 'LUL|RUL', 'LLL|RLL']);
+  const NEIGHBOURS = new Set(['LH|LLA', 'RH|RLA', 'LLA|LUA', 'RLA|RUA', 'LUA|T', 'RUA|T', 'LLL|LUL', 'RLL|RUL', 'LUL|T', 'RUL|T', 'H|T', 'LUL|RUL', 'LLL|RLL',
+    // four legs fold against the body when the animal sits or lies down (haunch on hock, forearms under the chest)
+    ...(rig.spec.quad ? ['LLL|T', 'RLL|T', 'LLA|T', 'RLA|T', 'LH|LUA', 'RH|RUA', 'LH|RH', 'LLA|RLA'] : [])]);
   const triRegion: string[] = [];
   const clothTri: boolean[] = [];
   for (let t = 0; t < indices.length / 3; t++) {

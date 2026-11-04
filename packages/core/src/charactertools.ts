@@ -32,7 +32,7 @@ function asCharacter(o: SceneObject): SceneObject {
 }
 
 // ── looks: palettes per preset ───────────────────────────────────────────
-interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string; metal?: boolean }
+interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string; metal?: boolean; wing?: string }
 const LOOKS: Record<string, Look> = {
   default: { skin: '#d9a77a', hair: '#4a3022', shirt: '#6f8fa8', sleeves: 'shirt', trousers: '#3f4654', boots: '#2f2a26', lips: '#b06a5a', iris: '#5b4632' },
   // the forge pair, recast (Phase 7): a stocky, bald, bushy-browed smith and a lanky, freckled kid
@@ -41,6 +41,9 @@ const LOOKS: Record<string, Look> = {
   goblin: { skin: '#7fa05a', hair: '#2d2a26', shirt: '#8a3b2e', sleeves: 'skin', trousers: '#4a4034', boots: '#3a2a20', lips: '#4f6a3a', iris: '#e0b030', apron: '#c9a46a' },
   robot: { skin: '#a9b4bf', hair: '#3a4250', shirt: '#d97b2e', sleeves: 'skin', trousers: '#4b5563', boots: '#2b3038', lips: '#e8eef4', iris: '#41c9e6', metal: true },
   bird: { skin: '#e8dcc0', hair: '#c4532d', shirt: '#4c6fa8', sleeves: 'skin', trousers: '#e8dcc0', boots: '#e09a2c', lips: '#e8a23a', iris: '#141210' },
+  // four legs: the coat is skin, shirt and trousers at once; boots are the paws
+  dog: { skin: '#b9824f', hair: '#5a3a26', shirt: '#b9824f', sleeves: 'shirt', trousers: '#b9824f', boots: '#9a6a42', lips: '#2a1e19', iris: '#3a2616' },
+  birdfolk: { skin: '#eef0f2', hair: '#3d4a5c', shirt: '#9aa8b8', sleeves: 'skin', trousers: '#d9a43a', boots: '#d9a43a', lips: '#e3a72c', iris: '#141210', wing: '#5f7189' },
   kid: { skin: '#f0c9a6', hair: '#2c2c3a', shirt: '#e8b33a', sleeves: 'shirt', trousers: '#3d6ea8', boots: '#c94a3a', lips: '#d98474', iris: '#2f2620' },
   elder: { skin: '#d6a37e', hair: '#e2ddd3', shirt: '#6a4c7a', sleeves: 'shirt', trousers: '#4a4450', boots: '#2f2a26', lips: '#a96858', iris: '#4c6278' },
 };
@@ -52,6 +55,9 @@ const PRESETS: Record<string, Partial<Record<string, number | string>>> = {
   goblin: { plan: 'stocky', height: 1.05, build: 0.55, headSize: 1.25, armLength: 1.1, hair: 'none', nose: 'long', ears: 'pointy', mouth: 'cartoon', eyes: 'big', brows: 'none', style: 'toy' },
   robot: { plan: 'lanky', height: 2.0, build: 0.3, headSize: 1.35, hair: 'none', mouth: 'grille', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', style: 'toy' },
   bird: { plan: 'beaked' },
+  dog: { plan: 'quadruped' },
+  // a heron: the lanky skeleton with a bird's face parts and wings (body plans and face parts mix freely)
+  birdfolk: { plan: 'lanky', height: 1.72, build: 0.25, headSize: 1.2, hair: 'tuft', mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', wings: true, tail: true, tailLength: 0.45 } as any,
   kid: { plan: 'chibi', hair: 'bun' },
   elder: { plan: 'human', height: 1.66, build: 0.4, headSize: 1.06, hair: 'bun', nose: 'long', brows: 'bushy', style: 'smooth' },
 };
@@ -86,6 +92,8 @@ function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
     { parts: '*Eye.iris', material: mat('iris', l.iris, 0.3) },
     { parts: '*Eye.pupil', material: mat('pupil', '#141210', 0.2) },
     ...(l.apron ? [{ parts: 'apron', material: mat('leather', l.apron, 0.7) }] : []),
+    { parts: 'Tail*', material: mat('shirt', l.shirt, 0.9) },
+    { parts: '*Wing*', material: mat('feathers', l.wing ?? l.hair, 0.8) },
   ];
 }
 function shade(hex: string, f: number): string {
@@ -162,6 +170,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       height: z.number().min(0.5).max(3).optional(), build: z.number().min(0).max(1).optional(), headSize: z.number().min(0.7).max(1.6).optional(),
       armLength: z.number().min(0.7).max(1.4).optional(), legLength: z.number().min(0.7).max(1.4).optional(), handSize: z.number().min(0.6).max(1.6).optional(),
       hair: z.enum(HAIRS).optional(), apron: z.boolean().optional(),
+      tail: z.boolean().optional(), tailLength: z.number().min(0.3).max(2).optional(), wings: z.boolean().optional(),
       skin: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), hairColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), shirt: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       trousers: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       reference: z.string().optional(),
@@ -182,12 +191,12 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         Object.assign(P, ref.params); refLook = ref.look; refNote = ref.note;
         plan = P.plan;
       }
-      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears'] as const) if (a[k] !== undefined) P[k] = a[k];
+      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings'] as const) if (a[k] !== undefined) P[k] = a[k];
       const PD = PLANS[plan];
       if (a.hair === undefined && pre.hair === undefined) P.hair = PD.face.hair;
       charParams(P); // validate the combination
       const spec = characterSpec(charParams(P));
-      const baseLook = LOOKS[preset ?? ''] ?? LOOKS[{ chibi: 'kid', beaked: 'bird', stocky: 'blacksmith', lanky: 'apprentice', human: 'default' }[plan]];
+      const baseLook = LOOKS[preset ?? ''] ?? LOOKS[{ chibi: 'kid', beaked: 'bird', stocky: 'blacksmith', lanky: 'apprentice', human: 'default', quadruped: 'dog' }[plan]];
       const look: Look = { ...baseLook, ...(a.palette ? PALETTES[a.palette] : {}), ...refLook, ...(a.skin ? { skin: a.skin } : {}), ...(a.hairColor ? { hair: a.hairColor } : {}), ...(a.shirt ? { shirt: a.shirt } : {}), ...(a.trousers ? { trousers: a.trousers } : {}) };
       if (a.apron === false) delete look.apron;
       if (a.apron === true && !look.apron) look.apron = '#5a3a24';
@@ -201,7 +210,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       };
       const ops: SceneObject['ops'] = {
         body: { id: 'body', op: 'character', args: { height: '$height', build: '$build', headSize: '$headSize', armLength: '$armLength', legLength: '$legLength', handSize: '$handSize', hair: P.hair ?? 'short',
-          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])) }, part: 'body' },
+          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])) }, part: 'body' },
       };
       const opOrder = ['body'];
       let output = 'body';
@@ -225,12 +234,13 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         output = 'figure';
       }
       const character: CharacterState = {
-        pose: { LeftUpperArm: [0, 0, -72], RightUpperArm: [0, 0, 72], LeftLowerArm: [0, -8, 0], RightLowerArm: [0, 8, 0] },
+        pose: spec.quad ? {} : { LeftUpperArm: [0, 0, -72], RightUpperArm: [0, 0, 72], LeftLowerArm: [0, -8, 0], RightLowerArm: [0, 8, 0] },
         hands: { left: { ...NAMED_HAND_POSES.relaxed }, right: { ...NAMED_HAND_POSES.relaxed } },
         expression: {},
         // every character can stand and walk in a game from the start (set-motion tunes or adds more)
         // the plan's own gait (a beaked body waddles, a chibi bounces) unless set-motion says otherwise
-        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk', ...(spec.walk ? { style: spec.walk } : {}) }, start: { kind: 'start' }, stop: { kind: 'stop' } },
+        motions: spec.quad ? { idle: { kind: 'idle' }, walk: { kind: 'walk' }, trot: { kind: 'trot' }, sit: { kind: 'sit' } }
+          : { idle: { kind: 'idle' }, walk: { kind: 'walk', ...(spec.walk ? { style: spec.walk } : {}) }, start: { kind: 'start' }, stop: { kind: 'stop' } },
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,

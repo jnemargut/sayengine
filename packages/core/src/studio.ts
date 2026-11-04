@@ -143,7 +143,10 @@ export class Studio {
     if (!v) {
       const r = this.evaluate(o);
       if (!r.rig) return [];
-      v = poseChecks(r.rig.rig, r.rig.rest, r.indices, r.rig.vertPart);
+      // a four-legged body's canonical poses: mid-trot, sitting, lying down (the human set doesn't apply)
+      const rig = r.rig.rig;
+      const quadPoses = rig.spec.quad ? Object.fromEntries((['trot', 'sit', 'lie'] as const).map((k) => { const c = bakeMotion(k, { kind: k }, rig, undefined); return [k, c.local[k === 'trot' ? Math.round(c.frames * 0.25) : c.frames]]; })) : undefined;
+      v = poseChecks(rig, r.rig.rest, r.indices, r.rig.vertPart, quadPoses);
       if (this.poseCache.size > 20) this.poseCache.delete(this.poseCache.keys().next().value!);
       this.poseCache.set(key, v);
     }

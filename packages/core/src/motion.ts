@@ -9,6 +9,7 @@
 import { type Rig, type V3, type Q, qMul, qAxisAngle, qIdentity, qRot, forward, localRotations, handRotations, NAMED_HAND_POSES } from './rig.ts';
 import type { CharacterState, HandPose, MotionSpec } from './types.ts';
 import { ambientLife, hashSeed, rng } from './life.ts';
+import { applyTail, applyWings, bakeQuad, quadReport } from './quadruped.ts';
 
 export interface MotionClip {
   id: string;
@@ -27,6 +28,7 @@ export interface MotionClip {
   feet: { left: V3[]; right: V3[] };                  // planned ankle positions (object space, in place)
   shapes: Record<string, number[]>;                   // shape-key curves (blinks), 0..1
   reachMiss: number;              // worst distance (m) a foot target was beyond the leg's reach
+  paws?: Record<'LF' | 'RF' | 'LH' | 'RH', { down: boolean[]; p: V3[] }>;   // four-legged bodies: every paw (contacts/feet hold the hind pair)
   settings: Required<Pick<MotionSpec, 'energy'>> & MotionSpec;
 }
 
@@ -181,7 +183,7 @@ export const GAIT_STYLES: Record<string, GaitStyle> = {
 
 /** Validate settings and fill defaults (throws a readable error). */
 export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
-  const kinds = ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop'];
+  const kinds = ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop', 'trot', 'gallop', 'sit', 'lie'];
   if (!kinds.includes(spec.kind)) throw new Error(`motion kind must be one of ${kinds.join(', ')}`);
   const num = (k: keyof MotionSpec, lo: number, hi: number) => {
     const v = spec[k];
@@ -190,7 +192,7 @@ export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
   };
   num('speed', spec.kind === 'run' ? 1.8 : 0.3, spec.kind === 'run' ? 7 : 2.2);
   num('stride', 0.3, 4); num('bounce', 0, 0.12); num('armSwing', 0, 70); num('lean', -10, 25); num('sway', 0, 0.08);
-  num('energy', 0, 1); num('duration', 0.5, 30); num('turn', -180, 180);
+  num('energy', 0, 1); num('duration', 0.5, 30); num('turn', -180, 180); num('flap', 0, 6);
   if (spec.kind === 'action') {
     if (!spec.action) throw new Error(`an action motion needs --action (${Object.keys(ACTIONS).join(', ')})`);
     if (!ACTIONS[spec.action]) throw new Error(`no action "${spec.action}" — library: ${Object.keys(ACTIONS).join(', ')}`);
@@ -206,6 +208,16 @@ interface FootTarget { p: V3; q: Q; down: boolean; toes?: Q }
 /** Bake a motion for a rigged character. `state` gives the hands (and what they hold) and expression. */
 export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: CharacterState | undefined, fps = 30): MotionClip {
   const S = motionSettings(spec);
+  if (rig.spec.quad) {
+    const q = bakeQuad(S, rig, state, fps);
+    return {
+      id, kind: S.kind, fps, frames: q.frames, duration: +q.duration.toFixed(4), loop: q.loop, speed: +q.speed.toFixed(4), ...(q.stride ? { stride: +q.stride.toFixed(4) } : {}),
+      local: q.local, hips: q.hips, contacts: { left: q.contacts.LH, right: q.contacts.RH }, feet: { left: q.paws.LH, right: q.paws.RH },
+      paws: Object.fromEntries((['LF', 'RF', 'LH', 'RH'] as const).map((k) => [k, { down: q.contacts[k], p: q.paws[k] }])) as MotionClip['paws'],
+      shapes: q.shapes, reachMiss: +q.reachMiss.toFixed(4), settings: S,
+    };
+  }
+  if (['trot', 'gallop', 'sit', 'lie'].includes(S.kind)) throw new Error(`${S.kind} is a four-legged motion (this character stands on two legs: walk, run, idle, turn, action, start, stop)`);
   const idx = new Map(rig.bones.map((b, i) => [b.name, i]));
   const bone = (n: string) => rig.bones[idx.get(n)!];
   const s = rig.spec.s, en = S.energy;
@@ -595,6 +607,12 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
   }
 
   apronSwing(rig, local, hips, fps, loop, frames);
+  // add-ons: a tail swings with the body; wings stay folded unless the motion beats them
+  applyTail(rig, local, hips, fps, S.kind === 'idle' ? 1 : 0.5, loop ? duration : undefined);
+  if (idx.has('LeftWing1')) {
+    const flapHz = S.flap ? (loop ? Math.max(1, Math.round(S.flap * duration)) / duration : S.flap) : 0;
+    local.forEach((q, f) => applyWings(rig, idx, q, flapHz ? flapHz * (f / fps) : undefined, f / fps));
+  }
 
   // ── the life layer: blinks (shape keys + lids) and glances (eyes), on top of the posture ──
   const life = ambientLife(duration, fps, seed, { loop, glance: S.kind === 'idle' ? 1 : S.kind === 'action' ? 0.5 : 0.35, energy: en });
@@ -616,7 +634,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
 }
 
 // ── checks (the authority on motion, Decision 6): planted feet, ground, reach, loops ──────────────
-export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pelvis?: number; stanceKnee?: number; run?: { flight: number; cadence: number; lean: number; heelRecovery: number; pelvis: number }; strike?: { windup: number; downswing: number; dip: number; settle: boolean }; pass: boolean; detail: string }
+export interface MotionReport { slip: number; below: number; reachMiss: number; loopGap: number; kneeWorst: number; elbowWorst: number; pelvis?: number; stanceKnee?: number; run?: { flight: number; cadence: number; lean: number; heelRecovery: number; pelvis: number }; strike?: { windup: number; downswing: number; dip: number; settle: boolean }; quad?: import('./quadruped.ts').QuadReport; pass: boolean; detail: string }
 
 /** A run must read as a run: both feet off the ground for part of the stride, a forward lean, the heel
  *  folding up behind (swing knee), a quick cadence, without the hips sinking into a crouch. */
@@ -642,6 +660,10 @@ export function clipPose(rig: Rig, clip: MotionClip, f: number) {
 }
 
 export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
+  if (rig.spec.quad) {
+    const q = quadReport(rig, clip);
+    return { slip: q.slip, below: q.grounded, reachMiss: q.reachMiss, loopGap: 0, kneeWorst: 0, elbowWorst: 0, pass: q.pass, detail: q.detail, quad: q };
+  }
   const idx = new Map(rig.bones.map((b, i) => [b.name, i]));
   const s = rig.spec.s;
   let slip = 0, below = 0, kneeWorst = 0, elbowWorst = 0;
@@ -760,7 +782,8 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
 
 /** Frames worth a skin check: the extremes of a cycle, or an action's keys. */
 export function checkFrames(clip: MotionClip): number[] {
-  if (clip.kind === 'walk' || clip.kind === 'run') return [0, Math.round(clip.frames * 0.25)];
+  if (clip.kind === 'walk' || clip.kind === 'run' || clip.kind === 'trot' || clip.kind === 'gallop') return [0, Math.round(clip.frames * 0.25)];
+  if (clip.kind === 'sit' || clip.kind === 'lie') return [clip.frames];
   if (clip.kind === 'idle') return [Math.round(clip.frames * 0.25)];
   if (clip.kind === 'turn' || clip.kind === 'start' || clip.kind === 'stop') return [Math.round(clip.frames * 0.5)];
   const def = ACTIONS[clip.settings.action!];
