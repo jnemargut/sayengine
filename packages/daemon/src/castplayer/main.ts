@@ -93,9 +93,10 @@ function frame(t: number, yaw: number) {
   members.forEach((mb, i) => {
     if (mb.action) { mb.action.time = t % mb.action.getClip().duration; mb.mixer.update(0); }
     mb.root.rotation.y = 0;
+    for (const o of members) o.root.visible = o === mb;
     const cx = (i % cols) * cw, cy = Math.floor(i / cols) * ch;
     const hh = mb.m.headH ?? mb.m.height * 0.17, hy = (mb.m.headY ?? mb.m.height - hh) + hh * 0.45;
-    const d = (hh * 1.5) / Math.tan((22 * Math.PI) / 360);
+    const d = (hh * 1.05) / Math.tan((22 * Math.PI) / 360);
     const hz = mb.m.headZ ?? 0;   // a four-legged body's head is well forward of its feet
     cam.position.set(mb.x + d * 0.42, hy + hh * 0.12, hz + d * 0.9);
     cam.lookAt(mb.x, hy - hh * 0.05, hz);
@@ -105,11 +106,43 @@ function frame(t: number, yaw: number) {
   });
   renderer.setScissorTest(false);
   renderer.setViewport(0, 0, W, H);
+  for (const o of members) o.root.visible = true;
   ctx2d.drawImage(renderer.domElement, 0, 0, W, H);
   ctx2d.font = '600 18px system-ui, sans-serif'; ctx2d.fillStyle = 'rgba(28,25,23,0.85)';
   for (let i = members.length; i < cols * rows; i++) { ctx2d.fillStyle = '#ece6dc'; ctx2d.fillRect((i % cols) * cw, Math.floor(i / cols) * ch, cw, ch); }
   ctx2d.fillStyle = 'rgba(28,25,23,0.85)';
   members.forEach((mb, i) => ctx2d.fillText(`${mb.m.name}`, (i % cols) * cw + 16, Math.floor(i / cols) * ch + 30));
+  return out.toDataURL('image/png');
+};
+/** A sheet of full-body portraits, one per character (three-quarter view, the same framing for all):
+ *  big enough to judge shapes, hands and clothes, which the lineup shows too small. */
+(window as any).__bodies = (t: number, cols0 = 5) => {
+  const cols = Math.min(members.length, cols0), rows = Math.ceil(members.length / cols);
+  const cw = Math.floor(W / cols), ch = Math.floor(H / rows);
+  const cam = new THREE.PerspectiveCamera(26, cw / ch, 0.02, 60);
+  ctx2d.fillStyle = '#ece6dc'; ctx2d.fillRect(0, 0, W, H);
+  renderer.setScissorTest(true);
+  members.forEach((mb, i) => {
+    if (mb.action) { mb.action.time = t % mb.action.getClip().duration; mb.mixer.update(0); }
+    mb.root.rotation.y = 0;
+    for (const o of members) o.root.visible = o === mb;
+    const cx = (i % cols) * cw, cy = Math.floor(i / cols) * ch;
+    const box = new THREE.Box3().setFromObject(mb.root);
+    const hgt = Math.max(0.6, box.max.y - box.min.y), cz = (box.max.z + box.min.z) / 2;
+    const d = (hgt * 0.62) / Math.tan((26 * Math.PI) / 360);
+    cam.position.set(mb.x + d * 0.5, hgt * 0.62, cz + d * 0.86);
+    cam.lookAt(mb.x, hgt * 0.5, cz);
+    renderer.setViewport(cx, H - cy - ch, cw, ch);
+    renderer.setScissor(cx, H - cy - ch, cw, ch);
+    renderer.render(scene, cam);
+  });
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, W, H);
+  for (const o of members) o.root.visible = true;
+  ctx2d.drawImage(renderer.domElement, 0, 0, W, H);
+  for (let i = members.length; i < cols * rows; i++) { ctx2d.fillStyle = '#ece6dc'; ctx2d.fillRect((i % cols) * cw, Math.floor(i / cols) * ch, cw, ch); }
+  ctx2d.font = '600 18px system-ui, sans-serif'; ctx2d.fillStyle = 'rgba(28,25,23,0.85)';
+  members.forEach((mb, i) => ctx2d.fillText(`${mb.m.name}`, (i % cols) * cw + 14, Math.floor(i / cols) * ch + 28));
   return out.toDataURL('image/png');
 };
 if (!capture) {

@@ -31,7 +31,7 @@ export function buildCast(call: (tool: string, args: any) => any) {
 }
 
 if (import.meta.main) {
-  const OUT = path.resolve(import.meta.dirname, '..', 'checkpoint-phase7');
+  const OUT = process.env.CAST_OUT ? path.resolve(process.env.CAST_OUT) : path.resolve(import.meta.dirname, '..', 'checkpoint-phase7');
   fs.mkdirSync(OUT, { recursive: true });
   await initKernel();
   const studio = new Studio();

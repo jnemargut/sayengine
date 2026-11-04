@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { freeSpot, type ToolDef } from './tools.ts';
 import type { CharacterState, GripSocket, HandPose, LineClip, Material, SceneObject } from './types.ts';
-import { BODY_PLANS, BROW_STYLES, CHAR_DEFAULTS, EARS, EXPRESSIONS, EYE_STYLES, HAIRS, MOUTHS, NAMED_HAND_POSES, NOSES, PLANS, SHAPE_KEYS, STYLE_FAMILIES, VISEMES, apronDepth, characterSpec, charParams, weightReport, type BodyPlan, type V3 } from './rig.ts';
+import { BODY_PLANS, BROW_STYLES, CHAR_DEFAULTS, EARS, SHAPES, EXPRESSIONS, EYE_STYLES, HAIRS, MOUTHS, NAMED_HAND_POSES, NOSES, PLANS, SHAPE_KEYS, STYLE_FAMILIES, VISEMES, apronDepth, characterSpec, charParams, weightReport, type BodyPlan, type V3 } from './rig.ts';
 import { decodePng, readReference } from './charstyle.ts';
 import { importCharacter } from './importchar.ts';
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
@@ -32,34 +32,37 @@ function asCharacter(o: SceneObject): SceneObject {
 }
 
 // ── looks: palettes per preset ───────────────────────────────────────────
-interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string; metal?: boolean; wing?: string }
+interface Look { skin: string; hair: string; shirt: string; sleeves: 'shirt' | 'skin'; trousers: string; boots: string; lips: string; iris: string; apron?: string; metal?: boolean; wing?: string; belt?: string; accent?: string; shank?: string; nosePad?: string }
 const LOOKS: Record<string, Look> = {
-  default: { skin: '#d9a77a', hair: '#4a3022', shirt: '#6f8fa8', sleeves: 'shirt', trousers: '#3f4654', boots: '#2f2a26', lips: '#b06a5a', iris: '#5b4632' },
-  // the forge pair, recast (Phase 7): a stocky, bald, bushy-browed smith and a lanky, freckled kid
-  blacksmith: { skin: '#b9774f', hair: '#b4542b', shirt: '#7d6a55', sleeves: 'skin', trousers: '#3a3f4a', boots: '#2a2420', lips: '#8f4e3e', iris: '#3d4a5c', apron: '#5a3a24' },
-  apprentice: { skin: '#efc3a0', hair: '#d0682f', shirt: '#4f8a8b', sleeves: 'shirt', trousers: '#6a5a40', boots: '#4a3626', lips: '#cf7f6e', iris: '#4f7a3a' },
-  goblin: { skin: '#7fa05a', hair: '#2d2a26', shirt: '#8a3b2e', sleeves: 'skin', trousers: '#4a4034', boots: '#3a2a20', lips: '#4f6a3a', iris: '#e0b030', apron: '#c9a46a' },
-  robot: { skin: '#a9b4bf', hair: '#3a4250', shirt: '#d97b2e', sleeves: 'skin', trousers: '#4b5563', boots: '#2b3038', lips: '#e8eef4', iris: '#41c9e6', metal: true },
-  bird: { skin: '#e8dcc0', hair: '#c4532d', shirt: '#4c6fa8', sleeves: 'skin', trousers: '#e8dcc0', boots: '#e09a2c', lips: '#e8a23a', iris: '#141210' },
-  // four legs: the coat is skin, shirt and trousers at once; boots are the paws
-  dog: { skin: '#b9824f', hair: '#5a3a26', shirt: '#b9824f', sleeves: 'shirt', trousers: '#b9824f', boots: '#9a6a42', lips: '#2a1e19', iris: '#3a2616' },
-  birdfolk: { skin: '#eef0f2', hair: '#3d4a5c', shirt: '#9aa8b8', sleeves: 'skin', trousers: '#d9a43a', boots: '#d9a43a', lips: '#e3a72c', iris: '#141210', wing: '#5f7189' },
-  kid: { skin: '#f0c9a6', hair: '#2c2c3a', shirt: '#e8b33a', sleeves: 'shirt', trousers: '#3d6ea8', boots: '#c94a3a', lips: '#d98474', iris: '#2f2620' },
-  elder: { skin: '#d6a37e', hair: '#e2ddd3', shirt: '#6a4c7a', sleeves: 'shirt', trousers: '#4a4450', boots: '#2f2a26', lips: '#a96858', iris: '#4c6278' },
+  // craft pass: each look has a value plan (one light group, one dark group) and a single accent colour
+  // (used on the belt buckle, collar or hems) so the eye lands on the face first
+  default: { skin: '#d9a77a', hair: '#4a3022', shirt: '#6f8fa8', sleeves: 'shirt', trousers: '#3f4654', boots: '#2f2a26', lips: '#b06a5a', iris: '#5b4632', belt: '#3a2c22', accent: '#d9b25a' },
+  // the forge pair: a stocky, bald, bushy-browed smith (dark leather, warm skin, a brass buckle) and a
+  // lanky, freckled kid (light teal shirt over dark trousers, an orange tuft)
+  blacksmith: { skin: '#c27f52', hair: '#9c4424', shirt: '#8a7458', sleeves: 'skin', trousers: '#2f343e', boots: '#231d19', lips: '#8f4e3e', iris: '#3d4a5c', apron: '#4e301d', belt: '#2a1f18', accent: '#d8a24a' },
+  apprentice: { skin: '#f1c6a2', hair: '#e06a2a', shirt: '#5aa0a0', sleeves: 'shirt', trousers: '#4e4232', boots: '#3a2a1e', lips: '#cf7f6e', iris: '#4f7a3a', belt: '#6a4a2c', accent: '#f0d27a' },
+  goblin: { skin: '#86ab58', hair: '#2d2a26', shirt: '#9a3a2c', sleeves: 'skin', trousers: '#3e352c', boots: '#2e231b', lips: '#4f6a3a', iris: '#f0c030', apron: '#d8b47a', belt: '#4a3626', accent: '#e8d070' },
+  robot: { skin: '#b3bec8', hair: '#3a4250', shirt: '#e07a2a', sleeves: 'skin', trousers: '#46505e', boots: '#262b33', lips: '#e8eef4', iris: '#41c9e6', metal: true, belt: '#2d333c', accent: '#41c9e6' },
+  bird: { skin: '#efe4c8', hair: '#c4532d', shirt: '#3f6a3a', sleeves: 'skin', trousers: '#efe4c8', boots: '#e8a02c', lips: '#eba83a', iris: '#141210', belt: '#5a4a32', accent: '#e8a02c', shank: '#e8a02c' },
+  // four legs: the coat is skin, shirt and trousers at once; boots are the paws, a dark nose pad
+  dog: { skin: '#c08a52', hair: '#6a4026', shirt: '#c08a52', sleeves: 'shirt', trousers: '#c08a52', boots: '#a87444', lips: '#2a1e19', iris: '#3a2616', nosePad: '#1e1715', accent: '#c94a3a' },
+  birdfolk: { skin: '#f1f2f4', hair: '#2f3a4c', shirt: '#9aa8b8', sleeves: 'skin', trousers: '#c3ccd6', boots: '#e0a83a', lips: '#e3a72c', iris: '#141210', wing: '#5f7189', belt: '#4a5568', accent: '#e0a83a', shank: '#e0a83a' },
+  kid: { skin: '#f2cba8', hair: '#26263a', shirt: '#f0b62e', sleeves: 'shirt', trousers: '#3567a8', boots: '#d24a36', lips: '#d98474', iris: '#2f2620', belt: '#26263a', accent: '#d24a36' },
+  elder: { skin: '#d9a681', hair: '#ece8df', shirt: '#6a4c7a', sleeves: 'shirt', trousers: '#3c3742', boots: '#2a2522', lips: '#a96858', iris: '#4c6278', belt: '#2a2522', accent: '#c9a45a' },
 };
 /** Presets: a body plan, proportions and face parts (Decision 47 A). Anything can be overridden. */
 const PRESETS: Record<string, Partial<Record<string, number | string>>> = {
   default: {},
-  blacksmith: { plan: 'stocky', height: 1.42, build: 0.95, handSize: 1.05, hair: 'none', brows: 'bushy', nose: 'big' },
-  apprentice: { plan: 'lanky', height: 1.9, build: 0.1, headSize: 1.12, hair: 'tuft', nose: 'long', ears: 'pointy', eyes: 'big' },
-  goblin: { plan: 'stocky', height: 1.05, build: 0.55, headSize: 1.25, armLength: 1.1, hair: 'none', nose: 'long', ears: 'pointy', mouth: 'cartoon', eyes: 'big', brows: 'none', style: 'toy' },
-  robot: { plan: 'lanky', height: 2.0, build: 0.3, headSize: 1.35, hair: 'none', mouth: 'grille', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', style: 'toy' },
-  bird: { plan: 'beaked' },
-  dog: { plan: 'quadruped' },
+  blacksmith: { plan: 'stocky', height: 1.42, build: 0.95, handSize: 1.05, hair: 'none', brows: 'bushy', nose: 'big', shape: 'square' },
+  apprentice: { plan: 'lanky', height: 1.9, build: 0.15, headSize: 1.14, hair: 'tuft', nose: 'long', ears: 'pointy', eyes: 'big', shape: 'triangle' },
+  goblin: { plan: 'stocky', height: 1.05, build: 0.55, headSize: 1.3, armLength: 1.1, handSize: 1.15, hair: 'none', nose: 'long', ears: 'pointy', mouth: 'cartoon', eyes: 'big', brows: 'bar', style: 'toy', shape: 'triangle' },
+  robot: { plan: 'human', height: 1.95, build: 0.8, headSize: 1.2, hair: 'none', mouth: 'grille', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', style: 'toy', shape: 'square' },
+  bird: { plan: 'beaked', legs: 'bird' },
+  dog: { plan: 'quadruped', headSize: 0.88 },
   // a heron: the lanky skeleton with a bird's face parts and wings (body plans and face parts mix freely)
-  birdfolk: { plan: 'lanky', height: 1.72, build: 0.25, headSize: 1.2, hair: 'tuft', mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', wings: true, tail: true, tailLength: 0.45 } as any,
+  birdfolk: { plan: 'lanky', height: 1.72, build: 0.35, headSize: 1.2, hair: 'tuft', mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', wings: true, tail: true, tailLength: 0.45, legs: 'bird', shape: 'triangle' } as any,
   kid: { plan: 'chibi', hair: 'bun' },
-  elder: { plan: 'human', height: 1.66, build: 0.4, headSize: 1.06, hair: 'bun', nose: 'long', brows: 'bushy', style: 'smooth' },
+  elder: { plan: 'human', height: 1.66, build: 0.45, headSize: 1.08, hair: 'bun', nose: 'long', brows: 'bushy', style: 'smooth', shape: 'round' },
 };
 /** Palettes: colour families that can dress any plan. */
 const PALETTES: Record<string, Partial<Look>> = {
@@ -93,6 +96,16 @@ function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
     { parts: '*Eye.pupil', material: mat('pupil', '#141210', 0.2) },
     ...(l.apron ? [{ parts: 'apron', material: mat('leather', l.apron, 0.7) }] : []),
     { parts: 'Tail*', material: mat('shirt', l.shirt, 0.9) },
+    { parts: 'plumage', material: mat('feathers', l.shirt, 0.9) },
+    { parts: 'collar', material: mat('collar', shade(l.shirt, 0.78), 0.9) },
+    { parts: '*.hem', material: mat('hem', shade(l.shirt, 0.72), 0.9) },
+    { parts: '*.cuff', material: mat('hem', shade(l.sleeves === 'shirt' ? l.shirt : l.trousers, 0.72), 0.9) },
+    { parts: '*LowerLeg.cuff', material: mat('trousers hem', shade(l.trousers, 0.7), 0.92) },
+    { parts: 'belt', material: mat('leather', l.belt ?? shade(l.boots, 1.1), 0.6) },
+    { parts: 'belt.buckle', material: mat('buckle', l.accent ?? '#d8a24a', 0.35, { metalness: 0.6 }) },
+    { parts: '*.shank', material: mat('scales', l.shank ?? l.boots, 0.5) },
+    { parts: 'nose.pad', material: mat('nose pad', l.nosePad ?? '#1e1715', 0.35) },
+    { parts: '*Eye.glint', material: mat('catch-light', '#ffffff', 0.12) },
     { parts: '*Wing*', material: mat('feathers', l.wing ?? l.hair, 0.8) },
   ];
 }
@@ -171,6 +184,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       armLength: z.number().min(0.7).max(1.4).optional(), legLength: z.number().min(0.7).max(1.4).optional(), handSize: z.number().min(0.6).max(1.6).optional(),
       hair: z.enum(HAIRS).optional(), apron: z.boolean().optional(),
       tail: z.boolean().optional(), tailLength: z.number().min(0.3).max(2).optional(), wings: z.boolean().optional(),
+      shape: z.enum(SHAPES).optional().describe('shape language: round (soft, friendly), square (solid), triangle (sharp, wiry); defaults to the plan\'s'),
       skin: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), hairColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), shirt: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       trousers: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       reference: z.string().optional(),
@@ -191,7 +205,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         Object.assign(P, ref.params); refLook = ref.look; refNote = ref.note;
         plan = P.plan;
       }
-      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings'] as const) if (a[k] !== undefined) P[k] = a[k];
+      for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings', 'shape'] as const) if (a[k] !== undefined) P[k] = a[k];
       const PD = PLANS[plan];
       if (a.hair === undefined && pre.hair === undefined) P.hair = PD.face.hair;
       charParams(P); // validate the combination
@@ -210,7 +224,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       };
       const ops: SceneObject['ops'] = {
         body: { id: 'body', op: 'character', args: { height: '$height', build: '$build', headSize: '$headSize', armLength: '$armLength', legLength: '$legLength', handSize: '$handSize', hair: P.hair ?? 'short',
-          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])) }, part: 'body' },
+          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings', 'shape', 'legs'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])), ...(plan !== 'quadruped' ? { sleeves: look.sleeves === 'shirt' ? 'long' : 'short' } : {}) }, part: 'body' },
       };
       const opOrder = ['body'];
       let output = 'body';

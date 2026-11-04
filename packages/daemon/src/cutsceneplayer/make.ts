@@ -75,7 +75,7 @@ export async function captureCutscene(outDir: string, timeline: any, opts: { vid
     for (const s of timeline.shots) {
       // the storyboard frame: a moment into the shot where its first line is under way
       const q = timeline.cues.find((c: any) => c.shot === s.id);
-      const t = q ? Math.min(s.end - 0.05, q.t + Math.min(1.0, (q.end - q.t) * 0.45)) : s.start + (s.end - s.start) * 0.4;
+      const t = q ? Math.min(s.end - 0.05, q.t + (q.kind === 'motion' ? Math.min(1.6, (q.end - q.t) * 0.56) : Math.min(1.0, (q.end - q.t) * 0.45))) : s.start + (s.end - s.start) * 0.4;
       const f = path.join(boardDir, `${s.id}.png`);
       await shot(t, f); boards[s.id] = `storyboard/${s.id}.png`;
     }

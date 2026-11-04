@@ -404,7 +404,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           // The humanoid kit (Decision 14 A): proportions are params; the skeleton, skin weights and
           // face shapes come with it (attached to the final mesh below). Faces +Z, feet on y = 0.
           const keys = ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize'] as const;
-          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears, tail: A.tail, wings: A.wings, tailLength: A.tailLength }));
+          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears, tail: A.tail, wings: A.wings, tailLength: A.tailLength, shape: A.shape, legs: A.legs, sleeves: A.sleeves }));
           charSpec = spec;
           const parts = new Map<number, Part>();
           const mk = (m: any, name: string) => { const o = keep(m.asOriginal()); parts.set(o.originalID(), { name, ops: new Set([id]) }); return o; };
@@ -428,7 +428,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           const face = keep(Manifold.difference([head, ...cutters]));
           // limbs and torso get edge loops along their length (still flat facets) so joints can bend
           const loops = (pc: Piece, m: any) => {
-            const long = pc.kind === 'seg' ? Math.hypot(pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]) > 0.08 * spec.s : pc.part === 'torso';
+            const long = pc.kind === 'seg' ? Math.hypot(pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]) > 0.08 * spec.s : pc.part === 'torso' || (pc.kind === 'hull' && !!pc.loops);
             return long ? keep(m.refineToLength(0.045 * spec.s)) : m;
           };
           const body = spec.pieces.map((pc) => mk(loops(pc, build(pc)), pc.part));
@@ -442,8 +442,8 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
             const cap = keep(shell.trimByPlane(n, 0));
             return mk(keep(cap.translate(l.c)), l.part);
           });
-          const eyeL = keep(Manifold.union(eyes.filter((_, i) => i < 3)));
-          const eyeR = keep(Manifold.union(eyes.filter((_, i) => i >= 3)));
+          const eyeL = keep(Manifold.union(eyes.filter((_, i) => spec.eyes[i].part.startsWith('Left'))));
+          const eyeR = keep(Manifold.union(eyes.filter((_, i) => spec.eyes[i].part.startsWith('Right'))));
           // teeth and tongue: separate shells inside the mouth chamber (they never touch its walls)
           const mouth = spec.mouth.map((pc) => mk(build(pc), pc.part));
           out = { m: keep(Manifold.union([face, ...body, eyeL, eyeR, ...lids, ...mouth])), parts };
