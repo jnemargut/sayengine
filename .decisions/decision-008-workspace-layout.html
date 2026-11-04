@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 8: Workspace Layout — AI-First 3D Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper. Wireframes use Soft Premium tokens (tokens.css). */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #edf6f0; color: #2c6e48; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fefce8; color:#854d0e; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.lean { background:#b86e0a; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1rem; background: #d6d3d1; display: flex; align-items: center; justify-content: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.experts-box { max-width:1200px; margin:0 auto 3rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.wf { width:100%; max-width:520px; height:330px; background:#f5f5f4; border-radius:18px; box-shadow:0 12px 32px rgba(28,25,23,.06); font-family:'Instrument Sans',sans-serif; color:#1c1917; position:relative; overflow:hidden; }
+.wf .top { position:absolute; left:0; right:0; top:0; height:34px; display:flex; align-items:center; justify-content:space-between; padding:0 14px; border-bottom:1px solid #e7e5e4; font-size:12px; color:#57534e; }
+.wf .top b { color:#1c1917; font-weight:600; }
+.box { position:absolute; background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:8px 10px; font-size:12px; color:#57534e; }
+.box .t { font-weight:600; color:#1c1917; font-size:12px; margin-bottom:2px; }
+.vpbox { position:absolute; background:#fafaf9; border-radius:18px; box-shadow:0 4px 16px rgba(28,25,23,.05); display:flex; align-items:center; justify-content:center; }
+.vpbox svg { width:70%; height:auto; display:block; }
+.vptag { position:absolute; top:8px; left:10px; font-size:12px; color:#78716c; }
+.vptag.sage { color:#3f6b5a; font-weight:600; }
+.pill { position:absolute; background:#fafaf9; border-radius:28px; box-shadow:0 4px 16px rgba(28,25,23,.05); display:flex; align-items:center; gap:8px; padding:6px 6px 6px 14px; font-size:12px; color:#57534e; }
+.pill .btn { background:#292524; color:#fafaf9; border-radius:28px; padding:4px 12px; font-weight:600; }
+.scrub { position:absolute; height:24px; background:#fafaf9; border-radius:28px; box-shadow:0 4px 16px rgba(28,25,23,.05); display:flex; align-items:center; gap:6px; padding:0 12px; }
+.scrub i { width:6px; height:6px; border-radius:50%; background:#a8a29e; display:inline-block; }
+.scrub i.on { background:#5b8c7a; width:8px; height:8px; }
+.scrub span { font-size:12px; color:#78716c; margin-left:4px; }
+.pin { position:absolute; width:10px; height:10px; border-radius:50%; background:#5b8c7a; }
+.tile { position:absolute; background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:6px; font-size:12px; color:#57534e; text-align:center; }
+.tile svg { width:100%; height:auto; display:block; }
+.tile.main { outline:2px solid #5b8c7a; }
+.dash { position:absolute; border-top:1.5px dashed #a8a29e; }
+.chatline { font-size:12px; color:#57534e; padding:3px 0; border-bottom:1px solid #e7e5e4; }
+.chatline.me { color:#1c1917; }
+
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 8 of 10</span>
+  <h1>Workspace Layout</h1>
+  <span class="category-badge">Information architecture</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Where does everything live on screen — the 3D view, the scene list, the parameters, the AI conversation, the history? This is how the "human as creative director" idea becomes physical. A traditional layout surrounds the viewport with fixed panels; an AI-first layout might give the 3D object the whole stage and let tools appear only when needed, or make proposals the main thing on screen. All four wireframes below use the Soft Premium tokens.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option B"</strong> · <strong>"Option B but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Docked Panels</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="wf">
+        <div class="top"><b>Studio</b><span>Scene · History · Proposals</span></div>
+        <div class="box" style="left:8px; top:42px; width:96px; height:206px;"><div class="t">Scene</div>Chair<br>Seat<br>Backrest<br>Legs ×4</div>
+        <div class="vpbox" style="left:112px; top:42px; width:250px; height:206px;"><span class="vptag">Viewport</span><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 21,94 18,93"/><polygon points="60,70 63,71 62,98 59,97"/><polygon points="92,60 95,59 101,88 98,89"/></g></svg></div>
+        <div class="box" style="left:370px; top:42px; width:142px; height:96px;"><div class="t">Inspector</div>Leg radius 15 mm<br>Seat h 450 mm</div>
+        <div class="box" style="left:370px; top:144px; width:142px; height:104px;"><div class="t">AI chat</div><div class="chatline me">Splay the legs</div><div class="chatline">2 proposals ready</div></div>
+        <div class="box" style="left:8px; top:256px; width:504px; height:66px;"><div class="t">History</div>c40 seat height · c41 walnut · c42 leg radius · p1 splay (proposal)</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The familiar layout: scene list left, viewport center, inspector and AI chat stacked right, history along the bottom. Everything is always visible, nothing moves. Anyone who has used Figma, Unity or Blender knows where to look. But the viewport gets maybe half the screen, and the AI is "a chat box in the corner" — exactly what the original vision said to avoid.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Users switch between many tools constantly</li>
+        <li>Zero learning curve; easy to build with a panel library</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Viewport squeezed to ~50% of screen</li>
+        <li>AI reads as a bolted-on chat panel</li>
+        <li>Proposals buried in a history strip</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — the object owns the stage</span>
+          <span class="confidence-badge lean">Lean</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Viewport Stage</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="wf">
+        <div class="top"><b>Studio</b><span>main · c42</span></div>
+        <div class="vpbox" style="left:8px; top:42px; width:504px; height:280px; border-radius:18px;"><svg viewBox="0 0 120 100" style="width:42%"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 21,94 18,93"/><polygon points="60,70 63,71 62,98 59,97"/><polygon points="92,60 95,59 101,88 98,89"/></g></svg></div>
+        <div class="box" style="left:20px; top:56px; width:92px; height:96px;"><div class="t">Scene</div>Chair<br>Legs ×4<br><span style="color:#78716c">collapse ‹</span></div>
+        <div class="pin" style="left:316px; top:150px;"></div>
+        <div class="box" style="left:334px; top:100px; width:164px; height:96px;"><div class="t">Legs · on selection</div>Radius 15 mm<br>Splay 6°<br><span style="color:#3f6b5a">Construction ›</span></div>
+        <div class="pill" style="left:76px; top:250px; width:368px;"><span style="flex:1">Splay the legs like a mid-century chair</span><span class="btn">Propose</span></div>
+        <div class="scrub" style="left:150px; top:290px; width:220px;"><i></i><i></i><i></i><i></i><i class="on"></i><span>c42 · drag to scrub</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The 3D view fills the window. The scene list is a collapsible card; the inspector appears next to whatever you select, pinned to it; the AI command bar floats at the bottom center like a conversation with the room; history is a thin timeline you can scrub. Panels exist, but they serve the object instead of framing it — the creative-director posture made physical.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The object and the AI conversation are the main event</li>
+        <li>Newcomers — fewer panels to learn</li>
+        <li>Selection-aware AI ("make this more Craftsman")</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Floating cards can cover the model</li>
+        <li>Power users want pinned panels — needs a "dock" toggle</li>
+        <li>More layout logic than fixed panels</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Variant Canvas</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="wf">
+        <div class="top"><b>Studio</b><span>Board · 5 variants</span></div>
+        <div class="tile main" style="left:180px; top:66px; width:150px; height:150px;"><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 21,94 18,93"/><polygon points="60,70 63,71 62,98 59,97"/><polygon points="92,60 95,59 101,88 98,89"/></g></svg>main · c42</div>
+        <div class="dash" style="left:120px; top:110px; width:60px;"></div>
+        <div class="dash" style="left:330px; top:110px; width:60px;"></div>
+        <div class="dash" style="left:330px; top:190px; width:60px;"></div>
+        <div class="tile" style="left:20px; top:66px; width:100px; height:100px;"><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,22 58,12" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 21,94 18,93"/><polygon points="92,60 95,59 101,88 98,89"/></g></svg>low back</div>
+        <div class="tile" style="left:390px; top:56px; width:110px; height:100px;"><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 13,94 10,93"/><polygon points="92,60 95,59 109,88 106,89"/></g></svg>p1 splay 6°</div>
+        <div class="tile" style="left:390px; top:166px; width:110px; height:100px;"><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="23,62 28,63 15,94 13,93"/><polygon points="91,60 96,59 107,88 105,89"/></g></svg>p2 taper</div>
+        <div class="pill" style="left:76px; top:280px; width:368px;"><span style="flex:1">Try three backrest heights</span><span class="btn">Generate</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      An infinite board, like a designer's pin-up wall. The current model sits in the middle; every branch and AI proposal appears as its own live mini-viewport around it, connected by lineage lines. Zoom into any tile to edit it full-size. Exploration and comparison are the default state — perfect for "show me three roofs".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Exploring many alternatives is the core loop</li>
+        <li>Branch history is visual, not a list</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Many live 3D tiles = heavy GPU/memory on 8 GB</li>
+        <li>Precise editing needs a mode switch</li>
+        <li>Large scenes don't fit in tiles</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Director's Split</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="wf">
+        <div class="top"><b>Studio</b><span>Committed ⇆ Proposal</span></div>
+        <div class="vpbox" style="left:8px; top:42px; width:190px; height:220px;"><span class="vptag">Committed · c42</span><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 21,94 18,93"/><polygon points="60,70 63,71 62,98 59,97"/><polygon points="92,60 95,59 101,88 98,89"/></g></svg></div>
+        <div class="vpbox" style="left:206px; top:42px; width:190px; height:220px; outline:2px solid #5b8c7a;"><span class="vptag sage">Proposal p1 · splay 6°</span><svg viewBox="0 0 120 100"><polygon points="20,60 64,70 98,58 54,48" fill="#a8a29e"/><polygon points="54,48 98,58 100,14 58,4" fill="#d6d3d1"/><g fill="#57534e"><polygon points="24,62 27,63 13,94 10,93"/><polygon points="60,70 63,71 62,98 59,97"/><polygon points="92,60 95,59 109,88 106,89"/></g></svg></div>
+        <div class="box" style="left:404px; top:42px; width:108px; height:220px;"><div class="t">Conversation</div><div class="chatline me">Splay the legs</div><div class="chatline">p1: 6°, checks pass</div><div class="chatline">p2: taper, 1 warning</div><div class="chatline me">Use p1</div></div>
+        <div class="pill" style="left:8px; top:276px; width:388px;"><span style="flex:1">Accept p1 · Ask for changes · Discard</span><span class="btn">Accept</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Two viewports, always: what's committed on the left, what the AI is proposing on the right, with the conversation beside them. Cameras stay synced so differences pop. It's a design review built into the layout — you never lose sight of what you'd be giving up. When there's no proposal, the right side becomes the working view.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Every AI change must be reviewed before it lands</li>
+        <li>Before/after comparison is the signature experience</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two half-size viewports all the time</li>
+        <li>Awkward with 3+ variants</li>
+        <li>Overlaps heavily with Decision 9 (review style)</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Floating, contextual UI is harder to build well than docked panels and easier to get wrong: cards that cover the model, inspectors that jump around, and power users who want everything pinned. Docked panels (A) are boring but battle-tested, and you could ship them in days with a panel library, spending design effort on the review experience (Decision 9) instead. <strong>Tiebreaker:</strong> if exploring many variants is the core loop rather than refining one object, the Variant Canvas (C) is the bolder, more differentiated choice — and it can be a mode inside B later.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>A "dock panels" toggle exists from day one, so power users can pin the scene list and inspector</li>
+    <li>Floating cards auto-avoid the selected object's screen bounds</li>
+    <li>The Variant Canvas becomes a secondary mode (Proposals tab), not the home screen</li>
+    <li>Proposal review style is settled separately in Decision 9 and slots into this stage</li>
+    <li><strong>Tripwire:</strong> if testers spend more time moving cards than modeling, switch the default to docked panels</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a col-chosen">A: Docked panels</th>
+        <th class="col-b col-pick">B: Viewport stage</th>
+        <th class="col-c">C: Variant canvas</th>
+        <th class="col-d">D: Director's split</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Viewport share of screen</td><td class="col-chosen">~50%</td><td class="col-pick">~90%</td><td>Tiles (varies)</td><td>2 × ~38%</td></tr>
+        <tr><td>Feels AI-native</td><td>Low (chat in corner)</td><td class="col-pick">High (command bar + selection)</td><td>High (variants first)</td><td>High (review first)</td></tr>
+        <tr><td>Newcomer cognitive load</td><td>Medium</td><td class="col-pick">Low</td><td>Medium</td><td>Medium</td></tr>
+        <tr><td>Power-user efficiency</td><td>High</td><td class="col-pick">Medium → high with dock toggle</td><td>Low for precise edits</td><td>Medium</td></tr>
+        <tr><td>Scales to big scenes</td><td>Yes</td><td class="col-pick">Yes</td><td>Poorly</td><td>Yes</td></tr>
+        <tr><td>8 GB GPU/memory cost</td><td>One viewport</td><td class="col-pick">One viewport</td><td>Many live viewports</td><td>Two viewports</td></tr>
+        <tr><td>Build effort</td><td>Low</td><td class="col-pick">Medium</td><td>High</td><td>Medium</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Low</td><td class="col-pick">Low — dock toggle is already A</td><td>Medium</td><td>Low–medium</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="experts-box">
+  <h3>Where experts disagree</h3>
+  <p>Pro-tool designers argue fixed panels build muscle memory and that floating UI is demo-ware. Newer creative tools increasingly put the canvas first with contextual, on-selection controls, because it lowers the barrier for non-experts. The deciding condition is the same one as Decision 7: who you're designing for first. A dock toggle lets B serve both.</p>
+</section>
+
+<div class="page-footer">
+  <p>Combining is fine: <strong>"Option B with C as the Proposals tab"</strong> or <strong>"Option B but docked by default"</strong></p>
+  <p>To change a past decision: <strong>"for decision-7 I want Option B instead"</strong></p>
+</div>
+</body>
+</html>

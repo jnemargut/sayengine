@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 6: AI Perception Loop — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.prior { margin-top: 0.75rem; font-size: 0.8rem; color: #2c6e48; background: #edf6f0; border: 1px solid #b9dcc6; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.inbox-label { width: 100%; max-width: 440px; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; }
+.json { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.58rem; background: #0f1b2b; color: #d6e2f0; border-radius: 8px; padding: 8px 10px; width: 100%; max-width: 440px; line-height: 1.5; white-space: pre; overflow: hidden; }
+.json .k { color: #8fb8e8; } .json .bad { color: #f2a19a; } .json .ok { color: #9fd3b0; }
+.views { width: 100%; max-width: 440px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.views.two { grid-template-columns: repeat(2, 1fr); }
+.view { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; }
+.view svg { display: block; width: 100%; height: auto; }
+.view .vl { font-size: 0.55rem; color: #64748b; text-align: center; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.critic { width: 100%; max-width: 440px; background: white; border: 1px solid #e2e8f0; border-left: 4px solid #a83a32; border-radius: 6px; padding: 7px 10px; font-size: 0.66rem; color: #334155; line-height: 1.5; }
+.critic b { color: #a83a32; }
+.mini { font-size: 0.6rem; color: #64748b; text-align: center; max-width: 440px; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 6 of 10</span>
+  <h1>AI Perception Loop</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    After the AI changes the chair, what does it get back so it can tell whether the change worked? This is the difference between an AI that says "done!" and one that notices the back leg is floating 4 mm above the floor and fixes it. Each card shows exactly what the model receives after "thin the legs" — and the research is blunt about what vision models can and can't judge reliably.
+  </p>
+  <span class="prior">Results return through the tool registry from Decision 5; renders come from the same Three.js scene</span><br>
+  <p class="instruction">Respond with: <strong>"Option C"</strong> · <strong>"Option C but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Structured Diagnostics Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="inbox-label">The model receives</div>
+      <div class="json"><span class="k">"commit"</span>: "c42", <span class="k">"op"</span>: "set_param legRadius 0.015",
+<span class="k">"bbox"</span>: [0.45, 0.85, 0.48],   <span class="k">"units"</span>: "m",
+<span class="k">"manifold"</span>: <span class="ok">true</span>,  <span class="k">"triangles"</span>: 8412,
+<span class="k">"parts"</span>: {
+  "leg_bl": { <span class="k">"touches"</span>: ["seat"], <span class="k">"minY"</span>: <span class="bad">0.004</span> },
+  "leg_br": { <span class="k">"touches"</span>: ["seat"], <span class="k">"minY"</span>: 0.000 } },
+<span class="k">"checks"</span>: [
+  { <span class="bad">"FAIL"</span>: "leg_bl not grounded (4 mm gap)" },
+  { <span class="ok">"PASS"</span>: "no self-intersections" },
+  { <span class="ok">"PASS"</span>: "seat height 0.45 ± 0.01" } ]</div>
+      <div class="mini">Exact and cheap (~300 tokens) — but says nothing about whether it looks like a good chair</div>
+    </div>
+    <div class="option-summary">
+      After every change, the engine returns hard numbers: dimensions, watertightness, which parts touch, collision checks, and pass/fail rules ("legs must touch the floor"). Precise, cheap, and immune to the vision mistakes models make. But it's blind to everything aesthetic — proportions, style, "this looks like a stool, not a chair" — which is half of what users will ask for.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Catching geometric errors with certainty</li>
+        <li>Cheap enough to run after every single step</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Can't judge style, proportion, "Craftsman-ness"</li>
+        <li>Only finds problems you wrote rules for</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Rendered Views Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="inbox-label">The model receives — 4 images</div>
+      <div class="views">
+        <div class="view"><svg viewBox="0 0 80 90"><rect x="14" y="40" width="52" height="6" fill="#8a6a4a"/><rect x="18" y="8" width="44" height="6" fill="#8a6a4a"/><rect x="20" y="14" width="3" height="26" fill="#6e5238"/><rect x="57" y="14" width="3" height="26" fill="#6e5238"/><rect x="18" y="46" width="3" height="36" fill="#6e5238"/><rect x="59" y="46" width="3" height="38" fill="#6e5238"/><line x1="4" y1="84" x2="76" y2="84" stroke="#cbd5e1"/></svg><div class="vl">front</div></div>
+        <div class="view"><svg viewBox="0 0 80 90"><rect x="18" y="40" width="46" height="6" fill="#8a6a4a"/><rect x="58" y="8" width="5" height="32" fill="#6e5238"/><rect x="20" y="46" width="3" height="38" fill="#6e5238"/><rect x="58" y="46" width="3" height="36" fill="#6e5238"/><line x1="4" y1="84" x2="76" y2="84" stroke="#cbd5e1"/></svg><div class="vl">side</div></div>
+        <div class="view"><svg viewBox="0 0 80 90"><rect x="14" y="18" width="52" height="52" fill="#8a6a4a"/><rect x="14" y="18" width="52" height="7" fill="#6e5238"/><circle cx="19" cy="65" r="2" fill="#3e2c1c"/><circle cx="61" cy="65" r="2" fill="#3e2c1c"/></svg><div class="vl">top</div></div>
+        <div class="view"><svg viewBox="0 0 80 90"><polygon points="14,46 46,54 66,42 34,34" fill="#8a6a4a"/><polygon points="34,34 66,42 66,10 34,4" fill="#9a7a5a"/><rect x="15" y="47" width="3" height="34" fill="#6e5238"/><rect x="45" y="55" width="3" height="31" fill="#6e5238"/><rect x="64" y="43" width="3" height="34" fill="#6e5238"/><line x1="4" y1="86" x2="76" y2="86" stroke="#cbd5e1"/></svg><div class="vl">iso</div></div>
+      </div>
+      <div class="mini">"Looks good!" — vision models miss the 4 mm gap: overlap/touching checks average ~56–58% accuracy</div>
+    </div>
+    <div class="option-summary">
+      After every change, render front/side/top/three-quarter views and hand them to a vision-capable model. It can judge style and proportion like a human glancing at the screen, and it's what most "AI + Blender" demos do. But benchmarks show vision models are close to guessing on exactly what modeling needs most: whether two parts touch, overlap, or are the right size. They'll confidently approve a floating leg.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Judging overall look, style, silhouette</li>
+        <li>Matching against a reference image</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Unreliable on touching/overlap/metric distances</li>
+        <li>~1,400 tokens per 1024² view on Claude → ~5.6K per check</li>
+        <li>Image-only feedback lowered CAD compile rates in one study</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — numbers rule, pictures advise</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Checks + Labeled Views</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="inbox-label">1 · Deterministic checks (authority)</div>
+      <div class="json"><span class="k">"checks"</span>: [ { <span class="bad">"FAIL"</span>: "[3] leg_bl not grounded (4 mm)" },
+            { <span class="ok">"PASS"</span>: "manifold · no intersections" } ],
+<span class="k">"parts"</span>: { "1":"seat", "2":"back", "3":"leg_bl", "4":"leg_br" }</div>
+      <div class="inbox-label">2 · Labeled views, sent as separate images (advice)</div>
+      <div class="views two">
+        <div class="view"><svg viewBox="0 0 120 90"><rect x="22" y="40" width="76" height="6" fill="#8a6a4a"/><rect x="26" y="8" width="68" height="6" fill="#8a6a4a"/><rect x="28" y="14" width="3" height="26" fill="#6e5238"/><rect x="89" y="14" width="3" height="26" fill="#6e5238"/><rect x="26" y="46" width="3" height="36" fill="#b42323"/><rect x="91" y="46" width="3" height="38" fill="#6e5238"/><line x1="6" y1="84" x2="114" y2="84" stroke="#cbd5e1"/><g font-size="8" font-weight="700"><circle cx="60" cy="43" r="5" fill="#23466f"/><text x="60" y="46" fill="white" text-anchor="middle">1</text><circle cx="60" cy="11" r="5" fill="#23466f"/><text x="60" y="14" fill="white" text-anchor="middle">2</text><circle cx="16" cy="66" r="5" fill="#b42323"/><text x="16" y="69" fill="white" text-anchor="middle">3</text><circle cx="104" cy="66" r="5" fill="#23466f"/><text x="104" y="69" fill="white" text-anchor="middle">4</text></g></svg><div class="vl">front · labeled</div></div>
+        <div class="view"><svg viewBox="0 0 120 90"><polygon points="20,46 66,56 98,42 52,32" fill="#8a6a4a"/><polygon points="52,32 98,42 98,8 52,2" fill="#9a7a5a"/><rect x="21" y="47" width="3" height="33" fill="#b42323"/><rect x="65" y="57" width="3" height="29" fill="#6e5238"/><rect x="96" y="43" width="3" height="34" fill="#6e5238"/><line x1="6" y1="86" x2="114" y2="86" stroke="#cbd5e1"/><g font-size="8" font-weight="700"><circle cx="58" cy="44" r="5" fill="#23466f"/><text x="58" y="47" fill="white" text-anchor="middle">1</text><circle cx="76" cy="20" r="5" fill="#23466f"/><text x="76" y="23" fill="white" text-anchor="middle">2</text><circle cx="12" cy="64" r="5" fill="#b42323"/><text x="12" y="67" fill="white" text-anchor="middle">3</text></g></svg><div class="vl">iso · labeled</div></div>
+      </div>
+      <div class="mini">Same IDs in JSON and image; failing part highlighted. Pictures answer only "does it look right?"</div>
+    </div>
+    <div class="option-summary">
+      Every change returns both, with clear roles. The engine's checks are the authority on anything measurable: dimensions, touching, collisions, watertightness. Then 2–4 views, sent as separate images (combined grids measurably confuse models), with numbered labels matching the part IDs in the JSON and failing parts highlighted in red. The model uses pictures only for questions numbers can't answer: proportion, style, "does this read as a chair?"
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want both correctness and taste</li>
+        <li>The model can reference "part 3" across text and image</li>
+        <li>Matches every working system found (CADCodeVerify, SceneCraft, Zoo, tldraw)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>~3–6K tokens per full check — run images at milestones, not every step</li>
+        <li>Needs headless rendering in Node (persistent Playwright page)</li>
+        <li>Label overlays need careful placement to stay readable</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Separate Critic Agent</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="inbox-label">Builder model receives a critique from a second model</div>
+      <div class="views two">
+        <div class="view"><svg viewBox="0 0 120 90"><rect x="22" y="40" width="76" height="6" fill="#8a6a4a"/><rect x="26" y="8" width="68" height="6" fill="#8a6a4a"/><rect x="28" y="14" width="3" height="26" fill="#6e5238"/><rect x="89" y="14" width="3" height="26" fill="#6e5238"/><rect x="26" y="46" width="3" height="36" fill="#6e5238"/><rect x="91" y="46" width="3" height="38" fill="#6e5238"/><line x1="6" y1="84" x2="114" y2="84" stroke="#cbd5e1"/></svg><div class="vl">render</div></div>
+        <div class="view"><svg viewBox="0 0 120 90"><rect x="20" y="38" width="80" height="7" fill="#c8b8a0"/><rect x="24" y="4" width="72" height="8" fill="#c8b8a0"/><rect x="26" y="12" width="4" height="26" fill="#a89070"/><rect x="90" y="12" width="4" height="26" fill="#a89070"/><polygon points="24,45 28,45 22,84 18,84" fill="#a89070"/><polygon points="92,45 96,45 102,84 98,84" fill="#a89070"/><line x1="6" y1="84" x2="114" y2="84" stroke="#cbd5e1"/></svg><div class="vl">reference</div></div>
+      </div>
+      <div class="critic"><b>Critic (Gemini) · 6/10:</b> "Legs should splay outward like the reference; backrest too tall relative to seat. Proportions read as kitchen, not mid-century."</div>
+      <div class="mini">A different model family judges the builder's work against the request</div>
+    </div>
+    <div class="option-summary">
+      A second AI — ideally from a different model family — looks at the renders and the original request (or a reference image) and returns a scored critique, like an art director. Research systems like LL3M and BlenderAlchemy use this. It catches "this isn't what I asked for" better than self-review. But critics agree with humans only ~66% of the time at best, prefer outputs that resemble their own style, sometimes just pick whichever candidate came second, and add a full extra model call per round.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Style matching against a reference image</li>
+        <li>Choosing between variants</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Self-preference + position bias in judges</li>
+        <li>Doubles cost and latency per iteration</li>
+        <li>Still can't measure — needs checks underneath anyway</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>The measured gain from adding visual feedback is modest — CADCodeVerify improved geometric accuracy ~18% over no feedback, and a solver with ground-truth geometry beat it outright — so images might cost 5–10× the tokens of the JSON for a small win. Reliable headless rendering in Node is fiddly (SwiftShader screenshots took ~24 s in one report), and the label-overlay pipeline is real work in week 5. A leaner start is Option A only, adding images when the first benchmark shows a failure that numbers can't catch.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Checks run after every commit; images only at milestones (end of a plan step, before proposing to the human) or when the model asks via an <code>inspect_visual</code> tool</li>
+    <li>Rendering happens in the already-running browser view or one persistent Playwright page — never a fresh browser per frame</li>
+    <li>Rules ("legs grounded", "no intersections", "seat height in range") live with the object's semantic type and grow from benchmark failures</li>
+    <li>Option D's critic arrives later as an optional step: different model family, fixed questions, shuffled order, only after checks pass</li>
+    <li><strong>Tripwire:</strong> if visual checks change the outcome in fewer than 10% of benchmark runs after 2 weeks, drop images to on-demand only</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Diagnostics only</th>
+        <th class="col-b">B: Views only</th>
+        <th class="col-c col-chosen">C: Checks + labeled views</th>
+        <th class="col-d">D: Separate critic</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Catches floating leg (4 mm)</td><td>Yes, always</td><td>Rarely</td><td class="col-chosen">Yes, always</td><td>Rarely</td></tr>
+        <tr><td>Judges style / proportion</td><td>No</td><td>Yes</td><td class="col-chosen">Yes</td><td>Best</td></tr>
+        <tr><td>Tokens per check (Claude)</td><td>~300</td><td>~5,600 (4 views)</td><td class="col-chosen">~300 every step; ~3K at milestones</td><td>~6K + second model</td></tr>
+        <tr><td>Build effort</td><td>Low</td><td>Medium (rendering)</td><td class="col-chosen">Medium (rendering + labels)</td><td>High</td></tr>
+        <tr><td>Bias risks</td><td>None</td><td>Confident wrong approvals</td><td class="col-chosen">Low — numbers override</td><td>Self-preference, position bias</td></tr>
+        <tr><td>Who does this</td><td>Unit-test style</td><td>Most Blender-AI demos</td><td class="col-chosen">CADCodeVerify, SceneCraft, Zoo, tldraw</td><td>LL3M, BlenderAlchemy</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Low — add images later</td><td>Low — add checks later</td><td class="col-chosen">Low — toggle images per step</td><td>Low — remove critic</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>CADCodeVerify: 4 rendered views + self-generated validation questions improved geometric accuracy ~18% over no feedback and ~7% over image-only feedback; a ground-truth geometric solver did best. Gains stop after 2 refinement rounds. <a class="cite" href="https://arxiv.org/html/2410.05340">CADCodeVerify</a></li>
+    <li>3D-Premise (image-only feedback) dropped compile rate 96%→91%; spatial reasoning named as the main failure. <a class="cite" href="https://arxiv.org/abs/2401.06437">3D-Premise</a></li>
+    <li>"VLMs are blind": frontier models averaged ~56–58% on "do these two circles overlap/touch?" — touching/intersection must be computed, not seen. <a class="cite" href="https://arxiv.org/abs/2407.06581">VLMs are blind</a></li>
+    <li>MindCube: VLMs near random building a scene model from few views (37.8%); giving them a structured map first raised it to 60.8%. <a class="cite" href="https://arxiv.org/abs/2506.21458">MindCube</a> · SpatialRGPT: metric distances need depth/region grounding. <a class="cite" href="https://arxiv.org/pdf/2406.01584">SpatialRGPT</a></li>
+    <li>Stitching views into a 2×2 grid made most models worse — send separate images. <a class="cite" href="https://arxiv.org/pdf/2406.12742">multi-image study</a> · Set-of-Mark numbered labels let models reference regions reliably. <a class="cite" href="https://arxiv.org/abs/2310.11441">Set-of-Mark</a></li>
+    <li>BlenderGym: best VLM verifier agrees with humans ≤0.66 (humans 0.79); some verifiers pick by position. <a class="cite" href="https://arxiv.org/html/2504.01786">BlenderGym</a> · LLM judges prefer their own outputs. <a class="cite" href="https://arxiv.org/abs/2404.13076">self-preference study</a></li>
+    <li>Self-correction without external ground truth can make results worse. <a class="cite" href="https://arxiv.org/abs/2310.01798">Huang et al.</a></li>
+    <li>Production patterns: Zoo's agent uses four-view snapshots + engine geometry queries; tldraw sends a screenshot + structured shape list each turn; SceneCraft pairs numeric constraints with visual review. <a class="cite" href="https://zoo.dev/blog/announcing-zookeeper">Zookeeper</a> <a class="cite" href="https://tldraw.dev/docs/ai">tldraw AI docs</a> <a class="cite" href="https://proceedings.mlr.press/v235/hu24g.html">SceneCraft</a></li>
+    <li>Claude image cost ≈ width×height/750 tokens (~1,400 per 1024² view). <a class="cite" href="https://platform.claude.com/docs/en/build-with-claude/vision">Claude vision docs</a></li>
+    <li>Headless three.js: SwiftShader via Chromium works but is slow (~24 s → ~6 s with llvmpipe in one report) — keep a persistent page. <a class="cite" href="https://microlink.io/blog/webgl-without-a-gpu">WebGL without a GPU</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>Agent-demo builders lean on screenshots because they're general and impressive; CAD researchers lean on geometric checks because they're right. GPTEval3D found GPT-4V's pairwise judgments of 3D assets align well with humans — for ranking overall quality, not verifying exact geometry. The split resolves by job: images for "which looks better", numbers for "is it correct".</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Prefer a leaner start? <strong>"Option A"</strong> is a fine week-1 choice — or ask for <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-5 I want Option D instead"</strong></p>
+</div>
+</body>
+</html>

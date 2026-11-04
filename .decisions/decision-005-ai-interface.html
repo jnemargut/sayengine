@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 5: How AI Models Talk to the App — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fef2f2; color:#b42323; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.prior { margin-top: 0.75rem; font-size: 0.8rem; color: #2c6e48; background: #edf6f0; border: 1px solid #b9dcc6; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-card.option-e { border-color:#2c6e48; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 440px; }
+.arch-layer { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; width: 100%; }
+.arch-box { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 0.7rem; font-weight: 600; color: #334155; text-align: center; min-width: 70px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.arch-box small { display: block; font-weight: 400; font-size: 0.6rem; color: #64748b; }
+.arch-box.frontend { border-color: #4b3a8c; color: #4b3a8c; }
+.arch-box.backend { border-color: #1d6f80; color: #1d6f80; }
+.arch-box.database { border-color: #2c6e48; color: #2c6e48; }
+.arch-box.service { border-color: #a83a32; color: #a83a32; }
+.arch-box.dim { border-style: dashed; color: #64748b; border-color: #cbd5e1; }
+.arch-arrow { font-size: 0.9rem; color: #94a3b8; text-align: center; line-height: 1; }
+.arch-group { border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 8px; width: 100%; background: #ffffff; }
+.arch-group-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; text-align: center; margin-bottom: 6px; }
+.code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.6rem; background: #0f1b2b; color: #d6e2f0; border-radius: 8px; padding: 8px 10px; width: 100%; max-width: 440px; line-height: 1.5; white-space: pre; overflow: hidden; }
+.code .k { color: #8fb8e8; } .code .s { color: #b9dcc6; } .code .c { color: #8193a8; } .code .n { color: #f0c38a; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 5 of 10</span>
+  <h1>How AI Models Talk to the App</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge one-way">🚪 Mostly one-way</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    This is the studio's "front door" for AI — arguably the main product interface. Should outside agents (Claude Code, Claude Desktop, Cursor) drive it over MCP, should the app run its own agent inside the workspace, or both? And should models call typed tools one at a time, or write short programs against the modeling API? Whatever comes in, every change must still land as a validated commit (Decision 2) on the op graph (Decision 3).
+  </p>
+  <span class="prior">Tools are thin wrappers over op-graph commits; kernels from Decision 4 run underneath</span><br>
+  <span class="prior" style="background:#fdf6e9;border-color:#e8c48a;color:#8a5208;">Changed 2026-11-03: you chose a custom option — drive the studio through a Claude Code skill. See the Custom card below.</span><br>
+  <p class="instruction">Respond with: <strong>"Option C"</strong> · <strong>"Option C but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">MCP Server Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box service">Claude Desktop</div><div class="arch-box service">Claude Code</div><div class="arch-box service">Cursor / ChatGPT</div></div>
+        <div class="arch-arrow">↓ MCP (spec 2026-07-28)</div>
+        <div class="arch-layer"><div class="arch-box backend">studio-mcp server<small>typed tools</small></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box database">@studio/core</div><div class="arch-box frontend">Workspace UI<small>watches, no chat</small></div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The studio exposes its modeling tools as an MCP server, and you bring your own agent — Claude Desktop, Claude Code, Cursor. Zero AI code inside the app, instant access to the best agents, and users pay for their own model. But the creative experience lives in someone else's window: no in-workspace chat, no "select the roof and say <em>make it Craftsman</em>", and you can't control the prompting that makes modeling good.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Developers/power users who already live in Claude Code</li>
+        <li>You want zero AI-provider code or billing</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No in-workspace "creative director" experience</li>
+        <li>System prompt + loop quality out of your hands</li>
+        <li>Harder to benchmark consistently</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Built-in Agent Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-group">
+          <div class="arch-group-label">Inside the studio</div>
+          <div class="arch-layer"><div class="arch-box frontend">AI panel · selection-aware</div></div>
+          <div class="arch-arrow" style="margin:5px 0">↓</div>
+          <div class="arch-layer"><div class="arch-box backend">Agent loop<small>Vercel AI SDK 6 · ToolLoopAgent</small></div></div>
+          <div class="arch-arrow" style="margin:5px 0">↓</div>
+          <div class="arch-layer"><div class="arch-box database">Tools → @studio/core</div></div>
+        </div>
+        <div class="arch-arrow">↕ provider adapter</div>
+        <div class="arch-layer"><div class="arch-box service">Claude</div><div class="arch-box service">GPT</div><div class="arch-box service">Gemini</div><div class="arch-box dim">local</div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The studio runs its own agent loop in the workspace using a provider-agnostic SDK (Vercel AI SDK 6 has a ready-made tool loop and per-tool approval). You own the prompts, the selection-aware context, the proposal flow and the benchmark harness. But the tools are locked inside the app — outside agents like Claude Code can't drive it, and you lose the cheapest way to test headless.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The in-workspace creative experience is the product</li>
+        <li>You want full control of prompts and loop</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No ecosystem reach — closed to outside agents</li>
+        <li>You manage API keys, costs and rate limits</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — one registry, two doors</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Tool Registry, Two Doors</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="code"><span class="c">// packages/modeling-api — defined ONCE</span>
+<span class="k">export const</span> setParam = defineTool({
+  name: <span class="s">"set_param"</span>, mode: <span class="s">"modify"</span>,
+  input: z.object({ objectId, param, value }),
+  run: (ctx, i) =&gt; ctx.commit(<span class="s">"setParam"</span>, i) <span class="c">// → Decision 2 log</span>
+})</div>
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box backend">Tool registry (zod)<small>create · modify · inspect · propose</small></div></div>
+        <div class="arch-arrow">↙ ↓ ↘</div>
+        <div class="arch-layer">
+          <div class="arch-box service">MCP server<small>Claude Code, Desktop…</small></div>
+          <div class="arch-box frontend">In-app agent<small>AI SDK 6, any provider</small></div>
+          <div class="arch-box dim">run_script<small>code mode, wk 5+</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Define each tool once — name, zod schema, which "mode" it belongs to, and a function that turns it into a commit. That single registry is exposed two ways: as an MCP server (so Claude Code can drive the headless engine for benchmarks from day one) and to an in-app agent (for the creative-director experience). Later, the same registry generates typed TypeScript for a sandboxed <code>run_script</code> "code mode" tool, so multi-step modeling can happen in one call.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Claude Code drives benchmarks headless in week 2, in-app agent later</li>
+        <li>Provider independence is a hard requirement</li>
+        <li>The studio's own UI buttons can call the same registry</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Schema dialects differ per provider — needs a normalization pass</li>
+        <li>Two surfaces to test (MCP + in-app)</li>
+        <li>Tool count must stay ~&lt;20 visible per mode</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Code Mode Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="code"><span class="c">// the model's ONLY tool: run_script</span>
+<span class="k">const</span> chair = studio.get(<span class="s">"obj_chair"</span>)
+<span class="k">for</span> (<span class="k">const</span> leg <span class="k">of</span> chair.parts(<span class="s">"leg"</span>)) {
+  leg.set(<span class="s">"radius"</span>, <span class="n">0.015</span>)
+}
+<span class="k">const</span> r = studio.inspect(chair).intersections
+<span class="k">if</span> (r.length) chair.part(<span class="s">"back"</span>).move([<span class="n">0</span>, <span class="n">0</span>, <span class="n">-0.01</span>])
+<span class="k">return</span> studio.propose(<span class="s">"thinner legs"</span>)</div>
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box service">QuickJS-WASM sandbox<small>Worker · timeout · memory cap</small></div></div>
+        <div class="arch-arrow">↓ host bindings only</div>
+        <div class="arch-layer"><div class="arch-box database">Validated commits on a proposal branch</div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The model gets a single tool: run a short TypeScript program against a typed modeling API inside a sandbox. Loops, conditionals and self-checks happen in one call, which is where the token savings come from — Anthropic and Cloudflare both report big wins from this pattern. But every action is opaque until the script runs, smaller/local models write worse code than they call tools, and errors surface as stack traces rather than clean validation messages.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Long multi-step edits (arrays, loops, conditional fixes)</li>
+        <li>Token budget is a top concern</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Sandbox engineering + security surface (see blender-mcp CVE)</li>
+        <li>Harder to show humans "what the AI is doing" step by step</li>
+        <li>Weaker for local/small models</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+  <article class="option-card option-e chosen" style="grid-column: 1 / -1;">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label" style="color:#8a5208;">Custom · your choice</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">A Claude Code Skill Drives the Studio</h2>
+    </div>
+    <div class="visual-preview" style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:center;">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box service">You in VS Code · Claude Code<small>"/studio make a walnut stool"</small></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box frontend">/studio skill<small>SKILL.md playbook · plan → propose → check → show</small></div></div>
+        <div class="arch-arrow">↓ Bash</div>
+        <div class="arch-layer"><div class="arch-box backend">studio CLI<small>generated from the zod tool registry · JSON out</small></div><div class="arch-box dim">MCP adapter<small>optional, same registry</small></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box database">Engine daemon (Node)<small>@studio/core · change log · kernels</small></div></div>
+        <div class="arch-arrow">⇅ websocket</div>
+        <div class="arch-layer"><div class="arch-box frontend">Browser view<small>mirrors scene · review panel · renders snapshots</small></div></div>
+      </div>
+      <div class="code"><span class="c"># what the skill has Claude run</span>
+$ studio propose "walnut stool, 450 mm"
+<span class="s">{"proposal":"p1","branch":"p1"}</span>
+$ studio op add box seat --size 0.35,0.03,0.35
+$ studio op add cylinder leg --r 0.015 \
+    --place seat.corners:bottom
+$ studio check
+<span class="s">{"pass":4,"fail":0}</span>
+$ studio render --views front,iso --labels
+<span class="s">{"images":[".studio/r/p1-front.png", …]}</span>
+$ studio run tweak-legs.ts   <span class="c"># code mode</span>
+$ studio review p1           <span class="c"># → shows in the view</span></div>
+    </div>
+    <div class="option-summary">
+      You drive everything from Claude Code in VS Code through a <code>/studio</code> skill — the same way you used <code>/x-decide</code>. The skill is the playbook (how to plan a model, when to propose vs commit, when to check, when to render and look). It acts through a <code>studio</code> command-line tool generated from the one typed tool registry, which talks to a small local engine process; the browser is a live view of that process — watch, inspect, and Keep/Undo changes (Decision 9). No in-app chat, no MCP configuration needed; an MCP adapter can be generated from the same registry later if you ever want Claude Desktop or Cursor to drive it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Claude Code is already your home — zero new surfaces to build</li>
+        <li>Skills are just files: iterate on the playbook as fast as on code</li>
+        <li>CLI + scripts gives code mode for free (<code>studio run</code>)</li>
+        <li>Same CLI drives headless benchmarks in CI</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Tied to Claude Code for now (other agents need the MCP adapter)</li>
+        <li>The engine must run as a background process the view connects to</li>
+        <li>Non-developers won't use VS Code — a later audience question</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Chosen (custom) — 2026-11-03</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Two doors means two surfaces to keep working, and the MCP door mostly serves developers — the "people who never learned Blender" never open Claude Code. The strongest evidence on agent efficiency (Anthropic's code-execution post, Cloudflare Code Mode, CodeAct) points at <em>code</em>, not typed tools, so starting with ~20 discrete tools may leave accuracy and tokens on the table for multi-step modeling. A leaner path would be Option D from day one inside a single in-app agent, with MCP added only if users ask.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Tools are grouped into modes (create / modify / inspect / propose / material), ≤ ~20 visible at a time, with tool search beyond that</li>
+    <li>Every tool returns structured results + validation errors the model can act on, never just "ok"</li>
+    <li>No arbitrary host code ever — <code>run_script</code> runs in QuickJS-WASM with timeout + memory cap and only produces commits</li>
+    <li>MCP door is primarily for development/benchmarks at first (Claude Code drives the headless engine)</li>
+    <li><strong>Tripwire:</strong> if benchmark tasks average &gt;15 tool calls or token cost per object exceeds budget, promote <code>run_script</code> to the default path</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: MCP only</th>
+        <th class="col-b">B: In-app only</th>
+        <th class="col-c">C: One registry, two doors</th>
+        <th class="col-d">D: Code mode only</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>In-workspace creative UX</td><td>No</td><td>Yes</td><td class="">Yes</td><td>Yes</td></tr>
+        <tr><td>Outside agents can drive it</td><td>Yes</td><td>No</td><td class="">Yes</td><td>Only via one tool</td></tr>
+        <tr><td>Provider independence</td><td>Inherent</td><td>Via SDK adapter</td><td class="">Both</td><td>Via SDK adapter</td></tr>
+        <tr><td>Multi-step efficiency</td><td>Tool-by-tool</td><td>Tool-by-tool</td><td class="">Tools now; code mode later</td><td>Best (one call)</td></tr>
+        <tr><td>Step-by-step visibility</td><td>Good</td><td>Good</td><td class="">Good</td><td>Opaque until run</td></tr>
+        <tr><td>Security surface</td><td>Small</td><td>Small</td><td class="">Small → sandbox later</td><td>Sandbox from day one</td></tr>
+        <tr><td>Week-2 headless benchmarks</td><td>Yes</td><td>Need own harness</td><td class="">Yes (Claude Code over MCP)</td><td>Need own harness</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Medium — add in-app later</td><td>Medium — extract registry</td><td class="">Low — doors are thin adapters</td><td>High — tools hidden behind script API</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Presenting MCP tools as a TypeScript API cut one workflow from ~150K to ~2K tokens (98.7%); needs sandboxing and limits. <a class="cite" href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic: code execution with MCP</a></li>
+    <li>Tool search raised MCP-eval accuracy 49%→74% (Opus 4); programmatic tool calling cut tokens 37%; tool-use examples raised complex-parameter accuracy 72%→90%. Use tool search beyond ~10 tools. <a class="cite" href="https://www.anthropic.com/engineering/advanced-tool-use">Anthropic: advanced tool use</a></li>
+    <li>Cloudflare Code Mode: MCP schemas → typed TS API, one execute tool, fresh V8 isolate per run. <a class="cite" href="https://blog.cloudflare.com/code-mode/">Cloudflare</a> · CodeAct: up to 20% higher success, 30% fewer steps. <a class="cite" href="https://arxiv.org/abs/2402.01030">CodeAct</a></li>
+    <li>Tool overload: RAG-MCP raised selection accuracy 13.6%→43.1% by retrieving a shortlist; practitioners report degradation past ~25–50 tools. <a class="cite" href="https://arxiv.org/abs/2505.03275">RAG-MCP</a> <a class="cite" href="https://dev.to/sonaiengine/i-gave-an-llm-248-tools-and-accuracy-dropped-to-12-heres-what-fixed-it-91h">248-tools report</a></li>
+    <li>MCP spec 2026-07-28: stateless core, versioned extensions; MCP Apps lets servers ship sandboxed UI to Claude/ChatGPT/VS Code. <a class="cite" href="https://claude.com/blog/bringing-mcp-2026-07-28-to-claude">MCP 2026-07-28</a> <a class="cite" href="https://modelcontextprotocol.io/seps/1865-mcp-apps-interactive-user-interfaces-for-mcp">SEP-1865 MCP Apps</a></li>
+    <li>blender-mcp (~33k stars) relies on <code>execute_blender_code</code> (arbitrary Python) — now CVE-2026-10688 (RCE). The anti-pattern to avoid. <a class="cite" href="https://github.com/ahujasid/blender-mcp">blender-mcp</a> <a class="cite" href="https://app.opencve.io/cve/CVE-2026-10688">CVE-2026-10688</a></li>
+    <li>tldraw agent kit: in-app, typed schema-validated actions with auto-repair, grouped into modes; screenshot + structured shapes each turn. <a class="cite" href="https://tldraw.dev/starter-kits/agent">tldraw agent kit</a></li>
+    <li>Vercel AI SDK 6: <code>ToolLoopAgent</code>, per-tool <code>needsApproval</code>, stable MCP client — the most direct provider-agnostic TS loop. <a class="cite" href="https://vercel.com/blog/ai-sdk-6">AI SDK 6</a></li>
+    <li>Zod 4 has native <code>z.toJSONSchema()</code>; OpenAI strict mode needs all-required keys + <code>additionalProperties:false</code> → normalize per provider. <a class="cite" href="https://zod.dev/json-schema">zod JSON Schema</a> <a class="cite" href="https://developers.openai.com/api/docs/guides/structured-outputs">OpenAI structured outputs</a></li>
+    <li>Sandboxing: quickjs-emscripten works in browser + Node, exposes nothing by default; SES alone can't stop infinite loops. <a class="cite" href="https://rivet.dev/secure-exec/docs/comparison/quickjs/">QuickJS comparison</a> <a class="cite" href="https://hardenedjs.org/">Hardened JS</a> <a class="cite" href="https://simonwillison.net/2026/Mar/22/javascript-sandboxing-research">Willison survey</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>The "code mode" camp (Anthropic engineering, Cloudflare) says models are better programmers than tool-callers and token savings are huge. The "typed actions" camp (tldraw, Figma's MCP, most production agents) says discrete validated actions are easier to show, approve and recover from. For a creative tool where humans review every step, typed tools are the better <em>default</em>; code mode earns its place for long, loop-heavy edits — which is why Option C keeps both behind one registry.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Disagree with the pick? <strong>"Option D but [your change]"</strong> works too, or ask for <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-4 I want Option A instead"</strong></p>
+</div>
+</body>
+</html>

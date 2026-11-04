@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 10: First Build Sequence — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #e6f3f6; color: #1d6f80; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.experts-box { max-width:1200px; margin:0 auto 3rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+/* week timeline */
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 34px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.62rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.66rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-core { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-view { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-ai { background:#fdf6e9; border-left:3px solid #b86e0a; }
+.l-bench { background:#edf6f0; border-left:3px solid #2c6e48; }
+.tl-milestone { font-size:0.66rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.legend { display:flex; gap:10px; flex-wrap:wrap; font-size:0.62rem; color:#475569; }
+.legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+.legend .lc::before { background:#1d6f80; } .legend .lv::before { background:#4b3a8c; } .legend .la::before { background:#b86e0a; } .legend .lb::before { background:#2c6e48; }
+
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 10 of 10</span>
+  <h1>First Build Sequence</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Same six weeks, same parts — engine, CLI + <code>/studio</code> skill, browser view, checks, review. The question is order. Do you build each layer fully before the next, or get the whole loop working thinly on day 10 and thicken it? The moment that proves the idea is: <strong>you type <code>/studio make a walnut stool</code> in Claude Code, a stool appears in the browser, passes its checks, and you keep or undo the AI's changes.</strong> Each card shows when that moment first happens.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option B"</strong> · <strong>"Option B but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Six Horizontal Layers</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">engine</span><span class="lv">view</span><span class="la">AI / skill</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-view">Viewport, camera, gizmos, scene tree</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-core">Scene records, change log, undo, save/load</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-core">Manifold kernel, op graph, primitives, booleans</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-ai">Tool registry, studio CLI, /studio skill</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-ai">Checks, labeled renders, proposals</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-view">Review panel, export, polish</span></div>
+        <div class="tl-milestone late">First "/studio make a stool" → week 4–5</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The plan from the original discussion: finish each layer, then move up. Clean, easy to explain, each week has a tidy deliverable. But the AI — the whole point — doesn't touch the studio until week 4, so for a month you're building infrastructure on guesses about what the AI will need.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Requirements are already well understood</li>
+        <li>You like finishing one thing at a time</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Idea unproven until week 4–5</li>
+        <li>Week-1 viewport polish may be wasted</li>
+        <li>Late discovery that the API shape is wrong</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — prove the loop by day 10</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Thin Vertical Slice, Then Thicken</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">engine</span><span class="lv">view</span><span class="la">AI / skill</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-core">Records + log · box/cylinder/union on Manifold · <code>studio</code> CLI (5 cmds)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-ai">/studio skill v0 · daemon ⇄ bare view (orbit only) · 3 checks · <b>stool</b></span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-bench">Benchmark harness: stool + modify-stool, headless · named anchors · params</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-ai">Proposals as branches · change list · Keep/Undo in view + CLI</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-view">Labeled renders · docked Soft Premium UI · inspector</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-bench">Cabin + fix-mesh benchmarks · GLB export · EditMesh spike</span></div>
+        <div class="tl-milestone">First "/studio make a stool" → end of week 2</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Build the thinnest possible end-to-end path first: a handful of ops, a 5-command CLI, a bare skill, and a bare browser view that just shows whatever the engine holds. By end of week 2 you can type <code>/studio make a walnut stool</code> and watch it appear. Every week after thickens one layer, driven by what the stool and its benchmarks actually exposed — proposals and review in week 4, the polished Soft Premium workspace in week 5.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The riskiest unknown is "does the AI loop work?" (it is)</li>
+        <li>You build with Claude Code — the skill improves the skill</li>
+        <li>Every later layer is shaped by real failures</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Week-2 UI looks rough — resist polishing early</li>
+        <li>Shortcuts in the slice must be marked and paid back</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Benchmark-First</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">engine</span><span class="lv">view</span><span class="la">AI / skill</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-bench">Write 5 benchmark tasks, scoring rubric, harness (all failing)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-core">Engine + CLI until stool benchmark passes headless</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-ai">/studio skill · modify-stool passes</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-core">Cabin benchmark: anchors, composition</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-view">Browser view + review (first time you see it)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-bench">Fix-mesh benchmark · scores report</span></div>
+        <div class="tl-milestone">First stool (headless) → week 2 · seen in browser → week 5</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Write the test first: five benchmark tasks (stool, modify stool, cabin, fix a broken mesh, export) with a scoring rubric and a headless harness, all failing on day 5. Then build only what makes the next one pass. Ruthlessly focused and measurable — the original discussion's "how will you know it's better?" answered from day one. But the human-facing view arrives late, and benchmarks can't tell you whether directing the AI feels good.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"Better than Blender for AI" must be provable with numbers</li>
+        <li>You're tempted to gold-plate infrastructure</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No visual feedback for you until week 5</li>
+        <li>Writing good rubrics for 3D quality is itself hard</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Engine-First, View Last</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">engine</span><span class="lv">view</span><span class="la">AI / skill</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 1</span><span class="tl-bar l-core">Scene records, change log, branches — fully tested</span></div>
+        <div class="tl-row"><span class="tl-w">WK 2</span><span class="tl-bar l-core">Op graph, anchors, Manifold kernel interface</span></div>
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-ai">Full tool registry, CLI, /studio skill, checks</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-ai">Proposals, change lists, Node-side PNG renders</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-view">Browser view mirrors daemon</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-view">Review panel, Soft Premium UI</span></div>
+        <div class="tl-milestone">First stool via skill → week 3 · in browser → week 5</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Since the website is "just the view", build it last. Weeks 1–4 go entirely into a rock-solid headless engine, CLI and skill; Claude Code sees results as JSON and Node-rendered images. The view is a thin mirror added at the end. Strong foundations and the most test coverage — but you lose your own eyes on the model for a month, and Node-side rendering is the fiddly part research warned about.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Correctness of the core matters most</li>
+        <li>The view really is a thin mirror</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Headless rendering in Node is slow/fiddly</li>
+        <li>You can't see what the AI is doing for weeks</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Vertical slices tempt you to cut corners in the foundation — and three of your decisions (the change log, the op graph with named anchors, the kernel interface) are one-way doors where a sloppy week-1 version becomes the permanent version. "Thicken later" often means "never". Engine-first (D) protects those foundations; benchmark-first (C) protects against building the wrong thing. <strong>Mitigation built into B:</strong> the slice uses the real record/commit format and real anchors from day one — only the number of ops, CLI commands and UI polish are thin.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Week 1 implements the real Scene IR and commit format (one-way doors), just with few ops — no throwaway data model</li>
+    <li>The stool benchmark from Option C is the slice's acceptance test, and the harness lands in week 3</li>
+    <li>You build with Claude Code ~full-time; estimates are prototype estimates, not production</li>
+    <li>The bare view in week 2 is a Three.js page subscribed to the daemon over websocket — no panels yet</li>
+    <li><strong>Tripwire:</strong> if the stool isn't appearing end-to-end by day 12, stop adding features and cut scope until it does</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Horizontal layers</th>
+        <th class="col-b col-pick">B: Thin slice, thicken</th>
+        <th class="col-c">C: Benchmark-first</th>
+        <th class="col-d">D: Engine-first</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>First AI-made stool</td><td>Week 4–5</td><td class="col-pick">Week 2</td><td>Week 2 (headless)</td><td>Week 3 (headless)</td></tr>
+        <tr><td>You see it in the browser</td><td>Week 4–5</td><td class="col-pick">Week 2</td><td>Week 5</td><td>Week 5</td></tr>
+        <tr><td>Measurable progress</td><td>Feature checklist</td><td class="col-pick">Benchmarks from week 3</td><td>Benchmarks from week 1</td><td>Test coverage</td></tr>
+        <tr><td>Risk of wrong API shape</td><td>High</td><td class="col-pick">Low</td><td>Low</td><td>Medium</td></tr>
+        <tr><td>Foundation quality risk</td><td>Low</td><td class="col-pick">Medium (mitigated)</td><td>Medium</td><td>Lowest</td></tr>
+        <tr><td>Motivation curve</td><td>Slow start</td><td class="col-pick">Early win</td><td>Abstract start</td><td>Long dark stretch</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Low — reorder any week</td><td class="col-pick">Low</td><td>Low</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="experts-box">
+  <h3>Where experts disagree</h3>
+  <p>The "walking skeleton" camp (thin end-to-end first) argues you learn the real requirements only by running the whole loop; the "foundations first" camp argues data models are the hardest thing to change later. You've already settled the data model through Decisions 2–4 in detail, which removes most of the foundations camp's worry — so the skeleton approach gets the benefit without the usual cost.</p>
+</section>
+
+<div class="page-footer">
+  <p>Mixing is fine: <strong>"Option B but harness in week 1"</strong> pulls in C's discipline</p>
+  <p>To change a past decision: <strong>"for decision-9 I want Option B instead"</strong></p>
+</div>
+</body>
+</html>

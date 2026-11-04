@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">Studio <small id="objTitle">No object yet</small></div>
+    <nav class="topnav"><span class="on">Scene</span><span id="navProposals">Proposals</span><span id="navExport" title="studio export --format glb">Export</span></nav>
+    <div class="topright">
+      <button class="theme-btn" id="themeBtn" data-theme-toggle>Theme: auto</button>
+      <span class="branch" id="branchChip">main</span>
+      <span class="conn" id="conn" title="engine connection"><i></i><span>connecting</span></span>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="panel scene">
+      <div class="label">Scene</div>
+      <div class="tree" id="tree"></div>
+    </aside>
+
+    <section class="viewport" id="viewport">
+      <div class="vp-tools" id="vpTools">
+        <button data-mode="shaded" class="on">Shaded</button>
+        <button data-mode="wire">Wireframe</button>
+        <button data-cam="front">Front</button>
+        <button data-cam="side">Side</button>
+        <button data-cam="top">Top</button>
+        <button data-cam="iso">3/4</button>
+      </div>
+      <div class="vp-badge" id="vpBadge"></div>
+      <div class="empty" id="empty">
+        <div class="empty-title">Nothing here yet</div>
+        <div class="empty-body">In Claude Code, run <code>/studio make a walnut stool</code>. Changes appear here live.</div>
+      </div>
+      <div class="checks" id="checks"></div>
+    </section>
+
+    <div class="rightcol">
+      <aside class="panel inspector">
+        <div class="label" id="inspLabel">Inspector</div>
+        <div class="part-info" id="partInfo"></div>
+        <div id="params"></div>
+        <details class="construction" id="construction">
+          <summary>Construction</summary>
+          <pre class="code" id="code"></pre>
+        </details>
+      </aside>
+      <aside class="panel agent">
+        <div class="label">Claude Code · /studio skill</div>
+        <div class="feed" id="feed"></div>
+        <div class="review" id="review"></div>
+      </aside>
+    </div>
+  </div>
+
+  <footer class="history" id="history"></footer>
+</div>
+<script type="module" src="dist/main.js"></script>
+</body>
+</html>

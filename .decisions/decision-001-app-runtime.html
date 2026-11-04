@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 1: Where the App Runs — AI-First 3D Studio</title>
+<style>
+/* Palette for the decision hub: blueprint ink + drafting paper.
+   ink #23466f (links/accents), ink-soft #e8eef6, ink-line #b7c7dc */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fef2f2; color:#b42323; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 760px; line-height: 1.7; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 360px; display: flex; align-items: center; justify-content: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 420px; }
+.arch-layer { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; width: 100%; }
+.arch-box { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 0.7rem; font-weight: 600; color: #334155; text-align: center; min-width: 70px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.arch-box.frontend { border-color: #4b3a8c; color: #4b3a8c; }
+.arch-box.backend { border-color: #1d6f80; color: #1d6f80; }
+.arch-box.database { border-color: #2c6e48; color: #2c6e48; }
+.arch-box.service { border-color: #a83a32; color: #a83a32; }
+.arch-box.dim { border-style: dashed; color: #64748b; border-color: #cbd5e1; }
+.arch-arrow { font-size: 0.9rem; color: #94a3b8; text-align: center; line-height: 1; }
+.arch-group { border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 8px; width: 100%; background: #ffffff; }
+.arch-group-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; text-align: center; margin-bottom: 6px; }
+.arch-note { font-size: 0.62rem; color: #64748b; text-align: center; margin-top: 4px; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 1 of 10</span>
+  <h1>Where the App Runs</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Before anything else: does your studio live in a browser tab, in a lightweight desktop wrapper (Tauri), in a heavier desktop wrapper (Electron), or as a fully native app? This sets how much memory geometry can use, whether you can save into real folders, how consistent 3D rendering is across machines, and — critically for an <em>AI-first</em> tool — whether an agent can run the whole modeling engine <strong>headless</strong> (no window at all) for benchmarks and automated self-correction. The key insight from research: the most important part isn't the shell, it's keeping the <em>engine</em> independent of the shell.
+  </p>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick for a solo AI-first build</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Headless Core + Browser First</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer">
+          <div class="arch-box frontend">Studio UI<br><span style="font-weight:400">Chrome / Edge tab</span></div>
+          <div class="arch-box service">AI agent<br><span style="font-weight:400">Node · MCP · CI</span></div>
+          <div class="arch-box dim">Electron shell<br><span style="font-weight:400">later, optional</span></div>
+        </div>
+        <div class="arch-arrow">↓ same package ↓</div>
+        <div class="arch-group">
+          <div class="arch-group-label">@studio/core — no DOM, no React, no window</div>
+          <div class="arch-layer">
+            <div class="arch-box backend">Scene IR</div>
+            <div class="arch-box backend">Modeling API</div>
+            <div class="arch-box backend">Validation</div>
+          </div>
+          <div class="arch-layer" style="margin-top:6px">
+            <div class="arch-box database">Manifold WASM</div>
+            <div class="arch-box dim">OCCT WASM (later)</div>
+          </div>
+        </div>
+        <div class="arch-note">Renders pixels only in the browser; everything else runs in plain Node</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Build the modeling engine as a plain TypeScript package that runs anywhere — a browser tab, a Web Worker, or plain Node with no screen. The human UI ships first as a web app targeting Chromium (most consistent WebGPU, real folder access). Agents and benchmarks call the engine directly in Node, thousands of operations a minute with no UI. When you need native file handling or an installer, wrap the same web UI in Electron — no rewrite.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want AI self-correction loops and benchmarks running fast, headless, in CI</li>
+        <li>Solo dev on 8GB — zero install, instant reload, Chrome DevTools</li>
+        <li>You want to defer the desktop question until you know what it needs to solve</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Safari/Firefox can't save back into a user folder — Chromium-only for real file workflows</li>
+        <li>WASM threads require cross-origin-isolation headers (a one-time setup tax)</li>
+        <li>Discipline required: one stray <code>window</code> import breaks headless mode</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Tauri 2 Desktop</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-group">
+          <div class="arch-group-label">Tauri app (~10–60 MB)</div>
+          <div class="arch-layer"><div class="arch-box frontend">React UI in system webview</div></div>
+          <div class="arch-layer" style="margin-top:6px">
+            <div class="arch-box dim">macOS: WKWebView</div>
+            <div class="arch-box dim">Win: WebView2</div>
+            <div class="arch-box dim">Linux: WebKitGTK</div>
+          </div>
+          <div class="arch-arrow" style="margin:6px 0">↕ IPC</div>
+          <div class="arch-layer">
+            <div class="arch-box backend">Rust backend</div>
+            <div class="arch-box database">Files · native libs</div>
+          </div>
+        </div>
+        <div class="arch-note">Three different browser engines render your viewport</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      A small desktop app: your React UI runs inside the operating system's built-in browser engine, with a Rust backend for files and native code. It's lean on disk and lets you call native geometry libraries from Rust. The catch for a 3D tool: each OS uses a <em>different</em> browser engine, so your viewport renders three slightly different ways, and WebGPU availability depends on the user's OS version.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Download size matters (3–10× smaller than Electron)</li>
+        <li>You want a Rust path to native kernels (OCCT, Parasolid-class) later</li>
+        <li>You're comfortable writing some Rust</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>macOS WebGPU only on macOS 26+; Linux WebKitGTK effectively WebGL-only + GPU bugs</li>
+        <li>No WebDriver automation on macOS — painful for agent-driven UI testing on your M2</li>
+        <li>Idle-RAM savings vs Electron are small (~15%) in measurements</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Electron From Day One</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-group">
+          <div class="arch-group-label">Electron app (~250–320 MB)</div>
+          <div class="arch-layer"><div class="arch-box frontend">React UI · bundled Chromium</div></div>
+          <div class="arch-arrow" style="margin:6px 0">↕ IPC</div>
+          <div class="arch-layer">
+            <div class="arch-box backend">Node main process</div>
+            <div class="arch-box database">fs · native addons</div>
+          </div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box service">Playwright drives it</div></div>
+        </div>
+        <div class="arch-note">One identical Chromium everywhere — VS Code / Foxglove model</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Ship a desktop app immediately, bundling its own copy of Chromium so the viewport renders identically on every OS. You get full file-system access, native Node addons for heavy geometry libraries, and Playwright can drive it end-to-end. You pay in a big download and an extra packaging/signing/update pipeline from week one — before you've proven the core idea.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Consistent rendering across Mac/Win/Linux is non-negotiable</li>
+        <li>Large local projects and native file associations matter early</li>
+        <li>You want native addons (e.g., FBX SDK) without a server</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Packaging, code signing, auto-update work in the first weeks</li>
+        <li>Tempting to put engine logic in the main process — couples it to Electron</li>
+        <li>~250–320 MB installs</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Fully Native (Rust + wgpu)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-group">
+          <div class="arch-group-label">Single native binary</div>
+          <div class="arch-layer">
+            <div class="arch-box frontend">egui / custom UI</div>
+            <div class="arch-box frontend">wgpu viewport</div>
+          </div>
+          <div class="arch-arrow" style="margin:6px 0">↕ direct calls</div>
+          <div class="arch-layer">
+            <div class="arch-box backend">Rust scene + kernel</div>
+            <div class="arch-box database">OCCT / native libs</div>
+          </div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box dim">Web build via WASM (Rerun-style)</div></div>
+        </div>
+        <div class="arch-note">Blender / Shapr3D class: max performance, max effort</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Write the whole application natively — Rust with the wgpu graphics library (or C++ with Qt). This is the road to Blender-class performance: unlimited memory, multithreaded geometry, direct GPU access. Rerun proves a Rust/wgpu app can also compile to the web. But you'd give up React, Three.js's huge ecosystem, and the fastest AI-assisted iteration loop — for a solo developer, it's months before you see a chair.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Rendering/geometry performance is the product's bottleneck</li>
+        <li>You're targeting multi-GB production scenes</li>
+        <li>You know Rust well</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Slowest path to a working prototype by far</li>
+        <li>UI toolkit work (panels, inspectors, text) is all on you</li>
+        <li>Funded teams (Shapr3D) choose this; solo devs rarely finish</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>"General-purpose, production-ready, all outputs" is ultimately a desktop-class workload: multi-gigabyte scenes, native FBX/USD SDKs, real project folders, and GPU memory beyond what a browser tab is allowed. Starting in the browser can quietly bake in browser-shaped limits (4 GB WASM memory, Chromium-only file access, sandboxed GPU) that you'll fight later — and some serious tools (Shapr3D, Blender) chose native for exactly that reason. If you already know you'll need an installer within three months, Option C avoids a migration step and gives you one consistent engine from day one.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>The prototype phase is ~6 weeks and scenes stay well under 4 GB of geometry memory</li>
+    <li>You (and early testers) are fine using Chrome/Edge for the real file workflow</li>
+    <li>The engine package is enforced DOM-free from commit one (a lint rule + a Node test run in CI)</li>
+    <li><strong>Tripwire:</strong> revisit if you need native SDKs (FBX, USD C++) or scenes approach 2–3 GB → wrap in Electron</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a col-chosen">A: Headless core + browser</th>
+        <th class="col-b">B: Tauri 2</th>
+        <th class="col-c">C: Electron</th>
+        <th class="col-d">D: Native Rust</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Time to first chair</td><td class="col-chosen">Fastest (days)</td><td>Fast + Rust setup</td><td>Fast + packaging</td><td>Months</td></tr>
+        <tr><td>Headless AI / benchmarks</td><td class="col-chosen">Native — engine runs in plain Node</td><td>Weak — no macOS WebDriver</td><td>Good — Playwright Electron</td><td>Good — CLI binary</td></tr>
+        <tr><td>Rendering consistency</td><td class="col-chosen">Good on Chromium; varies elsewhere</td><td>3 engines, WebGPU OS-gated</td><td>Identical everywhere</td><td>Identical, you own it</td></tr>
+        <tr><td>Memory ceiling</td><td class="col-chosen">4 GB per WASM heap</td><td>Native via Rust side</td><td>Native via Node addons</td><td>Unlimited</td></tr>
+        <tr><td>File system</td><td class="col-chosen">Chromium folder access; OPFS elsewhere</td><td>Full</td><td>Full</td><td>Full</td></tr>
+        <tr><td>Fit for 8GB M2 dev loop</td><td class="col-chosen">Excellent</td><td>Good</td><td>Good</td><td>Heavy compiles</td></tr>
+        <tr><td>Install / size</td><td class="col-chosen">None (URL)</td><td>~10–60 MB</td><td>~250–320 MB</td><td>~20–80 MB</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td class="col-chosen">Low — add Electron shell around same UI + core (~1–2 wks)</td><td>Medium — Rust IPC layer to unwind</td><td>Low–medium — strip Electron APIs</td><td>Very high — full rewrite to go web</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>WebGPU now ships in Chrome/Edge, Safari 26 and Firefox (Windows; Apple Silicon since 145) — but plan a WebGL fallback for everyone else. <a class="cite" href="https://web.dev/blog/webgpu-supported-major-browsers">web.dev</a></li>
+    <li>Inside Tauri on macOS, WKWebView only exposes WebGPU when the OS enables it by default (macOS 26+); Safari flags don't carry over. <a class="cite" href="https://bugs.webkit.org/show_bug.cgi?id=299237">WebKit Bugzilla</a> <a class="cite" href="https://github.com/tauri-apps/tauri/issues/6381">tauri #6381</a></li>
+    <li>Tauri on Linux: WebKitGTK GPU issues (blank windows, flicker, slow WebGL paths); Tauri's WebDriver testing doesn't support macOS. <a class="cite" href="https://v2.tauri.app/develop/debug/linux-graphics/">Tauri docs</a> <a class="cite" href="https://v2.tauri.app/develop/tests/webdriver/">Tauri WebDriver</a></li>
+    <li>Measured: Tauri 57 MB vs Electron 323 MB on disk, but only 109 vs 128 MB idle RAM. <a class="cite" href="https://betterstack.com/community/guides/scaling-nodejs/tauri-vs-electron-vs-deno-vs-electrobun/">Better Stack</a> <a class="cite" href="https://dev.to/gethopp/tauri-vs-electron-performance-bundle-size-and-the-real-trade-offs-1el4">Hopp</a></li>
+    <li>wasm32 caps at 4 GB; Memory64 shipped in Chrome/Firefox but is 10–100%+ slower — use only if you truly need &gt;4 GB. <a class="cite" href="https://v8.dev/blog/4gb-wasm-memory">V8</a> <a class="cite" href="https://spidermonkey.dev/blog/2025/01/15/is-memory64-actually-worth-using.html">SpiderMonkey</a></li>
+    <li>WASM threads need SharedArrayBuffer → cross-origin isolation (COOP/COEP headers). <a class="cite" href="https://blog.stackblitz.com/posts/cross-browser-with-coop-coep/">StackBlitz</a></li>
+    <li>Folder read/write via <code>showDirectoryPicker</code> is Chromium-only; OPFS works everywhere. <a class="cite" href="https://web.dev/articles/files/open-a-directory">web.dev</a></li>
+    <li>Manifold runs in plain Node (<code>import Module from 'manifold-3d'</code>) and has a CLI — the engine can run fully headless; remember manual <code>.delete()</code>. <a class="cite" href="https://manifoldcad.org/jsdocs/documents/Get_Started.html">Manifold docs</a></li>
+    <li>Precedents: Figma's C++→WASM engine in the browser (3× faster loads); Onshape full CAD in-browser (cloud kernel); Plasticity is a TypeScript/three.js-derived desktop CAD; Shapr3D chose fully native. <a class="cite" href="https://www.figma.com/blog/webassembly-cut-figmas-load-time-by-3x/">Figma</a> <a class="cite" href="https://cad.onshape.com/help/Content/webgl.htm">Onshape</a> <a class="cite" href="https://github.com/nkallen/plasticity">Plasticity</a> <a class="cite" href="https://www.shapr3d.com/download/mac">Shapr3D</a></li>
+    <li>Rerun ships one wgpu renderer native + web with WebGPU→WebGL fallback tiers — the realistic dual-path pattern. <a class="cite" href="https://github.com/rerun-io/rerun/issues/4915">Rerun</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>Tauri advocates point to 3–10× smaller downloads and a Rust path to native kernels; Electron advocates point to one identical Chromium and mature automation. For a 3D viewport specifically, rendering consistency and testability win — which is why the disagreement mostly resolves toward Electron <em>if</em> you go desktop. The deciding condition: whether you'll write Rust anyway or stay all-TypeScript.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-1 I want Option B instead"</strong></p>
+</div>
+</body>
+</html>

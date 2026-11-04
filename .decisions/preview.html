@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Preview — AI-First 3D Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Tokens mirrored from tokens.css (Soft Premium) — single source of truth lives there */
+:root {
+  --color-50:#fafaf9; --color-100:#f5f5f4; --color-200:#e7e5e4; --color-300:#d6d3d1; --color-400:#a8a29e;
+  --color-500:#78716c; --color-600:#57534e; --color-700:#44403c; --color-800:#292524; --color-900:#1c1917;
+  --accent-sage:#5b8c7a; --accent-caramel:#d4a373; --accent-blue:#5b7b9a; --accent-danger:#a8483a;
+  --font-body:'Instrument Sans', system-ui, sans-serif; --font-mono:'JetBrains Mono', ui-monospace, monospace;
+  --text-xs:12px; --text-sm:14px; --text-md:15px; --text-lg:19px; --text-xl:26px; --text-2xl:38px;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:20px; --space-5:28px; --space-6:40px;
+  --radius-sm:8px; --radius-md:12px; --radius-lg:18px; --radius-xl:28px;
+  --shadow-1:0 1px 3px rgba(28,25,23,.04); --shadow-2:0 4px 16px rgba(28,25,23,.05); --shadow-3:0 12px 32px rgba(28,25,23,.06); --shadow-4:0 24px 56px rgba(28,25,23,.08);
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:var(--font-body); background:var(--color-300); color:var(--color-900); line-height:1.6; }
+
+.ledger { display:flex; flex-wrap:wrap; gap:8px; padding:12px 16px; background:var(--color-900); }
+.ledger-title { font-size:var(--text-xs); color:var(--color-400); font-weight:600; margin-right:8px; align-self:center; }
+.ledger-chip { font-size:var(--text-xs); font-weight:600; padding:4px 12px; border-radius:999px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+.ledger-chip.done { background:#24382f; color:#bfe0d1; }
+.ledger-chip.done::before { content:""; width:6px; height:6px; border-radius:50%; background:#8fc4ad; }
+.ledger-chip.pending { background:var(--color-800); color:var(--color-400); }
+
+.stage { padding:var(--space-5); }
+.app { max-width:1320px; margin:0 auto; background:var(--color-100); border:1px solid var(--color-200); border-radius:var(--radius-lg); box-shadow:var(--shadow-4); overflow:hidden; }
+.chrome { display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid var(--color-200); }
+.chrome span { width:10px; height:10px; border-radius:50%; }
+.chrome .r { background:#e0786a; } .chrome .y { background:#e6c26b; } .chrome .g { background:#8fbf8a; }
+
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:var(--space-3) var(--space-5); }
+.brand { font-weight:600; font-size:var(--text-lg); letter-spacing:-0.015em; }
+.brand small { font-weight:400; font-size:var(--text-sm); color:var(--color-500); margin-left:var(--space-2); }
+.topnav { display:flex; gap:var(--space-5); font-size:var(--text-sm); color:var(--color-600); }
+.topnav .on { color:var(--color-900); font-weight:600; }
+.branch { font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-600); background:var(--color-50); border:1px solid var(--color-200); border-radius:999px; padding:4px 12px; }
+.branch b { color:var(--accent-sage); font-weight:500; }
+
+.provisional { margin:0 var(--space-5) var(--space-3); font-size:var(--text-xs); color:var(--color-600); background:var(--color-50); border:1px dashed var(--color-300); border-radius:var(--radius-sm); padding:6px 12px; }
+
+.main { display:grid; grid-template-columns: 220px 1fr 300px; gap:var(--space-3); padding:0 var(--space-3) var(--space-3); }
+.panel { background:var(--color-50); border-radius:var(--radius-md); box-shadow:var(--shadow-2); padding:var(--space-4); }
+.label { font-size:var(--text-xs); color:var(--color-500); font-weight:500; margin-bottom:var(--space-3); }
+.tree div { font-size:var(--text-sm); color:var(--color-700); padding:5px 0; display:flex; align-items:center; gap:8px; }
+.tree .indent { padding-left:18px; }
+.tree .sel { color:var(--color-900); font-weight:600; }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--accent-sage); }
+.tree .muted { color:var(--color-500); }
+
+.viewport { background:var(--color-50); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); position:relative; min-height:560px; display:flex; align-items:center; justify-content:center; }
+.viewport svg { width:92%; height:auto; display:block; }
+.vp-tools { position:absolute; top:var(--space-3); left:var(--space-3); display:flex; gap:6px; }
+.vp-tools span { font-size:var(--text-xs); color:var(--color-600); background:var(--color-100); border-radius:999px; padding:4px 12px; }
+.vp-tools .on { background:var(--color-800); color:var(--color-50); }
+.checks { position:absolute; bottom:var(--space-3); left:var(--space-3); right:var(--space-3); display:flex; gap:8px; flex-wrap:wrap; }
+.check { font-size:var(--text-xs); background:var(--color-100); color:var(--color-700); border-radius:999px; padding:4px 12px; display:flex; align-items:center; gap:6px; }
+.check i { width:7px; height:7px; border-radius:50%; background:var(--accent-sage); display:inline-block; }
+
+.param { display:flex; justify-content:space-between; align-items:baseline; font-size:var(--text-sm); color:var(--color-600); padding:10px 0 0; }
+.param b { color:var(--color-900); font-weight:600; }
+.slider { height:4px; background:var(--color-200); border-radius:4px; margin:6px 0 4px; }
+.slider span { display:block; height:100%; border-radius:4px; background:var(--color-700); }
+.param.last { padding-bottom:10px; border-bottom:1px solid var(--color-200); }
+.construction { margin-top:var(--space-4); }
+.construction summary { font-size:var(--text-sm); color:var(--color-700); font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; }
+.construction summary::after { content:"›"; color:var(--color-500); }
+.code { margin-top:var(--space-2); font-family:var(--font-mono); font-size:var(--text-xs); line-height:1.6; color:var(--color-700); background:var(--color-100); border-radius:var(--radius-sm); padding:var(--space-3); white-space:pre; overflow:hidden; }
+.code .k { color:var(--accent-blue); } .code .n { color:var(--color-900); font-weight:500; }
+
+.rightcol { display:flex; flex-direction:column; gap:var(--space-3); }
+.chat { display:flex; flex-direction:column; gap:var(--space-2); }
+.msg { font-size:var(--text-sm); line-height:1.5; padding:var(--space-2) var(--space-3); border-radius:var(--radius-md); }
+.msg.me { background:var(--color-100); color:var(--color-900); align-self:flex-end; max-width:90%; }
+.msg.ai { color:var(--color-600); padding-left:0; }
+.chatin { margin-top:auto; display:flex; align-items:center; gap:var(--space-2); background:var(--color-100); border-radius:var(--radius-xl); padding:6px 6px 6px var(--space-3); }
+.chatin .ctx { font-size:var(--text-xs); color:var(--color-600); background:var(--color-50); border-radius:999px; padding:2px 10px; white-space:nowrap; }
+.chatin .q { flex:1; font-size:var(--text-sm); color:var(--color-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chatin button { font-family:var(--font-body); background:var(--color-800); color:var(--color-50); border:none; border-radius:var(--radius-xl); padding:6px 14px; font-size:var(--text-xs); font-weight:600; }
+.feed { font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-600); display:flex; flex-direction:column; gap:2px; }
+.fl { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fl .tool { color:var(--accent-blue); margin-right:6px; }
+.review { margin-top:var(--space-2); border-top:1px solid var(--color-200); padding-top:var(--space-3); }
+.rv-head { font-size:var(--text-sm); font-weight:600; color:var(--color-900); margin-bottom:var(--space-2); display:flex; justify-content:space-between; gap:8px; }
+.rv-head .ok { font-size:var(--text-xs); font-weight:500; color:#3f6b5a; }
+.chg { display:flex; justify-content:space-between; align-items:center; font-size:var(--text-sm); color:var(--color-700); padding:6px 0; border-bottom:1px solid var(--color-200); }
+.chg.on { color:var(--color-900); font-weight:600; }
+.chg .k, .chg .u { font-size:var(--text-xs); font-weight:600; border-radius:999px; padding:2px 10px; margin-left:4px; }
+.chg .k { background:#e3eee9; color:#3f6b5a; }
+.chg .u { background:var(--color-100); color:var(--color-600); }
+.chg .u.off { background:var(--color-800); color:var(--color-50); }
+.rv-actions { display:flex; align-items:center; gap:var(--space-3); margin-top:var(--space-3); }
+.rv-actions button { font-family:var(--font-body); background:var(--color-800); color:var(--color-50); border:none; border-radius:var(--radius-xl); padding:8px 16px; font-size:var(--text-xs); font-weight:600; }
+.rv-actions .hint { font-size:var(--text-xs); color:var(--color-500); }
+.history { margin:0 var(--space-3) var(--space-3); background:var(--color-50); border-radius:var(--radius-md); box-shadow:var(--shadow-2); padding:var(--space-3) var(--space-4); display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; }
+.h-label { font-size:var(--text-xs); color:var(--color-500); font-weight:500; margin-right:var(--space-2); }
+.commit { font-family:var(--font-mono); font-size:var(--text-xs); color:var(--color-600); background:var(--color-100); border-radius:999px; padding:4px 12px; }
+.commit.on { background:var(--color-800); color:var(--color-50); }
+.commit.prop { margin-left:auto; background:#e3eee9; color:#3f6b5a; border:1px dashed var(--accent-sage); }
+.h-more { margin-left:auto; font-size:var(--text-xs); color:var(--color-500); border:1px dashed var(--color-300); border-radius:999px; padding:4px 12px; }
+.askbar { margin:0 var(--space-3) var(--space-3); display:flex; align-items:center; gap:var(--space-3); background:var(--color-50); border-radius:var(--radius-xl); box-shadow:var(--shadow-2); padding:8px 8px 8px var(--space-5); }
+.askbar .ctx { font-size:var(--text-xs); color:var(--color-600); background:var(--color-100); border-radius:999px; padding:4px 12px; white-space:nowrap; }
+.askbar .q { flex:1; font-size:var(--text-md); color:var(--color-600); }
+.askbar button { font-family:var(--font-body); background:var(--color-800); color:var(--color-50); border:none; border-radius:var(--radius-xl); padding:10px 24px; font-size:var(--text-sm); font-weight:600; }
+
+.hood { max-width:1320px; margin:var(--space-4) auto 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.hood-title { font-size:var(--text-xs); font-weight:600; color:var(--color-700); margin-right:4px; }
+.hood a { font-size:var(--text-xs); color:var(--color-700); background:var(--color-50); border:1px solid var(--color-200); border-radius:999px; padding:4px 12px; text-decoration:none; }
+.hood a:hover { border-color:var(--accent-sage); }
+</style>
+</head>
+<body>
+
+<div class="ledger">
+  <span class="ledger-title">Decisions</span>
+  <a class="ledger-chip done" href="decision-001-app-runtime.html">1 · Runtime: headless core + browser</a>
+  <a class="ledger-chip done" href="decision-002-scene-change-model.html">2 · Scene: records + branching log</a>
+  <a class="ledger-chip done" href="decision-003-construction-model.html">3 · Construction: typed op graph</a>
+  <a class="ledger-chip done" href="decision-004-geometry-kernel.html">4 · Kernels: interface, 3 engines</a>
+  <a class="ledger-chip done" href="decision-005-ai-interface.html">5 · AI: /studio skill + CLI</a>
+  <a class="ledger-chip done" href="decision-006-ai-perception.html">6 · Perception: checks + views</a>
+  <a class="ledger-chip done" href="decision-007-visual-direction.html">7 · Visual: Soft Premium</a>
+  <a class="ledger-chip done" href="decision-008-workspace-layout.html">8 · Layout: docked panels</a>
+  <a class="ledger-chip done" href="decision-009-change-review.html">9 · Review: change-by-change</a>
+  <a class="ledger-chip done" href="decision-010-build-sequence.html">10 · Build: thin slice, then thicken</a>
+</div>
+
+<div class="stage">
+  <div class="app">
+    <div class="chrome"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <div class="topbar">
+      <div class="brand">Studio <small>Mid-century lounge chair</small></div>
+      <nav class="topnav"><span class="on">Scene</span><span>History</span><span>Proposals</span><span>Export</span></nav>
+      <span class="branch">main · <b>c42</b> · 41 commits</span>
+    </div>
+
+    <div class="main">
+      <aside class="panel">
+        <div class="label">Scene</div>
+        <div class="tree">
+          <div class="sel"><span class="dot"></span>Lounge chair</div>
+          <div class="indent">Seat</div>
+          <div class="indent">Backrest</div>
+          <div class="indent">Legs ×4</div>
+          <div class="indent">Stretcher</div>
+          <div class="muted">Floor</div>
+          <div class="muted">Key light</div>
+          <div class="muted">Camera · 3/4</div>
+        </div>
+      </aside>
+
+      <section class="viewport">
+        <div class="vp-tools"><span class="on">Shaded</span><span>Wireframe</span><span>Front</span><span>Side</span><span>Top</span></div>
+        <svg viewBox="0 0 600 440" aria-label="Lounge chair in viewport">
+          <g stroke="#e7e5e4" stroke-width="1" fill="none">
+            <path d="M40 350 L300 420 L560 350 L300 280 Z"/>
+            <path d="M105 332.5 L365 402.5 M170 315 L430 385 M235 297.5 L495 367.5"/>
+            <path d="M105 367.5 L365 297.5 M170 385 L430 315 M235 402.5 L495 332.5"/>
+          </g>
+          <ellipse cx="300" cy="352" rx="150" ry="34" fill="#e7e5e4" opacity=".6"/>
+          <polygon points="170,238 302,268 410,232 278,204" fill="#a8a29e"/>
+          <polygon points="170,238 302,268 302,282 170,252" fill="#78716c"/>
+          <polygon points="302,268 410,232 410,246 302,282" fill="#8a837d"/>
+          <polygon points="278,204 410,232 420,92 292,62" fill="#d6d3d1"/>
+          <path d="M278 204 L410 232 Q 432 160 420 92 L 292 62 Q 300 140 278 204 Z" fill="#5b8c7a" opacity=".45"/>
+          <polygon points="410,232 420,92 426,94 416,236" fill="#a8a29e"/>
+          <g fill="#57534e">
+            <polygon points="180,248 190,250 162,350 152,348"/>
+            <polygon points="292,276 302,278 300,384 290,382"/>
+            <polygon points="398,240 408,238 436,334 426,336"/>
+            <polygon points="286,214 296,212 304,300 294,302" opacity=".55"/>
+          </g>
+          <line x1="172" y1="305" x2="414" y2="290" stroke="#78716c" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="420" cy="92" r="5" fill="#5b8c7a"/>
+        </svg>
+        <div class="checks">
+          <span class="check"><i></i>All 4 legs grounded</span>
+          <span class="check"><i></i>Watertight</span>
+          <span class="check"><i></i>No intersections</span>
+          <span class="check"><i></i>Seat height 450 mm ± 10</span>
+        </div>
+      </section>
+
+      <div class="rightcol">
+      <aside class="panel">
+        <div class="label">Inspector · Lounge chair</div>
+        <div class="param">Seat height <b>450 mm</b></div><div class="slider"><span style="width:55%"></span></div>
+        <div class="param">Seat width <b>620 mm</b></div><div class="slider"><span style="width:62%"></span></div>
+        <div class="param">Leg radius <b>15 mm</b></div><div class="slider"><span style="width:30%"></span></div>
+        <div class="param">Leg splay <b>6°</b></div><div class="slider"><span style="width:40%"></span></div>
+        <div class="param">Back angle <b>14°</b></div><div class="slider"><span style="width:47%"></span></div>
+        <div class="param last">Material <b>Walnut, oiled</b></div>
+        <details class="construction">
+          <summary>Construction</summary>
+        </details>
+      </aside>
+      <aside class="panel chat">
+        <div class="label">Claude Code · /studio skill · live</div>
+        <div class="feed">
+          <div class="fl"><span class="tool">studio selection</span> Lounge chair</div>
+          <div class="fl"><span class="tool">studio propose</span> "1950s Danish backrest"</div>
+          <div class="fl"><span class="tool">studio set</span> backAngle 18</div>
+          <div class="fl"><span class="tool">studio op add</span> back.curve 0.03</div>
+          <div class="fl"><span class="tool">studio op add</span> armrests</div>
+          <div class="fl"><span class="tool">studio render</span> front,iso --labels</div>
+        </div>
+        <div class="review">
+          <div class="rv-head">Proposal p1 · 3 changes <span class="ok">checks pass</span></div>
+          <div class="chg">Back angle 14° → 18° <span><span class="k">Keep</span><span class="u">Undo</span></span></div>
+          <div class="chg on">Back curve +30 mm <span><span class="k">Keep</span><span class="u">Undo</span></span></div>
+          <div class="chg">Arm rests added <span><span class="k">Keep</span><span class="u off">Undone</span></span></div>
+          <div class="rv-actions"><button>Commit 2 changes</button><span class="hint">Hold Space for before</span></div>
+        </div>
+      </aside>
+      </div>
+    </div>
+
+    <div class="history">
+      <span class="h-label">History</span>
+      <span class="commit">c38 · seat width 620</span>
+      <span class="commit">c39 · stretcher added</span>
+      <span class="commit">c40 · seat height 450</span>
+      <span class="commit">c41 · walnut, oiled</span>
+      <span class="commit on">c42 · leg splay 6°</span>
+      <span class="commit prop">p1 · Danish backrest · in review</span>
+    </div>
+  </div>
+
+  <div class="hood">
+    <span class="hood-title">Under the hood</span>
+    <a href="decision-001-app-runtime.html">Browser-first · DOM-free @studio/core · Electron later</a>
+    <a href="decision-002-scene-change-model.html">Records + branching commit log · content-hashed meshes</a>
+    <a href="decision-003-construction-model.html">Typed op graph · named anchors</a>
+    <a href="decision-004-geometry-kernel.html">Manifold → EditMesh → OpenSubdiv → OCCT (lazy)</a>
+    <a href="decision-005-ai-interface.html">/studio skill in Claude Code → studio CLI (from zod registry) → engine daemon · MCP adapter optional</a>
+    <a href="decision-005-ai-interface.html">View ⇄ engine daemon over websocket · view renders snapshots on request</a>
+    <a href="decision-006-ai-perception.html">Checks every commit · labeled views at milestones</a>
+  </div>
+</div>
+</body>
+</html>

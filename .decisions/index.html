@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision Hub — AI-First 3D Studio</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+.container { max-width: 900px; margin: 0 auto; }
+header { text-align: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; }
+.project-description { font-size: 1rem; color: #475569; margin-top: 0.5rem; }
+.progress-section { margin: 1.5rem 0; }
+.progress-label { font-size: 0.85rem; color: #64748b; margin-bottom: 0.5rem; display: flex; justify-content: space-between; }
+.progress-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+.progress-fill { display: block; height: 100%; background: #2c6e48; border-radius: 999px; }
+.decision-list { display: flex; flex-direction: column; gap: 1rem; }
+.decision-item { background: white; border-radius: 12px; padding: 1.25rem 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 2px solid #e2e8f0; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 1rem; }
+a.decision-item:hover { border-color: #23466f; }
+.decision-item.resolved { border-left: 4px solid #2c6e48; }
+.decision-item.pending { border-left: 4px solid #b86e0a; }
+.decision-item.queued { border-left: 4px solid #cbd5e1; opacity: 0.7; }
+.decision-number-badge { width: 36px; height: 36px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; background: #f1f5f9; color: #64748b; }
+.decision-item.resolved .decision-number-badge { background: #edf6f0; color: #2c6e48; }
+.decision-item.pending .decision-number-badge { background: #fdf6e9; color: #8a5208; }
+.decision-info { flex: 1; }
+.decision-info h3 { font-size: 1rem; font-weight: 600; color: #0f172a; }
+.decision-meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem; flex-wrap: wrap; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.badge.technical { background: #e8eef6; color: #23466f; }
+.badge.visual { background: #fbeaf0; color: #9b2c55; }
+.badge.interaction { background: #e6f3f6; color: #1d6f80; }
+.badge.ia { background: #edf6f0; color: #2c6e48; }
+.badge.one-way { background:#fef2f2; color:#b42323; }
+.badge.two-way { background:#ecfeff; color:#1d6f80; }
+.decision-status { font-size: 0.8rem; color: #64748b; }
+.chosen-text { color: #2c6e48; font-weight: 600; }
+.pending-text { color: #8a5208; font-weight: 600; }
+.decision-summary { font-size: 0.8rem; color: #64748b; margin-top: 0.25rem; }
+.arrow-icon { color: #94a3b8; font-size: 1.1rem; flex-shrink: 0; }
+.footer-note { text-align: center; margin-top: 2rem; font-size: 0.8rem; color: #64748b; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Decision Hub</h1>
+    <p class="project-description">AI-First 3D Studio — a 3D creation environment where AI agents and humans share the same typed modeling tools.</p>
+  </header>
+  <div class="progress-section">
+    <div class="progress-label"><span>10 of 10 decisions made</span><span>100%</span></div>
+    <div class="progress-bar"><span class="progress-fill" style="width:100%"></span></div>
+  </div>
+  <div class="decision-list">
+    <a href="decision-001-app-runtime.html" class="decision-item resolved">
+      <div class="decision-number-badge">1</div>
+      <div class="decision-info"><h3>Where the app runs</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Headless core + browser first</span></span></div>
+        <p class="decision-summary">DOM-free engine package runs in Node and the browser; Chromium web UI now, Electron wrapper later.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-002-scene-change-model.html" class="decision-item resolved">
+      <div class="decision-number-badge">2</div>
+      <div class="decision-info"><h3>Scene source of truth &amp; change model</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option B — Records + branching change log</span></span></div>
+        <p class="decision-summary">Every edit is a commit with patches + author; AI proposals are branches; meshes stored by content hash.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-003-construction-model.html" class="decision-item resolved">
+      <div class="decision-number-badge">3</div>
+      <div class="decision-info"><h3>Construction model</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option D — Typed op graph + code view</span></span></div>
+        <p class="decision-summary">Typed ops with named params and named anchors, stored as records, shown as a readable program.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-004-geometry-kernel.html" class="decision-item resolved">
+      <div class="decision-number-badge">4</div>
+      <div class="decision-info"><h3>Geometry kernel strategy</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option C — Kernel interface, three engines (staged)</span></span></div>
+        <p class="decision-summary">Manifold now; TS half-edge EditMesh when needed; OpenSubdiv + lazy OCCT later.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-005-ai-interface.html" class="decision-item resolved">
+      <div class="decision-number-badge">5</div>
+      <div class="decision-info"><h3>How AI models talk to the app</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Custom — /studio Claude Code skill + CLI</span></span></div>
+        <p class="decision-summary">Skill playbook in Claude Code calls a studio CLI generated from the zod registry; browser is the live view. MCP adapter optional later.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-006-ai-perception.html" class="decision-item resolved">
+      <div class="decision-number-badge">6</div>
+      <div class="decision-info"><h3>AI perception loop</h3>
+        <div class="decision-meta"><span class="badge technical">Technical</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option C — Checks + labeled views</span></span></div>
+        <p class="decision-summary">Deterministic checks every commit are the authority; labeled separate views at milestones for look-and-feel.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-007-visual-direction.html" class="decision-item resolved">
+      <div class="decision-number-badge">7</div>
+      <div class="decision-info"><h3>Visual direction of the workspace</h3>
+        <div class="decision-meta"><span class="badge visual">Visual</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Soft Premium</span></span></div>
+        <p class="decision-summary">Warm stone neutrals, sage accent, Instrument Sans. Tokens in tokens.css / tokens.json; live preview in preview.html.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-008-workspace-layout.html" class="decision-item resolved">
+      <div class="decision-number-badge">8</div>
+      <div class="decision-info"><h3>Workspace layout</h3>
+        <div class="decision-meta"><span class="badge ia">IA</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Docked panels</span></span></div>
+        <p class="decision-summary">Scene left, viewport center, inspector + AI chat right, history bottom. (Your call over a lean toward B.)</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-009-change-review.html" class="decision-item resolved">
+      <div class="decision-number-badge">9</div>
+      <div class="decision-info"><h3>How AI changes are reviewed</h3>
+        <div class="decision-meta"><span class="badge interaction">Interaction</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option D — Change-by-change review</span></span></div>
+        <p class="decision-summary">Semantic change list with per-change Keep/Undo in the view's right panel; also scriptable via studio keep/undo/commit.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-010-build-sequence.html" class="decision-item resolved">
+      <div class="decision-number-badge">10</div>
+      <div class="decision-info"><h3>First build sequence</h3>
+        <div class="decision-meta"><span class="badge interaction">Planning</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option B — Thin vertical slice, then thicken</span></span></div>
+        <p class="decision-summary">Six horizontal phases, a thin vertical slice, benchmark-first, or engine-first.</p></div>
+      <span class="arrow-icon">→</span></a>
+  </div>
+  <p class="footer-note">To change a decision, respond with: "for decision-1 I want Option B instead"</p>
+</div>
+</body>
+</html>

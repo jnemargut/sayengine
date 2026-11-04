@@ -1,0 +1,104 @@
+/* AI-First 3D Studio — design tokens
+   Tradition: Soft Premium (Decision 7, chosen 2026-11-03)
+   Calibration: body/headline face Instrument Sans (deliberate replacement for the library's default sans);
+   dark variant planned (see tripwire in decision-007). Import this file first; never hard-code values. */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Color ramp — warm stone */
+  --color-50:  #fafaf9;
+  --color-100: #f5f5f4;
+  --color-200: #e7e5e4;
+  --color-300: #d6d3d1;
+  --color-400: #a8a29e;
+  --color-500: #78716c;
+  --color-600: #57534e;
+  --color-700: #44403c;
+  --color-800: #292524;
+  --color-900: #1c1917;
+
+  /* Accents — one muted accent per view */
+  --accent-sage:     #5b8c7a;   /* selection, active proposal, "checks pass" */
+  --accent-caramel:  #d4a373;   /* warnings, pending */
+  --accent-blue:     #5b7b9a;   /* links, info */
+  --accent-danger:   #a8483a;   /* failing checks (desaturated red, per tradition) */
+
+  /* Semantic surfaces */
+  --surface-app:      var(--color-100);
+  --surface-panel:    var(--color-50);
+  --surface-viewport: var(--color-50);
+  --text-primary:     var(--color-900);
+  --text-secondary:   var(--color-600);
+  --text-muted:       var(--color-500);
+  --border-hairline:  var(--color-200);
+  --action-primary-bg:   var(--color-800);
+  --action-primary-text: var(--color-50);
+
+  /* Type */
+  --font-headline: 'Instrument Sans', system-ui, sans-serif;
+  --font-body:     'Instrument Sans', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', ui-monospace, monospace;
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-semibold: 600;
+  --tracking-headline: -0.015em;
+  --leading-body: 1.6;
+
+  /* Type scale (px) — compressed, restrained */
+  --text-xs:  12px;
+  --text-sm:  14px;
+  --text-md:  15px;
+  --text-lg:  19px;
+  --text-xl:  26px;
+  --text-2xl: 38px;
+
+  /* Spacing (px) — generous */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 20px;
+  --space-5: 28px;
+  --space-6: 40px;
+  --space-7: 56px;
+  --space-8: 80px;
+  --space-9: 112px;
+
+  /* Radius (px) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+
+  /* Shadow — soft, large spread, low opacity */
+  --shadow-1: 0 1px 3px rgba(28,25,23,.04);
+  --shadow-2: 0 4px 16px rgba(28,25,23,.05);
+  --shadow-3: 0 12px 32px rgba(28,25,23,.06);
+  --shadow-4: 0 24px 56px rgba(28,25,23,.08);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(.4,0,.2,1);
+  --duration-fast: 200ms;
+  --duration-base: 350ms;
+  --duration-slow: 500ms;
+}
+
+/* Dark variant (Decision 7 tripwire, shipped 2026-11-03). Follows the OS unless data-theme is set. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+  --color-50:#1d1c1a; --color-100:#141312; --color-200:#2b2926; --color-300:#3a3733; --color-400:#6e6863;
+  --color-500:#938c86; --color-600:#b3ada7; --color-700:#d0cbc5; --color-800:#e7e5e4; --color-900:#f5f5f4;
+  --accent-sage:#6fa18e; --accent-sage-ink:#93c4b1; --accent-sage-soft:#22332c;
+  --accent-blue:#8eaacb; --accent-danger:#d47a6b; --accent-danger-soft:#3b2421;
+  --shadow-2:0 4px 16px rgba(0,0,0,.35); --shadow-3:0 12px 32px rgba(0,0,0,.45);
+  color-scheme:dark;
+  }
+}
+:root[data-theme="dark"] {
+  --color-50:#1d1c1a; --color-100:#141312; --color-200:#2b2926; --color-300:#3a3733; --color-400:#6e6863;
+  --color-500:#938c86; --color-600:#b3ada7; --color-700:#d0cbc5; --color-800:#e7e5e4; --color-900:#f5f5f4;
+  --accent-sage:#6fa18e; --accent-sage-ink:#93c4b1; --accent-sage-soft:#22332c;
+  --accent-blue:#8eaacb; --accent-danger:#d47a6b; --accent-danger-soft:#3b2421;
+  --shadow-2:0 4px 16px rgba(0,0,0,.35); --shadow-3:0 12px 32px rgba(0,0,0,.45);
+  color-scheme:dark;
+}

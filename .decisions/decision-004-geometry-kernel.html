@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 4: Geometry Kernel Strategy — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fef2f2; color:#b42323; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.prior { margin-top: 0.75rem; font-size: 0.8rem; color: #2c6e48; background: #edf6f0; border: 1px solid #b9dcc6; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 440px; }
+.arch-layer { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; width: 100%; }
+.arch-box { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 0.7rem; font-weight: 600; color: #334155; text-align: center; min-width: 70px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.arch-box small { display: block; font-weight: 400; font-size: 0.6rem; color: #64748b; }
+.arch-box.frontend { border-color: #4b3a8c; color: #4b3a8c; }
+.arch-box.backend { border-color: #1d6f80; color: #1d6f80; }
+.arch-box.database { border-color: #2c6e48; color: #2c6e48; }
+.arch-box.service { border-color: #a83a32; color: #a83a32; }
+.arch-box.dim { border-style: dashed; color: #64748b; border-color: #cbd5e1; }
+.arch-arrow { font-size: 0.9rem; color: #94a3b8; text-align: center; line-height: 1; }
+.arch-group { border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 8px; width: 100%; background: #ffffff; }
+.arch-group-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; text-align: center; margin-bottom: 6px; }
+/* bars */
+.bars { width:100%; max-width: 440px; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.bars-title { font-size:0.62rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#64748b; margin-bottom:7px; }
+.bar-row { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+.bar-label { font-size:0.62rem; color:#475569; width:96px; flex-shrink:0; }
+.bar-track { flex:1; height:9px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
+.bar-fill { display:block; height:100%; border-radius:999px; }
+.bar-value { font-size:0.6rem; font-weight:800; color:#0f172a; width:54px; text-align:right; flex-shrink:0; }
+.good { background:#2c6e48; } .mixed { background:#b86e0a; } .poor { background:#b42323; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 4 of 10</span>
+  <h1>Geometry Kernel Strategy</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    The kernel is the math engine that actually executes <code>box()</code>, <code>union()</code>, <code>round()</code> from your op graph and produces real geometry. It sets a ceiling on what the studio can make at all — and how often an AI-issued operation silently produces garbage. "General-purpose" pulls in three directions at once: watertight solids (booleans), editable polygon meshes (extrude, bevel, subdivide — characters and game assets), and precise CAD surfaces (fillets, STEP export). No single library does all three well in a browser.
+  </p>
+  <span class="prior">Each op in Decision 3's graph will declare which kernel runs it</span><br>
+  <p class="instruction">Respond with: <strong>"Option C"</strong> · <strong>"Option C but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Manifold Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box frontend">Op graph</div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box database">Manifold WASM<small>~200 KB compressed</small></div></div>
+      </div>
+      <div class="bars">
+        <div class="bars-title">Coverage of "general-purpose"</div>
+        <div class="bar-row"><span class="bar-label">Solids / booleans</span><span class="bar-track"><span class="bar-fill good" style="width:92%"></span></span><span class="bar-value">excellent</span></div>
+        <div class="bar-row"><span class="bar-label">Poly modeling</span><span class="bar-track"><span class="bar-fill poor" style="width:15%"></span></span><span class="bar-value">none</span></div>
+        <div class="bar-row"><span class="bar-label">Smooth / subdiv</span><span class="bar-track"><span class="bar-fill mixed" style="width:45%"></span></span><span class="bar-value">refine only</span></div>
+        <div class="bar-row"><span class="bar-label">CAD precision</span><span class="bar-track"><span class="bar-fill poor" style="width:12%"></span></span><span class="bar-value">none</span></div>
+        <div class="bar-row"><span class="bar-label">Build effort</span><span class="bar-track"><span class="bar-fill good" style="width:90%"></span></span><span class="bar-value">tiny</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Use Manifold for everything. It's tiny, fast, actively maintained, and trusted by Blender and OpenSCAD for booleans. It even carries UVs and material IDs through operations and can build shapes from distance fields. But it only works on closed, watertight solids — you can't drag a single edge, extrude a face loop, or model an open cloth panel. Great for chairs and buildings; dead end for characters.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Weeks 1–3: furniture, props, architecture blockouts</li>
+        <li>Guaranteed-valid output — the AI can't make a leaky mesh</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No polygon-level editing at all</li>
+        <li>No fillets/NURBS/STEP</li>
+        <li>WASM build is single-threaded</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">OpenCascade-First (B-rep)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box frontend">Op graph</div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box backend">OCCT WASM via replicad / occt-wasm<small>4–9 MB compressed, worker</small></div></div>
+        <div class="arch-arrow">↓ tessellate for display</div>
+        <div class="arch-layer"><div class="arch-box dim">Three.js mesh</div></div>
+      </div>
+      <div class="bars">
+        <div class="bars-title">Coverage of "general-purpose"</div>
+        <div class="bar-row"><span class="bar-label">Solids / booleans</span><span class="bar-track"><span class="bar-fill good" style="width:75%"></span></span><span class="bar-value">good</span></div>
+        <div class="bar-row"><span class="bar-label">Poly modeling</span><span class="bar-track"><span class="bar-fill poor" style="width:10%"></span></span><span class="bar-value">none</span></div>
+        <div class="bar-row"><span class="bar-label">Smooth / subdiv</span><span class="bar-track"><span class="bar-fill mixed" style="width:40%"></span></span><span class="bar-value">fillets</span></div>
+        <div class="bar-row"><span class="bar-label">CAD precision</span><span class="bar-track"><span class="bar-fill good" style="width:92%"></span></span><span class="bar-value">excellent</span></div>
+        <div class="bar-row"><span class="bar-label">Build effort</span><span class="bar-track"><span class="bar-fill mixed" style="width:45%"></span></span><span class="bar-value">medium</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Make the industrial CAD kernel (the open-source cousin of what SolidWorks uses) the primary engine. You get exact curved surfaces, fillets, shells and STEP export — real engineering precision. But it's 20–50× heavier than Manifold, the classic opencascade.js wrapper stalled in 2023 (use replicad or occt-wasm instead), fillets fail in famously finicky ways, and it's the wrong tool for anything organic.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Mechanical/manufacturing is the main market</li>
+        <li>STEP/IGES round-tripping is required</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Fillets fail on short edges / scale — AI hits this constantly</li>
+        <li>Multi-MB load; memory pressure on 8 GB</li>
+        <li>No organic or poly modeling</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — covers all three, staged</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Kernel Interface, Three Engines</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box frontend">Op graph (each op declares its kernel)</div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-group">
+          <div class="arch-group-label">GeometryKernel interface · Web Worker / Node</div>
+          <div class="arch-layer">
+            <div class="arch-box database">Manifold<small>solids · booleans · now</small></div>
+            <div class="arch-box backend">EditMesh (TS half-edge)<small>extrude · bevel · now</small></div>
+          </div>
+          <div class="arch-layer" style="margin-top:6px">
+            <div class="arch-box dim">OpenSubdiv WASM<small>subdiv · wk 4+</small></div>
+            <div class="arch-box dim">OCCT (lazy)<small>fillets · STEP · later</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="bars">
+        <div class="bars-title">Coverage of "general-purpose" (end state)</div>
+        <div class="bar-row"><span class="bar-label">Solids / booleans</span><span class="bar-track"><span class="bar-fill good" style="width:92%"></span></span><span class="bar-value">excellent</span></div>
+        <div class="bar-row"><span class="bar-label">Poly modeling</span><span class="bar-track"><span class="bar-fill good" style="width:70%"></span></span><span class="bar-value">good</span></div>
+        <div class="bar-row"><span class="bar-label">Smooth / subdiv</span><span class="bar-track"><span class="bar-fill good" style="width:72%"></span></span><span class="bar-value">good</span></div>
+        <div class="bar-row"><span class="bar-label">CAD precision</span><span class="bar-track"><span class="bar-fill mixed" style="width:65%"></span></span><span class="bar-value">later</span></div>
+        <div class="bar-row"><span class="bar-label">Build effort</span><span class="bar-track"><span class="bar-fill mixed" style="width:50%"></span></span><span class="bar-value">staged</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Define one <code>GeometryKernel</code> interface and plug engines into it. Manifold handles solids and booleans from day one; a small half-edge mesh you write in TypeScript handles polygon edits (no maintained JS library exists); OpenSubdiv's WASM port adds smooth subdivision; OCCT is lazy-loaded in a worker only when a CAD op (fillet, STEP) runs. The op graph doesn't care which engine ran — bitbybit.dev ships exactly this three-kernel pattern today.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"General-purpose" is real but staged</li>
+        <li>You want only ~200 KB loaded until a CAD op is used</li>
+        <li>Each kernel is swappable without touching the op graph</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Converting between kernels (mesh ↔ B-rep) is lossy one-way</li>
+        <li>Writing a half-edge mesh is ~1–2 weeks of careful work</li>
+        <li>Ops must declare kernel + allowed inputs clearly</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Rust Geometry Core → WASM</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box frontend">Op graph (TS)</div></div>
+        <div class="arch-arrow">↓ wasm-bindgen</div>
+        <div class="arch-group">
+          <div class="arch-group-label">Rust crate → WASM</div>
+          <div class="arch-layer">
+            <div class="arch-box service">truck (NURBS B-rep)</div>
+            <div class="arch-box service">custom half-edge</div>
+          </div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box dim">Fornjot — archived June 2026</div></div>
+        </div>
+      </div>
+      <div class="bars">
+        <div class="bars-title">Coverage of "general-purpose"</div>
+        <div class="bar-row"><span class="bar-label">Solids / booleans</span><span class="bar-track"><span class="bar-fill mixed" style="width:55%"></span></span><span class="bar-value">unproven</span></div>
+        <div class="bar-row"><span class="bar-label">Poly modeling</span><span class="bar-track"><span class="bar-fill mixed" style="width:55%"></span></span><span class="bar-value">you build</span></div>
+        <div class="bar-row"><span class="bar-label">Smooth / subdiv</span><span class="bar-track"><span class="bar-fill mixed" style="width:40%"></span></span><span class="bar-value">you build</span></div>
+        <div class="bar-row"><span class="bar-label">CAD precision</span><span class="bar-track"><span class="bar-fill mixed" style="width:50%"></span></span><span class="bar-value">no fillets</span></div>
+        <div class="bar-row"><span class="bar-label">Build effort</span><span class="bar-track"><span class="bar-fill poor" style="width:12%"></span></span><span class="bar-value">huge</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Write (or assemble) your own geometry core in Rust and compile it to WASM — maximum performance, threads, and long-term ownership. The ecosystem is thin: Fornjot was archived in June 2026, truck is the one serious Rust B-rep but has no documented fillets, and you'd still write the poly-modeling half yourself. A multi-year path for a funded team.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Geometry performance is the product's moat</li>
+        <li>You're a strong Rust developer with a long runway</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Months before parity with Manifold's booleans</li>
+        <li>Thin, shrinking ecosystem (Fornjot shut down)</li>
+        <li>Adds a second language to every change</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Three kernels means three sets of failure modes, and the seams between them are where bugs live: a mesh edited in EditMesh may no longer be watertight for Manifold, and nothing converts a mesh back into exact CAD surfaces. Writing your own half-edge mesh is real geometry-processing work that an LLM-assisted solo developer can get subtly wrong (non-manifold edges, flipped normals). A narrower product — Manifold-only for the first months (Option A) — would let you prove the AI loop before paying any of that complexity, and the interface could be added later.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Stage it: <strong>weeks 1–3 Manifold only</strong> behind the interface; EditMesh when the first mesh-edit op is needed; OpenSubdiv and OCCT only when a benchmark task demands them</li>
+    <li>Kernel conversions are explicit ops (<code>toEditMesh</code>, <code>toSolid</code> with a validity check), never silent</li>
+    <li>All kernels run in a Web Worker in the browser and in-process in Node — same interface</li>
+    <li><strong>Tripwire:</strong> if Manifold's "scratch-mark" boolean artifacts show up in &gt;5% of benchmark runs, add a mesh-repair pass or evaluate OCCT booleans for those ops</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Manifold only</th>
+        <th class="col-b">B: OCCT-first</th>
+        <th class="col-c col-chosen">C: Interface, three engines</th>
+        <th class="col-d">D: Rust core</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Payload at startup</td><td>~200 KB</td><td>4–9 MB compressed</td><td class="col-chosen">~200 KB (others lazy)</td><td>Unknown, likely 1–3 MB</td></tr>
+        <tr><td>Maintenance health</td><td>Active (v3.5.4, Sept 2026)</td><td>replicad active; opencascade.js stalled</td><td class="col-chosen">Inherits best of each</td><td>Fornjot archived; truck active</td></tr>
+        <tr><td>Who ships it</td><td>Blender, OpenSCAD, Godot</td><td>Chili3D, CascadeStudio</td><td class="col-chosen">bitbybit.dev (OCCT+Manifold+JSCAD)</td><td>Few</td></tr>
+        <tr><td>Characters / game assets</td><td>No</td><td>No</td><td class="col-chosen">Yes (EditMesh + subdiv)</td><td>Eventually</td></tr>
+        <tr><td>Mechanical CAD / STEP</td><td>No</td><td>Yes</td><td class="col-chosen">Yes, later</td><td>Partial</td></tr>
+        <tr><td>Runs headless in Node</td><td>Yes</td><td>Yes</td><td class="col-chosen">Yes</td><td>Yes</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Medium — add interface later, refactor ops</td><td>High — B-rep assumptions everywhere</td><td class="col-chosen">Low — swap any engine behind interface</td><td>Very high — language + kernel lock-in</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Manifold: guaranteed-manifold booleans, hull, Minkowski, SDF <code>levelSet</code>, refine/smoothing; carries UVs and per-face IDs through ops; manual <code>.delete()</code>; WASM build is serial-only. <a class="cite" href="https://github.com/elalish/manifold">Manifold README</a> <a class="cite" href="https://manifoldcad.org/docs/jsuser/">JS guide</a></li>
+    <li><code>manifold-3d</code> v3.5.4 (Sept 2026): ~541 KB raw / ~197 KB compressed WASM. Used by OpenSCAD (default backend since Aug 2025), Blender 4.5's Manifold boolean solver, Godot, Babylon.js. <a class="cite" href="https://www.npmjs.com/package/manifold-3d">npm</a> <a class="cite" href="https://developer.blender.org/docs/release_notes/4.5/modeling/">Blender 4.5</a></li>
+    <li>Blender users report occasional "scratch marks" in Manifold differences. <a class="cite" href="https://devtalk.blender.org/t/manifold-boolean-feedback/40150">devtalk</a></li>
+    <li>opencascade.js: last push Aug 2023, pinned to OCCT 7.6.2; full WASM 48.9 MB (~9 MB brotli). replicad v1.2.0 (Oct 2026) and occt-wasm (~4 MB brotli) are the live options. <a class="cite" href="https://github.com/donalffons/opencascade.js">opencascade.js</a> <a class="cite" href="https://github.com/sgenoud/replicad">replicad</a> <a class="cite" href="https://github.com/andymai/occt-wasm">occt-wasm</a></li>
+    <li>OCCT fillets: <code>IsDone()</code> can be true on wrong results; fail when edges shorter than radius. <a class="cite" href="https://tracker.dev.opencascade.org/view.php?id=28596">OCCT tracker</a></li>
+    <li>bitbybit.dev runs OCCT, Manifold and JSCAD side by side, each with a worker variant, in Node and browser. <a class="cite" href="https://github.com/bitbybit-dev/bitbybit">bitbybit</a></li>
+    <li>No maintained JS/TS half-edge poly-modeling library (geometry-processing-js dormant since 2021); three-bvh-csg is preview-grade and points to Manifold for robust output. <a class="cite" href="https://github.com/GeometryCollective/geometry-processing-js">geometry-processing-js</a> <a class="cite" href="https://cdn.jsdelivr.net/npm/three-bvh-csg@0.0.18/README.md">three-bvh-csg</a></li>
+    <li>OpenSubdiv WASM port (~60 KB gz, Catmull-Clark levels 1–5) exists but is very young (v0.2.0). <a class="cite" href="https://socket.dev/npm/package/@nasedkinpv/opensubdiv-wasm">opensubdiv-wasm</a></li>
+    <li>Rust: Fornjot archived ~June 2026; truck active (B-rep, booleans, STEP) but no documented fillets. <a class="cite" href="https://github.com/hannobraun/fornjot">Fornjot</a> <a class="cite" href="https://github.com/ricosjp/truck">truck</a></li>
+    <li>Export pipeline: glTF-Transform and meshoptimizer are healthy, safe picks. <a class="cite" href="https://github.com/donmccurdy/glTF-Transform">glTF-Transform</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>CAD people say start from B-rep because you can always tessellate down but never recover exact surfaces from a mesh. Game/DCC people say meshes are the universal currency and B-rep is a niche. The resolution for a general-purpose tool is the one Blender itself reached (mesh-first, Manifold for booleans) plus a CAD lane for the subset of work that needs precision — which is what Option C stages.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option C"</strong>, <strong>"Option A but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-3 I want Option A instead"</strong></p>
+</div>
+</body>
+</html>

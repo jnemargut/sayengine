@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 9: How AI Changes Are Reviewed — AI-First 3D Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper. Mocks use Soft Premium tokens (tokens.css). */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #e6f3f6; color: #1d6f80; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1rem; background: #d6d3d1; display: grid; grid-template-columns: 1fr 150px; gap: 12px; align-items: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+/* flow (template) */
+.flow-container { display:flex; flex-direction:column; width:100%; }
+.flow-step { display:flex; align-items:center; gap:8px; background:white; border:2px solid #e2e8f0; border-radius:10px; padding:6px 8px; font-size:0.66rem; font-weight:600; color:#334155; }
+.flow-step.highlight { border-color:#23466f; background:#e8eef6; color:#23466f; }
+.flow-step-number { width:20px; height:20px; border-radius:50%; background:#e2e8f0; color:#475569; display:flex; align-items:center; justify-content:center; font-size:0.6rem; font-weight:700; flex-shrink:0; }
+.flow-step.highlight .flow-step-number { background:#23466f; color:white; }
+.flow-down-arrow { font-size:0.8rem; color:#94a3b8; text-align:center; line-height:1.1; }
+
+/* Soft Premium mock */
+.mk { background:#f5f5f4; border-radius:18px; box-shadow:0 12px 32px rgba(28,25,23,.06); font-family:'Instrument Sans',sans-serif; color:#1c1917; padding:8px; display:grid; grid-template-columns:1fr 172px; gap:8px; }
+.mk .vp { background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); position:relative; display:flex; align-items:center; justify-content:center; min-height:230px; }
+.mk .vp svg { width:92%; height:auto; display:block; }
+.mk .tag { position:absolute; top:6px; left:8px; font-size:12px; color:#78716c; }
+.mk .tag.sage { color:#3f6b5a; font-weight:600; }
+.mk .hint { position:absolute; bottom:6px; left:8px; right:8px; font-size:12px; color:#57534e; background:#f5f5f4; border-radius:999px; padding:2px 10px; text-align:center; }
+.mk .side { background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:8px; font-size:12px; color:#57534e; display:flex; flex-direction:column; gap:5px; }
+.mk .side .t { font-weight:600; color:#1c1917; }
+.mk .btns { display:flex; gap:4px; margin-top:auto; }
+.mk .b { font-size:12px; border-radius:28px; padding:3px 9px; background:#f5f5f4; color:#44403c; white-space:nowrap; }
+.mk .b.dark { background:#292524; color:#fafaf9; font-weight:600; }
+.mk .card { border:1px solid #e7e5e4; border-radius:8px; padding:4px 6px; display:flex; gap:6px; align-items:center; }
+.mk .card.on { border:2px solid #5b8c7a; }
+.mk .card svg { width:30px; height:24px; flex-shrink:0; }
+.mk .chg { border-bottom:1px solid #e7e5e4; padding:3px 0; display:flex; justify-content:space-between; gap:4px; align-items:center; }
+.mk .chg.on { color:#1c1917; font-weight:600; }
+.mk .k { font-size:12px; color:#3f6b5a; font-weight:600; }
+.mk .u { font-size:12px; color:#78716c; }
+.mk .ok { color:#3f6b5a; }
+.mk .hist { grid-column:1 / -1; background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:6px 10px; }
+.mk .hist svg { width:100%; height:auto; display:block; }
+
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } .visual-preview { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 9 of 10</span>
+  <h1>How AI Changes Are Reviewed</h1>
+  <span class="category-badge">Interaction</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    The AI just answered "make the backrest feel more like a 1950s Danish lounge chair" with a proposal — a branch in the change log (Decision 2) with checks already run (Decision 6). How do you look at it, compare it with what you had, keep the good parts and throw away the rest — without ever losing work? This is the signature moment of the product. Each card shows the review inside your docked layout, plus the steps it takes.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option D"</strong> · <strong>"Option D but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Ghost Overlay</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mk">
+        <div class="vp"><span class="tag sage">Proposal p1 overlaid</span>
+          <svg viewBox="0 0 200 160"><polygon points="40,96 104,110 156,94 92,80" fill="#a8a29e"/><polygon points="92,80 156,94 160,26 98,12" fill="#d6d3d1"/><polygon points="92,80 156,94 150,34 96,22" fill="#5b8c7a" opacity=".35" stroke="#5b8c7a" stroke-width="1" stroke-dasharray="3 2"/><g fill="#57534e"><polygon points="44,98 49,99 41,150 36,149"/><polygon points="100,110 105,111 104,156 99,155"/><polygon points="150,96 155,95 162,140 157,141"/></g></svg>
+          <span class="hint">Hold Space to flip</span></div>
+        <div class="side"><div class="t">AI</div>Backrest lowered 14°→18°, curved 30 mm.<div class="btns"><span class="b dark">Accept</span><span class="b">Discard</span></div></div>
+      </div>
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span>AI posts proposal</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span>Ghost appears on model</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">3</span>Hold Space to flip</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">4</span>Accept or discard all</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The proposal draws as a translucent sage "ghost" directly over the committed model (step 2), so you see the difference in place. Hold Space to flip between before and after (step 3), then accept or discard the whole thing (step 4). Very direct and very 3D — but all-or-nothing, and ghosts get hard to read when many parts change at once.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Small, local changes (one part moved or reshaped)</li>
+        <li>Fastest visual read of "what moved"</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>All-or-nothing — can't keep half a proposal</li>
+        <li>Unreadable with big or overlapping changes</li>
+        <li>Only one proposal at a time</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Swap Cards</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mk">
+        <div class="vp"><span class="tag sage">Viewing p2 · camera synced</span>
+          <svg viewBox="0 0 200 160"><polygon points="40,96 104,110 156,94 92,80" fill="#a8a29e"/><polygon points="92,80 156,94 148,30 94,18" fill="#d6d3d1"/><g fill="#57534e"><polygon points="44,98 49,99 41,150 36,149"/><polygon points="100,110 105,111 104,156 99,155"/><polygon points="150,96 155,95 162,140 157,141"/></g></svg>
+          <span class="hint">Click a card to swap the view</span></div>
+        <div class="side"><div class="t">3 proposals</div>
+          <div class="card"><svg viewBox="0 0 30 24"><rect x="4" y="11" width="22" height="3" fill="#a8a29e"/><rect x="8" y="2" width="16" height="3" fill="#d6d3d1"/></svg>p1 curved</div>
+          <div class="card on"><svg viewBox="0 0 30 24"><rect x="4" y="11" width="22" height="3" fill="#a8a29e"/><rect x="7" y="4" width="16" height="3" fill="#d6d3d1" transform="rotate(-8 15 5)"/></svg>p2 reclined</div>
+          <div class="card"><svg viewBox="0 0 30 24"><rect x="4" y="11" width="22" height="3" fill="#a8a29e"/><rect x="8" y="5" width="16" height="3" fill="#d6d3d1"/></svg>p3 low back</div>
+          <div class="btns"><span class="b dark">Use p2</span><span class="b">Discard</span></div></div>
+      </div>
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span>AI posts 3 proposals</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span>Click card → view swaps</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">3</span>Orbit; camera stays synced</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">4</span>Use one, discard rest</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Proposals arrive as thumbnail cards in the AI panel (step 1). Clicking a card swaps the main viewport into that version with the camera kept exactly where it was (step 2–3), so differences jump out as you flick between cards. Pick one and the others are archived (step 4). Great for "show me three options" — weaker for "I like p2's angle but p1's curve".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Choosing between several alternatives</li>
+        <li>Fits the docked AI panel naturally</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Pick one whole proposal — no mixing</li>
+        <li>Doesn't say what changed, only shows it</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Branch Timeline</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mk">
+        <div class="vp"><span class="tag">Viewing branch p1 @ c3</span>
+          <svg viewBox="0 0 200 160"><polygon points="40,96 104,110 156,94 92,80" fill="#a8a29e"/><polygon points="92,80 156,94 154,30 96,18" fill="#d6d3d1"/><g fill="#57534e"><polygon points="44,98 49,99 41,150 36,149"/><polygon points="100,110 105,111 104,156 99,155"/><polygon points="150,96 155,95 162,140 157,141"/></g></svg></div>
+        <div class="side"><div class="t">AI</div>Proposal is a branch with 3 steps. Scrub it in History.<div class="btns"><span class="b dark">Merge</span></div></div>
+        <div class="hist"><svg viewBox="0 0 400 46"><line x1="10" y1="14" x2="390" y2="14" stroke="#a8a29e" stroke-width="2"/><path d="M200 14 C 220 14, 220 36, 240 36 L 330 36" fill="none" stroke="#5b8c7a" stroke-width="2" stroke-dasharray="4 3"/><g fill="#78716c"><circle cx="40" cy="14" r="5"/><circle cx="120" cy="14" r="5"/><circle cx="200" cy="14" r="5"/></g><g fill="#5b8c7a"><circle cx="250" cy="36" r="5"/><circle cx="290" cy="36" r="5"/><circle cx="330" cy="36" r="7"/></g><text x="10" y="40" font-size="12" fill="#57534e" font-family="Instrument Sans">main</text><text x="340" y="40" font-size="12" fill="#3f6b5a" font-family="Instrument Sans">p1</text></svg></div>
+      </div>
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span>Proposal = branch in History</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span>Scrub branch step by step</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">3</span>Edit on the branch</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">4</span>Merge into main</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Proposals show up as visible branches in the History strip along the bottom (step 1). You scrub through the AI's steps one by one, watching the model evolve (step 2), can keep editing on the branch (step 3), then merge (step 4). It's the most honest picture of the change log you chose in Decision 2 — and the most git-like, which is a plus for developers and a minus for everyone else.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Seeing how the AI got there matters</li>
+        <li>Long-running or multi-agent proposals</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>"Branch / merge" vocabulary scares newcomers</li>
+        <li>Steps ≠ meaning — 3 commits may be one idea</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — keep the good parts, never lose work</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Change-by-Change Review</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mk">
+        <div class="vp"><span class="tag sage">Highlighting: back curve</span>
+          <svg viewBox="0 0 200 160"><polygon points="40,96 104,110 156,94 92,80" fill="#a8a29e"/><path d="M92 80 L156 94 Q 162 60 150 30 L 96 18 Q 104 50 92 80 Z" fill="#5b8c7a" opacity=".55"/><g fill="#57534e"><polygon points="44,98 49,99 41,150 36,149"/><polygon points="100,110 105,111 104,156 99,155"/><polygon points="150,96 155,95 162,140 157,141"/></g></svg>
+          <span class="hint">Hold Space for before</span></div>
+        <div class="side"><div class="t">p1 · 3 changes · <span class="ok">checks pass</span></div>
+          <div class="chg">Back angle 14→18° <span><span class="k">Keep</span> <span class="u">Undo</span></span></div>
+          <div class="chg on">Back curve +30 mm <span><span class="k">Keep</span> <span class="u">Undo</span></span></div>
+          <div class="chg">Arm rests added <span><span class="k">Keep</span> <span class="u">Undo</span></span></div>
+          <div class="btns"><span class="b dark">Keep 2</span><span class="b">Ask again</span></div></div>
+      </div>
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span>AI posts proposal + change list</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span>Hover change → part glows</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">3</span>Keep / Undo each change</div><div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">4</span>Commit what you kept</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Each proposal arrives as a short list of meaningful changes — "back angle 14→18°", "back curve +30 mm", "arm rests added" — with its check results (step 1). Hover a change and the affected part glows sage in the viewport; hold Space to see before (step 2). Keep or undo each change individually (step 3), then commit only what you kept (step 4). Because your change log stores every edit as reversible patches on named parameters (Decisions 2–3), this costs little to build and nothing is ever lost.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"I like the angle but not the arm rests"</li>
+        <li>Explains in words what the AI did</li>
+        <li>Directly reuses typed ops + patch log</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Some changes depend on each other (undo one breaks another)</li>
+        <li>Raw mesh edits don't summarize into neat lines</li>
+        <li>Choosing among 3 alternatives needs B's cards too</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Change lists turn a visual craft into reading a diff — the moment of "ooh, that's nicer" happens in the viewport, not a list, and a ghost overlay (A) or card flicking (B) delivers that faster. Per-change keep/undo also gets hairy when changes depend on each other (undoing "back angle" may invalidate "arm rests" that were attached to the old angle), so you'll need dependency rules and re-running checks after every partial keep. If most real requests produce one cohesive change, the granularity is overhead.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Changes are grouped by the AI into named, meaningful steps (one ~ one typed op or parameter set), not raw patches</li>
+    <li>When there are several alternatives, B's swap cards sit above the change list as tabs (p1 · p2 · p3)</li>
+    <li>Dependent changes are linked — undoing a parent prompts about its children; checks re-run after any partial keep</li>
+    <li>Nothing is deleted: undone changes and discarded proposals stay as archived branches</li>
+    <li><strong>Tripwire:</strong> if testers accept or discard whole proposals &gt;90% of the time, collapse the list behind a "details" toggle</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Ghost overlay</th>
+        <th class="col-b">B: Swap cards</th>
+        <th class="col-c">C: Branch timeline</th>
+        <th class="col-d col-chosen">D: Change-by-change</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Keep part of a proposal</td><td>No</td><td>No</td><td>Only by editing the branch</td><td class="col-chosen">Yes, per change</td></tr>
+        <tr><td>Compare 3 alternatives</td><td>No</td><td>Best</td><td>Clunky</td><td class="col-chosen">With B's tabs</td></tr>
+        <tr><td>Explains what changed</td><td>Visually only</td><td>Visually only</td><td>As steps</td><td class="col-chosen">In words + highlight</td></tr>
+        <tr><td>Newcomer friendliness</td><td>High</td><td>High</td><td>Low</td><td class="col-chosen">High</td></tr>
+        <tr><td>Steps to accept</td><td>2</td><td>2</td><td>3–4</td><td class="col-chosen">2–4</td></tr>
+        <tr><td>Uses Decisions 2–3 directly</td><td>Partly</td><td>Partly</td><td>Yes</td><td class="col-chosen">Yes (patches on named params)</td></tr>
+        <tr><td>Build effort</td><td>Medium (overlay render)</td><td>Low</td><td>Medium</td><td class="col-chosen">Medium (dependency rules)</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>Low</td><td>Low</td><td>Low</td><td class="col-chosen">Low — all four sit on the same log</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Cursor users strongly defend per-change Keep/Undo review and push back when it's replaced by whole-session accept. <a class="cite" href="https://forum.cursor.com/t/bring-back-per-change-apply-inline-diff-review-you-re-throwing-away-your-best-ux-advantage/160856">Cursor forum</a></li>
+    <li>Figma Make keeps AI edits uncommitted until Apply, yet users report losing large amounts of work — proposal/commit separation must be airtight. <a class="cite" href="https://forum.figma.com/report-a-problem-6/figma-make-just-deleted-90-of-my-project-2-weeks-of-work-gone-cannot-be-reverted-48358">Figma forum</a></li>
+    <li>Onshape surfaces conflicting merges as red errors to repair rather than blocking — a model for dependent-change conflicts. <a class="cite" href="https://www.onshape.com/en/resource-center/tech-tips/tech-tip-a-guide-to-successful-merging-in-onshape">Onshape merging</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Combining is expected here: <strong>"Option D with B's cards for alternatives"</strong> or <strong>"Option D plus A's ghost"</strong></p>
+  <p>To change a past decision: <strong>"for decision-8 I want Option B instead"</strong></p>
+</div>
+</body>
+</html>

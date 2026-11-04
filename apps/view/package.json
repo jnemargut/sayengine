@@ -1,0 +1,8 @@
+{
+  "name": "@studio/view",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Browser view: live mirror of the engine daemon with review panel.",
+  "scripts": { "build": "node build.ts" }
+}

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 3: Construction Model — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fef2f2; color:#b42323; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.prior { margin-top: 0.75rem; font-size: 0.8rem; color: #2c6e48; background: #edf6f0; border: 1px solid #b9dcc6; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+/* construction previews */
+.prompt { width: 100%; max-width: 440px; font-size: 0.68rem; color: #475569; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; }
+.prompt b { color: #0f172a; }
+.stack { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 4px; }
+.mod { display: flex; justify-content: space-between; align-items: center; background: white; border: 1.5px solid #cbd5e1; border-left: 4px solid #4b3a8c; border-radius: 6px; padding: 5px 9px; font-size: 0.7rem; color: #334155; }
+.mod .p { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.62rem; color: #64748b; }
+.mod.base { border-left-color: #0f172a; font-weight: 700; }
+.mod.hit { background: #fdf6e9; border-color: #b86e0a; }
+.nodes { width: 100%; max-width: 440px; background: #18222f; border-radius: 10px; padding: 8px; }
+.nodes svg { display: block; width: 100%; height: auto; }
+.tree { width: 100%; max-width: 440px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 4px; font-size: 0.7rem; color: #334155; }
+.tree div { padding: 3px 8px; border-radius: 4px; display: flex; justify-content: space-between; }
+.tree .ic { color: #2c6e48; font-weight: 700; margin-right: 6px; }
+.tree .err { background: #fef2f2; color: #b42323; }
+.tree .p { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.62rem; color: #64748b; }
+.code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.6rem; background: #0f1b2b; color: #d6e2f0; border-radius: 8px; padding: 8px 10px; width: 100%; max-width: 440px; line-height: 1.5; white-space: pre; overflow: hidden; }
+.code .k { color: #8fb8e8; } .code .s { color: #b9dcc6; } .code .c { color: #8193a8; } .code .n { color: #f0c38a; } .code .hl { background: #3a3017; }
+.twin { width: 100%; max-width: 440px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.twin .lbl { font-size: 0.56rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 3px; }
+.json { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.56rem; background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px; line-height: 1.45; white-space: pre; color: #334155; overflow: hidden; }
+.mini { font-size: 0.6rem; color: #64748b; text-align: center; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 3 of 10</span>
+  <h1>Construction Model</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    This is "level 3" of your four-level object idea: <em>how was this thing made?</em> It decides whether "make the legs thinner" is a clean one-number change the AI can't get wrong, or surgery on thousands of vertices. Every 3D tool picked one of these shapes — Blender's modifier stack, Houdini's node graph, SolidWorks' feature tree, OpenSCAD's code. Each card below shows the <strong>same chair</strong> in that shape, and what happens when you ask the AI to "thin the legs and round the seat edge".
+  </p>
+  <span class="prior">Each construction step will be one commit in the branching log from Decision 2</span><br>
+  <p class="instruction">Respond with: <strong>"Option D"</strong> · <strong>"Option D but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Modifier Stack</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="prompt"><b>Ask:</b> "thin the legs, round the seat edge"</div>
+      <div class="stack">
+        <div class="mod base">Chair_Seat — Box <span class="p">0.45 × 0.04 × 0.45</span></div>
+        <div class="mod hit">Bevel <span class="p">width 0.003 → 0.012</span></div>
+        <div class="mod">Array (legs) <span class="p">count 4</span></div>
+        <div class="mod">Boolean union <span class="p">target: Leg_Base</span></div>
+        <div class="mod">Subdivision <span class="p">level 1</span></div>
+      </div>
+      <div class="mini">Legs live inside another object's array → "thin the legs" means finding the right object + modifier</div>
+    </div>
+    <div class="option-summary">
+      Each object is a base shape plus an ordered list of non-destructive effects (bevel, array, boolean, subdivide) — the Blender model. Easy for humans to read and easy to build first. But it's a straight line per object: relationships between parts (legs attached to seat, back angle tied to seat depth) have nowhere to live, so semantic edits often turn into hunting through stacks.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Single-object props and game assets</li>
+        <li>Fastest to implement; familiar to Blender users</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No cross-object relationships or shared parameters</li>
+        <li>Order-dependent; reordering silently changes results</li>
+        <li>No study found of LLMs editing modifier stacks</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Visual Node Graph</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="prompt"><b>Ask:</b> "thin the legs, round the seat edge"</div>
+      <div class="nodes">
+        <svg viewBox="0 0 420 190" aria-label="node graph of a chair">
+          <g font-size="10" font-family="-apple-system, sans-serif">
+            <rect x="8" y="14" width="92" height="34" rx="6" fill="#26364a" stroke="#4f6a8a"/><text x="54" y="35" fill="#d6e2f0" text-anchor="middle">Param: seat_w</text>
+            <rect x="8" y="64" width="92" height="34" rx="6" fill="#3a3017" stroke="#b86e0a"/><text x="54" y="85" fill="#f0c38a" text-anchor="middle">Param: leg_r</text>
+            <rect x="8" y="114" width="92" height="34" rx="6" fill="#26364a" stroke="#4f6a8a"/><text x="54" y="135" fill="#d6e2f0" text-anchor="middle">Param: height</text>
+            <rect x="140" y="14" width="88" height="34" rx="6" fill="#1f3b44" stroke="#3a8fa3"/><text x="184" y="35" fill="#d6e2f0" text-anchor="middle">Box (seat)</text>
+            <rect x="140" y="64" width="88" height="34" rx="6" fill="#1f3b44" stroke="#3a8fa3"/><text x="184" y="85" fill="#d6e2f0" text-anchor="middle">Cylinder</text>
+            <rect x="140" y="114" width="88" height="34" rx="6" fill="#1f3b44" stroke="#3a8fa3"/><text x="184" y="135" fill="#d6e2f0" text-anchor="middle">Instance ×4</text>
+            <rect x="260" y="14" width="70" height="34" rx="6" fill="#3a3017" stroke="#b86e0a"/><text x="295" y="35" fill="#f0c38a" text-anchor="middle">Bevel</text>
+            <rect x="260" y="90" width="70" height="34" rx="6" fill="#1f3b44" stroke="#3a8fa3"/><text x="295" y="111" fill="#d6e2f0" text-anchor="middle">Union</text>
+            <rect x="350" y="90" width="62" height="34" rx="6" fill="#2a4a32" stroke="#4f9a68"/><text x="381" y="111" fill="#d6e2f0" text-anchor="middle">Output</text>
+          </g>
+          <g stroke="#7d93ad" stroke-width="1.5" fill="none">
+            <path d="M100 31 C120 31,120 31,140 31"/><path d="M100 81 C120 81,120 81,140 81"/><path d="M100 131 C120 131,120 131,140 131"/>
+            <path d="M184 98 L184 114"/><path d="M228 31 L260 31"/><path d="M330 31 C345 31,240 100,260 104"/>
+            <path d="M228 131 C245 131,245 112,260 110"/><path d="M330 107 L350 107"/>
+            <path d="M100 131 C120 131,120 90,140 88"/>
+          </g>
+        </svg>
+      </div>
+      <div class="mini">Edit = change 2 orange nodes; but the AI must emit wires, sockets, node IDs</div>
+    </div>
+    <div class="option-summary">
+      A Houdini / Blender Geometry Nodes-style graph: boxes for parameters and operations, wires for data flow. Extremely powerful and procedural — one graph can generate infinite chairs. Humans who know node editors love it. But research found <em>no</em> benchmark of LLMs emitting node graphs directly; even AI material/Houdini systems have the model write code that <em>builds</em> the nodes, and a full node editor UI is a large build.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Procedural generators (trees, buildings, scatter)</li>
+        <li>Technical artists are the core user</li>
+        <li>Per-node caching makes re-evaluation fast</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>LLMs handle wire/socket graphs poorly when emitted directly</li>
+        <li>Node editor UI is a months-long build on its own</li>
+        <li>Intimidating for "never learned Blender" users</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">CAD Feature Tree</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="prompt"><b>Ask:</b> "thin the legs, round the seat edge"</div>
+      <div class="tree">
+        <div><span><span class="ic">▭</span>Sketch1 — seat outline (Top plane)</span><span class="p">450×450</span></div>
+        <div><span><span class="ic">⬆</span>Extrude1 — seat</span><span class="p">40 mm</span></div>
+        <div><span><span class="ic">◯</span>Sketch2 — leg circles (Face&lt;7&gt;)</span><span class="p">⌀ 40 → 30</span></div>
+        <div><span><span class="ic">⬇</span>Extrude2 — legs</span><span class="p">410 mm</span></div>
+        <div class="err"><span><span class="ic" style="color:#b42323">⚠</span>Fillet1 — Edge&lt;23&gt;, Edge&lt;24&gt;</span><span class="p">ref lost</span></div>
+        <div><span><span class="ic">⬆</span>Extrude3 — backrest</span><span class="p">850 mm</span></div>
+      </div>
+      <div class="mini">Changing the leg sketch renumbers edges → Fillet1 loses its reference (topological naming)</div>
+    </div>
+    <div class="option-summary">
+      The SolidWorks / Onshape / FreeCAD model: 2D sketches on planes, then features (extrude, fillet, shell) in an ordered history. Gold standard for precise, dimension-driven mechanical parts. But features reference generated faces and edges, which get renumbered when upstream changes — the infamous "topological naming problem" that FreeCAD only partly fixed in 1.0. And it's a poor fit for organic shapes, characters and game assets.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Mechanical parts, enclosures, manufacturing</li>
+        <li>STEP export and dimension-exact output matter most</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Topological naming breaks references on edits</li>
+        <li>Needs a B-rep kernel (OCCT) from day one</li>
+        <li>Weak for organic, character, game-asset work</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — matches how every AI-CAD product converged</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Typed Op Graph + Code View</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="prompt"><b>Ask:</b> "thin the legs, round the seat edge" → 2 parameter commits</div>
+      <div class="code"><span class="c">// generated, readable view of the stored graph</span>
+<span class="k">param</span> legRadius  = <span class="n hl">0.015</span>   <span class="c">// was 0.02</span>
+<span class="k">param</span> seatRound  = <span class="n hl">0.012</span>   <span class="c">// was 0.003</span>
+<span class="k">const</span> seat = box(<span class="s">"seat"</span>, [seatW, 0.04, seatD])
+               .round(seatRound, edges: <span class="s">"seat.top"</span>)
+<span class="k">const</span> leg  = cylinder(<span class="s">"leg"</span>, legRadius, seatH)
+<span class="k">const</span> legs = leg.placeAt(seat.corners(<span class="s">"bottom"</span>, inset: 0.03))
+<span class="k">export</span> chair = union(seat, legs, back)</div>
+      <div class="twin">
+        <div><div class="lbl">Stored as records</div><div class="json">{ id:"op_legs", op:"placeAt",
+  inputs:["op_leg"],
+  anchor:"seat.corners:bottom",
+  params:{ inset:0.03 } }</div></div>
+        <div><div class="lbl">Same op from a GUI drag</div><div class="json">{ tool:"setParam",
+  target:"legRadius",
+  value:0.015,
+  author:"human" }</div></div>
+      </div>
+      <div class="mini">Named anchors (seat.corners) instead of Face&lt;7&gt; — no topological naming</div>
+    </div>
+    <div class="option-summary">
+      Construction is a graph of small, typed operations (box, cylinder, round, placeAt, union…) stored as records in your change log, with named parameters and <em>named anchors</em> instead of fragile face numbers. The AI and the human see it as a short, readable program; the GUI emits the exact same ops when you drag a slider. This is the pattern Zoo.dev (KCL), Adam (OpenSCAD) and Onshape's own AI path (FeatureScript) all converged on — but typed and validated rather than free code.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>"Thin the legs" must be a one-parameter change</li>
+        <li>You want AI, GUI and history to share one representation</li>
+        <li>Per-op caching keeps regeneration fast on Manifold</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>You're designing a small language — op vocabulary needs taste</li>
+        <li>Organic/sculpted detail needs an escape hatch ("editable mesh" op)</li>
+        <li>Benchmarks: programs run 85–100% of the time, but geometric correctness is far lower</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>"Typed op graph + code view" is really two products — a language and its editor — and language design is where solo projects quietly die. The benchmarks are sobering: even the best models scored only ~0.35 on geometric correctness across formats, and quality collapses on complex topology, so a beautiful representation doesn't guarantee good chairs. For general-purpose work, much of the eventual content (characters, sculpts, scanned meshes) won't be parametric at all, so you may spend months on a construction layer that only covers the "hard-surface" half — where a plain modifier stack (A) would have shipped in a week.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Start with ~15–25 ops (primitives, transforms, booleans, round/chamfer, array/placeAt, extrude-profile, mirror) and grow from benchmark failures</li>
+    <li>An <code>editableMesh</code> op exists as the escape hatch: freeze a subgraph into direct mesh edits (level 4)</li>
+    <li>Edits reference named anchors/datums, never generated face indices</li>
+    <li>A visual node view can be added later as another <em>view</em> of the same graph — that's what keeps B open</li>
+    <li><strong>Tripwire:</strong> if benchmark tasks keep needing raw mesh escapes for &gt;40% of objects, add a modifier-stack layer for mesh objects</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Modifier stack</th>
+        <th class="col-b">B: Node graph</th>
+        <th class="col-c">C: Feature tree</th>
+        <th class="col-d col-chosen">D: Typed op graph + code view</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>"Thin the legs" for an AI</td><td>Find object + modifier</td><td>Edit node, keep wiring valid</td><td>Edit sketch dim (may break refs)</td><td class="col-chosen">One named parameter</td></tr>
+        <tr><td>LLM evidence</td><td>None found</td><td>Weak — models write code that builds nodes</td><td>Code form (FeatureScript, CadQuery) works</td><td class="col-chosen">Strongest — Zoo KCL, Adam, P3D-Bench</td></tr>
+        <tr><td>Cross-part relationships</td><td>None</td><td>Yes</td><td>Yes (sketch refs)</td><td class="col-chosen">Yes (anchors, shared params)</td></tr>
+        <tr><td>Range: organic ↔ precise</td><td>Organic-friendly</td><td>Both (procedural)</td><td>Precise only</td><td class="col-chosen">Both, via mesh escape hatch</td></tr>
+        <tr><td>Kernel needs</td><td>Mesh</td><td>Mesh</td><td>B-rep (OCCT) day one</td><td class="col-chosen">Manifold now, OCCT later per-op</td></tr>
+        <tr><td>Build cost</td><td>~1 week</td><td>Months (node UI)</td><td>Months (sketcher + solver)</td><td class="col-chosen">~2–3 weeks core</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>High — retrofit relationships later</td><td>Medium — graph is close to D</td><td>Very high — sketch/feature model is everywhere</td><td class="col-chosen">Medium — node UI or modifier view can be layered on</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>P3D-Bench (June 2026, 11 frontier models): OpenSCAD-style code was the most balanced format; JSON parameter specs almost always run but score lower on geometry; CadQuery fails to execute most often; best geometric judge score across formats only ~0.35. <a class="cite" href="https://arxiv.org/html/2606.11152v2">P3D-Bench</a></li>
+    <li>CADPrompt: GPT-4 compiles CadQuery 92–96% of the time; visual verify-and-refine improves geometric accuracy ~10–18% more than it improves compile rate. <a class="cite" href="https://ar5iv.labs.arxiv.org/html/2410.05340">arXiv 2410.05340</a></li>
+    <li>Quality falls off sharply with complexity: Query2CAD easy 95% → hard ~42%; Text2CAD-Bench reports substantial degradation on complex topology. <a class="cite" href="https://arxiv.org/html/2406.00144v1">Query2CAD</a> <a class="cite" href="https://arxiv.org/abs/2605.18430">Text2CAD-Bench</a></li>
+    <li>LL3M: multi-agent Blender code, ~38 s per localized user edit; without shared code context, edits produced a substantially different asset. <a class="cite" href="https://arxiv.org/html/2508.08228v1">LL3M</a></li>
+    <li>CodeAct: executable code actions gave up to 20% higher success and 30% fewer steps than JSON tool calls on multi-tool tasks. <a class="cite" href="https://arxiv.org/abs/2402.01030">CodeAct</a></li>
+    <li>Zoo.dev: every point-and-click op generates KCL code; their agent runs a plan → execute → visual-check loop. <a class="cite" href="https://docs.zoo.dev/research/zookeeper">Zoo</a> · Adam/CADAM: Claude writes OpenSCAD, parameters become sliders. <a class="cite" href="https://github.com/Adam-CAD/CADAM">CADAM</a></li>
+    <li>Topological naming: FreeCAD 1.0 only partly fixed it; advice is to reference datums, not generated faces. Onshape uses deterministic, history-derived IDs. <a class="cite" href="https://wiki.freecad.org/Topological_naming_problem/en">FreeCAD wiki</a> <a class="cite" href="https://onshape-public.github.io/docs/api-intro/architecture">Onshape API</a></li>
+    <li>Node graphs: no benchmark of LLMs emitting graphs directly; VLMaterial and Houdini work have the model write code that builds nodes. <a class="cite" href="https://arxiv.org/html/2501.18623v2">VLMaterial</a></li>
+    <li>Manifold re-execution cost: ~5 ms (2K tris) to ~660 ms (524K tris) per boolean natively — full re-runs are cheap at moderate detail; cache per op at high detail. <a class="cite" href="https://github.com/elalish/manifold">Manifold</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>One camp says: let the model write <em>real</em> code (Python/OpenSCAD) — models are trained on it and CodeAct shows code beats tool calls. The other says: free code fails silently (OpenSCAD drops geometry), can't be validated per step, and doesn't round-trip with a GUI — use typed, declarative ops. Option D splits the difference: <em>stored</em> as typed ops, <em>shown</em> as code. Whether the AI <em>edits</em> via code text or typed tool calls is Decision 5.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option D"</strong>, <strong>"Option A but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-2 I want Option C instead"</strong></p>
+</div>
+</body>
+</html>

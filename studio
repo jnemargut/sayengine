@@ -1,0 +1,12 @@
+#!/bin/sh
+# Launcher for the studio CLI. Usage: ./studio help
+# Works when symlinked (e.g. into ~/bin) — resolves the real location first.
+SELF="$0"
+while [ -L "$SELF" ]; do
+  LINK=$(readlink "$SELF")
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *) SELF="$(dirname "$SELF")/$LINK" ;;
+  esac
+done
+exec node "$(cd "$(dirname "$SELF")" && pwd)/packages/cli/studio.ts" "$@"

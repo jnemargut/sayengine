@@ -1,0 +1,182 @@
+// Engine daemon: owns the Studio, persists it, serves the browser view, and relays
+// renders between the CLI (Claude Code via the /studio skill) and the view.
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { WebSocketServer, type WebSocket } from 'ws';
+import { runSandboxed } from './sandbox.ts';
+import { initKernel, Studio, toGLB, toOBJ, toSTL, TOOLS, type RepoData } from '../../core/src/index.ts';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
+
+export { DAEMON_TOOLS } from './daemon-tools.ts';
+
+export interface DaemonOptions { dir: string; port: number }
+
+export async function startDaemon({ dir, port }: DaemonOptions) {
+  await initKernel();
+  const stateDir = path.join(dir, '.studio');
+  fs.mkdirSync(path.join(stateDir, 'renders'), { recursive: true });
+  fs.mkdirSync(path.join(stateDir, 'exports'), { recursive: true });
+  const repoFile = path.join(stateDir, 'repo.json');
+  const data: RepoData | undefined = fs.existsSync(repoFile) ? JSON.parse(fs.readFileSync(repoFile, 'utf8')) : undefined;
+  const studio = new Studio(data);
+  studio.onPersist = (d) => {
+    const tmp = repoFile + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(d));
+    fs.renameSync(tmp, repoFile);
+  };
+
+  const activityFile = path.join(stateDir, 'activity.jsonl');
+  studio.onActivity = (a) => fs.appendFileSync(activityFile, JSON.stringify(a) + '\n');
+  if (fs.existsSync(activityFile)) {
+    studio.activity = fs.readFileSync(activityFile, 'utf8').trim().split('\n').filter(Boolean).slice(-200).map((l) => JSON.parse(l));
+  }
+
+  const clients = new Set<WebSocket>();
+  const pendingRenders = new Map<string, (msg: any) => void>();
+  let renderSeq = 0;
+  let selection: { object: string; part: string | null; time: string } | null = null;
+  let broadcastTimer: NodeJS.Timeout | null = null;
+
+  const sendState = (ws?: WebSocket) => {
+    const msg = JSON.stringify({ type: 'state', state: studio.snapshot() });
+    for (const c of ws ? [ws] : clients) if (c.readyState === 1) c.send(msg);
+  };
+  studio.onChange(() => {
+    if (broadcastTimer) clearTimeout(broadcastTimer);
+    broadcastTimer = setTimeout(() => sendState(), 40);
+  });
+
+  async function daemonTool(name: string, args: any): Promise<any> {
+    switch (name) {
+      case 'selection': {
+        if (!selection) return { ok: true, tool: name, result: { selected: null, note: 'nothing selected — ask the human to click a part in the view, or name it' } };
+        const doc = studio.doc();
+        const obj = doc.objects[selection.object];
+        if (!obj) return { ok: true, tool: name, result: { selected: null, note: 'the selected object no longer exists' } };
+        const res = studio.evaluate(obj);
+        const part = selection.part ? res.parts.find((p) => p.name === selection!.part) : null;
+        const r4 = (v: number[]) => v.map((x) => +x.toFixed(4));
+        return { ok: true, tool: name, result: {
+          selected: { object: obj.id, name: obj.name, type: obj.semanticType, part: selection.part, since: selection.time },
+          part: part ? { name: part.name, min: r4(part.bbox.min), max: r4(part.bbox.max), madeBy: part.ops } : null,
+          hint: part ? `edit the op(s) ${part.ops.join(', ')} or the params they use (studio inspect --object ${obj.id})` : `whole object selected — studio inspect --object ${obj.id}`,
+        } };
+      }
+      case 'status':
+        return { ok: true, tool: name, result: { dir, port, active: studio.history.data.active, selection, views: clients.size, commits: Object.keys(studio.history.data.commits).length, url: `http://localhost:${port}` } };
+      case 'render': {
+        const view = [...clients].reverse().find((c) => c.readyState === 1);
+        if (!view) return { ok: false, tool: name, error: 'no browser view is connected', hint: `open http://localhost:${port} in Chrome so the view can render` };
+        const id = `r${++renderSeq}`;
+        const views = typeof args.views === 'string' ? args.views.split(',').map((s: string) => s.trim()) : args.views ?? ['front', 'side', 'iso'];
+        const reply = await new Promise<any>((resolve) => {
+          const t = setTimeout(() => { pendingRenders.delete(id); resolve({ error: 'view did not answer within 20 s' }); }, 20000);
+          pendingRenders.set(id, (m) => { clearTimeout(t); resolve(m); });
+          view.send(JSON.stringify({ type: 'render', id, views, labels: args.labels !== false, object: args.object, proposal: args.proposal }));
+        });
+        if (reply.error) return { ok: false, tool: name, error: reply.error };
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const files = reply.images.map((img: { view: string; data: string }) => {
+          const f = path.join(stateDir, 'renders', `${stamp}-${id}-${img.view}.png`);
+          fs.writeFileSync(f, Buffer.from(img.data.replace(/^data:image\/png;base64,/, ''), 'base64'));
+          return f;
+        });
+        return { ok: true, tool: name, result: { images: files, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
+      }
+      case 'export': {
+        const doc = studio.doc();
+        const ids = args.object ? [studio.findObject(doc, args.object).id] : doc.objectOrder;
+        const items = ids.map((id) => ({ obj: doc.objects[id], res: studio.evaluate(doc.objects[id]) }));
+        const bad = items.filter((i) => !i.res.ok).map((i) => i.obj.name);
+        const fmt = (args.format ?? 'glb').toLowerCase();
+        const base = args.object ? ids[0] : 'scene';
+        const out = args.out ? path.resolve(dir, args.out) : path.join(stateDir, 'exports', `${base}.${fmt}`);
+        if (fmt === 'glb') fs.writeFileSync(out, toGLB(items));
+        else if (fmt === 'obj') fs.writeFileSync(out, toOBJ(items));
+        else if (fmt === 'stl') fs.writeFileSync(out, toSTL(items));
+        else return { ok: false, tool: name, error: 'format must be glb, obj or stl' };
+        return { ok: true, tool: name, result: { file: out, objects: ids.length - bad.length, skipped: bad } };
+      }
+      case 'run': {
+        if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
+        const file = args.file ? path.resolve(dir, args.file) : 'inline.js';
+        let src = args.file ? fs.readFileSync(file, 'utf8') : args.code;
+        if (file.endsWith('.ts')) {
+          const mod: any = await import('node:module');
+          if (mod.stripTypeScriptTypes) src = mod.stripTypeScriptTypes(src);
+        }
+        const calls: any[] = [];
+        const r = await runSandboxed(src, TOOLS.map((t) => t.name), (tool, a) => {
+          const res = studio.call(tool, a, 'script');
+          calls.push({ tool, ok: res.ok, summary: res.summary, error: res.error });
+          if (!res.ok) throw new Error(res.error);
+          return res.result ?? null;
+        }, { filename: path.basename(file) });
+        return r.ok ? { ok: true, tool: name, result: { calls, logs: r.logs } } : { ok: false, tool: name, error: r.error, result: { calls, logs: r.logs } };
+      }
+    }
+    return null;
+  }
+
+  const server = http.createServer(async (req, res) => {
+    const url = new URL(req.url ?? '/', `http://localhost:${port}`);
+    const json = (code: number, body: unknown) => {
+      res.writeHead(code, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(body));
+    };
+    try {
+      if (req.method === 'POST' && url.pathname === '/api/call') {
+        let body = '';
+        for await (const chunk of req) body += chunk;
+        const { tool, args = {}, author = 'claude' } = JSON.parse(body || '{}');
+        const d = await daemonTool(tool, args);
+        return json(200, d ?? studio.call(tool, args, author));
+      }
+      if (url.pathname === '/api/state') return json(200, studio.snapshot());
+      if (url.pathname === '/api/health') return json(200, { ok: true, dir });
+      if (req.method === 'POST' && url.pathname === '/api/shutdown') {
+        json(200, { ok: true, stopped: true });
+        setTimeout(() => process.exit(0), 50);
+        return;
+      }
+      const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
+      const full = path.join(VIEW_DIR, file);
+      if (!full.startsWith(VIEW_DIR) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) { res.writeHead(404); return res.end('not found'); }
+      const type = full.endsWith('.html') ? 'text/html' : full.endsWith('.js') ? 'text/javascript' : full.endsWith('.css') ? 'text/css' : 'application/octet-stream';
+      res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
+      fs.createReadStream(full).pipe(res);
+    } catch (e: any) {
+      json(500, { ok: false, error: e.message });
+    }
+  });
+
+  const wss = new WebSocketServer({ server, path: '/ws' });
+  wss.on('connection', (ws) => {
+    clients.add(ws);
+    sendState(ws);
+    ws.on('close', () => clients.delete(ws));
+    ws.on('message', (raw) => {
+      let m: any;
+      try { m = JSON.parse(String(raw)); } catch { return; }
+      if (m.type === 'call') {
+        const r = studio.call(m.tool, m.args ?? {}, 'human');
+        ws.send(JSON.stringify({ type: 'call-result', id: m.id, result: r }));
+      } else if (m.type === 'select') {
+        selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, time: new Date().toISOString() } : null;
+      } else if (m.type === 'render-result') {
+        pendingRenders.get(m.id)?.(m);
+        pendingRenders.delete(m.id);
+      }
+    });
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => resolve());
+  });
+  return { server, studio, url: `http://localhost:${port}` };
+}

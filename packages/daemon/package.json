@@ -1,0 +1,7 @@
+{
+  "name": "@studio/daemon",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Engine daemon: HTTP + websocket bridge between the studio CLI and the browser view.",
+  "main": "src/server.ts"
+}

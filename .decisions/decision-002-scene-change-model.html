@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 2: Scene Source of Truth &amp; Change Model — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; }
+.category-badge.technical { background: #e8eef6; color: #23466f; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fef2f2; color:#b42323; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.prior { margin-top: 0.75rem; font-size: 0.8rem; color: #2c6e48; background: #edf6f0; border: 1px solid #b9dcc6; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; transition: all 0.2s ease; display: flex; flex-direction: column; position: relative; }
+.option-card:hover { border-color: #23466f; box-shadow: 0 4px 20px rgba(35,70,111,0.14); }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-card.option-a .option-label { color: #4b3a8c; }
+.option-card.option-b .option-label { color: #1d6f80; }
+.option-card.option-c .option-label { color: #2c6e48; }
+.option-card.option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; box-shadow: 0 4px 20px rgba(44,110,72,0.15); }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.option-card.not-chosen:hover { opacity: 0.8; filter: none; }
+.visual-preview { padding: 1.25rem; background: #f8fafc; min-height: 360px; display: flex; align-items: center; justify-content: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; padding: 0; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', 'Fira Code', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; background: white; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-disagree { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 8px 8px 0; padding:0.85rem 1.1rem; }
+.experts-disagree h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-disagree p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.page-footer strong { color: #334155; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.arch-diagram { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; max-width: 440px; }
+.arch-layer { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; width: 100%; }
+.arch-box { background: white; border: 2px solid #e2e8f0; border-radius: 8px; padding: 7px 12px; font-size: 0.7rem; font-weight: 600; color: #334155; text-align: center; min-width: 70px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.arch-box.frontend { border-color: #4b3a8c; color: #4b3a8c; }
+.arch-box.backend { border-color: #1d6f80; color: #1d6f80; }
+.arch-box.database { border-color: #2c6e48; color: #2c6e48; }
+.arch-box.service { border-color: #a83a32; color: #a83a32; }
+.arch-box.dim { border-style: dashed; color: #64748b; border-color: #cbd5e1; }
+.arch-arrow { font-size: 0.9rem; color: #94a3b8; text-align: center; line-height: 1; }
+.arch-group { border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 8px; width: 100%; background: #ffffff; }
+.arch-group-label { font-size: 0.58rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; text-align: center; margin-bottom: 6px; }
+.arch-note { font-size: 0.62rem; color: #64748b; text-align: center; margin-top: 4px; }
+.graph { width: 100%; background: white; border: 1.5px dashed #cbd5e1; border-radius: 10px; padding: 8px 10px; }
+.graph svg { display: block; width: 100%; height: auto; }
+.code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.62rem; background: #0f1b2b; color: #d6e2f0; border-radius: 8px; padding: 8px 10px; width: 100%; line-height: 1.5; white-space: pre; overflow: hidden; }
+.code .k { color: #8fb8e8; } .code .s { color: #b9dcc6; } .code .c { color: #8193a8; }
+@media (max-width: 768px) { .options-grid { grid-template-columns: 1fr; } body { padding: 1rem; } .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header>
+  <span class="decision-number">Decision 2 of 10</span>
+  <h1>Scene Source of Truth &amp; Change Model</h1>
+  <span class="category-badge technical">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    This is the "save file and history" brain of the studio. Every feature that sets it apart — undo, AI <em>proposals</em> you can accept or reject, three roof variants side-by-side, "what did the AI change?", rolling back an agent's work, two agents working at once — is really a question about how changes to the scene are stored. Pick the wrong shape here and every one of those features becomes a fight. It runs inside the headless engine you just chose, so the AI and the UI share it exactly.
+  </p>
+  <span class="prior">Builds on Decision 1: lives in the DOM-free <code>@studio/core</code> package</span><br>
+  <p class="instruction">Respond with: <strong>"Option B"</strong> · <strong>"Option B but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Simple Store + Undo Stack</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box frontend">AI tool call</div><div class="arch-box frontend">Human drag</div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box backend">Zustand + immer store<br><span style="font-weight:400">one JSON scene object</span></div></div>
+        <div class="arch-arrow">↓</div>
+        <div class="graph">
+          <svg viewBox="0 0 300 50" aria-label="linear undo stack">
+            <line x1="20" y1="25" x2="280" y2="25" stroke="#cbd5e1" stroke-width="2"/>
+            <circle cx="20" cy="25" r="7" fill="#1d6f80"/><circle cx="85" cy="25" r="7" fill="#1d6f80"/><circle cx="150" cy="25" r="7" fill="#1d6f80"/><circle cx="215" cy="25" r="7" fill="#1d6f80"/>
+            <circle cx="280" cy="25" r="7" fill="white" stroke="#cbd5e1" stroke-width="2"/>
+            <text x="150" y="47" font-size="9" text-anchor="middle" fill="#64748b">undo ← one straight line → redo</text>
+          </svg>
+        </div>
+        <div class="arch-note">Variants = copy the whole scene; proposals = "don't save yet"</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The scene is one big JSON object in a state store; each change records "how to undo it". Dead simple — you'd have it working in a day. But history is a single straight line: there's no natural home for "the AI's three roof proposals" or "branch off and try something", so you'd bolt those on later by copying entire scenes.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want the viewport milestone done this week</li>
+        <li>History is "undo the last few things", nothing more</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Proposals/variants become whole-scene copies — memory-heavy with meshes</li>
+        <li>No audit trail of what the AI did; refactor later touches everything</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — proposals are the differentiator</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Records + Branching Change Log</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="code"><span class="c">// every tool call = one transaction</span>
+<span class="k">commit</span> c7  parent:c6  author:<span class="s">"agent:claude"</span>
+  tool: <span class="s">"setParam"</span>  obj_chair.legThickness 0.04→0.03
+  patches: [fwd], inverse: [inv]
+  blobs:   mesh#9f2a… (content hash)</div>
+        <div class="graph">
+          <svg viewBox="0 0 300 92" aria-label="branching commit graph">
+            <line x1="20" y1="30" x2="280" y2="30" stroke="#1d6f80" stroke-width="2"/>
+            <path d="M115 30 C 140 30, 140 70, 165 70 L 245 70" fill="none" stroke="#b86e0a" stroke-width="2" stroke-dasharray="4 3"/>
+            <path d="M115 30 C 140 30, 140 52, 165 52 L 185 52" fill="none" stroke="#b86e0a" stroke-width="2" stroke-dasharray="4 3"/>
+            <circle cx="20" cy="30" r="6" fill="#1d6f80"/><circle cx="68" cy="30" r="6" fill="#1d6f80"/><circle cx="115" cy="30" r="6" fill="#1d6f80"/><circle cx="200" cy="30" r="6" fill="#1d6f80"/><circle cx="280" cy="30" r="6" fill="#1d6f80"/>
+            <circle cx="165" cy="52" r="5" fill="#b86e0a"/><circle cx="185" cy="52" r="5" fill="#b86e0a"/>
+            <circle cx="165" cy="70" r="5" fill="#b86e0a"/><circle cx="205" cy="70" r="5" fill="#b86e0a"/><circle cx="245" cy="70" r="5" fill="#b86e0a"/>
+            <text x="20" y="16" font-size="9" fill="#1d6f80" font-weight="700">main (committed)</text>
+            <text x="296" y="49" font-size="9" fill="#8a5208" text-anchor="end">proposal: Craftsman roof</text>
+            <text x="250" y="83" font-size="9" fill="#8a5208" text-anchor="end">proposal: flat roof</text>
+          </svg>
+        </div>
+        <div class="arch-layer"><div class="arch-box database">Mesh blob store (by hash)</div><div class="arch-box dim">Snapshots every N commits</div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      The scene is a flat table of records with permanent IDs (objects, materials, parameters). Every AI tool call or human edit is one <em>transaction</em> that records its forward and reverse patches, who made it, and why. Commits form a git-like graph: AI proposals are just branches you can preview, compare, and merge or throw away. Heavy meshes live in a separate store keyed by content hash, so branching costs almost nothing. This is the Onshape "microversion" pattern plus Cursor-style checkpoints.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Proposals, variants and accept/reject are core UX (they are)</li>
+        <li>You want a full audit log of every AI action — doubles as benchmark data</li>
+        <li>Undo, history and proposal-diff all come from one mechanism</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>~1–2 extra weeks of design up front vs Option A</li>
+        <li>Schema changes need migrations; old commits must replay (snapshots cap this)</li>
+        <li>Merging two branches that touched the same object needs a conflict rule</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">CRDT Document (Loro)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-layer"><div class="arch-box service">Agent A</div><div class="arch-box service">Agent B</div><div class="arch-box frontend">Human</div></div>
+        <div class="arch-arrow">↓ edit concurrently, merge automatically ↓</div>
+        <div class="arch-group">
+          <div class="arch-group-label">Loro document</div>
+          <div class="arch-layer"><div class="arch-box backend">LoroMap: objects</div><div class="arch-box backend">LoroTree: hierarchy</div></div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box backend">fork() · checkout(v) · import()</div></div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box database">Mesh blobs outside (hash refs)</div></div>
+        <div class="arch-note">Built-in time travel &amp; forking; merge never "fails"</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Use a CRDT — a data structure designed so multiple editors can change it at the same time and always merge cleanly. Loro 1.x gives you fork, checkout-any-version and merge for free, which maps nicely onto proposals and multi-agent work. The catch: "always merges" doesn't mean "merges into a valid chair" — two agents can produce a legal merge that's geometrically nonsense, and you lose a single place to enforce rules.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Real-time multi-agent / multi-human editing is a near-term goal</li>
+        <li>Offline + peer-to-peer sync matters</li>
+        <li>You want branching without writing it yourself</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Validation is harder — merges bypass tool-level checks</li>
+        <li>Binary meshes must live outside anyway (history bloat)</li>
+        <li>Figma, tldraw, Onshape all chose <em>not</em> to use a pure CRDT</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">OpenUSD Layers as the Model</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch-diagram">
+        <div class="arch-group">
+          <div class="arch-group-label">USD stage (WASM runtime, threaded)</div>
+          <div class="arch-layer"><div class="arch-box backend">session layer: AI proposal</div></div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box backend">edit layer: human tweaks</div></div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box backend">root layer: committed scene</div></div>
+          <div class="arch-layer" style="margin-top:6px"><div class="arch-box dim">variantSet: roof = craftsman | flat</div></div>
+        </div>
+        <div class="arch-arrow">↓</div>
+        <div class="arch-layer"><div class="arch-box database">.usda / .usdc on disk</div><div class="arch-box frontend">Hydra → three.js</div></div>
+        <div class="arch-note">Pixar/NVIDIA pipeline-native; heavy in the browser</div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Make Pixar's Universal Scene Description the live in-memory model. USD natively has layers (stack an AI proposal on top of the real scene), variant sets (roof = craftsman | flat), and references — conceptually a beautiful fit. In practice its browser builds are several MB, need special server headers, and are aimed at <em>viewing</em> rather than editing, and USD has no native notion of undo history or semantic parameters.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Film/VFX pipeline interop is the primary market</li>
+        <li>Huge composed scenes with references are the core use case</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Browser USD runtimes target viewing; editing/export support is immature</li>
+        <li>Multi-MB WASM, threaded → COOP/COEP headers required</li>
+        <li>History, transactions, semantics still need to be built on top</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Option B means building your own mini version-control system before you've proven anyone wants AI proposals — event-sourced systems pay a lasting "tax" (every old change must still replay after schema changes, and snapshots become their own versioned format). Loro (Option C) already gives you fork, checkout and merge, battle-tested, for free; if multi-agent concurrent editing turns out to matter early, you may end up re-implementing half a CRDT inside B. And Option A is genuinely enough for weeks 1–2 — you could start there and migrate once proposals are real.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Edits flow through typed tool calls one at a time (a central authority), not simultaneous peer-to-peer editing</li>
+    <li>AI proposals/variants are a core differentiator, not a nice-to-have</li>
+    <li>Meshes are stored by content hash outside the log, with snapshots every N commits to cap replay cost</li>
+    <li><strong>Tripwire:</strong> if you need two agents editing the same object <em>simultaneously</em> with automatic merge, revisit Loro as the storage layer underneath the same record API</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a">A: Store + undo stack</th>
+        <th class="col-b col-chosen">B: Records + branching log</th>
+        <th class="col-c">C: CRDT (Loro)</th>
+        <th class="col-d">D: OpenUSD layers</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>AI proposals / variants</td><td>Bolt-on (scene copies)</td><td class="col-chosen">Native — branches</td><td>Native — fork()</td><td>Native — layers/variants</td></tr>
+        <tr><td>Audit "what did the AI do"</td><td>None</td><td class="col-chosen">Every commit: tool, author, reason</td><td>Ops only, no intent</td><td>Layer diffs only</td></tr>
+        <tr><td>Validation at one choke point</td><td>Yes</td><td class="col-chosen">Yes — every transaction</td><td>Weak — merges bypass</td><td>Partial</td></tr>
+        <tr><td>Concurrent multi-agent edits</td><td>No</td><td class="col-chosen">Sequential via queue; rebase</td><td>Best in class</td><td>Manual</td></tr>
+        <tr><td>Time to build</td><td>~1 day</td><td class="col-chosen">~1–2 weeks</td><td>~1 week + learning</td><td>Weeks + runtime wrangling</td></tr>
+        <tr><td>Browser / Node weight</td><td>Tiny</td><td class="col-chosen">Tiny</td><td>WASM ~1–2 MB</td><td>Multi-MB threaded WASM</td></tr>
+        <tr><td>Who ships this pattern</td><td>Most prototypes</td><td class="col-chosen">Onshape, Figma, tldraw (authoritative logs)</td><td>Local-first apps</td><td>Omniverse, film pipelines</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td>High later — retrofit branches across codebase</td><td class="col-chosen">Medium — can swap storage to Loro under same API</td><td>High — CRDT semantics leak everywhere</td><td>Very high — USD becomes the data model</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Figma isn't a true CRDT: a central server is the authority and properties are effectively last-writer-wins, with the server rejecting invalid tree changes. <a class="cite" href="https://www.figma.com/blog/how-figmas-multiplayer-technology-works/">Figma Engineering</a></li>
+    <li>tldraw sync is server-authoritative with schema validation and migrations so different client versions interoperate. <a class="cite" href="https://tldraw.dev/docs/sync">tldraw docs</a></li>
+    <li>Onshape: every edit is an immutable "microversion" pointing to its parent; workspaces are branches; undo is a new inverse microversion; conflicting merges surface as red errors to repair. <a class="cite" href="https://www.onshape.com/en/blog/under-the-hood-how-collaboration-works">Onshape</a> <a class="cite" href="https://www.onshape.com/en/resource-center/tech-tips/tech-tip-a-guide-to-successful-merging-in-onshape">merging</a></li>
+    <li>Immer's <code>produceWithPatches</code> returns forward + inverse patches — the same patches can be undo, operation log and proposal diff. <a class="cite" href="https://github.com/immerjs/immer/blob/main/docs/patches.md">Immer docs</a></li>
+    <li>Loro 1.0 offers <code>checkout(version)</code>, <code>fork()</code> and merge-by-import; shallow snapshots are 70–90% smaller. <a class="cite" href="https://loro.dev/blog/v1.0">Loro</a> <a class="cite" href="https://www.loro.dev/docs/advanced/shallow_snapshot">shallow snapshots</a></li>
+    <li>Automerge 3 cut memory &gt;10× (one doc: 17 hours → 9 seconds to load). <a class="cite" href="https://automerge.org/blog/automerge-3/">Automerge</a></li>
+    <li>Large binaries don't belong in a CRDT — store a hash in the doc, bytes in a content-addressed blob store. <a class="cite" href="https://syncline.readthedocs.io/en/latest/how-it-works/">Syncline</a></li>
+    <li>Event-sourcing tax: events live forever, so every old version must be upcast on replay; snapshots need their own schema version. <a class="cite" href="https://vivianvoss.net/blog/the-event-sourcing-tax">Vivian Voss</a></li>
+    <li>OpenUSD 26.05 runs in-browser via Needle's WASM runtime (threaded, needs COOP/COEP), but editing-and-export-back is "not yet supported". <a class="cite" href="https://engine.needle.tools/docs/cloud/openusd">Needle</a></li>
+    <li>AI prior art: tldraw's agent kit uses typed action classes; Figma Make keeps AI edits uncommitted until Apply — yet users report lost work; Cursor's per-change Keep/Undo review is fiercely defended by users. <a class="cite" href="https://tldraw.dev/starter-kits/agent">tldraw agent</a> <a class="cite" href="https://forum.figma.com/report-a-problem-6/figma-make-just-deleted-90-of-my-project-2-weeks-of-work-gone-cannot-be-reverted-48358">Figma forum</a> <a class="cite" href="https://forum.cursor.com/t/bring-back-per-change-apply-inline-diff-review-you-re-throwing-away-your-best-ux-advantage/160856">Cursor forum</a></li>
+  </ul>
+  <div class="experts-disagree">
+    <h3>Where experts disagree</h3>
+    <p>Local-first advocates say CRDTs (Loro/Automerge) are now fast enough to be the default for any collaborative document. The "you might not need a CRDT" camp — and the products that actually ship (Figma, tldraw, Linear, Onshape) — say: if there's one authority anyway, an authoritative log is simpler and validates better. Here the deciding condition is whether AI agents edit <em>concurrently and offline</em> (CRDT) or <em>through one validated tool pipeline</em> (log). The architecture so far says the latter.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option B"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-1 I want Option C instead"</strong></p>
+</div>
+</body>
+</html>

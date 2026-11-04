@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 7: Visual Direction of the Workspace — AI-First 3D Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #fbeaf0; color: #9b2c55; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fefce8; color:#854d0e; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 780px; line-height: 1.7; }
+.note { margin-top: 0.75rem; font-size: 0.8rem; color: #475569; background: #f8fafc; border: 1px dashed #cbd5e1; display: inline-block; padding: 0.35rem 0.9rem; border-radius: 8px; max-width: 780px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.lean { background:#b86e0a; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1rem; background: #e9edf2; display: flex; align-items: center; justify-content: center; flex: 1; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.experts-box { max-width:1200px; margin:0 auto 3rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.frame { width: 100%; max-width: 540px; overflow: hidden; }
+.chrome { display:flex; gap:5px; padding:6px 10px; }
+.chrome span { width:8px; height:8px; border-radius:50%; }
+.chrome .r { background:#ef4444; } .chrome .y { background:#eab308; } .chrome .g { background:#22c55e; }
+.bar { display:flex; justify-content:space-between; align-items:center; }
+.body3 { display:grid; grid-template-columns: 104px 1fr 128px; }
+.vp svg { display:block; width:100%; height:auto; }
+.props { display:grid; grid-template-columns:1fr 1fr; }
+
+/* A · Soft Premium (Instrument Sans) */
+.sp { background:#f5f5f4; border:1px solid #e7e5e4; border-radius:18px; box-shadow:0 12px 32px rgba(28,25,23,.06); font-family:'Instrument Sans',sans-serif; color:#1c1917; }
+.sp .chrome { background:#f5f5f4; border-bottom:1px solid #e7e5e4; }
+.sp .bar { padding:12px 20px; }
+.sp .brand { font-weight:600; font-size:15px; letter-spacing:-0.015em; }
+.sp nav { display:flex; gap:20px; font-size:12px; color:#57534e; }
+.sp nav .on { color:#1c1917; font-weight:600; }
+.sp .body3 { gap:12px; padding:0 12px 12px; }
+.sp .panel { background:#fafaf9; border-radius:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:12px; }
+.sp .label { font-size:12px; color:#78716c; margin-bottom:8px; font-weight:500; }
+.sp .tree div { font-size:12px; color:#44403c; padding:4px 0; }
+.sp .tree .sel { color:#1c1917; font-weight:600; }
+.sp .tree .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:#5b8c7a; margin-right:6px; }
+.sp .vp { background:#fafaf9; border-radius:18px; box-shadow:0 4px 16px rgba(28,25,23,.05); padding:8px; }
+.sp .param { font-size:12px; color:#57534e; padding:6px 0; border-bottom:1px solid #e7e5e4; }
+.sp .param b { color:#1c1917; font-weight:600; }
+.sp .ask { margin:0 12px 12px; display:flex; gap:8px; align-items:center; background:#fafaf9; border-radius:28px; padding:6px 6px 6px 20px; box-shadow:0 4px 16px rgba(28,25,23,.05); }
+.sp .ask span { flex:1; font-size:14px; color:#57534e; }
+.sp .ask button { background:#292524; color:#fafaf9; border:none; border-radius:28px; padding:8px 20px; font-size:12px; font-weight:600; font-family:'Instrument Sans',sans-serif; }
+.sp .props { gap:12px; padding:0 12px 12px; }
+.sp .prop { background:#fafaf9; border-radius:12px; padding:12px; box-shadow:0 4px 16px rgba(28,25,23,.05); display:flex; gap:12px; align-items:center; }
+.sp .prop.pick { outline:2px solid #5b8c7a; }
+.sp .prop .t { font-weight:600; font-size:14px; }
+.sp .prop .s { font-size:12px; color:#78716c; }
+
+/* B · Technical Documentary (IBM Plex Sans + Plex Mono) */
+.td { background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; font-family:'IBM Plex Sans',sans-serif; color:#0f172a; }
+.td .chrome { background:#f1f5f9; border-bottom:1px solid #e2e8f0; }
+.td .bar { padding:8px 12px; border-bottom:1px solid #e2e8f0; }
+.td .brand { font-weight:700; font-size:14px; letter-spacing:-0.015em; }
+.td .brand code { font-family:'IBM Plex Mono',monospace; font-weight:400; font-size:12px; color:#475569; margin-left:8px; }
+.td nav { display:flex; gap:12px; font-size:12px; color:#475569; }
+.td nav .on { color:#0369a1; font-weight:600; border-bottom:2px solid #0284c7; }
+.td .body3 { grid-template-columns: 100px 1fr 150px; }
+.td .tree { border-right:1px solid #e2e8f0; padding:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#334155; }
+.td .tree div { padding:2px 0; white-space:nowrap; }
+.td .tree .sel { background:#f1f5f9; color:#0f172a; font-weight:500; }
+.td .h { font-size:12px; font-weight:700; color:#475569; margin-bottom:4px; }
+.td .vp { background:#f8fafc; border-right:1px solid #e2e8f0; padding:4px; }
+.td .insp { padding:8px; }
+.td table { width:100%; border-collapse:collapse; font-size:12px; }
+.td td { padding:3px 4px; border-bottom:1px solid #e2e8f0; color:#334155; }
+.td tr:nth-child(even) td { background:#f8fafc; }
+.td td.v { font-family:'IBM Plex Mono',monospace; text-align:right; color:#0f172a; }
+.td .code { margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; background:#0f172a; color:#e2e8f0; border-radius:4px; padding:6px; line-height:1.4; white-space:pre; overflow:hidden; }
+.td .ask { display:flex; border-top:1px solid #e2e8f0; }
+.td .ask span { flex:1; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#334155; padding:8px 12px; }
+.td .ask button { background:#0f172a; color:#f8fafc; border:none; font-size:12px; font-weight:600; padding:0 16px; font-family:'IBM Plex Sans',sans-serif; }
+.td .props { border-top:1px solid #e2e8f0; }
+.td .prop { padding:8px 12px; display:flex; gap:8px; align-items:center; font-size:12px; color:#334155; }
+.td .prop + .prop { border-left:1px solid #e2e8f0; }
+.td .prop b { color:#0f172a; }
+.td .tag { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#047857; }
+.td .tag.w { color:#b45309; }
+
+/* C · Kinetic Modern, dark (Space Grotesk + Manrope) */
+.km { background:#0a0e24; border:1px solid #161d4a; border-radius:14px; box-shadow:0 16px 40px rgba(79,107,255,.28); font-family:'Manrope',sans-serif; color:#fafbff; }
+.km .chrome { background:#0a0e24; border-bottom:1px solid #161d4a; }
+.km .bar { padding:10px 16px; }
+.km .brand { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; letter-spacing:-0.02em; }
+.km .brand i { font-style:normal; color:#a3e635; }
+.km nav { display:flex; gap:6px; font-size:12px; }
+.km nav span { padding:4px 12px; border-radius:20px; color:#b0bcff; }
+.km nav .on { background:#161d4a; color:#fafbff; }
+.km .body3 { gap:8px; padding:0 8px 8px; }
+.km .panel { background:#161d4a; border-radius:10px; padding:10px; }
+.km .label { font-family:'Space Grotesk',sans-serif; font-size:12px; color:#b0bcff; font-weight:600; margin-bottom:6px; letter-spacing:.02em; }
+.km .tree div { font-size:12px; color:#d6dcff; padding:3px 0; }
+.km .tree .sel { color:#a3e635; }
+.km .vp { background:#0a0e24; border:1px solid #29368f; border-radius:14px; padding:4px; }
+.km .param { font-size:12px; color:#b0bcff; padding:5px 0; display:flex; justify-content:space-between; }
+.km .param b { color:#fafbff; font-family:'JetBrains Mono',monospace; font-weight:500; }
+.km .slider { height:4px; background:#29368f; border-radius:4px; margin-bottom:4px; overflow:hidden; }
+.km .slider span { display:block; height:100%; background:#4f6bff; border-radius:4px; }
+.km .ask { margin:0 8px 8px; display:flex; align-items:center; gap:8px; background:#161d4a; border:1px solid #29368f; border-radius:20px; padding:6px 6px 6px 14px; }
+.km .pulse { width:8px; height:8px; border-radius:50%; background:#a3e635; animation:km-pulse 1.4s cubic-bezier(.5,1.5,.5,1) infinite; }
+@keyframes km-pulse { 0%,100%{ transform:scale(1); opacity:1; } 50%{ transform:scale(1.5); opacity:.55; } }
+.km .ask span.q { flex:1; font-size:14px; color:#d6dcff; }
+.km .ask button { background:#a3e635; color:#0a0e24; border:none; border-radius:20px; padding:8px 16px; font-size:12px; font-weight:700; font-family:'Space Grotesk',sans-serif; }
+.km .props { gap:8px; padding:0 8px 8px; }
+.km .prop { background:#161d4a; border-radius:10px; padding:8px 10px; display:flex; gap:10px; align-items:center; border:1px solid transparent; }
+.km .prop.pick { border-color:#a3e635; transform:translateY(-2px); }
+.km .prop .t { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:14px; }
+.km .prop .s { font-size:12px; color:#b0bcff; }
+
+/* D · Editorial Print (Fraunces + Source Serif 4) */
+.ep { background:#fdf6e3; border:1px solid #e7d7b8; border-radius:4px; box-shadow:0 2px 6px rgba(31,22,17,.10); font-family:'Source Serif 4',serif; color:#1f1611; }
+.ep .chrome { background:#f5ecd0; border-bottom:1px solid #e7d7b8; }
+.ep .bar { padding:12px 16px; border-bottom:1px solid #e7d7b8; align-items:baseline; }
+.ep .brand { font-family:'Fraunces',serif; font-variation-settings:'opsz' 96; font-weight:600; font-size:22px; letter-spacing:-0.02em; }
+.ep nav { display:flex; gap:16px; font-size:14px; color:#44342a; }
+.ep nav .on { color:#9a3412; font-style:italic; }
+.ep .body3 { grid-template-columns: 104px 1fr 132px; }
+.ep .tree { padding:12px; border-right:1px dotted #d4af7a; }
+.ep .kick { font-style:italic; font-size:12px; color:#9a3412; margin-bottom:6px; }
+.ep .tree div { font-size:14px; padding:2px 0; color:#44342a; }
+.ep .tree .sel { color:#1f1611; font-weight:600; }
+.ep .vp { padding:8px; }
+.ep .insp { padding:12px; border-left:1px dotted #d4af7a; }
+.ep .param { font-size:14px; color:#44342a; padding:4px 0; border-bottom:1px solid #e7d7b8; display:flex; justify-content:space-between; }
+.ep .param b { font-weight:600; color:#1f1611; }
+.ep .ask { border-top:1px solid #e7d7b8; padding:12px 16px; display:flex; gap:12px; align-items:center; }
+.ep .ask span { flex:1; font-family:'Fraunces',serif; font-variation-settings:'opsz' 24; font-style:italic; font-size:18px; color:#44342a; }
+.ep .ask button { background:#1f1611; color:#fdf6e3; border:none; border-radius:2px; padding:8px 14px; font-size:14px; font-family:'Source Serif 4',serif; }
+.ep .props { border-top:1px solid #e7d7b8; }
+.ep .prop { padding:10px 16px; display:flex; gap:10px; align-items:center; }
+.ep .prop + .prop { border-left:1px dotted #d4af7a; }
+.ep .prop .t { font-family:'Fraunces',serif; font-variation-settings:'opsz' 24; font-weight:600; font-size:14px; }
+.ep .prop .s { font-size:12px; font-style:italic; color:#44342a; }
+.ep .prop.pick .t { color:#9a3412; }
+
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 7 of 10</span>
+  <h1>Visual Direction of the Workspace</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    How should the studio feel to sit in for three hours? This picks the whole visual language — colors, type, spacing, shadows, motion — and every later screen inherits it. Each card below is the same moment rendered four ways: a mid-century chair selected, its parameters in the inspector, you asking the AI to splay the legs, and two proposals waiting for review. Once you pick, this becomes a live preview that grows with every remaining decision, and the design tokens get exported for the build.
+  </p>
+  <span class="note">Body faces are deliberate per direction (Instrument Sans · IBM Plex Sans · Manrope · Source Serif 4) rather than one default sans everywhere.</span><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option C but lighter"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A · Soft Premium</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick — calm room for a creative director</span>
+          <span class="confidence-badge lean">Lean</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Quiet Studio</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="frame sp">
+        <div class="chrome"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <div class="bar"><div class="brand">Studio · Mid-century chair</div><nav><span class="on">Scene</span><span>History</span><span>Proposals 2</span></nav></div>
+        <div class="body3">
+          <div class="panel tree"><div class="label">Scene</div><div class="sel"><span class="dot"></span>Chair</div><div>Seat</div><div>Backrest</div><div>Legs ×4</div><div>Floor</div></div>
+          <div class="vp"><svg viewBox="0 0 220 170"><g stroke="#e7e5e4" stroke-width="1"><path d="M10 140 L110 165 L210 140 L110 115 Z" fill="none"/><path d="M60 127.5 L160 152.5 M60 152.5 L160 127.5" fill="none"/></g><polygon points="62,96 112,108 150,94 100,82" fill="#a8a29e"/><polygon points="100,82 150,94 150,40 100,28" fill="#d6d3d1"/><polygon points="62,96 112,108 112,113 62,101" fill="#78716c"/><g fill="#57534e"><polygon points="66,100 70,101 62,140 58,139"/><polygon points="108,108 112,109 110,152 106,151"/><polygon points="144,96 148,95 158,134 154,135"/></g><circle cx="150" cy="40" r="3" fill="#5b8c7a"/></svg></div>
+          <div class="panel insp"><div class="label">Chair</div><div class="param">Leg radius <b>15 mm</b></div><div class="param">Seat height <b>450 mm</b></div><div class="param">Back angle <b>8°</b></div><div class="param">Material <b>Walnut</b></div></div>
+        </div>
+        <div class="ask"><span>Splay the legs like a mid-century chair</span><button>Propose</button></div>
+        <div class="props">
+          <div class="prop pick"><svg width="34" height="30" viewBox="0 0 34 30"><rect x="6" y="10" width="22" height="3" fill="#a8a29e"/><rect x="8" y="1" width="18" height="3" fill="#d6d3d1"/><polygon points="7,13 9,13 5,29 3,29" fill="#57534e"/><polygon points="25,13 27,13 31,29 29,29" fill="#57534e"/></svg><div><div class="t">Splayed 6°</div><div class="s">Checks pass</div></div></div>
+          <div class="prop"><svg width="34" height="30" viewBox="0 0 34 30"><rect x="6" y="10" width="22" height="3" fill="#a8a29e"/><rect x="8" y="1" width="18" height="3" fill="#d6d3d1"/><polygon points="7,13 10,13 6,29 4,29" fill="#57534e"/><polygon points="24,13 27,13 30,29 28,29" fill="#57534e"/></svg><div><div class="t">Tapered + splay</div><div class="s">Checks pass</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Warm stone neutrals, soft floating panels, generous space, one muted sage accent. The 3D object is the most colorful thing on screen, so materials and proportions read truthfully. It feels like a design studio, not an engineering tool — welcoming to people who never learned Blender, and calm enough that reviewing AI proposals feels like a conversation with a collaborator.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The user is the "creative director", not a technical artist</li>
+        <li>Material/color judgments matter (neutral surround)</li>
+        <li>You want to look nothing like Blender</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Light UIs cause glare in long sessions; 3D pros expect dark</li>
+        <li>Low-contrast restraint can drift into "generic SaaS"</li>
+        <li>Needs a dark variant eventually</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B · Technical Documentary</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Inspectable Instrument</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="frame td">
+        <div class="chrome"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <div class="bar"><div class="brand">Studio<code>chair.scene · main@c42</code></div><nav><span class="on">Scene</span><span>Ops</span><span>History</span><span>Proposals (2)</span></nav></div>
+        <div class="body3">
+          <div class="tree"><div class="h">Scene</div><div class="sel">▾ chair</div><div>&nbsp; seat</div><div>&nbsp; back</div><div>&nbsp; leg ×4</div><div>▸ floor</div></div>
+          <div class="vp"><svg viewBox="0 0 220 170"><g stroke="#e2e8f0" stroke-width="1"><path d="M10 140 L110 165 L210 140 L110 115 Z" fill="none"/><path d="M35 133.75 L135 158.75 M60 127.5 L160 152.5 M85 121.25 L185 146.25 M60 152.5 L160 127.5" fill="none"/></g><polygon points="62,96 112,108 150,94 100,82" fill="#94a3b8" stroke="#334155" stroke-width=".8"/><polygon points="100,82 150,94 150,40 100,28" fill="#cbd5e1" stroke="#334155" stroke-width=".8"/><g fill="#475569"><polygon points="66,100 70,101 62,140 58,139"/><polygon points="108,108 112,109 110,152 106,151"/><polygon points="144,96 148,95 158,134 154,135"/></g><g font-family="IBM Plex Mono" font-size="12" fill="#0369a1"><line x1="172" y1="40" x2="172" y2="134" stroke="#0284c7" stroke-width=".8"/><text x="176" y="90">850</text></g></svg></div>
+          <div class="insp"><div class="h">chair · params</div><table><tr><td>legRadius</td><td class="v">0.015</td></tr><tr><td>seatH</td><td class="v">0.450</td></tr><tr><td>backAngle</td><td class="v">8°</td></tr><tr><td>material</td><td class="v">walnut</td></tr></table><div class="code">leg.placeAt(
+ seat.corners(
+  "bottom"))</div></div>
+        </div>
+        <div class="ask"><span>&gt; splay legs 6°, keep seat height</span><button>Propose ⏎</button></div>
+        <div class="props">
+          <div class="prop"><b>p1</b> splay 6° <span class="tag">✓ 4/4 checks</span></div>
+          <div class="prop"><b>p2</b> taper+splay <span class="tag w">⚠ 3/4 checks</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Dense, bordered, near-monochrome slate, with code and tables treated as first-class UI. Every parameter is a precise value, the op-graph code view sits right in the inspector, and proposals show their check results as data. It feels like a serious instrument — the honest face of everything decided so far (typed ops, change log, diagnostics). Power users and AI developers will trust it immediately.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Early users are technical (the MCP door, AI devs)</li>
+        <li>Inspectability is the selling point</li>
+        <li>Fastest to build — borders and tables, few effects</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Intimidating to "never learned Blender" users</li>
+        <li>Feels like a dev tool, not a creative space</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C · Kinetic Modern</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Night Shift</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="frame km">
+        <div class="chrome"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <div class="bar"><div class="brand">studio<i>.</i></div><nav><span class="on">Scene</span><span>History</span><span>Proposals · 2</span></nav></div>
+        <div class="body3">
+          <div class="panel tree"><div class="label">SCENE</div><div class="sel">● Chair</div><div>Seat</div><div>Backrest</div><div>Legs ×4</div><div>Floor</div></div>
+          <div class="vp"><svg viewBox="0 0 220 170"><g stroke="#161d4a" stroke-width="1"><path d="M10 140 L110 165 L210 140 L110 115 Z" fill="none"/><path d="M60 127.5 L160 152.5 M60 152.5 L160 127.5" fill="none"/></g><polygon points="62,96 112,108 150,94 100,82" fill="#7f92ff"/><polygon points="100,82 150,94 150,40 100,28" fill="#b0bcff"/><g fill="#4f6bff"><polygon points="66,100 70,101 62,140 58,139"/><polygon points="108,108 112,109 110,152 106,151"/><polygon points="144,96 148,95 158,134 154,135"/></g><polygon points="62,96 112,108 150,94 100,82" fill="none" stroke="#a3e635" stroke-width="1.2"/></svg></div>
+          <div class="panel insp"><div class="label">CHAIR</div><div class="param">Leg radius <b>15mm</b></div><div class="slider"><span style="width:35%"></span></div><div class="param">Seat h <b>450</b></div><div class="slider"><span style="width:60%"></span></div><div class="param">Back ∠ <b>8°</b></div><div class="slider"><span style="width:25%"></span></div></div>
+        </div>
+        <div class="ask"><span class="pulse"></span><span class="q">Splay the legs like a mid-century chair</span><button>Propose →</button></div>
+        <div class="props">
+          <div class="prop pick"><svg width="34" height="30" viewBox="0 0 34 30"><rect x="6" y="10" width="22" height="3" fill="#7f92ff"/><rect x="8" y="1" width="18" height="3" fill="#b0bcff"/><polygon points="7,13 9,13 5,29 3,29" fill="#4f6bff"/><polygon points="25,13 27,13 31,29 29,29" fill="#4f6bff"/></svg><div><div class="t">Splayed 6°</div><div class="s">All checks pass</div></div></div>
+          <div class="prop"><svg width="34" height="30" viewBox="0 0 34 30"><rect x="6" y="10" width="22" height="3" fill="#7f92ff"/><rect x="8" y="1" width="18" height="3" fill="#b0bcff"/><polygon points="7,13 10,13 6,29 4,29" fill="#4f6bff"/><polygon points="24,13 27,13 30,29 28,29" fill="#4f6bff"/></svg><div><div class="t">Taper + splay</div><div class="s">1 warning</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Deep navy, electric blue and lime spot highlights, springy motion — the AI dot pulses while it's thinking, and the chosen proposal lifts. Dark is the convention for 3D tools (less glare, models pop), but this version feels newer and more alive than Blender's gray. It signals "AI-native" at a glance and suits long night sessions.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Long sessions; users coming from dark 3D tools</li>
+        <li>You want the AI to feel present and alive</li>
+        <li>Demo videos and social clips (it pops)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Blue-tinted surround shifts how material colors read</li>
+        <li>Motion everywhere can feel busy during precise work</li>
+        <li>"Neon AI" aesthetic may date quickly</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D · Editorial Print</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Design Journal</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="frame ep">
+        <div class="chrome"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <div class="bar"><div class="brand">Studio</div><nav><span class="on">Scene</span><span>History</span><span>Proposals</span></nav></div>
+        <div class="body3">
+          <div class="tree"><div class="kick">The scene</div><div class="sel">Chair</div><div>Seat</div><div>Backrest</div><div>Legs, four</div><div>Floor</div></div>
+          <div class="vp"><svg viewBox="0 0 220 170"><g stroke="#e7d7b8" stroke-width="1" stroke-dasharray="2 3"><path d="M10 140 L110 165 L210 140 L110 115 Z" fill="none"/></g><polygon points="62,96 112,108 150,94 100,82" fill="#b07a4a"/><polygon points="100,82 150,94 150,40 100,28" fill="#d4af7a"/><g fill="#7c2d12"><polygon points="66,100 70,101 62,140 58,139"/><polygon points="108,108 112,109 110,152 106,151"/><polygon points="144,96 148,95 158,134 154,135"/></g><text x="16" y="24" font-family="Fraunces" font-style="italic" font-size="12" fill="#9a3412">Fig. 1 — walnut, 450 mm seat</text></svg></div>
+          <div class="insp"><div class="kick">Proportions</div><div class="param">Leg radius <b>15 mm</b></div><div class="param">Seat height <b>450 mm</b></div><div class="param">Back angle <b>8°</b></div><div class="param">Wood <b>Walnut</b></div></div>
+        </div>
+        <div class="ask"><span>“Splay the legs, like a mid-century chair.”</span><button>Propose</button></div>
+        <div class="props">
+          <div class="prop pick"><div><div class="t">I. Splayed six degrees</div><div class="s">all checks pass</div></div></div>
+          <div class="prop"><div><div class="t">II. Tapered &amp; splayed</div><div class="s">one warning</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Warm paper, serif type, hairline rules, a single brick-red accent. Proposals read like captioned plates in a design book; the AI prompt is set like a pull-quote. It's unexpected for a 3D tool — and that's the point: it positions the studio as a place for designers and makers, about craft and intent rather than vertices.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The audience is designers, architects, makers</li>
+        <li>You want unmistakable brand distinctiveness</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Serif UI gets cramped in dense inspectors</li>
+        <li>Warm paper tints how materials read</li>
+        <li>Harder to scale to rigging/animation panels</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>This is a lean, not a strong pick — Soft Premium vs Technical Documentary is close. Every serious 3D tool (Blender, Maya, Houdini, Plasticity) defaults to dark for good reasons: long sessions, glare, and models popping against a dark surround; a light stone UI may tire power users and look unserious to them. And the people most likely to try a brand-new AI-first modeling tool in its first months are technical — exactly who Option B speaks to. <strong>Tiebreaker:</strong> if the first 50 users are AI developers driving it through Claude Code, take B; if they're designers who never learned Blender, take A.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>The north-star user is the "creative director" from the original vision, not the technical artist</li>
+    <li>The viewport surround stays neutral so material colors read truthfully</li>
+    <li>A dark variant of the same tokens ships later (tokens make this cheap)</li>
+    <li>Technical depth (code view, raw values) lives one click away rather than always on screen</li>
+    <li><strong>Tripwire:</strong> if early users repeatedly ask for dark mode or call it too soft for real work, add the dark variant before any new features</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead><tr>
+        <th></th>
+        <th class="col-a col-chosen">A: Soft Premium</th>
+        <th class="col-b">B: Technical Documentary</th>
+        <th class="col-c">C: Kinetic Modern</th>
+        <th class="col-d">D: Editorial Print</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Mood</td><td class="col-chosen">Calm studio</td><td>Precise instrument</td><td>Alive, AI-native</td><td>Crafted journal</td></tr>
+        <tr><td>Never-learned-Blender users</td><td class="col-chosen">Most welcoming</td><td>Intimidating</td><td>Exciting</td><td>Welcoming to designers</td></tr>
+        <tr><td>Technical / AI-dev users</td><td class="col-chosen">OK</td><td>Best</td><td>Good</td><td>Weak</td></tr>
+        <tr><td>Long sessions / glare</td><td class="col-chosen">Light — needs dark variant</td><td>Light — needs dark variant</td><td>Best (dark)</td><td>Light, warm</td></tr>
+        <tr><td>Material color accuracy</td><td class="col-chosen">Best (neutral stone)</td><td>Good (neutral slate)</td><td>Blue-shifted</td><td>Warm-shifted</td></tr>
+        <tr><td>Dense panels (rigging, nodes later)</td><td class="col-chosen">Good</td><td>Best</td><td>Good</td><td>Weak</td></tr>
+        <tr><td>Trend durability</td><td class="col-chosen">High</td><td>High</td><td>Medium</td><td>High</td></tr>
+        <tr><td>Implementation effort</td><td class="col-chosen">Low</td><td>Lowest</td><td>Medium (motion)</td><td>Medium (type tuning)</td></tr>
+        <tr><td><strong>Undo cost</strong></td><td class="col-chosen">Low — swap tokens</td><td>Low — swap tokens</td><td>Low–medium — motion baked in</td><td>Medium — serif layout assumptions</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="experts-box">
+  <h3>Where experts disagree</h3>
+  <p>3D-tool veterans insist on dark UIs; product designers point out that tools aimed at newcomers increasingly default light because it reads as approachable and keeps colors true. The deciding condition is who you're courting first — and since tokens are exported either way, switching later is a palette swap, not a rebuild.</p>
+</section>
+
+<div class="page-footer">
+  <p>Mix and match works: <strong>"Option A but with B's code view"</strong> or <strong>"Option C but lighter"</strong></p>
+  <p>To change a past decision: <strong>"for decision-6 I want Option A instead"</strong></p>
+</div>
+</body>
+</html>
