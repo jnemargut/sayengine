@@ -137,7 +137,7 @@ const stepQ = (s: Step): Q => s.reduce<Q>((q, [ax, deg]) => qMul(ax === 'x' ? X(
 
 export const MOTION_DEFAULTS = {
   walk: { speed: 1.3, bounce: 0.022, armSwing: 16, lean: 3, sway: 0.018, duty: 0.62, lift: 0.07 },
-  run: { speed: 3.4, bounce: 0.035, armSwing: 32, lean: 9, sway: 0.008, duty: 0.36, lift: 0.17 },
+  run: { speed: 3.4, bounce: 0.035, armSwing: 32, lean: 9, sway: 0.008, duty: 0.32, lift: 0.17 },
   idle: { duration: 6, sway: 0.022 },
 };
 
@@ -161,7 +161,8 @@ export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
   return { ...spec, energy: spec.energy ?? 0.5 };
 }
 
-interface Frame { hipsOff: V3; hipsQ: Q; body: Record<string, Q>; hands?: { left?: HandPose; right?: HandPose }; feet: { left: { p: V3; q: Q; down: boolean }; right: { p: V3; q: Q; down: boolean } } }
+interface Frame { hipsOff: V3; hipsQ: Q; body: Record<string, Q>; hands?: { left?: HandPose; right?: HandPose }; feet: { left: FootTarget; right: FootTarget } }
+interface FootTarget { p: V3; q: Q; down: boolean; toes?: Q }
 
 /** Bake a motion for a rigged character. `state` gives the hands (and what they hold) and expression. */
 export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: CharacterState | undefined, fps = 30): MotionClip {
@@ -209,26 +210,56 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
     duration = frames / fps;
     stride = strideWanted; speed = stride / duration; loop = true;
     const duty = D.duty, Lst = stride * duty;
-    // hip height: the stance leg must reach the foot at the ends of its stance with a soft knee
-    const reachAtEnds = Math.sqrt(Math.max(0.01, (legLen * (run ? 0.93 : 0.975)) ** 2 - (Lst / 2) ** 2));
-    const baseY = Math.min(hipsRest[1] - (run ? 0.06 * s : 0.012 * s), ankleY + reachAtEnds + (hipsRest[1] - L.hip[1]));
-    const bounce = Math.min((S.bounce ?? D.bounce * s) * k, Math.max(0, ankleY + legLen * 0.99 + (hipsRest[1] - L.hip[1]) - baseY));
     const swing = (S.armSwing ?? D.armSwing) * k, lean = S.lean ?? D.lean, sway = (S.sway ?? D.sway * s);
     const yawAmp = (run ? 7 : 5) * k, lift = D.lift * s * (run ? 1 : 0.8 + 0.4 * en);
+    // the foot rolls: it lands on the heel (toe up), goes flat, then the heel lifts and it pivots over
+    // the ball of the foot (toes stay on the ground) before it leaves. The planted point — heel, then
+    // sole, then ball — moves back at exactly the ground's speed. Runners land flatter.
+    const ankleZ = L.ankle[2];
+    const toeJoint = bone('LeftToes').head;
+    const heelRel: V3 = [0, -ankleY, -0.035 * s], ballRel: V3 = [0, toeJoint[1] - ankleY, toeJoint[2] - ankleZ];
+    const strikeU = run ? 0.04 : 0.12, strikeDeg = run ? -4 : -12, offU = run ? 0.42 : 0.58, offDeg = run ? 34 : 30;
+    const pivot = (pt: V3, rel: V3, deg: number): V3 => { const o = qRot(X(deg), mul(rel, -1)); return add(pt, o); };
+    const stance = (r: V3, u: number) => {
+      const zA = r[2] + Lst / 2 - u * Lst;                               // where the ankle would be with the foot flat
+      if (u < strikeU) { const deg = strikeDeg * (1 - ease(u / strikeU)); return { p: pivot([r[0], 0, zA + heelRel[2]], heelRel, deg), deg }; }
+      if (u < offU) return { p: [r[0], ankleY, zA] as V3, deg: 0 };
+      const deg = offDeg * ease((u - offU) / (1 - offU));
+      return { p: pivot([r[0], toeJoint[1], zA + ballRel[2]], ballRel, deg), deg };
+    };
     const footPath = (side: 'Left' | 'Right', phi: number) => {
       const r = restFoot(side, run ? 0.75 : 0.85);
-      if (phi < duty) { const u = phi / duty; return { p: [r[0], ankleY, r[2] + Lst / 2 - u * Lst] as V3, q: flat, down: true }; }
+      if (phi < duty) { const st = stance(r, phi / duty); return { p: st.p, q: X(st.deg), toes: st.deg > 0 ? X(-st.deg) : flat, down: true }; }
       const u = (phi - duty) / (1 - duty);
-      const z = -Lst / 2 + Lst * ease(u);
-      const y = ankleY + lift * Math.sin(Math.PI * u) ** (run ? 1 : 1.3);
-      const pitch = 18 * Math.sin(Math.PI * Math.min(1, u * 1.6)) * (1 - u) - 8 * ease((u - 0.7) / 0.3) * (1 - ease((u - 0.95) / 0.05));
-      return { p: [r[0], y, z] as V3, q: X(pitch), down: false };
+      const a = stance(r, 1), b = stance(r, 0), e = ease(u);
+      const y = a.p[1] + (b.p[1] - a.p[1]) * e + lift * Math.sin(Math.PI * u) ** (run ? 1 : 1.3);
+      const deg = a.deg + (b.deg - a.deg) * ease(u * 1.2);
+      return { p: [r[0], y, a.p[2] + (b.p[2] - a.p[2]) * e] as V3, q: X(deg), toes: X(-a.deg * (1 - ease(u / 0.35))), down: false };
     };
+    // hip height from the actual foot paths: the highest the hips can ride with every foot in reach
+    // (a soft knee at full stretch), then the bounce on top of that
+    const bobAt = (p: number) => (run ? (1 + Math.cos(4 * Math.PI * p)) / 2 : (1 - Math.cos(4 * Math.PI * p)) / 2);
+    const bounceWanted = (S.bounce ?? D.bounce * s) * k;
+    const hipDrop = L.hip[1] - hipsRest[1];
+    let baseY = hipsRest[1] - (run ? 0.03 * s : 0.004 * s);
+    const reach = legLen * (run ? 0.965 : 0.985);
+    for (let i = 0; i < 64; i++) {
+      const p = i / 64;
+      for (const [side, ph] of [['Left', p], ['Right', (p + 0.5) % 1]] as const) {
+        const fp = footPath(side, ph);
+        if (!fp.down) continue;
+        const f = fp.p, hx = (side === 'Left' ? L : R).hip[0];
+        const dx = f[0] - hx, dz = f[2];
+        const allowed = f[1] + Math.sqrt(Math.max(0, reach ** 2 - dx * dx - dz * dz)) - hipDrop - bounceWanted * bobAt(p);
+        baseY = Math.min(baseY, allowed);
+      }
+    }
+    const bounce = bounceWanted;
     make = (t) => {
       const p = t / duration, w = 2 * Math.PI * p;
       const fl = footPath('Left', p % 1), fr = footPath('Right', (p + 0.5) % 1);
       // hips: lowest when a foot lands (walk) / mid-stance (run); shift over the standing foot; turn with the legs
-      const bob = run ? (1 + Math.cos(2 * w)) / 2 : (1 - Math.cos(2 * w)) / 2;
+      const bob = bobAt(p);
       const hipsOff: V3 = [sway * Math.cos(w - Math.PI * duty), baseY - hipsRest[1] + bounce * bob, 0];
       const yaw = -yawAmp * Math.cos(w);
       const hipsQ = qMul(Y(yaw), Z(1.5 * k * Math.sin(w - Math.PI * duty)));
@@ -367,6 +398,7 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       q[idx.get(`${side}UpperLeg`)!] = qMul(qInv(fr.hipsQ), Qu);
       q[idx.get(`${side}LowerLeg`)!] = qMul(qInv(Qu), Ql);
       q[idx.get(`${side}Foot`)!] = qMul(qInv(Ql), target.q);
+      q[idx.get(`${side}Toes`)!] = target.toes ?? qIdentity();
     }
     local.push(q); hips.push(fr.hipsOff);
     cl.push(fr.feet.left.down); cr.push(fr.feet.right.down);
@@ -428,13 +460,17 @@ export function motionReport(rig: Rig, clip: MotionClip): MotionReport {
       const heel = add(P.worldP[fi], qRot(P.worldQ[fi], sub(so.heel, so.ft.head)));
       const toe = add(P.worldP[ti], qRot(P.worldQ[ti], sub(so.toe, so.toeB.head)));
       below = Math.max(below, -Math.min(heel[1], toe[1]));
-      // a planted foot doesn't move against the ground (the ground moves back at the clip's speed)
+      // a planted foot doesn't move against the ground (the ground moves back at the clip's speed):
+      // whichever of heel and ball is on the floor stays put while it is there
       const down = (side === 'Left' ? clip.contacts.left : clip.contacts.right)[Math.min(f, clip.frames)];
-      const ground: V3 = [P.worldP[fi][0], P.worldP[fi][1], P.worldP[fi][2] + clip.speed * t];
-      if (down && f < clip.frames + (clip.loop ? 0 : 1)) {
-        if (planted[side]) slip = Math.max(slip, len(sub(ground, planted[side]!)));
-        else planted[side] = ground;
-      } else planted[side] = null;
+      const inPlay = down && f < clip.frames + (clip.loop ? 0 : 1);
+      const ballW = add(P.worldP[ti], qRot(P.worldQ[ti], sub([so.toeB.head[0], 0, so.toeB.head[2]], so.toeB.head)));
+      for (const [key, pt] of [[`${side}heel`, heel], [`${side}ball`, ballW]] as const) {
+        const onFloor = inPlay && pt[1] < 0.006 * s;
+        const g: V3 = [pt[0], pt[1], pt[2] + clip.speed * t];
+        if (onFloor) { if (planted[key]) slip = Math.max(slip, len(sub(g, planted[key]!))); else planted[key] = g; }
+        else planted[key] = null;
+      }
       const ki = idx.get(`${side}LowerLeg`)!, ei = idx.get(`${side}LowerArm`)!;
       kneeWorst = Math.max(kneeWorst, qAngle(clip.local[f][ki], qIdentity()));
       elbowWorst = Math.max(elbowWorst, qAngle(clip.local[f][ei], qIdentity()));

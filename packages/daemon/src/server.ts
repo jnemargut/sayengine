@@ -246,6 +246,35 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           return { ok: true, tool: name, summary: `${lines.length} line(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, lines: lines.map((l) => l.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server, since it loads files)${r.video ? '; the MP4 plays anywhere' : ''}` } };
         } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
       }
+      case 'motion-preview': {
+        const doc = studio.doc();
+        const obj = studio.findObject(doc, args.object);
+        const all = Object.entries(obj.character?.motions ?? {});
+        if (!all.length) return { ok: false, tool: name, error: `${obj.name} has no motions`, hint: `studio set-motion --object ${obj.id} --id walk --kind walk` };
+        const want = args.motions ? String(args.motions).split(',').map((x) => x.trim()) : null;
+        const picked = want ? all.filter(([id]) => want.includes(id)) : all;
+        if (!picked.length) return { ok: false, tool: name, error: `no motion ${want!.join(', ')}`, hint: `motions: ${all.map(([id]) => id).join(', ')}` };
+        const res = studio.evaluate(obj);
+        if (!res.ok || !res.rig) return { ok: false, tool: name, error: `${obj.name} does not build` };
+        // the character alone, at the origin and facing +Z, so the page can walk it along its own axis
+        const solo = { ...obj, position: [0, 0, 0] as [number, number, number], rotation: 0 };
+        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }], {});
+        const validation = await validateGlb(glb);
+        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
+        const { bakeMotion } = await import('../../core/src/motion.ts');
+        const mp = await import('./motionplayer/make.ts');
+        const motions = picked.map(([id, spec]) => {
+          const c = bakeMotion(id, spec, res.rig!.rig, obj.character);
+          const what = spec.kind === 'action' ? spec.action! : spec.kind;
+          return { id, kind: spec.kind, label: `${obj.name}: ${id}${id === what ? '' : ` (${what})`}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: mp.showTime(c) };
+        });
+        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-motions`);
+        try {
+          let r: any = await mp.buildMotionPreview(out, obj.name, glb, motions);
+          if (args.video) r = { ...r, ...(await mp.captureMotionVideo(out, motions)) };
+          return { ok: true, tool: name, summary: `${motions.length} motion(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, motions: motions.map((m) => m.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server)${r.video ? '; Read the stills to look at the poses' : ''}` } };
+        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+      }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
         const file = args.file ? path.resolve(dir, args.file) : 'inline.js';

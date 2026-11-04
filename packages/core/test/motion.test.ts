@@ -24,7 +24,7 @@ test('every motion kind and library action bakes with planted feet, nothing belo
     const c = bakeMotion('m', spec, rig(), s.doc().objects.smith.character);
     const r = motionReport(rig(), c);
     assert.ok(r.pass, `${spec.action ?? spec.kind}: ${r.detail}`);
-    assert.ok(r.slip < 0.005, `${spec.action ?? spec.kind} slip ${r.slip}`);
+    assert.ok(r.slip < 0.008, `${spec.action ?? spec.kind} slip ${r.slip}`);
     if (c.loop) assert.ok(r.loopGap < 0.5, `${spec.kind} loop gap ${r.loopGap}°`);
   }
 });

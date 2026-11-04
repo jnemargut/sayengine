@@ -49,6 +49,11 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, lines: { type: 'string', description: 'comma-separated line ids (default: all)' } } },
   },
   {
+    name: 'motion-preview',
+    description: 'Review a character\'s motions (walk, run, idle, turn, actions): writes a folder with the exported character (GLB with its motion clips) and a player page where each motion travels at its own speed over half-metre squares, so sliding feet would show. --video true renders an MP4 (motions.mp4) of them all in headless Chrome, plus two stills per motion. [--object id] [--motions walk,idle] [--out dir]',
+    flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' } } },
+  },
+  {
     name: 'run',
     description: 'Code mode: run JavaScript in a QuickJS WASM sandbox with a `studio` API (studio.call(tool,args) or studio.setParam({...}), camelCase per tool) and console.log: --file x.js|x.ts or --code "…". No fs/network; 5 s, 64 MB. Each call is a normal commit. Use for loops/many similar parts.',
     flags: { type: 'object', properties: { file: { type: 'string' }, code: { type: 'string' } } },
