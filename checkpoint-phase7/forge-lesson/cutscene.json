@@ -1,0 +1,193 @@
+{
+  "id": "forge-lesson",
+  "title": "The Forge Lesson",
+  "duration": 14.75,
+  "shots": [
+    {
+      "id": "strike",
+      "start": 0,
+      "end": 2.8,
+      "from": {
+        "position": [
+          3.5909,
+          1.5643,
+          -3.3815
+        ],
+        "target": [
+          -0.15,
+          1.0143,
+          -0.475
+        ],
+        "fov": 40
+      },
+      "to": {
+        "position": [
+          2.9923,
+          1.4763,
+          -2.9165
+        ],
+        "target": [
+          -0.15,
+          1.0143,
+          -0.475
+        ],
+        "fov": 40
+      },
+      "framing": "wide"
+    },
+    {
+      "id": "hold-still",
+      "start": 2.8,
+      "end": 7,
+      "from": {
+        "position": [
+          0.7073,
+          1.0466,
+          -0.4946
+        ],
+        "target": [
+          -0.736,
+          0.9494,
+          -1.2301
+        ],
+        "fov": 33
+      },
+      "to": {
+        "position": [
+          0.4764,
+          1.031,
+          -0.6123
+        ],
+        "target": [
+          -0.736,
+          0.9494,
+          -1.2301
+        ],
+        "fov": 33
+      },
+      "framing": "medium"
+    },
+    {
+      "id": "glow",
+      "start": 7,
+      "end": 10.55,
+      "from": {
+        "position": [
+          -0.9454,
+          0.9672,
+          -2.1078
+        ],
+        "target": [
+          0.4318,
+          1.6231,
+          0.273
+        ],
+        "fov": 30
+      },
+      "to": {
+        "position": [
+          -0.9454,
+          0.9672,
+          -2.1078
+        ],
+        "target": [
+          0.4318,
+          1.6231,
+          0.273
+        ],
+        "fov": 30
+      },
+      "framing": "over-shoulder"
+    },
+    {
+      "id": "perfect",
+      "start": 10.55,
+      "end": 14.75,
+      "from": {
+        "position": [
+          0.0217,
+          1.2601,
+          -0.844
+        ],
+        "target": [
+          -0.736,
+          1.209,
+          -1.2301
+        ],
+        "fov": 28
+      },
+      "to": {
+        "position": [
+          -0.0995,
+          1.2519,
+          -0.9057
+        ],
+        "target": [
+          -0.736,
+          1.209,
+          -1.2301
+        ],
+        "fov": 28
+      },
+      "framing": "close"
+    }
+  ],
+  "cues": [
+    {
+      "t": 0.4,
+      "end": 2.2,
+      "character": "blacksmith",
+      "name": "Blacksmith",
+      "clip": "strike",
+      "kind": "motion",
+      "shot": "strike"
+    },
+    {
+      "t": 3.1,
+      "end": 6.5,
+      "character": "blacksmith",
+      "name": "Blacksmith",
+      "clip": "line:hold-still",
+      "kind": "line",
+      "audio": "bcfdf29b8129b127.wav",
+      "text": "Hold still. This will only take a second.",
+      "shot": "hold-still"
+    },
+    {
+      "t": 7.25,
+      "end": 10.05,
+      "character": "apprentice",
+      "name": "Apprentice",
+      "clip": "line:glow",
+      "kind": "line",
+      "audio": "c422f16813150151.wav",
+      "text": "Is it supposed to glow like that?",
+      "shot": "glow"
+    },
+    {
+      "t": 10.9,
+      "end": 14.25,
+      "character": "blacksmith",
+      "name": "Blacksmith",
+      "clip": "line:perfect",
+      "kind": "line",
+      "audio": "6bce6faa088c08f1.wav",
+      "text": "Perfect. Now we wait for the metal to cool.",
+      "shot": "perfect"
+    }
+  ],
+  "characters": [
+    {
+      "id": "blacksmith",
+      "name": "Blacksmith",
+      "idle": "idle"
+    },
+    {
+      "id": "apprentice",
+      "name": "Apprentice",
+      "idle": "idle"
+    }
+  ],
+  "events": [],
+  "engine": []
+}

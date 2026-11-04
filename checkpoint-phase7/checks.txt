@@ -1,0 +1,27 @@
+Blacksmith (stocky · human mouth · 1.42 m): 20/20 checks pass
+   cast: most alike: Goblin Shopkeeper (63% alike in outline and face parts, limit 80%)
+   speech: human mouth: closes on M/B/P (-1.3 mm), opens 44 mm on "aa", 14 distinct speech shapes of 15
+Apprentice (lanky · human mouth · 1.9 m): 16/16 checks pass
+   cast: most alike: Robot Porter (77% alike in outline and face parts, limit 80%)
+   speech: human mouth: closes on M/B/P (-1.2 mm), opens 40 mm on "aa", 12 distinct speech shapes of 15
+Goblin Shopkeeper (stocky · cartoon mouth · 1.05 m): 20/20 checks pass
+   cast: most alike: Blacksmith (63% alike in outline and face parts, limit 80%)
+   speech: cartoon mouth: closes on M/B/P (-1.9 mm), opens 40 mm on "aa", 14 distinct speech shapes of 15
+Robot Porter (lanky · grille mouth · 2 m): 16/16 checks pass
+   cast: most alike: Apprentice (77% alike in outline and face parts, limit 80%)
+   speech: grille mouth: closes on M/B/P (-0.7 mm), opens 52 mm on "aa", 12 distinct speech shapes of 15
+Marsh Bird (beaked · beak mouth · 1.22 m): 16/16 checks pass
+   cast: most alike: Kid (62% alike in outline and face parts, limit 80%)
+   speech: beak mouth: closes on M/B/P (0.1 mm), opens 91 mm on "aa", 8 distinct speech shapes of 15
+Kid (chibi · cartoon mouth · 1 m): 16/16 checks pass
+   cast: most alike: Marsh Bird (62% alike in outline and face parts, limit 80%)
+   speech: cartoon mouth: closes on M/B/P (-2.4 mm), opens 54 mm on "aa", 14 distinct speech shapes of 15
+Elder (human · human mouth · 1.66 m): 16/16 checks pass
+   cast: most alike: Apprentice (63% alike in outline and face parts, limit 80%)
+   speech: human mouth: closes on M/B/P (-1.3 mm), opens 45 mm on "aa", 13 distinct speech shapes of 15
+Dog (quadruped · muzzle mouth · 0.95 m): 16/16 checks pass
+   cast: most alike: Marsh Bird (41% alike in outline and face parts, limit 80%)
+   speech: muzzle mouth: closes on M/B/P (-1.5 mm), opens 82 mm on "aa", 14 distinct speech shapes of 15
+Heron Courier (lanky · beak mouth · 1.72 m): 16/16 checks pass
+   cast: most alike: Robot Porter (70% alike in outline and face parts, limit 80%)
+   speech: beak mouth: closes on M/B/P (0.1 mm), opens 73 mm on "aa", 8 distinct speech shapes of 15
