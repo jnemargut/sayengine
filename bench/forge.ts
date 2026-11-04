@@ -71,8 +71,8 @@ export function buildForge(step: Step) {
   step('add-op', { id: 'head', op: 'box', part: 'head', args: { size: [0.11, 0.045, 0.045], at: [0, 0.33, 0] } });
   step('add-op', { id: 'hammer', op: 'union', inputs: ['handle', 'head'], output: true });
   // the blacksmith by the anvil, and the apprentice (the player) at the yard's open side
-  step('new-character', { name: 'Blacksmith', preset: 'blacksmith', position: [-0.75, 0, -1.25] });
-  step('move-object', { object: 'blacksmith', position: [-0.75, 0, -1.25], rotation: 35 });
+  step('new-character', { name: 'Blacksmith', preset: 'blacksmith', position: [-0.58, 0, -1.08] });
+  step('move-object', { object: 'blacksmith', position: [-0.58, 0, -1.08], rotation: 42 });
   step('hold', { character: 'blacksmith', hand: 'right', prop: 'hammer' });
   step('set-motion', { object: 'blacksmith', id: 'strike', kind: 'action', action: 'hammer-strike' });
   step('set-motion', { object: 'blacksmith', id: 'idle', energy: 0.4 });

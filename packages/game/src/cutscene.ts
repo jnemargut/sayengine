@@ -89,7 +89,7 @@ export function muxCutscene(frameDir: string, fps: number, tl: GameTimeline, aud
   const ext = path.extname(files[0]);
   const stills = tl.shots.map((s) => {
     const q = tl.cues.find((c) => c.shot === s.id);
-    const t = q ? Math.min(s.end - 0.05, q.t + Math.min(1.0, (q.end - q.t) * 0.45)) : s.start + (s.end - s.start) * 0.4;
+    const t = q ? Math.min(s.end - 0.05, q.t + (q.kind === 'motion' ? Math.min(1.6, (q.end - q.t) * 0.56) : Math.min(1.0, (q.end - q.t) * 0.45))) : s.start + (s.end - s.start) * 0.4;
     const f = files[Math.min(files.length - 1, Math.round(t * fps))];
     const dst = out.replace(/\.mp4$/, `-${s.id}${ext}`);
     fs.copyFileSync(path.join(frameDir, f), dst);

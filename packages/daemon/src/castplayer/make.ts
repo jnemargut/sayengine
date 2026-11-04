@@ -13,7 +13,7 @@ export interface CastMember { id: string; name: string; label: string; glb: Uint
 
 export async function buildCastLineup(outDir: string, title: string, cast: CastMember[]): Promise<string> {
   fs.mkdirSync(outDir, { recursive: true });
-  const members = cast.map((c) => { fs.writeFileSync(path.join(outDir, `${c.id}.glb`), c.glb); return { id: c.id, name: c.name, label: c.label, glb: `${c.id}.glb`, height: c.height, idle: c.idle, headH: c.headH, headY: c.headY }; });
+  const members = cast.map((c) => { fs.writeFileSync(path.join(outDir, `${c.id}.glb`), c.glb); return { id: c.id, name: c.name, label: c.label, glb: `${c.id}.glb`, height: c.height, idle: c.idle, headH: c.headH, headY: c.headY, headZ: (c as any).headZ }; });
   fs.writeFileSync(path.join(outDir, 'cast.json'), JSON.stringify({ title, cast: members }, null, 2));
   fs.writeFileSync(path.join(outDir, 'index.html'), `<!doctype html><html><head><meta charset="utf-8"><title>Cast lineup</title><style>html,body{margin:0;background:#ece6dc}#stage canvas{width:100%;height:auto;display:block}</style></head><body><div id="stage"></div><script type="module" src="player.js"></script></body></html>`);
   const esbuild = await import('esbuild');
@@ -37,8 +37,12 @@ export async function captureCast(outDir: string, opts: { width?: number; height
     await shot(1.2, 0, front);
     const fu: string = await page.eval('window.__faces(1.2)');
     fs.writeFileSync(faces, Buffer.from(fu.split(',')[1], 'base64'));
+    const bu: string = await page.eval('window.__bodies(1.2)');
+    fs.writeFileSync(path.join(outDir, 'bodies.png'), Buffer.from(bu.split(',')[1], 'base64'));
+    if (process.env.CAST_STILLS_ONLY) return;
     for (let f = 0; f < n; f++) await shot(f / fps, (360 * f) / n, path.join(frameDir, `${String(f).padStart(5, '0')}.png`));
   }));
+  if (process.env.CAST_STILLS_ONLY) return { still, front, faces, note: 'stills only (CAST_STILLS_ONLY)' };
   const ff = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' });
   if (ff.status !== 0) return { still, front, faces, note: 'ffmpeg not found: turntable frames are in frames/' };
   const video = path.join(outDir, 'turntable.mp4');

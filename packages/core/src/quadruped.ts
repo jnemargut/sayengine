@@ -59,13 +59,32 @@ export function addWings(bones: BoneDef[], pieces: Piece[], root: V3, span: numb
     const tip: V3 = [mid[0] + sx * span * 0.55, mid[1] - 0.02 * span, mid[2] - 0.12 * span];
     bones.push({ name: `${side}Wing1`, parent, head: a, tail: mid }, { name: `${side}Wing2`, parent: `${side}Wing1`, head: mid, tail: tip });
     const t = 0.012 * span;
-    // the wing: a leading-edge arm and a feathered panel behind it, per bone
-    const panel = (p0: V3, p1: V3, c0: number, c1: number, part: string): Piece => ({ kind: 'hull', part, pts: [
-      add(p0, [0, t, 0]), add(p0, [0, -t, 0]), add(p1, [0, t, 0]), add(p1, [0, -t, 0]),
-      add(p0, [0, 0, -c0]), add(p1, [0, 0, -c1]), add(p0, [0, -t * 0.4, -c0 * 0.6]), add(p1, [0, -t * 0.4, -c1 * 0.7]),
-    ] });
-    pieces.push(panel(a, mid, chord * 0.7, chord, `${side}Wing1`), panel(mid, tip, chord, chord * 0.35, `${side}Wing2`));
-    pieces.push({ kind: 'seg', a, b: mid, r1: t * 1.6, r2: t * 1.2, sides: 6, part: `${side}Wing1` }, { kind: 'seg', a: mid, b: tip, r1: t * 1.2, r2: t * 0.6, sides: 6, part: `${side}Wing2` });
+    // feathers: thin cards hanging back from the wing's leading edge, overlapping like shingles —
+    // short coverts on top, secondaries along the inner bone, long primaries fanned out from the tip
+    const card = (root: V3, along: V3, back: V3, w: number, len: number, part: string, lift = 0): Piece => {
+      const tip = add(add(root, mul(back, len)), [0, lift, 0]);
+      return { kind: 'hull', part, pts: [
+        add(root, mul(along, -w / 2)), add(root, mul(along, w / 2)), add(add(root, mul(along, -w / 2)), [0, t * 0.7, 0]), add(add(root, mul(along, w / 2)), [0, t * 0.7, 0]),
+        add(tip, mul(along, -w * 0.32)), add(tip, mul(along, w * 0.32)), add(add(tip, mul(back, w * 0.25)), [0, t * 0.2, 0]),
+      ] };
+    };
+    const span1 = norm(sub(mid, a)), span2 = norm(sub(tip, mid));
+    for (let i = 0; i < 4; i++) {
+      // secondaries: four broad cards along the inner bone, angled back
+      const u = (i + 0.5) / 4;
+      const root = add(a, mul(sub(mid, a), u));
+      pieces.push(card(add(root, [0, -t * 0.3 * i, 0]), span1, norm([sx * 0.18, -0.06, -1]), (len(sub(mid, a)) / 4) * 1.35, chord * (0.72 + 0.22 * u), `${side}Wing1`, -0.004 * span * i));
+    }
+    for (let i = 0; i < 5; i++) {
+      // primaries: five long cards fanned out from the outer bone, the outermost the longest and swept
+      const u = (i + 0.5) / 5;
+      const root = add(mid, mul(sub(tip, mid), 0.15 + 0.85 * u));
+      const back = norm([sx * (0.15 + 0.85 * u), -0.05, -1 + 0.6 * u]);
+      pieces.push(card(add(root, [0, -t * 0.25 * i, 0]), span2, back, (len(sub(tip, mid)) / 5) * 1.5, chord * (0.95 + 0.35 * u), `${side}Wing2`, -0.004 * span * i));
+    }
+    // coverts: a rounded pad over the roots of the feathers
+    pieces.push({ kind: 'hull', part: `${side}Wing1`, pts: [add(a, [0, t * 1.4, 0]), add(mid, [0, t * 1.4, 0]), add(a, [0, -t, -chord * 0.4]), add(mid, [0, -t, -chord * 0.42]), add(add(a, mul(sub(mid, a), 0.5)), [0, t * 1.8, -chord * 0.25])] });
+    pieces.push({ kind: 'seg', a, b: mid, r1: t * 1.7, r2: t * 1.3, sides: 6, part: `${side}Wing1` }, { kind: 'seg', a: mid, b: tip, r1: t * 1.3, r2: t * 0.7, sides: 6, part: `${side}Wing2` });
   }
 }
 
@@ -76,7 +95,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   const H = p.height, b = p.build, s = H / 1.75;
   const wither = 0.66 * H * p.legLength / (0.75 + 0.25 * p.legLength);          // shoulder height
   const bodyLen = 1.12 * wither * (0.95 + 0.25 * (1 - p.legLength));
-  const bodyR = 0.235 * wither * (0.75 + 0.5 * b);
+  const bodyR = 0.27 * wither * (0.75 + 0.5 * b);
   const hipY = wither * 0.97, chestY = wither, zRump = -bodyLen * 0.48, zChest = bodyLen * 0.4;
   const legX = bodyR * 0.62;
   const bones: BoneDef[] = [];
@@ -89,8 +108,8 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   bone('UpperChest', 'Chest', spinePts[3], spinePts[4]);
   // the head: the studio face kit at the size this animal needs, then moved onto the neck
   const headH = 0.36 * wither * p.headSize;
-  const F0 = { mouth: 'muzzle', eyes: 'natural', brows: 'none', nose: 'none', ears: 'upright' } as const;
-  const faceSpec = characterSpec({ ...p, plan: undefined, height: headH / 0.165, headSize: 1, legLength: 1, armLength: 1, apron: false, tail: false, wings: false, hair: p.hair ?? 'none', snout: 2.1,
+  const F0 = { mouth: 'muzzle', eyes: 'natural', brows: 'none', nose: 'none', ears: 'floppy' } as const;
+  const faceSpec = characterSpec({ ...p, plan: undefined, height: headH / 0.165, headSize: 1, legLength: 1, armLength: 1, apron: false, tail: false, wings: false, hair: p.hair ?? 'none', snout: p.snout ?? 1.5, shape: 'round',
     mouth: p.mouth ?? F0.mouth, eyes: p.eyes ?? F0.eyes, brows: p.brows ?? F0.brows, nose: p.nose ?? F0.nose, ears: p.ears ?? F0.ears });
   const fHead = faceSpec.bones.find((x) => x.name === 'Head')!.head;
   const headBase: V3 = [0, chestY + 0.2 * wither, zChest + 0.3 * wither];
@@ -136,14 +155,14 @@ export function quadrupedSpec(p: CharParams): CharSpec {
     }
     const t = 0.105 * wither * (0.8 + 0.4 * b);
     ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.2, t * 0.62, `${side}UpperLeg`);
-    ball(stifle, t * 0.6, `${side}LowerLeg`); seg(stifle, hock, t * 0.58, t * 0.36, `${side}LowerLeg`);
+    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.58, t * 0.36, `${side}LowerLeg`);
     ball(hock, t * 0.36, `${side}Foot`); seg(hock, paw, t * 0.34, t * 0.3, `${side}Foot`);
-    pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [add(paw, [-t * 0.5, -pawY, -t * 0.4]), add(paw, [t * 0.5, -pawY, -t * 0.4]), add(paw, [-t * 0.55, -pawY, toeLen]), add(paw, [t * 0.55, -pawY, toeLen]), add(paw, [0, t * 0.45, toeLen * 0.4]), add(paw, [-t * 0.3, t * 0.3, 0]), add(paw, [t * 0.3, t * 0.3, 0])] });
+    pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [add(paw, [-t * 0.55, -pawY, -t * 0.4]), add(paw, [t * 0.55, -pawY, -t * 0.4]), add(paw, [-t * 0.6, -pawY, toeLen]), add(paw, [t * 0.6, -pawY, toeLen]), add(paw, [0, t * 0.48, toeLen * 0.4]), add(paw, [-t * 0.33, t * 0.33, 0]), add(paw, [t * 0.33, t * 0.33, 0])] });
     const ft = t * 0.92;
     ball(sh, ft * 1.0, `${side}UpperArm`); seg(sh, elbow, ft, ft * 0.6, `${side}UpperArm`);
-    ball(elbow, ft * 0.56, `${side}LowerArm`); seg(elbow, wrist, ft * 0.52, ft * 0.36, `${side}LowerArm`);
-    ball(wrist, ft * 0.36, `${side}Hand`); seg(wrist, fpaw, ft * 0.36, ft * 0.32, `${side}Hand`);
-    pieces.push({ kind: 'hull', part: `${side}Hand`, pts: [add(fpaw, [-ft * 0.5, -pawY, -ft * 0.4]), add(fpaw, [ft * 0.5, -pawY, -ft * 0.4]), add(fpaw, [-ft * 0.55, -pawY, toeLen]), add(fpaw, [ft * 0.55, -pawY, toeLen]), add(fpaw, [0, ft * 0.45, toeLen * 0.4]), add(fpaw, [-ft * 0.3, ft * 0.3, 0]), add(fpaw, [ft * 0.3, ft * 0.3, 0])] });
+    ball(elbow, ft * 0.6, `${side}LowerArm`); seg(elbow, wrist, ft * 0.56, ft * 0.44, `${side}LowerArm`);
+    ball(wrist, ft * 0.44, `${side}Hand`); seg(wrist, fpaw, ft * 0.43, ft * 0.4, `${side}Hand`);
+    pieces.push({ kind: 'hull', part: `${side}Hand`, pts: [add(fpaw, [-ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [-ft * 0.6, -pawY, toeLen]), add(fpaw, [ft * 0.6, -pawY, toeLen]), add(fpaw, [0, ft * 0.48, toeLen * 0.4]), add(fpaw, [-ft * 0.33, ft * 0.33, 0]), add(fpaw, [ft * 0.33, ft * 0.33, 0])] });
   }
   // the barrel: elliptical rings along the spine (rump, loin, belly, deep chest, shoulders)
   const ringZ = (z: number, cy: number, rx: number, ryUp: number, ryDn: number, n = Math.max(10, SIDES + 2)): V3[] =>
@@ -400,8 +419,8 @@ export function applyWings(rig: Rig, idx: Map<string, number>, L: Q[], flap: num
     } else {
       // a flap: up-stroke slower than the down-stroke; the outer wing lags and tucks on the way up
       const ph = flap % 1, down = ph < 0.42, u = down ? ph / 0.42 : (ph - 0.42) / 0.58;
-      const ang = down ? 55 - 95 * ease(u) : -40 + 95 * ease(u);
-      L[i1] = qMul(Y(sx * 4), Z(sx * ang));
+      const ang = down ? 72 - 110 * ease(u) : -38 + 110 * ease(u);
+      L[i1] = qMul(Y(-sx * 16), Z(sx * ang));
       L[i2] = qMul(Z(sx * (down ? -12 * Math.sin(Math.PI * u) : 22 * Math.sin(Math.PI * u))), Y(sx * (down ? 4 : 26) * Math.sin(Math.PI * u)));
     }
   }

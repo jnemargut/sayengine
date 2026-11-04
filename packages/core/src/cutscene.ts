@@ -63,7 +63,7 @@ export function characterFrame(studio: any, o: SceneObject) {
 }
 
 /** The camera for a shot's framing, at the start and end of the shot (a move changes the end). */
-export function frameShot(studio: any, doc: SceneDoc, cam: ShotCamera, cast: string[]): { from: CamKey; to: CamKey } {
+export function frameShot(studio: any, doc: SceneDoc, cam: ShotCamera, cast: string[], lead: string[] = []): { from: CamKey; to: CamKey } {
   const C = (id: string) => characterFrame(studio, findChar(doc, id));
   const side = cam.side === 'left' ? 1 : -1;
   let from: CamKey;
@@ -79,8 +79,12 @@ export function frameShot(studio: any, doc: SceneDoc, cam: ShotCamera, cast: str
     if (fr.length >= 2) across = norm(sub(fr[1].head, fr[0].head));
     // look at them from the side they face (perpendicular to the line between them)
     let view: V3 = norm([-across[2], 0, across[0]]);
-    const facingSum = fr.reduce((a, f) => add(a, f.facing), [0, 0, 0] as V3);
+    // the side the characters face; when someone in the shot acts (a strike, a line), favour their
+    // face: swing the view toward the front of the lead, so a wide never shows the actor's back
+    const leads = lead.map(C);
+    const facingSum = (leads.length ? leads : fr).reduce((a, f) => add(a, f.facing), [0, 0, 0] as V3);
     if (view[0] * facingSum[0] + view[2] * facingSum[2] < 0) view = mul(view, -1);
+    if (leads.length && cam.framing === 'wide') view = norm(add(view, mul(norm(facingSum), 0.9)));
     if (cam.side === 'left') view = norm(add(view, mul(across, 0.45))); else if (cam.side === 'right') view = norm(sub(view, mul(across, 0.45)));
     const spread = fr.length >= 2 ? len(sub(fr[1].head, fr[0].head)) : 0.6;
     const fov = cam.fov ?? (cam.framing === 'wide' ? 40 : 34);
@@ -167,13 +171,14 @@ export function cutsceneTimeline(studio: any, doc: SceneDoc, cs: Cutscene): Time
     const dur = sh.duration ?? Math.max(1.5, end + 0.5);
     const castIds = [...new Set([...(sh.lines ?? []).map((l) => findChar(doc, l.character).id), ...(sh.actions ?? []).map((a) => findChar(doc, a.character).id), ...(sh.camera.subject ? [findChar(doc, sh.camera.subject).id] : []), ...(sh.camera.over ? [findChar(doc, sh.camera.over).id] : [])])];
     const castFor = castIds.length >= 2 ? castIds : Object.values(doc.objects).filter((o) => o.semanticType === 'character').map((o) => o.id);
-    let cam = frameShot(studio, doc, sh.camera, castFor);
+    const leadIds = [...new Set([...(sh.actions ?? []).map((a) => findChar(doc, a.character).id), ...(sh.lines ?? []).map((l) => findChar(doc, l.character).id)])];
+    let cam = frameShot(studio, doc, sh.camera, castFor, leadIds);
     // no side given: take the one that keeps the camera on the side of the line already established
     if (!sh.camera.side && sh.camera.framing !== 'custom' && axis) {
       const s0 = axis.sideOf(cam.from.position);
       if (axis.ref === 0) axis.ref = s0;
       else if (s0 !== 0 && s0 !== axis.ref) {
-        const other = frameShot(studio, doc, { ...sh.camera, side: 'left' }, castFor), other2 = frameShot(studio, doc, { ...sh.camera, side: 'right' }, castFor);
+        const other = frameShot(studio, doc, { ...sh.camera, side: 'left' }, castFor, leadIds), other2 = frameShot(studio, doc, { ...sh.camera, side: 'right' }, castFor, leadIds);
         cam = axis.sideOf(other.from.position) === axis.ref ? other : axis.sideOf(other2.from.position) === axis.ref ? other2 : cam;
       }
     } else if (axis && axis.ref === 0) axis.ref = axis.sideOf(cam.from.position);
