@@ -217,6 +217,7 @@ export interface SceneDoc {
   units: 'm';
   objects: Record<string, SceneObject>;
   objectOrder: string[];
+  cutscenes?: Record<string, import('./cutscene.ts').Cutscene>;   // Decision 24: shots, cameras, lines, actions
 }
 
 export function emptyDoc(): SceneDoc {

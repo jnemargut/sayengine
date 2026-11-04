@@ -23,6 +23,12 @@ export async function gameContext() {
       const o = objs.find((x) => x.id === object) ?? objs.find((x) => norm(x.name) === norm(object));
       return o ? { id: o.id, name: o.name, position: o.position, rotation: o.rotation ?? 0, character: o.type === 'character' || o.semanticType === 'character' } : null;
     },
+    async cutscenes() {
+      if (!DAEMON_TOOLS.some((t) => t.name === 'cutscene-data')) return [];
+      const r: any = await callTool('cutscene-data', {});
+      if (!r.ok) throw new Error(`cutscenes: ${r.error}`);
+      return r.result?.cutscenes ?? [];
+    },
   };
 }
 

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import type RAPIER_NS from '@dimforge/rapier3d-compat';
+import { CutscenePlayer } from './cutscene.ts';
 
 type Rapier = typeof RAPIER_NS;
 export interface StudioGame {
@@ -323,6 +324,25 @@ function clearSpot(g: StudioGame, at: V3): boolean {
 }
 
 const commands = {
+  /** Play a studio cutscene (assets/studio/cutscenes/<id>.json) frame by frame; frames as JPEG data URLs when c.frames. */
+  async cutscene(g: StudioGame, c: any) {
+    const res = await fetch(`assets/studio/cutscenes/${c.id}.json`);
+    if (!res.ok) return { ok: false, error: `no cutscene ${c.id} (studio game import writes assets/studio/cutscenes/)` };
+    const tl = await res.json();
+    if (!g.studio) return { ok: false, error: 'no studio scene loaded' };
+    const sz = new THREE.Vector2(); g.renderer.getSize(sz);
+    const cam = new THREE.PerspectiveCamera(35, sz.x / sz.y, 0.05, 200);
+    const p = new CutscenePlayer(g.studio, g.animations ?? [], tl, cam, 'assets/studio/cutscenes/audio/');
+    const fps = c.fps ?? 30, n = Math.ceil(tl.duration * fps);
+    const frames: string[] = [];
+    for (let f = 0; f < n; f++) {
+      p.setTime(f / fps);
+      if (c.frames) { g.renderer.render(g.scene, cam); frames.push(g.renderer.domElement.toDataURL('image/jpeg', 0.9)); }
+    }
+    const missing = tl.cues.filter((q: any) => !(g.animations ?? []).some((a) => a.name.endsWith(q.clip))).map((q: any) => `${q.name}: ${q.clip}`);
+    return { ok: !missing.length, ...(missing.length ? { error: `clips missing in the scene: ${missing.join(', ')}` } : {}), cutscene: tl.id, shots: tl.shots.length, seconds: tl.duration, cues: tl.cues.length, frames: c.frames ? frames : undefined };
+  },
+
   info(g: StudioGame) {
     return { ok: true, studio: !!g.studio, objects: objects(g).map((o) => ({ name: o.name, box: boxOf(o), triangles: triangles(o) })), triangles: triangles(g.studio), scene: boxOf(g.studio), materials: materials(g.studio) };
   },

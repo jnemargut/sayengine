@@ -39,6 +39,12 @@ export const GAME_TOOLS: GameTool[] = [
     example: 'studio game walk-to --project forge --target "Walnut stool"',
   },
   {
+    name: 'game-cutscene',
+    description: 'Play a studio cutscene in the game (Decision 24): Godot plays the generated scene (res://assets/studio/cutscenes/<id>.tscn: an AnimationPlayer with the camera, voices and cues driving the characters\' clips); the web plays it with studio/cutscene.ts. Reports what played and any missing clip; --video true records it frame by frame and muxes the voices into an MP4 (plus stills, one per shot). `game import` writes the cutscenes first.',
+    flags: { type: 'object', properties: { project, id: { type: 'string', description: 'cutscene id (studio cutscene lists them)' }, video: { type: 'boolean', default: false } }, required: ['id'] },
+    example: 'studio game cutscene --project forge --id forge-lesson --video true',
+  },
+  {
     name: 'game-test',
     description: 'Run engine-side assertions and return pass/fail JSON. --assertions is a JSON array of {kind, …}: exists {node}, grounded {node, tolerance}, on {node, target, tolerance} (node rests on target), count {pattern, min, max}, reachable {target, from}. Godot also runs res://tests/test_*.gd (static func run(root) -> {pass, detail}); web runs tests registered with registerTest(name, fn) from studio/harness.ts.',
     flags: { type: 'object', properties: { project, assertions: { type: 'array', items: { type: 'object' } }, scripts: { type: 'boolean', default: true } } },

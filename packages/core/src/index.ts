@@ -22,3 +22,5 @@ export * from './life.ts';
 export * from './charactertools.ts';
 export * from './glb.ts';
 export * from './skinexport.ts';
+export * from './cutscene.ts';
+export * from './performance.ts';
