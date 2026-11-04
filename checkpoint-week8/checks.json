@@ -117,7 +117,7 @@
     "id": "motion-walk-apron",
     "label": "Motion \"walk\": the apron follows the legs",
     "pass": true,
-    "detail": "apron clears the legs, swings 24° and bends 4°"
+    "detail": "apron clears the legs, swings 21° and bends 11°"
   },
   {
     "id": "motion-start",
@@ -135,7 +135,7 @@
     "id": "motion-start-apron",
     "label": "Motion \"start\": the apron follows the legs",
     "pass": true,
-    "detail": "apron clears the legs, swings 36° and bends 5°"
+    "detail": "apron clears the legs, swings 36° and bends 12°"
   },
   {
     "id": "motion-stop",
@@ -153,7 +153,7 @@
     "id": "motion-stop-apron",
     "label": "Motion \"stop\": the apron follows the legs",
     "pass": true,
-    "detail": "apron clears the legs, swings 20° and bends 1°"
+    "detail": "apron clears the legs, swings 20° and bends 5°"
   },
   {
     "id": "motion-strike",
@@ -171,7 +171,7 @@
     "id": "motion-strike-apron",
     "label": "Motion \"strike (hammer-strike)\": the apron follows the legs",
     "pass": true,
-    "detail": "apron clears the legs, swings 14° and bends 5°"
+    "detail": "apron clears the legs, swings 16° and bends 21°"
   },
   {
     "id": "line-glow-closures",
