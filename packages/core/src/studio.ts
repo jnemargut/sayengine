@@ -12,6 +12,7 @@ import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
 import { poseChecks, weightReport, mouthCheck, type PoseCheck } from './rig.ts';
+import { compilePerformance, performanceReport } from './performance.ts';
 import { apronReport, bakeMotion, motionReport, checkFrames } from './motion.ts';
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
@@ -170,8 +171,32 @@ export class Studio {
       const n = pr.ok ? fingerPenetration(r.rig, r.positions, hand, { P: pr.positions, I: pr.indices }) : 0;
       out.push({ id: `hold-${hand}`, label: `Fingers clear of ${p.name}`, pass: n === 0, detail: n ? `${n} finger points pass through ${p.name} — loosen the grip (set-hand --curl) or adjust its grip (set-grip)` : `${hand} hand wraps ${p.name} without passing through it` });
     }
-    for (const [id, line] of Object.entries(o.character?.lines ?? {})) out.push(...lineChecks(id, line));
+    for (const [id, line] of Object.entries(o.character?.lines ?? {})) {
+      out.push(...lineChecks(id, line));
+      if (line.performance) out.push(...this.performanceChecks(o, id));
+    }
     for (const id of Object.keys(o.character?.motions ?? {})) out.push(...this.motionChecks(o, id));
+    return out;
+  }
+
+  private perfCache = new Map<string, CheckResult[]>();
+  /** A performed line's checks (Decision 23): gestures on their words, no pops, ends on the idle, hands clear, the face shows the emotion. */
+  performanceChecks(o: SceneObject, id: string): CheckResult[] {
+    const line = o.character?.lines?.[id];
+    if (!line?.performance) return [];
+    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output, id, line.performance, line.duration, line.text, o.character?.hands, o.character?.holds, o.character?.motions?.idle]);
+    const hit = this.perfCache.get(key);
+    if (hit) return hit;
+    const r = this.evaluate(o);
+    if (!r.ok || !r.rig) return [];
+    let out: CheckResult[];
+    try {
+      const clip = compilePerformance(r.rig.rig, o.character, line, line.performance);
+      const rep = performanceReport(r.rig.rig, line, line.performance, clip, o.character);
+      out = [{ id: `line-${id}-performance`, label: `Line "${id}": the performance`, pass: rep.pass, detail: rep.detail }];
+    } catch (e: any) { out = [{ id: `line-${id}-performance`, label: `Line "${id}": the performance`, pass: false, detail: e.message }]; }
+    if (this.perfCache.size > 60) this.perfCache.delete(this.perfCache.keys().next().value!);
+    this.perfCache.set(key, out);
     return out;
   }
 
