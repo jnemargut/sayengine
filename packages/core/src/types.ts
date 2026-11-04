@@ -21,6 +21,7 @@ export const OP_NAMES = [
   'mesh',
   'collision', 'lod',
   'character',
+  'text', 'hole', 'split', 'chamfer',
 ] as const;
 /** Ops that make a side product (a physics shape, a distance version) instead of feeding the output. */
 export const AUX_OPS: readonly string[] = ['collision', 'lod'];
@@ -90,6 +91,7 @@ export interface SceneObject {
   role?: 'model' | 'reference';  // references are shown translucent and excluded from export/overlap checks
   reference?: Reference;
   profile?: GameProfile;         // game export profile: adds budget checks, drives export --target
+  print?: PrintProfile;          // 3D-print profile: adds print checks (bed fit, walls, overhangs, base), drives `studio print`
   orientation?: [number, number, number, number]; // full 3D rotation (quaternion x,y,z,w); set by "held" placement, overrides rotation
   grip?: GripSocket;             // where a hand holds this object (props)
   character?: CharacterState;    // pose, expression, hands and dialogue lines (characters)
@@ -171,6 +173,13 @@ export interface MotionSpec {
   turn?: number;       // degrees, + = to the character's left (turn)
   action?: string;     // a library action (action): wave, nod, shrug, point, hammer-strike, pick-up, look-around
   seed?: number;       // blinks and glances
+}
+
+/** A 3D-print profile (Decisions 43–46): one printer, one filament, the fit gaps measured for it. */
+export interface PrintProfile {
+  printer: 'a1-mini';
+  filament?: string;             // Bambu Studio filament preset name (default: your PLA preset)
+  process?: string;              // Bambu Studio process preset (default 0.20mm Standard @BBL A1M)
 }
 
 /** A game export profile (Decision 17): budgets shown as checks after every step. */

@@ -9,6 +9,7 @@ import { formatOf, imageSize, parseMesh, FORMAT_DEFAULTS, type MeshFormat } from
 import { PROFILES, budgetFor, type ProfileName } from './profiles.ts';
 import type { Material, Placement } from './types.ts';
 import { CHARACTER_TOOLS } from './charactertools.ts';
+import { PRINT_TOOLS } from './printtools.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -705,6 +706,12 @@ export const OP_REFERENCE = {
     collision: 'inputs:[output] { shape?: "hull" (default) | "box" | "capsule" | "sphere", padding?: m, axis?: x|y|z (capsule) } — a physics shape fitted to its input. A side product: shown in checks, exported as a collision node, never part of the visible mesh.',
     lod: 'inputs:[output] { ratio: 0.05–0.95 } — a simplified copy with about ratio × the triangles, for distance. Exported as a distance version (MSFT_lod); engines without LOD support just show the full mesh.',
   },
+  print: {
+    text: '{ text, size: cap height m, depth: m, at?:[x,y,z], axis?: "y" (lying flat, read from above) | "z" (standing, faces the front) | "x" | "-z" | "-x", align?: center|left, spacing? } — solid letters (Roboto Bold), centred on "at", extruded along axis from "at". Raise: union it on a face. Engrave: put it into the face (at = face minus depth) and difference it. Keep strokes ≥ 0.84 mm: cap height ≥ ~5 mm for printing.',
+    hole: '{ size: M2|M2.5|M3|M4|M5, kind?: clearance (screw passes) | tap (self-tapping screw bites) | insert (heat-set brass insert), depth: m, at, axis?: "y" (down from at) | "z" (into −Z from at) | "x", head?: true (counterbore for a socket head), fit?: m } — a screw-hole cutter: difference it from the body.',
+    split: 'inputs:[a] { axis?: x|y|z (default longest), at?: m (default middle), pins?: 2, pinR?: 0.0025, pinLen?: 0.01, fit?: m (default fitPress), gap?: 0.01 } — cut in two (parts half-a, half-b) with matching pin holes, plus the pins, laid apart. For models bigger than the printer bed.',
+    chamfer: 'inputs:[a] { size?: 0.0004 } — bevels the bottom edge so the squashed first layer doesn\'t flare out (elephant foot).',
+  },
   booleans: { union: 'inputs:[a,b,…]', difference: 'inputs:[a, cutters…]', intersect: 'inputs:[a,b,…]', hull: 'inputs:[a,b,…]' },
   instancers: {
     placeAt: `inputs:[part] { target: opId, anchor: ${ANCHORS.join(' | ')}, inset?: m, splay?: deg (tilts instances outward about the anchor), align?: top|bottom|center } — instances named part#1..n`,
@@ -718,6 +725,7 @@ export const OP_REFERENCE = {
     'Organic shape? Start from a revolve or a coarse box/hull, then smooth{levels:2}.',
     'Materials: new-object --material walnut (a preset) gives real wood grain; set-material --part "leg*" --preset black-metal changes just the legs.',
     'Several objects? place-object (on / next-to / under) and arrange keep relations as sizes change; never hand-compute positions from bounding boxes.',
+    'For 3D printing: set-print-profile --printer a1-mini (print checks + fit params $fitPress/$fitSlide/$fitLoose), use text / hole / split ops, then `studio print` opens a ready project in Bambu Studio.',
     'Game asset? set-profile --profile godot-desktop|web, add a collision op, keep the budget checks green, then export --target godot|web (bakes materials into textures).',
   ],
 };
@@ -742,6 +750,7 @@ function newMaterial(name: string | undefined, color: string | undefined): Mater
 }
 
 TOOLS.push(...CHARACTER_TOOLS);
+TOOLS.push(...PRINT_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

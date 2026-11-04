@@ -3,6 +3,7 @@ import { History, getAt, setAt, type Change, type Commit, type RepoData } from '
 import { evaluateObject, overlapVolume, setMeshLoader, supportOf, type EvalResult } from './kernel.ts';
 import { runChecks, type CheckResult } from './checks.ts';
 import { profileChecks } from './profiles.ts';
+import { printChecks, adjustForPrint } from './print.ts';
 import { MemoryAssets, type AssetStore } from './assets.ts';
 import { parseMesh, type MeshFormat, type RawMesh } from './importers.ts';
 import { fillInstances, solvePlacements, describePlacement } from './scene.ts';
@@ -125,7 +126,8 @@ export class Studio {
     if (o.role === 'reference') {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }
-    const base = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc)];
+    const core = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc)];
+    const base = o.print ? adjustForPrint(o, [...core, ...printChecks(o, r, core.some((c) => c.pending))]) : core;
     if (!o.profile) return base;
     const midBuild = base.some((c) => c.pending);
     return [...base, ...profileChecks(o, r, { evaluateOp: (x, id) => this.evaluateOp(x, id), overlap: (a, b) => overlapVolume(a, b) }, midBuild)];

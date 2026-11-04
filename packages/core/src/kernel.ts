@@ -6,6 +6,7 @@ import Module from 'manifold-3d';
 import { num, vec3, type ParamValues } from './expr.ts';
 import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
+import { textOp, holeOp, chamferOp, splitOp, type OpEnv } from './print.ts';
 import { buildRig, charParams, characterSpec, forward, localRotations, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
 
 type V3 = [number, number, number];
@@ -511,6 +512,27 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           }
           if (!best) best = keep(src.simplify(hi));
           out = { m: best, parts: withOp(ins[0].parts, id) };
+          break;
+        }
+        case 'text': case 'hole': {
+          // print helpers (Decision 46): solid letters / a screw-hole cutter
+          const env: OpEnv = { wasm, keep, P, V, A, id };
+          out = original(node.op === 'text' ? textOp(env) : holeOp(env), node.part ?? id, id);
+          break;
+        }
+        case 'chamfer': {
+          need(1);
+          out = { m: chamferOp({ wasm, keep, P, V, A, id }, ins[0].m), parts: withOp(ins[0].parts, id) };
+          break;
+        }
+        case 'split': {
+          // cut in two with matching pin holes; the pins come along as their own pieces
+          need(1);
+          const { parts: pieces } = splitOp({ wasm, keep, P, V, A, id }, ins[0].m);
+          const vals = pieces.map((pc, i) => original(pc.m, pc.name === 'pin' ? `pin#${i - 1}` : pc.name, id));
+          const parts = new Map<number, Part>();
+          for (const v of vals) for (const [k, pp] of v.parts) parts.set(k, pp);
+          out = { m: keep(Manifold.union(vals.map((v) => v.m))), parts };
           break;
         }
         default:

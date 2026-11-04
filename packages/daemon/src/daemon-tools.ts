@@ -36,6 +36,14 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     } },
   },
   {
+    name: 'print',
+    description: 'Print it (Decision 43): runs the print checks (refuses if any fail, --force true overrides), writes each separate piece as an STL, has Bambu Studio\'s own command line build a project for your printer (Bambu Lab A1 mini 0.4 nozzle, 0.20mm Standard, your PLA preset; laid on the bed and arranged), slices a copy in the background for a time/filament estimate, and opens the project in Bambu Studio. You look at the plate and press Print there; the studio never talks to the printer. If Bambu Studio\'s command line fails, a checked STL opens instead and the result says why. [--object id] [--out path.3mf] [--open false] [--estimate false] [--orient true: let Bambu Studio pick the orientation]',
+    flags: { type: 'object', properties: {
+      object: { type: 'string' }, out: { type: 'string' }, open: { type: 'boolean', default: true }, estimate: { type: 'boolean', default: true },
+      force: { type: 'boolean', default: false }, orient: { type: 'boolean', default: false },
+    } },
+  },
+  {
     name: 'say',
     description: 'Give a character a spoken line (Decision 21): the line is voiced by a local, free text-to-speech model (Kokoro-82M; --voice bm_george, bm_lewis, am_michael, am_adam, af_heart, bf_emma…) or comes from your recording (--audio path.wav), is aligned with the script by Rhubarb Lip Sync, its text is turned into phonemes locally (eSpeak NG) and fitted onto that timing, and becomes smoothed curves for all 15 speech shapes (neighbouring sounds overlap; lips always close on M/B/P, F/V and OO always show; --phonemes false uses only the 9 Rhubarb shapes; --emotion scales how wide the mouth opens: neutral, calm, gentle, firm, happy, excited, angry, sad, scared, whisper). The line also gets seeded blinks, eye darts and brow lifts. One reviewable step; checks report closures, F/V and OO, held shapes and sync. Exports carry it as a "line:<id>" animation clip (speech + blink/brow shape keys, eye and eyelid rotations).',
     flags: { type: 'object', required: ['text'], properties: {

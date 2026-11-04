@@ -22,3 +22,6 @@ export * from './life.ts';
 export * from './charactertools.ts';
 export * from './glb.ts';
 export * from './skinexport.ts';
+export * from './print.ts';
+export * from './glyphs.ts';
+export * from './printtools.ts';

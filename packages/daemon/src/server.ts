@@ -35,11 +35,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
 
 export { DAEMON_TOOLS } from './daemon-tools.ts';
+import { printTool, installFitCalibration } from './print.ts';
 
 export interface DaemonOptions { dir: string; port: number }
 
 export async function startDaemon({ dir, port }: DaemonOptions) {
   await initKernel();
+  installFitCalibration();
   const stateDir = path.join(dir, '.studio');
   fs.mkdirSync(path.join(stateDir, 'renders'), { recursive: true });
   fs.mkdirSync(path.join(stateDir, 'exports'), { recursive: true });
@@ -173,6 +175,9 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           ? { images: files, note: 'Presentation render: materials, environment light and soft shadows, no labels. Read it to judge the look; share the PNG.' }
           : { images: files, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
       }
+      case 'print':
+        // 3D printing (Decision 43): checks → Bambu Studio project for your printer → opens in the app
+        return printTool(studio, dir, stateDir, args);
       case 'export': {
         const doc = studio.doc();
         // a character comes with the props in its hands; --exclude drops objects (and what they hold);
