@@ -733,12 +733,52 @@
     "https://arxiv.org/html/2602.11103"
    ],
    "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 19,
+   "slug": "face-fidelity",
+   "title": "How detailed faces get in cutscenes",
+   "category": "visual",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "pending",
+   "chosenOption": null,
+   "chosenTitle": null,
+   "htmlFile": "decision-019-face-fidelity.html",
+   "options": {
+    "A": "Keep the low-poly face",
+    "B": "Stylized big-shape faces in the kit (denser face region, ~15 speech + ~15 expression shapes generated)",
+    "C": "Detailed cutscene head swapped in",
+    "D": "Realistic faces and bodies"
+   },
+   "recommended": "B",
+   "confidence": "strong",
+   "caseAgainst": "Stylized never equals realistic micro-detail; an acting face template is hard design and simple faces expose errors. C closer to realism for few heroes, accepting mismatch.",
+   "assumptions": [
+    "Realistic mouth = natural speech, not photoreal",
+    "Low-poly stays",
+    "~30 shapes per character within file budget",
+    "Stylized face holds close-ups (verify in milestone)"
+   ],
+   "tripwires": [
+    "Close-up renders look lifeless after tuning -> denser face region or C for hero characters"
+   ],
+   "sources": [
+    "https://pmc.ncbi.nlm.nih.gov/articles/PMC5024669",
+    "https://github.com/DanielSWolf/rhubarb-lip-sync",
+    "https://www.gamedeveloper.com/game-platforms/from-start-to-finish-bringing-characters-to-life-in-opus-echo-of-starsong"
+   ]
   }
  ],
  "phases": [
   {
    "name": "Game tools",
    "decisions": "11-18",
+   "startedAt": "2026-11-04"
+  },
+  {
+   "name": "Faces, hands and cutscenes",
+   "decisions": "19-25",
    "startedAt": "2026-11-04"
   }
  ]

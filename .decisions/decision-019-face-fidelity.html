@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 19: How Detailed Faces Get — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.category-badge { background: #fbeaf0 !important; color: #9b2c55 !important; }
+.faces { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.faces svg { display:block; width:100%; height:auto; }
+.faces-cap { font-size:0.62rem; color:#64748b; padding:5px 10px; border-top:1px solid #f1f5f9; }
+.meter { width:100%; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.m { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; }
+.m b { display:block; font-size:0.74rem; color:#0f172a; }
+.m span { font-size:0.58rem; color:#64748b; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 19 of 25 · Faces, hands and cutscenes</span>
+  <h1>How Detailed Faces Get in Cutscenes</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You want faces that show emotion and mouths that move with the words, mainly in cutscenes, where the camera comes close. That pulls against decision 12's low-poly style. This decision sets how far faces may break from it. The research is unusually clear on one point: faces look creepy not because they're realistic, but because parts of a character sit at different levels of realism. Each card shows the same blacksmith saying "Hold still" at that level of detail.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option B"</strong> · <strong>"Option B but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Keep the Low-Poly Face</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 300 150" role="img" aria-label="Three low-poly heads: neutral, speaking, frowning, with dot eyes and a simple slit mouth">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <g transform="translate(55,22)"><polygon points="-30,10 30,10 34,70 0,92 -34,70" fill="#d9a77a"/><rect x="-14" y="38" width="6" height="6" fill="#2b2b2b"/><rect x="8" y="38" width="6" height="6" fill="#2b2b2b"/><rect x="-10" y="64" width="20" height="3" fill="#7a4a35"/></g>
+          <g transform="translate(150,22)"><polygon points="-30,10 30,10 34,70 0,92 -34,70" fill="#d9a77a"/><rect x="-14" y="38" width="6" height="6" fill="#2b2b2b"/><rect x="8" y="38" width="6" height="6" fill="#2b2b2b"/><rect x="-8" y="60" width="16" height="10" fill="#5a2e22"/></g>
+          <g transform="translate(245,22)"><polygon points="-30,10 30,10 34,70 0,92 -34,70" fill="#d9a77a"/><rect x="-14" y="40" width="6" height="4" fill="#2b2b2b"/><rect x="8" y="40" width="6" height="4" fill="#2b2b2b"/><line x1="-16" y1="34" x2="-6" y2="37" stroke="#4a3022" stroke-width="2.5"/><line x1="16" y1="34" x2="6" y2="37" stroke="#4a3022" stroke-width="2.5"/><rect x="-10" y="66" width="20" height="3" fill="#7a4a35"/></g>
+          <g font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif"><text x="55" y="140">neutral</text><text x="150" y="140">"Hold…"</text><text x="245" y="140">frown</text></g>
+        </svg>
+        <div class="faces-cap">Illustration. Dot eyes, a slit mouth that opens and shuts.</div>
+      </div>
+      <div class="meter">
+        <div class="m"><b>~4–6 shapes</b><span>open, closed, blink, frown</span></div>
+        <div class="m"><b>No new detail</b><span>same mesh as gameplay</span></div>
+        <div class="m"><b>Weak</b><span>"realistic mouth" goal</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Faces stay as simple as the bodies: dot eyes, a slit mouth that opens and closes, and a brow line. Consistent, cheap, and lots of loved games do it. But it can't deliver what you asked for: a mouth that moves realistically with words. One team that started with simplified faces found it "hard to tell what their expressions were" and had to add detail. Cutscene close-ups expose how little a face can say.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Cutscenes are wide shots or text-driven</li>
+        <li>Minimal style is the point</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Doesn't meet "mouth moves with words"</li>
+        <li>Emotions are hard to read up close</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: expressive, same style as the body</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Stylized, Big-Shape Faces in the Kit</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 300 150" role="img" aria-label="Three stylized faceted heads with large eyes, strong brows and a shaped mouth: neutral, saying O, determined">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <defs>
+            <g id="hb"><polygon points="-32,6 32,6 38,52 26,82 0,94 -26,82 -38,52" fill="#d9a77a"/><polygon points="-32,6 0,0 32,6 26,22 -26,22" fill="#4a3022"/><polygon points="38,52 26,82 0,94 0,70 30,50" fill="#c79066"/></g>
+          </defs>
+          <g transform="translate(55,22)"><use href="#hb"/><ellipse cx="-13" cy="42" rx="6" ry="7" fill="white"/><ellipse cx="13" cy="42" rx="6" ry="7" fill="white"/><circle cx="-12" cy="43" r="3.4" fill="#2b2b2b"/><circle cx="14" cy="43" r="3.4" fill="#2b2b2b"/><path d="M-21 31 l14 -2" stroke="#4a3022" stroke-width="3.5"/><path d="M7 29 l14 2" stroke="#4a3022" stroke-width="3.5"/><path d="M-10 70 q10 4 20 0" stroke="#7a3a2c" stroke-width="3" fill="none"/></g>
+          <g transform="translate(150,22)"><use href="#hb"/><ellipse cx="-13" cy="42" rx="6" ry="7" fill="white"/><ellipse cx="13" cy="42" rx="6" ry="7" fill="white"/><circle cx="-12" cy="42" r="3.4" fill="#2b2b2b"/><circle cx="14" cy="42" r="3.4" fill="#2b2b2b"/><path d="M-21 29 l14 -1" stroke="#4a3022" stroke-width="3.5"/><path d="M7 28 l14 1" stroke="#4a3022" stroke-width="3.5"/><ellipse cx="0" cy="70" rx="6" ry="8" fill="#5a2e22"/><ellipse cx="0" cy="66" rx="4" ry="2" fill="#e8e2d8"/></g>
+          <g transform="translate(245,22)"><use href="#hb"/><ellipse cx="-13" cy="43" rx="6" ry="5" fill="white"/><ellipse cx="13" cy="43" rx="6" ry="5" fill="white"/><circle cx="-12" cy="44" r="3.2" fill="#2b2b2b"/><circle cx="14" cy="44" r="3.2" fill="#2b2b2b"/><path d="M-21 33 l14 3" stroke="#4a3022" stroke-width="3.8"/><path d="M7 36 l14 -3" stroke="#4a3022" stroke-width="3.8"/><path d="M-10 72 l20 -2" stroke="#7a3a2c" stroke-width="3"/></g>
+          <g font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif"><text x="55" y="140">neutral</text><text x="150" y="140">"Hold…" (O)</text><text x="245" y="140">determined</text></g>
+        </svg>
+        <div class="faces-cap">Illustration. Same faceted planes as the body; big eyes, strong brows, a shaped mouth.</div>
+      </div>
+      <div class="meter">
+        <div class="m"><b>~15 mouth + ~15 face</b><span>shapes generated per kit</span></div>
+        <div class="m"><b>Denser face only</b><span>body stays low-poly</span></div>
+        <div class="m"><b>Strong</b><span>readable at close-up</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Faces keep the kit's faceted, low-poly look, but are designed to act: bigger eyes, strong brow planes, a mouth with enough edge loops to form the 15 standard speech shapes, and a jaw that drops. Only the face region gets denser; the body stays the same. Every expression and mouth shape is generated from the kit template, so each new character gets them for free, and "smile a bit" stays a setting. One level of stylization across the whole character, which is what the research says avoids the uncanny effect.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Close-up cutscenes with dialogue</li>
+        <li>Many characters from one kit</li>
+        <li>Lip sync tools (6–15 shapes) fit exactly</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The face template is careful, up-front design</li>
+        <li>Not "realistic"; it's expressive and stylized</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Detailed Cutscene Head, Swapped In</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 300 150" role="img" aria-label="A low-poly body with a smooth, detailed head next to the same body with its low-poly head, showing the mismatch">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <defs><radialGradient id="sk" cx="0.4" cy="0.35" r="0.8"><stop offset="0" stop-color="#e8bf98"/><stop offset="1" stop-color="#b98560"/></radialGradient></defs>
+          <g transform="translate(80,10)">
+            <polygon points="-30,70 30,70 26,130 -26,130" fill="#4f7aa8"/>
+            <ellipse cx="0" cy="38" rx="26" ry="32" fill="url(#sk)"/>
+            <path d="M-26 22 q26 -26 52 0 q-6 -16 -26 -18 q-20 2 -26 18z" fill="#4a3022"/>
+            <ellipse cx="-10" cy="36" rx="5" ry="3.5" fill="white"/><ellipse cx="10" cy="36" rx="5" ry="3.5" fill="white"/><circle cx="-10" cy="36" r="2.4" fill="#3a2a1e"/><circle cx="10" cy="36" r="2.4" fill="#3a2a1e"/>
+            <path d="M-12 29 q5 -3 10 0 M2 29 q5 -3 10 0" stroke="#4a3022" stroke-width="1.6" fill="none"/>
+            <path d="M-2 40 q2 8 4 0" stroke="#a87652" stroke-width="1.2" fill="none"/>
+            <path d="M-8 54 q8 4 16 0" stroke="#8a4a3a" stroke-width="2" fill="none"/>
+          </g>
+          <text x="80" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">cutscene: smooth detailed head</text>
+          <g transform="translate(220,10)">
+            <polygon points="-30,70 30,70 26,130 -26,130" fill="#4f7aa8"/>
+            <polygon points="-24,8 24,8 28,52 0,68 -28,52" fill="#d9a77a"/><polygon points="-24,8 0,2 24,8 20,20 -20,20" fill="#4a3022"/>
+            <rect x="-11" y="32" width="6" height="6" fill="#2b2b2b"/><rect x="5" y="32" width="6" height="6" fill="#2b2b2b"/><rect x="-8" y="50" width="16" height="3" fill="#7a4a35"/>
+          </g>
+          <text x="220" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">gameplay: low-poly head</text>
+        </svg>
+        <div class="faces-cap">Illustration. Two heads per character; the body never changes.</div>
+      </div>
+      <div class="meter">
+        <div class="m"><b>52 shapes</b><span>full ARKit set</span></div>
+        <div class="m"><b>×2 heads</b><span>per character</span></div>
+        <div class="m"><b>Mismatch risk</b><span>head vs body</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Each character gets a second, detailed head with the full 52-shape ARKit face set that swaps in for cutscene close-ups. Mouths can be close to realistic. But it's exactly the mix the research warns about: a detailed face on a low-poly body is a realism mismatch, which is what makes characters feel eerie. It also doubles head work for every character and makes the gameplay and cutscene versions of the same person look different.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Only a few hero characters ever speak</li>
+        <li>Shots are tight on the face, never the body</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Textbook uncanny mismatch with the body</li>
+        <li>Two heads to keep in sync per character</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Realistic Faces (and Bodies)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 300 150" role="img" aria-label="A realistic-style shaded head with subtle features">
+          <rect width="300" height="150" fill="#f4f1ea"/>
+          <defs><radialGradient id="sk2" cx="0.42" cy="0.35" r="0.85"><stop offset="0" stop-color="#e2b38d"/><stop offset="0.7" stop-color="#b5805c"/><stop offset="1" stop-color="#8a5c40"/></radialGradient></defs>
+          <g transform="translate(150,8)">
+            <path d="M-34 80 q34 30 68 0 l6 50 h-80z" fill="#3e4a5a"/>
+            <ellipse cx="0" cy="48" rx="30" ry="40" fill="url(#sk2)"/>
+            <path d="M-30 30 q30 -38 60 0 q-8 -22 -30 -24 q-22 2 -30 24z" fill="#3a2a1e"/>
+            <path d="M-16 40 q6 -3 12 0 M4 40 q6 -3 12 0" stroke="#3a2a1e" stroke-width="1.6" fill="none"/>
+            <ellipse cx="-10" cy="46" rx="4.5" ry="2.6" fill="#f3efe8"/><ellipse cx="10" cy="46" rx="4.5" ry="2.6" fill="#f3efe8"/><circle cx="-10" cy="46" r="2" fill="#4a3424"/><circle cx="10" cy="46" r="2" fill="#4a3424"/>
+            <path d="M-2 50 q-3 10 0 14 q3 1 5 -1" stroke="#9a6a4a" stroke-width="1.2" fill="none"/>
+            <path d="M-9 72 q9 3 18 0" stroke="#7a3f32" stroke-width="2.2" fill="none"/><path d="M-9 72 q9 -2 18 0" stroke="#a0584a" stroke-width="1" fill="none"/>
+          </g>
+          <text x="150" y="146" font-size="8" fill="#64748b" text-anchor="middle" font-family="-apple-system, sans-serif">realistic proportions, subtle detail</text>
+        </svg>
+        <div class="faces-cap">Illustration. Realism needs the whole character and pipeline to match.</div>
+      </div>
+      <div class="meter">
+        <div class="m"><b>52+ shapes</b><span>plus wrinkle detail</span></div>
+        <div class="m"><b>Reverses D12</b><span>style + pipeline</span></div>
+        <div class="m"><b>Highest bar</b><span>AAA comparison</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Go realistic everywhere: realistic faces need realistic bodies, which means reversing decision 12 (low-poly) and taking on sculpting, detailed textures and the full classic pipeline. Lip sync tools look worst at this level, and players judge against AAA games: Mass Effect Andromeda's faces dominated its reception. Most indies who try it end up polishing only a few hero shots.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Realism is the game's whole identity</li>
+        <li>You have a big budget for faces</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Undoes the art style and pipeline you chose</li>
+        <li>Judged against AAA, and harshly</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>"Stylized" will never be "realistic", and you did say the mouth should move realistically with words. A stylized mouth with 15 well-blended shapes reads as natural speech, but it won't show the micro-detail of real lips, and a face template that acts well is genuinely hard design: simple faces expose small errors more, not less. If true realism for a few hero characters matters more than consistency, C gets closer, accepting the mismatch risk and double head work.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>"Realistic mouth" means natural-looking speech (right shapes, right timing, smooth blending), not photoreal lips.</li>
+    <li>Low-poly style (decision 12) stays for the game; faces join it rather than leave it.</li>
+    <li>The kit's face template can carry about 15 speech shapes plus about 15 expression shapes, generated per character, inside a reasonable file size budget.</li>
+    <li>Cutscene cameras can hold close-ups on a stylized face without it falling apart; we'll verify with renders in the first milestone.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Eeriness comes from parts of one character sitting at different levels of realism. Mismatched eye size or texture was especially eerie, and faces with normal proportions but little detail were rated eeriest. <a class="cite" href="https://scholarworks.indianapolis.iu.edu/items/e8fb6458-ddad-4067-b877-1207d720ba0c">MacDorman et al. 2009</a> <a class="cite" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5024669">Chattopadhyay &amp; MacDorman</a></li>
+    <li>Every working lip-sync chain treats the mouth as a small set of shapes: Rhubarb uses 6–9, Meta's standard 15. They work best on stylized faces and look worst on realistic ones. <a class="cite" href="https://github.com/DanielSWolf/rhubarb-lip-sync">Rhubarb</a> <a class="cite" href="https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/">Meta viseme reference</a></li>
+    <li>The OPUS: Echo of Starsong team started with simplified faces, found it "hard to tell what their expressions were", and added detail. Ghost of a Tale skipped mouth rigging entirely. <a class="cite" href="https://www.gamedeveloper.com/game-platforms/from-start-to-finish-bringing-characters-to-life-in-opus-echo-of-starsong">Game Developer</a> <a class="cite" href="https://gamedeveloper.com/design/how-an-ex-dreamworks-animator-imbued-i-ghost-of-a-tale-i-with-character">Game Developer</a></li>
+    <li>Mass Effect Andromeda's facial animation, probably automated at scale with little polish, dominated its reception. <a class="cite" href="https://www.pcgamer.com/bioware-responds-to-mass-effect-andromeda-animation-harassment">PC Gamer</a> <a class="cite" href="https://www.vice.com/en/article/animators-awkward-andromeda-animations-are-automation-amok">Vice</a></li>
+    <li>In a minimal, symmetrical style, people "notice right away if something is off". Simple faces expose small errors more. <a class="cite" href="https://wepresent.wetransfer.com/stories/wetransfer-x-killscreen-inside-ko-op-modes-gnog">Gnog art lead</a></li>
+    <li>Per-head ARKit services such as Polywink, last published at about $299 per model, and hand tools such as Faceit don't scale to parametric kits that generate many heads. The shapes need generating from the template. <a class="cite" href="https://www.cgchannel.com/2018/07/polywink-creates-blendshapes-and-rigs-for-any-head-model/">CG Channel</a> <a class="cite" href="https://superhivemarket.com/products/faceit">Faceit</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>AAA facial teams say realism is reachable with enough tech (JALI drives Cyberpunk 2077's lip sync in 10 languages). Indie developers and the uncanny-valley research say stylize and stay consistent, because realism costs more than its payoff. For a solo developer with an AI doing the animation, the indie side has the stronger case.</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a">A: Low-poly face</th><th class="col-b col-pick">B: Stylized big-shape</th><th class="col-c">C: Cutscene head swap</th><th class="col-d">D: Realistic</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Mouth moves with words</td><td>Open/shut only</td><td class="col-pick">Yes: 15 speech shapes, blended</td><td>Near-realistic</td><td>Realistic, if polished</td></tr>
+        <tr><td>Emotion reads up close</td><td>Barely</td><td class="col-pick">Clearly</td><td>Clearly</td><td>Subtly</td></tr>
+        <tr><td>Uncanny risk</td><td>Low</td><td class="col-pick">Low (one style)</td><td>High (mismatch)</td><td>High (vs AAA)</td></tr>
+        <tr><td>Work per new character</td><td>None</td><td class="col-pick">None (generated from kit)</td><td>A second head</td><td>Heavy</td></tr>
+        <tr><td>Fits decision 12 (low-poly)</td><td>Yes</td><td class="col-pick">Yes</td><td>Partly</td><td>No</td></tr>
+        <tr><td>Undo cost</td><td>Low</td><td class="col-pick">Medium: face template redesign</td><td>High</td><td>Very high</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option B"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-19 I want Option C instead"</strong></p>
+</div>
+
+</body>
+</html>

@@ -6,7 +6,22 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { runSandboxed } from './sandbox.ts';
-import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
+import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
+
+// Game exports (`export --target godot|web`) round-trip through the target engine: any import
+// warning or error fails the export (decision 17). Skipped, not failed, when the engine isn't installed;
+// STUDIO_ROUNDTRIP=0 turns it off.
+onAfterExport(async ({ file, target }) => {
+  if (!target || process.env.STUDIO_ROUNDTRIP === '0') return null;
+  const engine = target === 'web' ? 'web' : 'godot';
+  const game = await import('../../game/src/index.ts');
+  const { findGodot } = await import('../../game/src/godot.ts');
+  const { findChrome } = await import('../../game/src/chrome.ts');
+  if (engine === 'godot' ? !findGodot() : !findChrome()) return { name: `round-trip (${engine})`, ok: true, detail: `skipped: ${engine === 'godot' ? 'Godot' : 'Chrome'} not installed` };
+  const r: any = await game.roundTrip(file, engine);
+  const problems = [...(r.errors ?? []), ...(r.warnings ?? [])];
+  return { name: `round-trip (${engine})`, ok: r.ok && !problems.length, detail: problems.length ? problems.slice(0, 5).join('; ') : `${r.meshes ?? r.objects?.length ?? '?'} meshes, ${r.triangles ?? '?'} triangles, clean` };
+});
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
