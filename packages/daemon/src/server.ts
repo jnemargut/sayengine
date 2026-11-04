@@ -18,7 +18,12 @@ onAfterExport(async ({ file, target }) => {
   const { findGodot } = await import('../../game/src/godot.ts');
   const { findChrome } = await import('../../game/src/chrome.ts');
   if (engine === 'godot' ? !findGodot() : !findChrome()) return { name: `round-trip (${engine})`, ok: true, detail: `skipped: ${engine === 'godot' ? 'Godot' : 'Chrome'} not installed` };
-  const r: any = await game.roundTrip(file, engine);
+  const limit = Number(process.env.STUDIO_ROUNDTRIP_TIMEOUT_MS ?? 240000);
+  let timer: NodeJS.Timeout | undefined;
+  const r: any = await Promise.race([
+    game.roundTrip(file, engine),
+    new Promise((resolve) => { timer = setTimeout(() => resolve({ ok: false, errors: [`${engine} round-trip timed out after ${Math.round(limit / 1000)} s`] }), limit); }),
+  ]).finally(() => clearTimeout(timer));
   const problems = [...(r.errors ?? []), ...(r.warnings ?? [])];
   return { name: `round-trip (${engine})`, ok: r.ok && !problems.length, detail: problems.length ? problems.slice(0, 5).join('; ') : `${r.meshes ?? r.objects?.length ?? '?'} meshes, ${r.triangles ?? '?'} triangles, clean` };
 });

@@ -11,6 +11,9 @@ import { startDaemon } from '../src/server.ts';
 import { onAfterExport } from '../../core/src/index.ts';
 import { solidPng } from '../../core/test/png.ts';
 
+// The real engine round-trip is covered by packages/game tests; here a stand-in hook checks the wiring.
+process.env.STUDIO_ROUNDTRIP = '0';
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-game-'));
 const port = 4595;
 const { server } = await startDaemon({ dir, port });
