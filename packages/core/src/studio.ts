@@ -12,6 +12,7 @@ import { referencedParams } from './expr.ts';
 import { toolByName, type ToolCtx } from './tools.ts';
 import type { SceneDoc, SceneObject } from './types.ts';
 import { poseChecks, weightReport, mouthCheck, type PoseCheck } from './rig.ts';
+import { bakeMotion, motionReport, checkFrames } from './motion.ts';
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
 
@@ -170,6 +171,37 @@ export class Studio {
       out.push({ id: `hold-${hand}`, label: `Fingers clear of ${p.name}`, pass: n === 0, detail: n ? `${n} finger points pass through ${p.name} — loosen the grip (set-hand --curl) or adjust its grip (set-grip)` : `${hand} hand wraps ${p.name} without passing through it` });
     }
     for (const [id, line] of Object.entries(o.character?.lines ?? {})) out.push(...lineChecks(id, line));
+    for (const id of Object.keys(o.character?.motions ?? {})) out.push(...this.motionChecks(o, id));
+    return out;
+  }
+
+  private motionCache = new Map<string, CheckResult[]>();
+  /** A motion's checks: feet planted, nothing below the floor, legs reach, loop closes, and the skin at its extremes. */
+  motionChecks(o: SceneObject, id: string): CheckResult[] {
+    const spec = o.character?.motions?.[id];
+    if (!spec) return [];
+    const key = JSON.stringify([o.params, o.ops, o.opOrder, o.output, id, spec, o.character?.hands, o.character?.holds]);
+    const hit = this.motionCache.get(key);
+    if (hit) return hit;
+    const r = this.evaluate(o);
+    if (!r.ok || !r.rig) return [];
+    const label = spec.kind === 'action' ? `${id} (${spec.action})` : id;
+    let out: CheckResult[];
+    try {
+      const clip = bakeMotion(id, spec, r.rig.rig, o.character);
+      const rep = motionReport(r.rig.rig, clip);
+      const frames = checkFrames(clip);
+      const skin = poseChecks(r.rig.rig, r.rig.rest, r.indices, r.rig.vertPart, Object.fromEntries(frames.map((f) => [`frame ${f}`, clip.local[f]])));
+      const bad = skin.filter((p) => !p.pass);
+      out = [
+        { id: `motion-${id}`, label: `Motion "${label}": feet planted${clip.loop ? ', loops' : ''}`, pass: rep.pass, detail: rep.detail },
+        { id: `motion-${id}-skin`, label: `Motion "${label}": bends cleanly`, pass: !bad.length, detail: bad.length ? bad.map((p) => `${p.pose}: ${p.detail}`).join('; ') : `${skin.length} key frame(s): ${skin.map((p) => p.detail).sort()[0] ?? ''}` },
+      ];
+    } catch (e: any) {
+      out = [{ id: `motion-${id}`, label: `Motion "${label}"`, pass: false, detail: e.message }];
+    }
+    if (this.motionCache.size > 60) this.motionCache.delete(this.motionCache.keys().next().value!);
+    this.motionCache.set(key, out);
     return out;
   }
 

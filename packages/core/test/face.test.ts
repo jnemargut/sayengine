@@ -138,7 +138,7 @@ test('life while speaking: seeded blinks (at pauses too), eye darts that return,
   const j = json(glb);
   const clip = j.animations.find((x: any) => x.name === 'line:hold');
   const animated = clip.channels.filter((c: any) => c.target.path === 'rotation').map((c: any) => j.nodes[c.target.node].name).sort();
-  assert.deepEqual(animated, ['LeftEye', 'LeftUpperLid', 'RightEye', 'RightUpperLid']);
+  assert.deepEqual(animated, ['Chest', 'Head', 'LeftEye', 'LeftUpperLid', 'Neck', 'RightEye', 'RightUpperLid', 'UpperChest']);
   // opting out keeps the clip to the mouth
   const r2 = s.call('set-line', { object: 'smith', id: 'still', line: { ...line, audio: 'none.wav', curves, aligner: 'test', life: null } });
   assert.ok(r2.ok && !s.doc().objects.smith.character!.lines!.still.life);

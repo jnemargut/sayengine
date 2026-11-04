@@ -141,6 +141,7 @@ export interface LineLife {
   curves: Record<string, number[]>;        // e.g. eyeBlinkLeft/Right, browInnerUp (0..1)
   gaze: { yaw: number[]; pitch: number[] }; // degrees, added to the eyes' pose (+yaw = character's left, +pitch = up)
   blinks: number[];                         // blink start times (s)
+  body?: { breath: number[]; headPitch: number[]; headYaw: number[] }; // breathing (-1..1) and head motion (degrees) per frame
 }
 
 export interface CharacterState {
@@ -149,6 +150,27 @@ export interface CharacterState {
   hands?: { left?: HandPose; right?: HandPose };
   holds?: { left?: string; right?: string };        // object ids held in each hand
   lines?: Record<string, LineClip>;
+  motions?: Record<string, MotionSpec>;              // parametric motion (Decision 16): baked to clips on export
+}
+
+/**
+ * A parametric motion (Decision 16): settings, not keyframes. Baked to a clip from the character's own
+ * skeleton whenever it's exported or checked, so changing the body re-fits every motion.
+ * walk/run/idle loop; turn and action play once.
+ */
+export interface MotionSpec {
+  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action';
+  speed?: number;      // m/s (walk ~1.3, run ~3.5)
+  stride?: number;     // m per full cycle (two steps); default from leg length and speed
+  bounce?: number;     // m of hip rise and fall
+  armSwing?: number;   // degrees
+  lean?: number;       // degrees forward
+  sway?: number;       // m of side-to-side hip shift (idle: the weight shift)
+  energy?: number;     // 0 tired … 1 lively (scales swing, bounce, breathing, glances)
+  duration?: number;   // s (idle loop length, action / turn length)
+  turn?: number;       // degrees, + = to the character's left (turn)
+  action?: string;     // a library action (action): wave, nod, shrug, point, hammer-strike, pick-up, look-around
+  seed?: number;       // blinks and glances
 }
 
 /** A game export profile (Decision 17): budgets shown as checks after every step. */

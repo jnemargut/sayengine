@@ -13,7 +13,8 @@ import { materialForPart } from './materials.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
 import { GlbBuilder } from './glb.ts';
-import { addCharacterNodes, addSkin, cornerVerts, rigAttributes } from './skinexport.ts';
+import { addCharacterNodes, addSkin, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
+import { forward, localRotations, qAxisAngle, qMul, qRot, type Q, type V3 } from './rig.ts';
 
 type V3 = [number, number, number];
 export type Target = 'godot' | 'web';
@@ -307,6 +308,10 @@ const trisOf = (res: EvalResult, parts: string[]) => {
 export async function exportGame(items: GameExportItem[], opts: GameExportOpts): Promise<GameExportResult> {
   const B = new GlbBuilder();
   const reports: ObjectReport[] = [];
+  // several characters in one file: their clips are prefixed "<id>:" so names stay unique
+  const characterCount = items.filter((i) => i.obj.role !== 'reference' && i.res.ok && i.res.rig).length;
+  const charNodes = new Map<string, { obj: SceneObject; res: EvalResult; info: SkinInfo }>();
+  const propNodes = new Map<string, number>();
   for (const { obj, res: posedRes } of items) {
     if (obj.role === 'reference' || !posedRes.ok) continue;
     // characters export in their bind pose (T-pose, neutral face); the current pose/face become the "pose" clip
@@ -381,12 +386,14 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     const extras: any = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])), ...(obj.profile ? { profile: obj.profile.name } : {}) };
     let node: any;
     if (skin) {
-      const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}) } });
+      const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}), motions: Object.keys(obj.character?.motions ?? {}), ...(characterCount > 1 ? { clipPrefix: `${obj.id}:` } : {}) } }, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' });
+      charNodes.set(obj.id, { obj, res, info: skin });
       node = B.gltf.nodes[roots[0]];
       B.gltf.scenes[0].nodes.push(...roots);
       report.rig = { bones: skin.kept.length, shapes: skin.shapeNames.length, clips: B.gltf.animations?.length ?? 0 };
     } else {
       node = { name: obj.name, mesh: meshFor(res), translation: [...origin], extras };
+      propNodes.set(obj.id, B.gltf.nodes.length);
       B.gltf.nodes.push(node);
       B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1);
     }
@@ -425,6 +432,31 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     reports.push(report);
   }
   if (!reports.length) throw new Error('nothing to export (no evaluated, non-reference objects)');
+  // a prop in a hand rides on the hand joint, so it follows every clip (walk, actions, lines)
+  for (const { obj } of items) {
+    if (obj.place?.kind !== 'held') continue;
+    const c = charNodes.get(obj.place.target), ni = propNodes.get(obj.id);
+    if (!c || ni === undefined) continue;
+    const rig = c.res.rig!.rig;
+    const bi = rig.bones.findIndex((b) => b.name === `${obj.place!.hand === 'left' ? 'Left' : 'Right'}Hand`);
+    const k = c.info.kept.indexOf(bi);
+    if (k < 0) continue;
+    const posed = forward(rig.bones, rig.parents, localRotations(rig, c.obj.character));
+    const qc = qAxisAngle([0, 1, 0], c.obj.rotation ?? 0);
+    const hq: Q = qMul(qc, posed.worldQ[bi]);
+    const hp = qRot(qc, posed.worldP[bi]);
+    const handP: V3 = [c.obj.position[0] + hp[0], c.obj.position[1] + hp[1], c.obj.position[2] + hp[2]];
+    const inv: Q = [-hq[0], -hq[1], -hq[2], hq[3]];
+    const node = B.gltf.nodes[ni];
+    const t = node.translation as number[];
+    node.translation = qRot(inv, [t[0] - handP[0], t[1] - handP[1], t[2] - handP[2]]).map((v) => +v.toFixed(6));
+    node.rotation = inv.map((v) => +v.toFixed(7));
+    node.extras = { ...(node.extras ?? {}), heldBy: { character: c.obj.name, hand: obj.place.hand } };
+    const roots = B.gltf.scenes[0].nodes as number[];
+    roots.splice(roots.indexOf(ni), 1);
+    const joint = B.gltf.nodes[c.info.jointNodes[k]];
+    (joint.children ??= []).push(ni);
+  }
   return { glb: B.build(), objects: reports };
 }
 

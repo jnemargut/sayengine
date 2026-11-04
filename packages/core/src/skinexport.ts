@@ -1,12 +1,15 @@
 // Characters in glTF (Decisions 13, 20, 21): the bind pose (T-pose, neutral face) as the mesh, a skin
 // on the 56-bone skeleton (Godot humanoid + two eyelid bones) (fingers optional), the face shape keys as sparse morph
 // targets named in mesh.extras.targetNames, and animation clips: "pose" (the character's current
-// pose and expression, one key) and one "line:<id>" clip per spoken line (speech-shape curves).
+// pose and expression, one key), one "line:<id>" clip per spoken line (speech-shape curves, blinks,
+// glances, breathing, head) and one clip per parametric motion (walk, idle, actions; in place, with
+// its speed in extras). With several characters in one file, clips are prefixed "<character id>:".
 // Both exporters (plain GLB and game export) use this. DOM-free and Node-free.
 import type { EvalResult } from './kernel.ts';
 import type { SceneObject } from './types.ts';
 import { GlbBuilder } from './glb.ts';
 import { forward, localRotations, qAxisAngle, qMul, type Q } from './rig.ts';
+import { bakeMotion } from './motion.ts';
 
 /** Vertex id of every triangle corner, in triangle order. */
 export function cornerVerts(res: EvalResult, tris: number[]): Uint32Array {
@@ -85,7 +88,7 @@ export function rigAttributes(B: GlbBuilder, res: EvalResult, verts: Uint32Array
 }
 
 /** The skinned mesh node and the joints (placement on the Root joint); then the clips. Returns the scene roots. */
-export function addCharacterNodes(B: GlbBuilder, obj: SceneObject, res: EvalResult, mesh: number, info: SkinInfo, extras: Record<string, unknown>): number[] {
+export function addCharacterNodes(B: GlbBuilder, obj: SceneObject, res: EvalResult, mesh: number, info: SkinInfo, extras: Record<string, unknown>, opts: { clipPrefix?: string } = {}): number[] {
   const m = B.gltf.meshes[mesh];
   m.extras = { ...(m.extras ?? {}), targetNames: info.shapeNames };
   m.weights = info.shapeNames.map(() => 0);
@@ -96,11 +99,11 @@ export function addCharacterNodes(B: GlbBuilder, obj: SceneObject, res: EvalResu
   const root = B.gltf.nodes[info.root];
   root.translation = [obj.position[0] + root.translation[0], obj.position[1] + root.translation[1], obj.position[2] + root.translation[2]];
   if (obj.rotation) root.rotation = qAxisAngle([0, 1, 0], obj.rotation);
-  addClips(B, obj, res, meshNode, info);
+  addClips(B, obj, res, meshNode, info, opts.clipPrefix ?? '');
   return [meshNode, info.root];
 }
 
-function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: number, info: SkinInfo) {
+function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: number, info: SkinInfo, prefix: string) {
   const rig = res.rig!.rig;
   const anims = (B.gltf.animations ??= []);
   const expr = obj.character?.expression ?? {};
@@ -119,7 +122,7 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
   });
   samplers.push({ input: t0, output: B.typed(new Float32Array(weightsAt(() => undefined)), 'SCALAR'), interpolation: 'STEP' });
   channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
-  anims.push({ name: 'pose', samplers, channels });
+  anims.push({ name: `${prefix}pose`, samplers, channels });
   // one clip per spoken line: speech-shape curves over time (the rest of the face holds its expression),
   // plus the line's life: blinks and brow lifts as shape keys, the eyelids and eyes as bone rotations
   const jointOf = (name: string) => { const bi = rig.bones.findIndex((b) => b.name === name); const k = bi >= 0 ? info.kept.indexOf(bi) : -1; return k >= 0 ? { bi, node: info.jointNodes[k] } : null; };
@@ -159,7 +162,50 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
         const j = jointOf(side);
         if (j) rotTrack(j.node, (f) => qMul(local[j.bi], qMul(qAxisAngle([0, 1, 0], life.gaze.yaw[f] ?? 0), qAxisAngle([1, 0, 0], -(life.gaze.pitch[f] ?? 0)))));
       }
+      // breathing and the head's small nods and drift, on top of the held pose
+      const body = life.body;
+      if (body) {
+        const at = (a: number[], f: number) => a[Math.min(f, a.length - 1)] ?? 0;
+        const tracks: Array<[string, (f: number) => Q]> = [
+          ['Chest', (f) => qAxisAngle([1, 0, 0], -0.8 * at(body.breath, f))],
+          ['UpperChest', (f) => qAxisAngle([1, 0, 0], -1.2 * at(body.breath, f))],
+          ['Neck', (f) => qMul(qAxisAngle([0, 1, 0], at(body.headYaw, f) * 0.4), qAxisAngle([1, 0, 0], at(body.headPitch, f) * 0.35))],
+          ['Head', (f) => qMul(qAxisAngle([0, 1, 0], at(body.headYaw, f) * 0.6), qAxisAngle([1, 0, 0], at(body.headPitch, f) * 0.65))],
+        ];
+        for (const [bn, fn] of tracks) { const j = jointOf(bn); if (j) rotTrack(j.node, (f) => qMul(local[j.bi], fn(f))); }
+      }
     }
-    anims.push({ name: `line:${id}`, samplers, channels, extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion, ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}), ...(life ? { life: { seed: life.seed, blinks: life.blinks } } : {}) } });
+    anims.push({ name: `${prefix}line:${id}`, samplers, channels, extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.emotion, ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}), ...(life ? { life: { seed: life.seed, blinks: life.blinks } } : {}) } });
+  }
+  // parametric motions (Decision 16): baked from settings onto this skeleton; in place, with the
+  // speed a game should move the character at in the clip's extras
+  const hipsJ = jointOf('Hips');
+  for (const [id, spec] of Object.entries(obj.character?.motions ?? {})) {
+    let clip;
+    try { clip = bakeMotion(id, spec, rig, obj.character); } catch { continue; }
+    const n = clip.frames + 1;
+    const input = B.typed(new Float32Array(n).map((_, f) => f / clip.fps), 'SCALAR', { minmax: true });
+    const samplers: any[] = [], channels: any[] = [];
+    info.kept.forEach((bi, k) => {
+      let moves = false;
+      for (let f = 0; f < n && !moves; f++) if (Math.abs(clip.local[f][bi][3]) < 0.999999) moves = true;
+      if (!moves) return;
+      const o = new Float32Array(n * 4);
+      for (let f = 0; f < n; f++) o.set(clip.local[f][bi], f * 4);
+      samplers.push({ input, output: B.typed(o, 'VEC4'), interpolation: 'LINEAR' });
+      channels.push({ sampler: samplers.length - 1, target: { node: info.jointNodes[k], path: 'rotation' } });
+    });
+    if (hipsJ) {
+      const restT = B.gltf.nodes[hipsJ.node].translation as number[];
+      const o = new Float32Array(n * 3);
+      for (let f = 0; f < n; f++) o.set([restT[0] + clip.hips[f][0], restT[1] + clip.hips[f][1], restT[2] + clip.hips[f][2]], f * 3);
+      samplers.push({ input, output: B.typed(o, 'VEC3'), interpolation: 'LINEAR' });
+      channels.push({ sampler: samplers.length - 1, target: { node: hipsJ.node, path: 'translation' } });
+    }
+    const out = new Float32Array(n * info.shapeNames.length);
+    for (let f = 0; f < n; f++) out.set(weightsAt((nme) => (clip.shapes[nme] ? Math.max(clip.shapes[nme][f] ?? 0, expr[nme] ?? 0) : undefined)), f * info.shapeNames.length);
+    samplers.push({ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' });
+    channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
+    anims.push({ name: `${prefix}${id}`, samplers, channels, extras: { motion: spec.kind, loop: clip.loop, speed: clip.speed, duration: clip.duration, ...(clip.stride ? { stride: clip.stride } : {}), ...(clip.turn !== undefined ? { turn: clip.turn } : {}), ...(spec.action ? { action: spec.action } : {}) } });
   }
 }

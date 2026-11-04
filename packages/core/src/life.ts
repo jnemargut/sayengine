@@ -117,5 +117,62 @@ export function lineLife(l: Line, seed = hashSeed(l.text)): LineLife {
     }
   }
   const round = (a: number[]) => a.map((v) => +v.toFixed(3));
-  return { seed, curves: { eyeBlinkLeft: round(blink), eyeBlinkRight: round(blink), browInnerUp: brow }, gaze: { yaw, pitch }, blinks: blinks.map((b) => +b.toFixed(3)) };
+  // ── body: breathing, a small nod on each brow lift (the stressed word), and a slow head drift ──
+  const breathRate = 2 * Math.PI / (3.6 - 0.6 * Math.min(1, (EMOTION_SCALE[l.emotion] ?? 1) - 0.8));
+  const ph = r() * 2 * Math.PI, dy = (r() * 2 - 1) * 2.5, dyPh = r() * 2 * Math.PI;
+  const breath = new Array(frames).fill(0), headPitch = new Array(frames).fill(0), headYaw = new Array(frames).fill(0);
+  for (let f = 0; f < frames; f++) {
+    const tt = f / fps;
+    breath[f] = +Math.sin(breathRate * tt + ph).toFixed(3);
+    headPitch[f] = +(brow[f] / Math.max(1e-6, lift) * 3.5 * Math.min(1.2, EMOTION_SCALE[l.emotion] ?? 1)).toFixed(2);   // degrees, + = nod down
+    headYaw[f] = +(dy * Math.sin((2 * Math.PI * tt) / Math.max(2, l.duration * 1.3) + dyPh)).toFixed(2);
+  }
+  return { seed, curves: { eyeBlinkLeft: round(blink), eyeBlinkRight: round(blink), browInnerUp: brow }, gaze: { yaw, pitch }, blinks: blinks.map((b) => +b.toFixed(3)), body: { breath, headPitch, headYaw } };
+}
+
+/**
+ * Life for a motion clip (idle, walk, actions): blinks every 2–4 s and glances that leave and come back
+ * home. Arrays have frames + 1 entries; a looping clip starts and ends with open eyes looking home, so
+ * the loop closes. `glance` scales how far and how often the eyes wander (idle 1, walking ~0.35).
+ */
+export function ambientLife(duration: number, fps: number, seed: number, opts: { loop: boolean; glance: number; energy: number }) {
+  const frames = Math.max(1, Math.round(duration * fps));
+  const r = rng(seed ^ 0x9e3779b9);
+  const between = (a: number, b: number) => a + (b - a) * r();
+  const span = BLINK.close + BLINK.hold + BLINK.open;
+  const blinks: number[] = [];
+  let t = between(0.4, 1.8);
+  while (t < duration - span - (opts.loop ? 0.2 : 0)) { blinks.push(t); t += between(...BLINK.every) * (1.15 - 0.3 * opts.energy); }
+  const ease = (u: number) => u * u * (3 - 2 * u);
+  const blink = new Array(frames + 1).fill(0);
+  for (const b of blinks) for (let f = Math.floor(b * fps); f <= Math.min(frames, Math.ceil((b + span) * fps)); f++) {
+    const x = f / fps - b;
+    const w = x < 0 ? 0 : x < BLINK.close ? ease(x / BLINK.close) : x < BLINK.close + BLINK.hold ? 1 : Math.max(0, 1 - ease((x - BLINK.close - BLINK.hold) / BLINK.open));
+    blink[f] = Math.max(blink[f], +w.toFixed(3));
+  }
+  // glances: hold home, look somewhere for a moment, come back; the last 0.6 s of a loop is home
+  const fix: Array<{ at: number; yaw: number; pitch: number }> = [{ at: 0, yaw: 0, pitch: 0 }];
+  t = between(0.8, 2);
+  const end = duration - (opts.loop ? 0.6 : 0.2);
+  while (t < end && opts.glance > 0) {
+    const nb = blinks.find((b) => b > t - 0.3 && b < t + 0.3);
+    const at = nb !== undefined ? nb + BLINK.close : t;
+    if (at >= end) break;
+    const side = r() < 0.5 ? -1 : 1;
+    fix.push({ at, yaw: side * between(4, 11) * opts.glance, pitch: (r() * 2 - 1) * 4 * opts.glance });
+    const back = at + between(0.5, 1.4);
+    fix.push({ at: Math.min(back, end), yaw: 0, pitch: 0 });
+    t = back + between(1.2, 3) / Math.max(0.3, opts.glance);
+  }
+  const yaw = new Array(frames + 1).fill(0), pitch = new Array(frames + 1).fill(0);
+  for (let f = 0; f <= frames; f++) {
+    const tt = f / fps;
+    let i = 0;
+    while (i + 1 < fix.length && fix[i + 1].at <= tt) i++;
+    const cur = fix[i], prev = fix[Math.max(0, i - 1)];
+    const u = i === 0 ? 1 : ease(Math.min(1, (tt - cur.at) / (GAZE.saccade * 1.6)));
+    yaw[f] = +(prev.yaw + (cur.yaw - prev.yaw) * u).toFixed(2);
+    pitch[f] = +(prev.pitch + (cur.pitch - prev.pitch) * u).toFixed(2);
+  }
+  return { blink, yaw, pitch, blinks: blinks.map((b) => +b.toFixed(3)) };
 }

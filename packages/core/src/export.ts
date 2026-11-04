@@ -58,6 +58,7 @@ export function gltfMaterial(m: Material, used: Set<string>) {
 export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
   const B = new GlbBuilder();
   const matIndex = new Map<string, number>();
+  const characterCount = usable(items, opts).filter((i) => i.res.rig).length;
   for (const { obj, res: posedRes } of usable(items, opts)) {
     // characters: bind pose (T-pose, neutral face) + skin + face shapes + clips; others: world-space mesh
     const rigged = !!posedRes.rig;
@@ -85,7 +86,7 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
     B.gltf.meshes.push({ name: obj.name, primitives });
     const mesh = B.gltf.meshes.length - 1;
     const extras = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])) };
-    if (skin) B.gltf.scenes[0].nodes.push(...addCharacterNodes(B, obj, posedRes, mesh, skin, extras));
+    if (skin) B.gltf.scenes[0].nodes.push(...addCharacterNodes(B, obj, posedRes, mesh, skin, extras, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' }));
     else { B.gltf.nodes.push({ name: obj.name, mesh, extras }); B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1); }
   }
   return B.build();

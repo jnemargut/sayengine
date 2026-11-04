@@ -806,7 +806,8 @@ export const isKitPart = (part: string) => part === 'torso' || isFacePart(part) 
  * (candy-wrapping shrinks it), the largest edge stretch, and triangles of non-neighbouring body
  * regions passing through each other.
  */
-export function poseChecks(rig: Rig, rest: Float32Array, indices: Uint32Array, vertPart: string[]): PoseCheck[] {
+/** Skin checks for a set of poses: the canonical set, or any named local-rotation sets (motion frames). */
+export function poseChecks(rig: Rig, rest: Float32Array, indices: Uint32Array, vertPart: string[], poses?: Record<string, Q[]>): PoseCheck[] {
   const n = rest.length / 3;
   const dominant = new Int32Array(n);
   for (let v = 0; v < n; v++) dominant[v] = rig.joints[v * 4];
@@ -851,8 +852,8 @@ export function poseChecks(rig: Rig, rest: Float32Array, indices: Uint32Array, v
     triRegion.push(region(dominant[v]));
   }
   const out: PoseCheck[] = [];
-  for (const [name, pose] of Object.entries(CANONICAL_POSES)) {
-    const local = rig.bones.map((b) => (pose[b.name] ? qEuler(pose[b.name]) : qIdentity()));
+  const sets: Record<string, Q[]> = poses ?? Object.fromEntries(Object.entries(CANONICAL_POSES).map(([name, pose]) => [name, rig.bones.map((b) => (pose[b.name] ? qEuler(pose[b.name]) : qIdentity()))]));
+  for (const [name, local] of Object.entries(sets)) {
     const posed = forward(rig.bones, rig.parents, local);
     const P = poseVertices(rig, rest, posed, undefined);
     // joint volume: mean distance from the joint centre, posed vs rest

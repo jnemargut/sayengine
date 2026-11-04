@@ -7,6 +7,8 @@ import type { CharacterState, GripSocket, HandPose, LineClip, Material, SceneObj
 import { CHAR_DEFAULTS, EXPRESSIONS, NAMED_HAND_POSES, SHAPE_KEYS, VISEMES, characterSpec, charParams, weightReport, type V3 } from './rig.ts';
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
 import { lineLife } from './life.ts';
+import { ACTIONS, MOTION_DEFAULTS, bakeMotion, motionSettings } from './motion.ts';
+import type { MotionSpec } from './types.ts';
 import { placeVerts } from './kernel.ts';
 
 const ObjRef = z.string().optional().describe('object id or name (defaults to the only/last object)');
@@ -141,6 +143,8 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         pose: { LeftUpperArm: [0, 0, -72], RightUpperArm: [0, 0, 72], LeftLowerArm: [0, -8, 0], RightLowerArm: [0, 8, 0] },
         hands: { left: { ...NAMED_HAND_POSES.relaxed }, right: { ...NAMED_HAND_POSES.relaxed } },
         expression: {},
+        // every character can stand and walk in a game from the start (set-motion tunes or adds more)
+        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' } },
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,
@@ -315,6 +319,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         bones: r.rig?.rig.bones.map((b: any) => b.name) ?? [], shapes: { speech: VISEMES, expression: EXPRESSIONS },
         handPoses: NAMED_HAND_POSES, pose: c.pose ?? {}, expression: c.expression ?? {}, hands: c.hands ?? {}, holds: c.holds ?? {},
         lines: Object.fromEntries(Object.entries(c.lines ?? {}).map(([k, l]) => [k, { text: l.text, duration: l.duration, emotion: l.emotion, voice: l.voice, audio: l.audio, aligner: l.aligner }])),
+        motions: c.motions ?? {},
       };
     },
   },
@@ -347,6 +352,75 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), lines });
       ctx.summary(`${o.name}: removed line ${a.id}`);
       return { removed: a.id };
+    },
+  },
+  {
+    name: 'set-motion', mode: 'modify', mutates: true,
+    description: 'Add or tune a parametric motion on a character (Decision 16): walk, run, idle (breathing, weight shifts, blinks, glances), turn, or a library action. Settings, not keyframes: it is baked onto this character\'s skeleton on export, with the legs solved so planted feet never slide, and re-fits when the body changes. Calling it again with the same --id changes only the settings you pass. Clips are in place; games move the character at the clip\'s speed. Hands keep their pose (and grip) while moving.',
+    input: z.object({
+      object: ObjRef,
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('clip name, e.g. walk, run, idle, turn-left, wave'),
+      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action']).optional().describe('required for a new motion'),
+      speed: z.number().optional().describe('m/s (walk 0.3–2.2, default ~1.3; run 1.8–7, default ~3.4)'),
+      stride: z.number().optional().describe('m per cycle (two steps); default from leg length and speed'),
+      bounce: z.number().optional().describe('m of hip rise and fall'),
+      armSwing: z.number().optional().describe('degrees'),
+      lean: z.number().optional().describe('degrees forward'),
+      sway: z.number().optional().describe('m side to side (idle: the weight shift)'),
+      energy: z.number().optional().describe('0 tired … 1 lively (default 0.5)'),
+      duration: z.number().optional().describe('s (idle loop, action, turn)'),
+      turn: z.number().optional().describe('degrees, + = to the left (turn)'),
+      action: z.string().optional().describe(`library action (action): ${Object.keys(ACTIONS).join(', ')}`),
+      seed: z.number().optional().describe('blinks and glances'),
+    }),
+    example: `studio set-motion --object blacksmith --id walk --speed 1.1 --energy 0.3`,
+    run(ctx, a) {
+      const o = asCharacter(ctx.obj(a.object));
+      const prev = o.character?.motions?.[a.id];
+      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action)`);
+      const { object: _o, id: _id, ...settings } = a;
+      const spec: MotionSpec = { ...(prev ?? {}), ...Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined)) } as MotionSpec;
+      if (prev && a.kind && a.kind !== prev.kind) for (const k of Object.keys(spec) as Array<keyof MotionSpec>) if (k !== 'kind' && !(k in settings && (settings as any)[k] !== undefined)) delete spec[k];
+      if (spec.action && !ACTIONS[spec.action]) throw new Error(`no action "${spec.action}" — library: ${Object.keys(ACTIONS).join(', ')}; did you mean ${closest(spec.action, Object.keys(ACTIONS)).join(' or ')}?`);
+      motionSettings(spec);
+      const r = ctx.studio.evaluate(o);
+      if (!r.rig) throw new Error(`${o.name} has no rig (its geometry doesn't evaluate)`);
+      const clip = bakeMotion(a.id, spec, r.rig.rig, o.character);
+      ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), motions: { ...(o.character?.motions ?? {}), [a.id]: spec } });
+      const what = spec.kind === 'action' ? spec.action : spec.kind;
+      ctx.summary(`${o.name}: ${prev ? 'tuned' : 'added'} motion "${a.id}" (${what}${clip.speed ? `, ${clip.speed.toFixed(2)} m/s` : ''}, ${clip.duration.toFixed(2)} s${clip.loop ? ' loop' : ''})`);
+      return { id: a.id, spec, duration: clip.duration, loop: clip.loop, speed: clip.speed, stride: clip.stride, frames: clip.frames };
+    },
+  },
+  {
+    name: 'remove-motion', mode: 'modify', mutates: true,
+    description: 'Remove a motion from a character.',
+    input: z.object({ object: ObjRef, id: z.string() }),
+    run(ctx, a) {
+      const o = asCharacter(ctx.obj(a.object));
+      const motions = { ...(o.character?.motions ?? {}) };
+      if (!motions[a.id]) throw new Error(`${o.name} has no motion "${a.id}" (have: ${Object.keys(motions).join(', ') || 'none'})`);
+      delete motions[a.id];
+      ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), motions });
+      ctx.summary(`${o.name}: removed motion ${a.id}`);
+      return { removed: a.id };
+    },
+  },
+  {
+    name: 'motions', mode: 'inspect', mutates: false,
+    description: 'A character\'s motions as baked clips (duration, speed, stride, loop, checks), plus the kinds, defaults and the library of actions you can add with set-motion.',
+    input: z.object({ object: ObjRef }),
+    run(ctx, a) {
+      const o = asCharacter(ctx.obj(a.object));
+      const r = ctx.studio.evaluate(o);
+      const motions = Object.fromEntries(Object.entries(o.character?.motions ?? {}).map(([id, spec]) => {
+        try {
+          const c = bakeMotion(id, spec, r.rig!.rig, o.character);
+          const checks = ctx.studio.motionChecks(o, id).map((x: any) => ({ label: x.label, pass: x.pass, detail: x.detail }));
+          return [id, { spec, duration: c.duration, loop: c.loop, speed: c.speed, stride: c.stride, frames: c.frames, checks }];
+        } catch (e: any) { return [id, { spec, error: e.message }]; }
+      }));
+      return { motions, kinds: ['walk', 'run', 'idle', 'turn', 'action'], defaults: MOTION_DEFAULTS, actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, v]) => [k, `${v.label} (${v.duration} s)`])) };
     },
   },
 ];
