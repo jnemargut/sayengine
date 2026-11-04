@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 24: Where Cutscenes Are Made and Played — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.shots { width:100%; display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+.shot { background:white; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden; }
+.shot svg { display:block; width:100%; height:auto; }
+.shot span { display:block; font-size:0.54rem; color:#475569; padding:3px 5px; line-height:1.3; }
+.script { width:100%; background:#1f2a37; color:#d7e3ee; border-radius:8px; padding:8px 10px; font-family:'SF Mono', monospace; font-size:0.58rem; line-height:1.6; white-space:pre-wrap; }
+.script .c { color:#8da2b5; } .script .k { color:#f2c879; } .script .s { color:#a6d9b8; }
+.arch { width:100%; display:flex; flex-direction:column; gap:5px; }
+.arch-row { display:flex; gap:5px; justify-content:center; flex-wrap:wrap; }
+.box { background:white; border:2px solid #e2e8f0; border-radius:8px; padding:5px 9px; font-size:0.64rem; font-weight:600; color:#334155; text-align:center; line-height:1.3; }
+.box small { display:block; font-weight:500; color:#64748b; font-size:0.56rem; }
+.box.core { border-color:#1d6f80; color:#1d6f80; }
+.box.g { border-color:#2c6e48; color:#2c6e48; }
+.box.w { border-color:#4b3a8c; color:#4b3a8c; }
+.box.bad { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.arr { text-align:center; color:#94a3b8; font-size:0.85rem; line-height:1; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 24 of 25 · Faces, hands and cutscenes</span>
+  <h1>Where Cutscenes Are Made and Played</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    A cutscene is more than character motion: it's shots, camera moves and cuts, audio, dialogue lines with their performances (decision 23), and events like "door opens". A key fact from the research: glTF, the format that carries your assets, can't hold any of that. It has no audio, no events and no camera cuts. So cutscenes need a home of their own. Where they're made decides whether Claude can direct them ("hold on her face, then cut to his hands"), whether you review them like any change, and whether one cutscene plays in both Godot and three.js.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: direct once, play in both</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Studio Cutscene File + Two Thin Players</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="shots">
+        <div class="shot"><svg viewBox="0 0 80 45"><rect width="80" height="45" fill="#e8e2d6"/><rect x="0" y="32" width="80" height="13" fill="#c8bba7"/><rect x="18" y="14" width="10" height="20" fill="#4f7aa8"/><rect x="50" y="18" width="8" height="16" fill="#a8574f"/><rect x="34" y="26" width="10" height="8" fill="#5a5f66"/></svg><span>1 · wide, forge · 3 s</span></div>
+        <div class="shot"><svg viewBox="0 0 80 45"><rect width="80" height="45" fill="#e8e2d6"/><polygon points="26,8 54,8 58,30 40,40 22,30" fill="#d9a77a"/><rect x="32" y="18" width="5" height="5" fill="#2b2b2b"/><rect x="44" y="18" width="5" height="5" fill="#2b2b2b"/><ellipse cx="40" cy="30" rx="3" ry="4" fill="#5a2e22"/></svg><span>2 · close, him: "Hold still."</span></div>
+        <div class="shot"><svg viewBox="0 0 80 45"><rect width="80" height="45" fill="#e8e2d6"/><rect x="30" y="4" width="6" height="40" fill="#5a5f66"/><polygon points="20,20 48,20 50,36 18,36" fill="#d9a77a"/></svg><span>3 · insert, his hands, tongs</span></div>
+        <div class="shot"><svg viewBox="0 0 80 45"><rect width="80" height="45" fill="#e8e2d6"/><polygon points="28,8 52,8 56,30 40,40 24,30" fill="#e8c4a0"/><rect x="33" y="18" width="5" height="5" fill="#2b2b2b"/><rect x="43" y="18" width="5" height="5" fill="#2b2b2b"/><path d="M35 30 q5 3 10 0" stroke="#7a3a2c" stroke-width="1.6" fill="none"/></svg><span>4 · close, her: reaction</span></div>
+      </div>
+      <div class="script"><span class="c"># cutscenes/forge-lesson.cut: plain text, a reviewable change</span>
+<span class="k">shot</span> wide  camera: forge.wide  3.0s
+<span class="k">shot</span> close blacksmith.face  <span class="k">line</span>: 014 <span class="c"># performance from 23</span>
+<span class="k">shot</span> insert blacksmith.hands.right  dolly-in 0.4s
+<span class="k">shot</span> close apprentice.face  <span class="k">react</span>: nervous → trusting
+<span class="k">event</span> at end: forge.fire.flare</div>
+      <div class="arch">
+        <div class="arch-row"><div class="box g">Godot: generated AnimationPlayer<small>audio, camera, method tracks</small></div><div class="box w">three.js: small cutscene player<small>~300 lines on AnimationMixer</small></div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Cutscenes are a studio file: shots, cameras, cuts, dialogue lines with their performances, audio and events, all plain text. Claude directs it in words; you review it with storyboard frames rendered from the real scene (the strip above) and keep or undo shots like any change. Export generates a native Godot AnimationPlayer scene (it already has audio, camera and event tracks) and a small three.js player, so one cutscene plays in both targets. Branching dialogue stays outside the timeline, in a dialogue tool like Yarn Spinner that triggers cutscenes.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Claude directs, you review shots</li>
+        <li>Same cutscene in Godot and three.js</li>
+        <li>Characters change and cutscenes update</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>A format and two players to build</li>
+        <li>Engine-specific effects need escape hatches</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Build Them in Each Engine</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box core">Studio<small>characters, clips, performances</small></div></div>
+        <div class="arr">↓ export assets only</div>
+        <div class="arch-row"><div class="box g">Godot: cutscene in AnimationPlayer<small>/game edits .tscn directly</small></div><div class="box w">three.js: cutscene in code<small>written per project</small></div></div>
+        <div class="arr">↓</div>
+        <div class="arch-row"><div class="box bad">Two different cutscenes to keep in sync</div></div>
+      </div>
+      <div class="script"><span class="c"># Godot side: Claude edits the engine's own scene file</span>
+[node name="Cutscene" type="AnimationPlayer"]
+<span class="c"># ...tracks for camera, audio, method calls</span></div>
+    </div>
+    <div class="option-summary">
+      The studio exports characters and their performance clips; cutscenes are built in each engine's native tools. In Godot that's AnimationPlayer, which Claude can edit as text through <code>/game</code>; in three.js it's code. It uses each engine fully with nothing new to invent. But a cutscene for both targets is built twice, edits made inside the engine skip the studio's review, and when a character changes in the studio, the engine's cutscene may break silently.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Each game uses only one engine</li>
+        <li>Cutscenes use engine-specific effects heavily</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Built twice for two targets</li>
+        <li>Outside the studio's review</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Everything Inside glTF</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box core">Studio<small>whole cutscene as glTF animation</small></div></div>
+        <div class="arr">↓ one file</div>
+        <div class="arch-row"><div class="box g">Character + camera motion ✓</div><div class="box g">Face shapes ✓</div></div>
+        <div class="arch-row"><div class="box bad">Audio ✗</div><div class="box bad">Camera cuts ✗</div><div class="box bad">Events ✗</div><div class="box bad">three.js: no animation-pointer support</div></div>
+      </div>
+      <div class="script"><span class="c"># glTF 2.0 animations can only move nodes and face shapes</span>
+<span class="c"># KHR_animation_pointer adds more, but not audio or cuts</span></div>
+    </div>
+    <div class="option-summary">
+      Bake the whole cutscene into one glTF file: every character, the camera moves and the face shapes as animation. It's the simplest pipeline and uses the asset format you already have. But glTF animation can only move objects and face shapes. It can't play audio, cut between cameras or fire events, and the extension that adds more animatable properties isn't supported by three.js. You'd have to bolt everything else on anyway.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Silent, single-camera animations</li>
+        <li>Previews and turntables</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No audio, cuts or events</li>
+        <li>Not a real cutscene format</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Render to Video</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="arch-row"><div class="box core">Studio or engine<small>render the cutscene</small></div></div>
+        <div class="arr">↓ MP4</div>
+        <div class="arch-row"><div class="box g">Plays identically everywhere</div><div class="box bad">Can't reflect player choices</div><div class="box bad">Large files</div></div>
+      </div>
+      <div class="script"><span class="c"># one MP4 per cutscene</span>
+<span class="c"># the blacksmith's outfit the player picked won't show</span></div>
+    </div>
+    <div class="option-summary">
+      Render each cutscene to a video file and play it in the game. It looks identical everywhere, and playback is trivial in any engine. But the video can't reflect anything the player changed (outfits, who's present, time of day), files are large, there's a visible switch between real-time and video, and re-rendering is needed for every small change. Reviewing a video is also harder than reviewing a shot list.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Fixed story moments, high polish</li>
+        <li>Trailers</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Can't adapt to the player's game</li>
+        <li>Big files; re-render every change</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A means inventing a cutscene format and maintaining two players for it. That's real code, and every time you want a new kind of shot (a camera shake, particles, a slow-motion beat), it has to be added to the format and to both players. Engines already have mature cutscene tools; Godot's AnimationPlayer does nearly all of this natively. If nearly all your cutscenes will be in standalone Godot games, B with Claude editing AnimationPlayer directly is less to build. Keep the format small and give it an "engine-specific" escape hatch, or it grows into an engine of its own.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Cutscenes appear in both Godot games and three.js web projects, so authoring once matters.</li>
+    <li>The format stays small: shots, cameras, cuts, lines, audio, events, plus an escape hatch for engine-specific extras.</li>
+    <li>Storyboard frames rendered from the real scene are how you review shots: keep or undo each shot.</li>
+    <li>Branching dialogue lives in a dialogue tool (Yarn Spinner's MIT core, or plain JSON), which triggers cutscenes by name.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>glTF 2.0 animation can only target object position, rotation, scale and face-shape weights: no events, audio or camera switching. KHR_animation_pointer is ratified, and Godot imports it from 4.4, but three.js core doesn't support it. <a class="cite" href="https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md">Khronos registry</a> <a class="cite" href="https://godotengine.org/releases/4.4">Godot 4.4</a> <a class="cite" href="https://github.com/needle-tools/three-animation-pointer">needle-tools plugin</a></li>
+    <li>Godot's AnimationPlayer already holds a whole cutscene: property, transform, face-shape, method-call (event), audio and nested-animation tracks, built for coordinating characters in a cutscene. It's a natural target to generate. <a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/animation/animation_track_types.html">Godot docs</a></li>
+    <li>Firewatch, Oxenfree and Night in the Woods kept dialogue branching in a dialogue tool, separate from animation timelines. Night in the Woods' Yarn scripts even issued the stage directions. <a class="cite" href="https://gdcvault.com/play/1024000/Do-You-Copy-Dialog-System">GDC: Firewatch dialogue</a> <a class="cite" href="https://v1.yarnspinner.dev/docs/writing/controlling/">Yarn Spinner</a></li>
+    <li>Valve's choreography scenes were plain-text files that guides edited by hand, showing that a text cutscene format is workable and diffable. <a class="cite" href="https://developer.valvesoftware.com/wiki/Choreography_Tool_reference">Valve Developer Wiki</a></li>
+    <li>Yarn Spinner's core and Unity versions are MIT. The Godot GDScript version is alpha under its own licence and needs Godot 4.6+, and the C# port is beta. <a class="cite" href="https://yarnspinner.dev/license">Yarn Spinner licence</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Studio file + 2 players</th><th class="col-b">B: In each engine</th><th class="col-c">C: All in glTF</th><th class="col-d">D: Video</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Claude directs in words</td><td class="col-pick col-chosen">Yes</td><td>Yes (per engine)</td><td>Partly</td><td>Before rendering</td></tr>
+        <tr><td>Reviewed shot by shot</td><td class="col-pick col-chosen">Yes, storyboard frames</td><td>Outside the studio</td><td>Partly</td><td>As a video</td></tr>
+        <tr><td>One cutscene, both engines</td><td class="col-pick col-chosen">Yes</td><td>Built twice</td><td>Yes, but no audio or cuts</td><td>Yes</td></tr>
+        <tr><td>Audio, cuts, events</td><td class="col-pick col-chosen">Yes</td><td>Yes</td><td>No</td><td>Baked in</td></tr>
+        <tr><td>Adapts to player choices</td><td class="col-pick col-chosen">Yes (real-time)</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+        <tr><td>New code</td><td class="col-pick col-chosen">Format + 2 players</td><td>Little</td><td>Little, then workarounds</td><td>A renderer step</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Medium: format is load-bearing</td><td>Low</td><td>Low</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-24 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

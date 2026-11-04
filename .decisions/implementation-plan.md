@@ -140,9 +140,79 @@ It's six months later and the game tools didn't work. Most likely reasons:
 2. **Parametric motion looked robotic,** and fixing it ate the schedule. *Early warning:* week 4 ends with the walk "working" but nobody wants to watch it; you reach for library clips for locomotion.
 3. **Two engines doubled the agent's failure surface.** Claude was fine in one and fumbled the other. *Early warning:* `/game` bench tasks pass in one back end and fail in the other more than half the time.
 
+## Status (2026-11-04)
+- Week 0 ✓ materials, scenes, drag-to-edit, import (merged)
+- Week 1 ✓ export contract: game profiles, collision/LOD ops, auto-unwrap + bake, glTF validator (merged)
+- Week 2 ✓ `/game` skill: Godot + three.js back ends; export round-trips through the target engine (merged)
+- Weeks 3–6 above are **superseded by Phase 3 below**, which builds the kit with faces and hands from the start.
+
 ## Low-Confidence Picks Worth Revisiting
 - **D12 (E vs A):** if the bake step slips past week 1, ship week-5 assets with presets only (A) and add the bake after. Same shapes, no rework.
 - **D16 (B vs A):** if the parametric walk isn't convincing by the end of week 4, use a library walk for the diorama and keep motion ops for the settings that work (speed, lean, bounce).
+
+---
+
+# Phase 3: Faces, Hands and Cutscenes (decisions 19–25, decided 2026-11-04)
+
+## What We're Building
+Characters that act in cutscenes: stylized faces that speak and emote, real fingers that gesture and grip, and a body that moves with them, all driven by one performance description per line. Claude directs cutscenes in words, you review them as storyboard frames, and one cutscene file plays in both Godot and three.js. **See it: `.decisions/preview.html`** (ledger 19–25, "Under the hood").
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 19 | Face detail | Stylized big-shape faces in the kit (same style as the body) | Strong | One-way |
+| 20 | Face rig | 15 standard speech shapes + ARKit-named expression subset (~16) + jaw/eye/head bones | Strong | One-way |
+| 21 | Lip sync | Any audio + script aligned locally (Rhubarb / Whisper) → smoothing with M/B/P closure | Strong | Two-way |
+| 22 | Hands | Full fingers, poses as settings, grip sockets on props | Strong | One-way |
+| 23 | Coherence | One performance script per line → shared-beat channels + procedural life layer | Strong | One-way |
+| 24 | Cutscenes | Studio cutscene file → generated Godot AnimationPlayer + small three.js player; storyboard review | Strong | One-way |
+| 25 | Milestone | "The Forge Lesson" by week 8, talking-face checkpoint at week 4 | Strong | Two-way |
+
+## Implementation Steps (replaces Phase 2 weeks 3–6)
+### Week 3: humanoid kit with face and hands (D14, D19, D20, D22)
+- [ ] `character` template: proportions as settings; parts (hair, clothes, tools) as ops
+- [ ] Skeleton: Godot humanoid bone names incl. fingers (3 joints each) + jaw, eyes, head; T-pose; ≤ 4 weights/vertex; twist bones at forearms; template-designed UV seams
+- [ ] Face template: denser face region, ~15 speech + ~16 expression shape keys generated per character; glTF morph export (sparse, no morph normals on web) + a face-shape budget check
+- [ ] Pose checks (joint volume, edge stretch, self-intersection, weight sums) + finger-through-prop check; thumbnails in review; bench task
+
+### Week 4: voice and lip sync + checkpoint (D21)
+- [ ] `studio line` tool: audio file + script → alignment (Rhubarb, Whisper timings) → 15 shapes → smoothing (coarticulation, M/B/P closure, emotion scale)
+- [ ] Checks: lips closed on every M/B/P; no shape held unnaturally; sync offset
+- [ ] **Checkpoint:** one close-up line rendered for you to judge. Tripwire: not reading as speech after a week of tuning → revisit 19–21
+
+### Week 5: motion, life and hands (D16, D22, D23)
+- [ ] Motion ops `walk`, `idle` with settings; baked to clips
+- [ ] Life layer: blinks (random), eye saccades (talking/listening modes), breathing, weight shifts, seeded
+- [ ] `set-hand` poses (curl/spread/thumb) + named poses; `hold` with grip sockets generated for studio props
+
+### Week 6: walking diorama (D18)
+- [ ] Blacksmith + forge yard; `/game play it in godot`; same scene on the web; tripwire as before
+
+### Week 7: one performance (D23)
+- [ ] Performance script per line (emotion, gaze, gestures, grip, posture) → compiled channels sharing beats
+- [ ] Gesture library (palm-down, point, shrug, fist, open palms, count…) on the hand poses + body kit
+- [ ] Webcam capture (MediaPipe) as an optional override source, later if time allows
+
+### Week 8: cutscenes (D24, D25)
+- [ ] Cutscene file (shots, cameras, cuts, lines, audio, events, engine escape hatch); storyboard frames; keep/undo per shot
+- [ ] Export → generated Godot AnimationPlayer scene; three.js cutscene player
+- [ ] **"The Forge Lesson"**: 2 characters, 4 shots, 3 lines, plays in both engines. Bench tasks; tripwire: not playing in Godot → defer three.js player
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| Stylized faces hold close-ups | Close-up renders look lifeless after tuning → denser face region or hero heads | D19 |
+| Speech mostly from audio/text, not phone capture | You start capturing on a phone → extend to full ARKit 52 | D20 |
+| Smoothing makes aligned lip sync read as speech | Week-4 checkpoint fails → Audio2Face on hero lines (cloud) | D21 |
+| Finger bones fit web/mobile budgets | Bone budget fails repeatedly → drop finger bones in those profiles | D22 |
+| Rule-driven performances feel alive | Repetitive across 20+ lines → gesture variation + webcam overrides | D23 |
+| The cutscene format stays small | Grows past ~15 shot/event kinds → push extras to engine escape hatches | D24 |
+
+## Pre-Mortem
+It's six months later and the cutscenes didn't work. Most likely reasons:
+1. **Mouths read as robotic.** The smoothing pass never got past "technically synced". *Early warning:* the week-4 checkpoint passes only after lowering the bar.
+2. **The week-3 kit was too ambitious.** Body, face and hands with clean weights at once produced a template full of deformation bugs that everything else inherited. *Early warning:* pose checks keep failing at knuckles, jaw or shoulders into week 5.
+3. **Performances felt mechanical.** The same gestures on every line. *Early warning:* in the week-8 scene, you can predict each gesture before it happens.
 
 ## Decision History
 `.decisions/index.html` for all decisions · `.decisions/preview.html` for the composite mockup · `.decisions/decisions.json` for the machine-readable record.

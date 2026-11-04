@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 20: How the Face Is Rigged — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.stack { width:100%; display:flex; flex-direction:column; gap:6px; }
+.row { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+.row-h { width:100%; font-size:0.58rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#94a3b8; }
+.chip { overflow-wrap:anywhere; max-width:100%; font-size:0.62rem; font-weight:600; padding:3px 8px; border-radius:6px; background:white; border:1.5px solid #cbd5e1; color:#334155; }
+.chip.morph { border-color:#1d6f80; color:#1d6f80; }
+.chip.bone { border-color:#b86e0a; color:#8a5208; }
+.chip.tex { border-color:#4b3a8c; color:#4b3a8c; }
+.chip.warn { border-color:#a83a32; color:#a83a32; border-style:dashed; }
+.say { width:100%; background:#1f2a37; color:#d7e3ee; border-radius:8px; padding:7px 10px; font-family:'SF Mono', monospace; font-size:0.6rem; line-height:1.55; white-space:pre-wrap; }
+.say .c { color:#8da2b5; }
+.facts { width:100%; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.fact { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; }
+.fact b { display:block; font-size:0.74rem; color:#0f172a; }
+.fact span { font-size:0.58rem; color:#64748b; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 20 of 25 · Faces, hands and cutscenes</span>
+  <h1>How the Face Is Rigged</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You chose expressive, stylized faces built into the kit (decision 19). Now: what moves them? There are two building blocks. Shape keys (also called morph targets or blend shapes) are pre-made versions of the face, such as "mouth O" or "brows up", that blend in by a percentage. Face bones are small joints that pull the face around. Both glTF engines play shape keys natively. The choice decides how expressions are named, what lip sync can drive, how big files get, and whether "smile 60%" is a setting Claude can review.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: standard names, right size</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Standard Shape Keys + Jaw and Eye Bones</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="stack">
+        <div class="row"><span class="row-h">Speech: the 15 standard viseme shapes</span><span class="chip morph">sil</span><span class="chip morph">PP</span><span class="chip morph">FF</span><span class="chip morph">TH</span><span class="chip morph">DD</span><span class="chip morph">kk</span><span class="chip morph">CH</span><span class="chip morph">SS</span><span class="chip morph">nn</span><span class="chip morph">RR</span><span class="chip morph">aa</span><span class="chip morph">E</span><span class="chip morph">ih</span><span class="chip morph">oh</span><span class="chip morph">ou</span></div>
+        <div class="row"><span class="row-h">Expression: ARKit-named subset (~16)</span><span class="chip morph">eyeBlink L/R</span><span class="chip morph">browInnerUp</span><span class="chip morph">browDown L/R</span><span class="chip morph">mouthSmile L/R</span><span class="chip morph">mouthFrown L/R</span><span class="chip morph">cheekSquint</span><span class="chip morph">noseSneer</span><span class="chip morph">mouthPucker</span><span class="chip morph">mouthClose</span></div>
+        <div class="row"><span class="row-h">Bones</span><span class="chip bone">jaw</span><span class="chip bone">eye L / eye R (gaze)</span><span class="chip bone">head / neck</span></div>
+      </div>
+      <div class="say"><span class="c"># what Claude does</span>
+studio set-expression --character blacksmith --values '{"mouthSmileLeft":0.6,"browInnerUp":0.3}'</div>
+    </div>
+    <div class="option-summary">
+      About 30 shape keys per character, all generated from the kit's face template: the 15 standard speech shapes that lip-sync tools output, plus an ARKit-named set for blinks, brows, smiles and frowns. The jaw and eyes are bones, so the mouth opens with a real hinge and eyes can look at things (gaze). Standard names mean any lip-sync source or face-capture app can drive it later without remapping, and every expression is a named number Claude can set and you can review.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Lip sync and expressions from many sources</li>
+        <li>Stylized faces that need clear, strong shapes</li>
+        <li>Plays the same in Godot and three.js</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Shape keys add file size; needs a budget check</li>
+        <li>Generated shapes need careful template design</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">The Full ARKit 52</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="stack">
+        <div class="row"><span class="row-h">All 52 ARKit shapes</span><span class="chip morph">eyeBlink · eyeLookDown/In/Out/Up · eyeSquint · eyeWide (×2 sides)</span><span class="chip morph">jawForward/Left/Right/Open</span><span class="chip morph">mouthClose/Funnel/Pucker/Left/Right</span><span class="chip morph">mouthSmile/Frown/Dimple/Stretch/RollLower/RollUpper/ShrugLower/ShrugUpper/Press/LowerDown/UpperUp</span><span class="chip morph">browDown/InnerUp/OuterUp</span><span class="chip morph">cheekPuff/Squint · noseSneer · tongueOut</span></div>
+        <div class="row"><span class="row-h">Bones</span><span class="chip warn">none: eyes and jaw are shapes too</span></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>52 shapes</b><span>per character</span></div>
+        <div class="fact"><b>Face-capture ready</b><span>iPhone, Azure TTS</span></div>
+        <div class="fact"><b>~2× file</b><span>morph-heavy GLBs</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Generate all 52 ARKit shapes, the standard that iPhone face capture, Azure's text-to-speech and Audio2Face output directly. It's maximally compatible: plug any of them in and the face moves. But many of the 52 are subtle (mouthRollLower, mouthShrugUpper) and barely read on a stylized face, eyes and jaw as shapes look worse than bones, and morph-heavy models roughly double in file size. Known pitfall: jawOpen and mouthClose fight each other, so mouths don't close.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You'll capture performances with an iPhone</li>
+        <li>Faces are detailed enough for subtle shapes</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Many shapes too subtle for stylized faces</li>
+        <li>File size and web/mobile limits</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Face Bones Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="stack">
+        <div class="row"><span class="row-h">~20 face bones</span><span class="chip bone">jaw</span><span class="chip bone">eye L/R</span><span class="chip bone">lid upper/lower ×2</span><span class="chip bone">brow inner/outer ×2</span><span class="chip bone">lip corners ×2</span><span class="chip bone">upper lip ×3</span><span class="chip bone">lower lip ×3</span><span class="chip bone">cheek ×2</span></div>
+        <div class="row"><span class="row-h">Speech shapes</span><span class="chip warn">poses of bones, mapped per character</span></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Small files</b><span>no stored shapes</span></div>
+        <div class="fact"><b>Same as body</b><span>one skeleton system</span></div>
+        <div class="fact"><b>Mushy shapes</b><span>on few polygons</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Drive the face entirely with small bones, like the body. Files stay small, everything is one skeleton, and it's the most common approach in mobile games. But bone-pulled faces on low-polygon meshes tend to look soft and mushy: a crisp "O" or a clean smile is much easier as a designed shape. Speech shapes become bone poses that every lip-sync source needs mapping into, so there are no standard names to plug into.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Mobile, tight memory</li>
+        <li>Faces with plenty of polygons to pull</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Soft, imprecise shapes on stylized faces</li>
+        <li>Every lip-sync source needs a custom mapping</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">2D Face Textures That Swap</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="stack">
+        <div class="row"><span class="row-h">Painted mouth sheet (Rhubarb A–H, X)</span><span class="chip tex">A closed</span><span class="chip tex">B teeth</span><span class="chip tex">C open</span><span class="chip tex">D wide</span><span class="chip tex">E round</span><span class="chip tex">F pucker</span><span class="chip tex">G F/V</span><span class="chip tex">H L</span><span class="chip tex">X rest</span></div>
+        <div class="row"><span class="row-h">Eyes and brows</span><span class="chip tex">6–10 painted states each</span></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Tiny</b><span>one texture atlas</span></div>
+        <div class="fact"><b>Very readable</b><span>cartoon clarity</span></div>
+        <div class="fact"><b>Flat</b><span>no 3D mouth shape</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Eyes, brows and mouth are drawn onto the face and swapped like a flipbook. It's the classic cartoon approach, very readable and tiny in file size. Rhubarb outputs exactly these shapes. But it's a different look from your faceted 3D style: a painted mouth on a 3D-shaded head, which risks the same style mismatch decision 19 avoided. It also contradicts decision 15's "nothing painted by hand".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Cartoon or toon-shaded games</li>
+        <li>Very low-end hardware</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Mismatch with faceted 3D faces</li>
+        <li>Painted faces break "nothing painted by hand"</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A custom subset is a bet that you won't want face capture later. An iPhone performance or Azure's text-to-speech output arrives as the full ARKit 52, and with A, about 36 of those channels have nowhere to go and must be folded into the ones you kept. That's a mapping table that loses subtlety. Shape keys also cost file size and have broken on some Android devices in both engines. If you expect to act out performances on your phone, B's full set is the safer long-term bet, at the cost of shapes that barely show on a stylized face.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Lip sync comes mainly from audio or text (decision 21), which outputs the 15 standard speech shapes, not full ARKit capture.</li>
+    <li>The kit generates every shape from its face template, so new characters cost nothing extra.</li>
+    <li>A face-shape budget check joins the game profiles (decision 17): shape count, sparse storage, no shape normals on web.</li>
+    <li>If ARKit-52 input appears (phone capture, Azure), a fixed mapping table folds it into this set; it's lossy but works.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Meta's 15 speech shapes (sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou) are the de facto naming standard. The SDK is end-of-life, but the names live on in open three.js avatar tools. <a class="cite" href="https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/">Meta</a> <a class="cite" href="https://raw.githubusercontent.com/met4citizen/TalkingHead/HEAD/README.md">TalkingHead</a></li>
+    <li>Both engines play glTF shape keys natively: Godot as blend shapes with a dedicated animation track, three.js as morph target influences. <a class="cite" href="https://docs.godotengine.org/fr/4.5/tutorials/animation/animation_track_types.html">Godot docs</a> <a class="cite" href="https://discourse.threejs.org/t/how-can-i-update-influences-of-a-morphtarget-by-another-gltf-animation-datas-influences-values/46051">three.js forum</a></li>
+    <li>Azure's text-to-speech outputs 55 values per frame, the first 52 matching ARKit names, and Audio2Face can output ARKit-style weights. That's the case for B. <a class="cite" href="https://learn.microsoft.com/azure/ai-services/speech-service/how-to-speech-synthesis-viseme">Microsoft Learn</a> <a class="cite" href="https://arxiv.org/pdf/2508.16401">Audio2Face paper</a></li>
+    <li>ARKit-52 rigs commonly fail with jawOpen fighting mouthClose so mouths don't shut, and with eye bones that aren't converted. <a class="cite" href="https://forums.unrealengine.com/t/trouble-with-live-link-face-arkit-and-morph-targets-on-the-readyplayerme-avatar/1702027">Unreal forum</a></li>
+    <li>Morph-heavy models roughly doubled GLB size for one developer, and Draco doesn't compress morph targets. The fixes are sparse storage, no morph normals and quantization. <a class="cite" href="https://forum.playcanvas.com/t/tricks-to-decrease-morph-target-sizes/18628">PlayCanvas forum</a></li>
+    <li>Skinned meshes with shape keys failed on some Android GPUs in both Godot and three.js, so real-device testing is needed for mobile. <a class="cite" href="https://github.com/godotengine/godot/issues/43217">Godot issue</a> <a class="cite" href="https://lightrun.com/answers/mrdoob-three-js-morph-targets-broken-on-some-mobile-devices-using-webgl-2">three.js report</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: 15 speech + subset + bones</th><th class="col-b">B: Full ARKit 52</th><th class="col-c">C: Face bones only</th><th class="col-d">D: 2D textures</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Crisp stylized shapes</td><td class="col-pick col-chosen">Yes</td><td>Yes, many too subtle</td><td>Soft</td><td>Yes (flat)</td></tr>
+        <tr><td>Lip-sync tools plug in</td><td class="col-pick col-chosen">Directly (15 shapes)</td><td>Via mapping</td><td>Custom mapping each</td><td>Rhubarb directly</td></tr>
+        <tr><td>Face capture (iPhone, Azure)</td><td class="col-pick col-chosen">Via lossy mapping</td><td>Directly</td><td>Custom mapping</td><td>No</td></tr>
+        <tr><td>Eyes look at things</td><td class="col-pick col-chosen">Bones, natural</td><td>Shapes, limited</td><td>Bones</td><td>Swapped pupils</td></tr>
+        <tr><td>File size</td><td class="col-pick col-chosen">Medium (~30 shapes)</td><td>Large (52)</td><td>Small</td><td>Tiny</td></tr>
+        <tr><td>Fits the faceted 3D style</td><td class="col-pick col-chosen">Yes</td><td>Yes</td><td>Mostly</td><td>No</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: add shapes later</td><td>Low</td><td>High: regenerate faces</td><td>High</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-20 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>

@@ -107,7 +107,7 @@ header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spa
 
 <main class="options-grid">
 
-  <article class="option-card option-a">
+  <article class="option-card option-a not-chosen">
     <div class="card-header">
       <div class="card-header-top">
         <span class="option-label">Option A</span>
@@ -148,7 +148,7 @@ header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spa
     <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
   </article>
 
-  <article class="option-card option-b">
+  <article class="option-card option-b chosen">
     <div class="card-header">
       <div class="card-header-top">
         <span class="option-label">Option B</span>
@@ -197,7 +197,7 @@ header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spa
     <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
   </article>
 
-  <article class="option-card option-c">
+  <article class="option-card option-c not-chosen">
     <div class="card-header">
       <div class="card-header-top">
         <span class="option-label">Option C</span>
@@ -251,7 +251,7 @@ header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spa
     <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
   </article>
 
-  <article class="option-card option-d">
+  <article class="option-card option-d not-chosen">
     <div class="card-header">
       <div class="card-header-top">
         <span class="option-label">Option D</span>
@@ -340,12 +340,12 @@ header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spa
         <tr><th></th><th class="col-a">A: Low-poly face</th><th class="col-b col-pick">B: Stylized big-shape</th><th class="col-c">C: Cutscene head swap</th><th class="col-d">D: Realistic</th></tr>
       </thead>
       <tbody>
-        <tr><td>Mouth moves with words</td><td>Open/shut only</td><td class="col-pick">Yes: 15 speech shapes, blended</td><td>Near-realistic</td><td>Realistic, if polished</td></tr>
-        <tr><td>Emotion reads up close</td><td>Barely</td><td class="col-pick">Clearly</td><td>Clearly</td><td>Subtly</td></tr>
-        <tr><td>Uncanny risk</td><td>Low</td><td class="col-pick">Low (one style)</td><td>High (mismatch)</td><td>High (vs AAA)</td></tr>
-        <tr><td>Work per new character</td><td>None</td><td class="col-pick">None (generated from kit)</td><td>A second head</td><td>Heavy</td></tr>
-        <tr><td>Fits decision 12 (low-poly)</td><td>Yes</td><td class="col-pick">Yes</td><td>Partly</td><td>No</td></tr>
-        <tr><td>Undo cost</td><td>Low</td><td class="col-pick">Medium: face template redesign</td><td>High</td><td>Very high</td></tr>
+        <tr><td>Mouth moves with words</td><td>Open/shut only</td><td class="col-pick col-chosen">Yes: 15 speech shapes, blended</td><td>Near-realistic</td><td>Realistic, if polished</td></tr>
+        <tr><td>Emotion reads up close</td><td>Barely</td><td class="col-pick col-chosen">Clearly</td><td>Clearly</td><td>Subtly</td></tr>
+        <tr><td>Uncanny risk</td><td>Low</td><td class="col-pick col-chosen">Low (one style)</td><td>High (mismatch)</td><td>High (vs AAA)</td></tr>
+        <tr><td>Work per new character</td><td>None</td><td class="col-pick col-chosen">None (generated from kit)</td><td>A second head</td><td>Heavy</td></tr>
+        <tr><td>Fits decision 12 (low-poly)</td><td>Yes</td><td class="col-pick col-chosen">Yes</td><td>Partly</td><td>No</td></tr>
+        <tr><td>Undo cost</td><td>Low</td><td class="col-pick col-chosen">Medium: face template redesign</td><td>High</td><td>Very high</td></tr>
       </tbody>
     </table>
   </div>

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 23: One Performance — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.lanes { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:9px 10px; display:flex; flex-direction:column; gap:5px; }
+.lanes-h { font-size:0.6rem; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#64748b; }
+.lane { display:grid; grid-template-columns:62px 1fr; gap:6px; align-items:center; }
+.lane-l { font-size:0.6rem; font-weight:700; color:#475569; }
+.track { position:relative; height:16px; background:#f1f5f9; border-radius:4px; }
+.blk { position:absolute; top:2px; height:12px; border-radius:3px; font-size:0.5rem; color:white; line-height:12px; padding:0 4px; white-space:nowrap; overflow:hidden; }
+.b-mouth { background:#1d6f80; } .b-face { background:#4b3a8c; } .b-hand { background:#b86e0a; } .b-body { background:#2c6e48; } .b-eye { background:#64748b; } .b-bad { background:#a83a32; }
+.script { width:100%; background:#1f2a37; color:#d7e3ee; border-radius:8px; padding:8px 10px; font-family:'SF Mono', monospace; font-size:0.58rem; line-height:1.6; white-space:pre-wrap; }
+.script .c { color:#8da2b5; } .script .k { color:#f2c879; } .script .s { color:#a6d9b8; }
+.facts { width:100%; display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.fact { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; }
+.fact b { display:block; font-size:0.74rem; color:#0f172a; }
+.fact span { font-size:0.58rem; color:#64748b; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 23 of 25 · Faces, hands and cutscenes</span>
+  <h1>Face, Hands and Body as One Performance</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You said the body should look tied to the hands and face, naturally. In real people, one intention drives everything at once: the blacksmith gets angry, so his brows drop, his voice tightens, his fist closes and his weight shifts forward, all in the same beat. This decision is where that unity comes from. It can come from one description of the moment that drives every part, from separate tracks lined up by hand, from an AI model that generates motion from the voice, or from you acting it out on camera. Each card shows the same line: "Hold still. This will only take a second."
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: one intention drives everything</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Performance Script per Line</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="script"><span class="c"># performance for one line (Claude writes it from the script; you review it)</span>
+<span class="k">line</span>: <span class="s">"Hold still. This will only take a second."</span>
+<span class="k">audio</span>: blacksmith_014.wav   <span class="k">emotion</span>: firm → gentle
+<span class="k">gaze</span>: apprentice.hand   <span class="k">at</span> "second": apprentice.face
+<span class="k">gesture</span>: palm-down "Hold still" · <span class="k">grip</span>: tongs (right)
+<span class="k">body</span>: lean-in 0.3, settle on "second"</div>
+      <div class="lanes">
+        <div class="lanes-h">Compiles to channels that share beats</div>
+        <div class="lane"><span class="lane-l">mouth</span><div class="track"><span class="blk b-mouth" style="left:2%;width:30%">Hold still.</span><span class="blk b-mouth" style="left:38%;width:58%">This will only take a second.</span></div></div>
+        <div class="lane"><span class="lane-l">face</span><div class="track"><span class="blk b-face" style="left:0%;width:36%">firm brows</span><span class="blk b-face" style="left:40%;width:58%">soften → small smile</span></div></div>
+        <div class="lane"><span class="lane-l">hands</span><div class="track"><span class="blk b-hand" style="left:3%;width:28%">palm-down</span><span class="blk b-hand" style="left:36%;width:60%">tongs grip, steady</span></div></div>
+        <div class="lane"><span class="lane-l">body</span><div class="track"><span class="blk b-body" style="left:0%;width:40%">lean in</span><span class="blk b-body" style="left:76%;width:22%">settle</span></div></div>
+        <div class="lane"><span class="lane-l">eyes</span><div class="track"><span class="blk b-eye" style="left:0%;width:72%">her hand · blinks</span><span class="blk b-eye" style="left:76%;width:22%">her face</span></div></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Each line gets one small, readable performance description: emotion, where the character looks, a gesture or two, a posture. Claude writes it from the script, and you review it like any change. The studio compiles it into separate channels (mouth from lip sync, face from emotion, hands from gestures and grips, body posture, eyes) that all share the same beats, so they move together. A procedural "life" layer adds blinks, small eye movements, breathing and weight shifts so nobody freezes. "Make him angrier" changes one emotion value and every channel follows.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Lots of dialogue, directed in plain words</li>
+        <li>You want edits like "angrier" to touch everything</li>
+        <li>Every change stays reviewable</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Gestures come from a library, not invented motion</li>
+        <li>The compiler's rules need careful tuning</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Separate Tracks, Lined Up by Hand</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lanes">
+        <div class="lanes-h">Five tracks, each authored on its own</div>
+        <div class="lane"><span class="lane-l">mouth</span><div class="track"><span class="blk b-mouth" style="left:2%;width:30%">lip sync</span><span class="blk b-mouth" style="left:38%;width:58%">lip sync</span></div></div>
+        <div class="lane"><span class="lane-l">face</span><div class="track"><span class="blk b-face" style="left:10%;width:40%">brows</span><span class="blk b-bad" style="left:55%;width:30%">smile (late)</span></div></div>
+        <div class="lane"><span class="lane-l">hands</span><div class="track"><span class="blk b-hand" style="left:20%;width:30%">gesture</span></div></div>
+        <div class="lane"><span class="lane-l">body</span><div class="track"><span class="blk b-body" style="left:0%;width:96%">idle loop</span></div></div>
+        <div class="lane"><span class="lane-l">eyes</span><div class="track"><span class="blk b-bad" style="left:0%;width:96%">fixed stare</span></div></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Full control</b><span>every curve</span></div>
+        <div class="fact"><b>5 tracks × line</b><span>to align</span></div>
+        <div class="fact"><b>Drifts apart</b><span>on every edit</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Each part of the body gets its own track: lip sync on one, expressions on another, gestures, posture and eyes on their own. This is how traditional animation timelines work, and it gives full control. But unity is your job: change a line's timing and five tracks need re-aligning, and anything not deliberately animated (eyes, weight) sits frozen. "Make him angrier" means editing three tracks consistently. It's the opposite of the tied-together feel you asked for.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>A few hero shots polished by hand</li>
+        <li>An animator wants every curve</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Coherence is manual and breaks on edits</li>
+        <li>Unanimated parts look frozen</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">AI Model Generates Motion From the Voice</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lanes">
+        <div class="lanes-h">Audio in → whole-body motion out</div>
+        <div class="lane"><span class="lane-l">mouth</span><div class="track"><span class="blk b-mouth" style="left:2%;width:94%">generated</span></div></div>
+        <div class="lane"><span class="lane-l">face</span><div class="track"><span class="blk b-face" style="left:2%;width:94%">generated</span></div></div>
+        <div class="lane"><span class="lane-l">hands</span><div class="track"><span class="blk b-bad" style="left:2%;width:94%">generated · fits speech near chance</span></div></div>
+        <div class="lane"><span class="lane-l">body</span><div class="track"><span class="blk b-body" style="left:2%;width:94%">generated, natural rhythm</span></div></div>
+        <div class="lane"><span class="lane-l">eyes</span><div class="track"><span class="blk b-eye" style="left:2%;width:94%">generated</span></div></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Natural rhythm</b><span>moves like a person</span></div>
+        <div class="fact"><b>Non-commercial</b><span>most model licences</span></div>
+        <div class="fact"><b>Its own skeleton</b><span>needs retargeting</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Research models (EMAGE, TalkSHOW and others) generate face, body and hand motion together from the voice. The rhythm looks human, and coherence comes for free. But in the largest evaluation (GENEA 2023), generated gestures matched what was being said only slightly better than chance: natural movement that means nothing. Most also output a research skeleton (SMPL-X) whose licence forbids commercial games. There's nothing to review except "regenerate".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Background characters chatting</li>
+        <li>Research or non-commercial projects</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Licences block commercial games</li>
+        <li>Gestures don't match meaning; can't direct them</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">You Act It Out on Camera</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="lanes">
+        <div class="lanes-h">Phone or webcam capture → your character</div>
+        <div class="lane"><span class="lane-l">mouth</span><div class="track"><span class="blk b-mouth" style="left:2%;width:94%">your mouth</span></div></div>
+        <div class="lane"><span class="lane-l">face</span><div class="track"><span class="blk b-face" style="left:2%;width:94%">your expression</span></div></div>
+        <div class="lane"><span class="lane-l">hands</span><div class="track"><span class="blk b-hand" style="left:2%;width:94%">your hands (jittery)</span></div></div>
+        <div class="lane"><span class="lane-l">body</span><div class="track"><span class="blk b-body" style="left:2%;width:94%">your upper body</span></div></div>
+        <div class="lane"><span class="lane-l">eyes</span><div class="track"><span class="blk b-eye" style="left:2%;width:94%">your eyes</span></div></div>
+      </div>
+      <div class="facts">
+        <div class="fact"><b>Truly coherent</b><span>one real performance</span></div>
+        <div class="fact"><b>You must act</b><span>every line</span></div>
+        <div class="fact"><b>Cleanup</b><span>jitter, retargeting</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Perform each line yourself in front of a phone or webcam. Free tracking (Google MediaPipe, Apache-licensed) captures face, hands and upper body, and the studio retargets it onto the character. It's the most naturally unified result, because it's one real performance. But it means acting every line of every character, cleaning up jittery hands, and it isn't AI-first: Claude can't direct it, only tidy it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You enjoy performing</li>
+        <li>A few key emotional scenes</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Every line needs you on camera</li>
+        <li>Capture cleanup; not AI-directed</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A performance script makes coherence a system of rules, and rule-driven characters can feel rule-driven. The same lean-in and the same palm-down gesture on every firm line, a little too tidy. Gestures come from a library Claude picks from, so nothing is ever invented in the moment, and the life layer's blinks and glances are statistics, not intention. For the scene that matters most emotionally, D's real performance will beat it. My answer: A for all dialogue, with D's capture available as an override for the few lines you want to act yourself, which compiles into the same channels.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Cutscenes are dialogue-heavy and directed in words ("he's firm, then gentle"), which is what Claude does well.</li>
+    <li>A gesture library (palm-down, point, shrug, fist, open palms, counting…) built on decision 22's hand poses plus the body kit covers most acting.</li>
+    <li>The life layer (blinks, eye saccades, breathing, weight shifts) is procedural and seeded, so it's reproducible and reviewable.</li>
+    <li>The performance file is the studio's: plain text, diffable, a reviewable change like any other.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Valve's FacePoser choreography files are the closest precedent. One plain-text scene file per scene holds lip sync from the audio and transcript, weighted expression layers, gesture events locked to timing tags, and positioning. <a class="cite" href="https://developer.valvesoftware.com/wiki/Faceposer_reference">Valve Developer Wiki</a> <a class="cite" href="https://developer.valvesoftware.com/wiki/Choreography_Tool_reference">Choreography reference</a></li>
+    <li>Night in the Woods drove animation from inside the dialogue script: stage-direction commands (sit, look at, pupil dilation) and emoticons in lines triggered expressions. "Just about all of the gameplay logic" ran through it. <a class="cite" href="https://v1.yarnspinner.dev/docs/writing/controlling/">Yarn Spinner docs</a></li>
+    <li>In GENEA 2023's large crowdsourced evaluation, some generated gesture systems looked as human-like as motion capture. But their fit to what was being said sat just above chance, far behind real motion capture. <a class="cite" href="https://arxiv.org/abs/2308.12646">GENEA 2023</a></li>
+    <li>The SMPL-X body model, the output of most gesture models, forbids commercial products. BEAT2 data is CC BY-NC, and TalkSHOW is research-only. <a class="cite" href="https://smpl-x.is.tue.mpg.de/modellicense.html">SMPL-X licence</a> <a class="cite" href="https://github.com/yhw-yhw/talkshow">TalkSHOW</a></li>
+    <li>"Eyes Alive" statistical eye movements, fitted to eye-tracker data with separate talking and listening modes, were rated better than still or random eyes. This is the basis for a procedural life layer. <a class="cite" href="https://www.cis.upenn.edu/~badler/papers/EyesAlive.pdf">Lee, Badler &amp; Badler, SIGGRAPH 2002</a></li>
+    <li>MetaHuman's audio-driven animation infers emotion from the voice and adds plausible head movement. It's a reference design for what one performance can drive, though it only works inside Unreal. <a class="cite" href="https://dev.epicgames.com/documentation/en-us/metahuman/audio-driven-animation">Epic docs</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>Machine-learning researchers say generated whole-body motion is close to solving natural performance. The evaluations agree it looks natural, but show it doesn't yet carry meaning. Game dialogue tools from Valve to Night in the Woods chose authored, script-driven direction instead. A directed approach now, with ML as a plug-in source later (when a commercially licensed model fits your rig), gets both.</p>
+  </div>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Performance script</th><th class="col-b">B: Separate tracks</th><th class="col-c">C: AI from voice</th><th class="col-d">D: Act it yourself</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Face, hands, body move together</td><td class="col-pick col-chosen">Yes, by construction</td><td>Only if hand-aligned</td><td>Yes</td><td>Yes (real)</td></tr>
+        <tr><td>Gestures match meaning</td><td class="col-pick col-chosen">Yes (chosen from text)</td><td>If authored</td><td>Barely</td><td>Yes</td></tr>
+        <tr><td>"Make him angrier"</td><td class="col-pick col-chosen">One value</td><td>Edit several tracks</td><td>Regenerate</td><td>Act it again</td></tr>
+        <tr><td>Claude can direct it</td><td class="col-pick col-chosen">Fully</td><td>Partly</td><td>No</td><td>No</td></tr>
+        <tr><td>Commercial use</td><td class="col-pick col-chosen">Yes</td><td>Yes</td><td>Mostly blocked</td><td>Yes (MediaPipe)</td></tr>
+        <tr><td>Your time per line</td><td class="col-pick col-chosen">Review only</td><td>High</td><td>Low</td><td>Act + clean</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: D and C plug in as sources</td><td>Low</td><td>Medium</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option A but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-23 I want Option D instead"</strong></p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 25: First Cutscene Milestone — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #e6f3f6; color: #1d6f80; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+/* week timeline */
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 34px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.62rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.66rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-core { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-view { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-ai { background:#fdf6e9; border-left:3px solid #b86e0a; }
+.l-bench { background:#edf6f0; border-left:3px solid #2c6e48; }
+.tl-milestone { font-size:0.66rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.legend { display:flex; gap:10px; flex-wrap:wrap; font-size:0.62rem; color:#475569; }
+.legend span::before { content:""; display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
+.legend .lc::before { background:#1d6f80; } .legend .lv::before { background:#4b3a8c; } .legend .la::before { background:#b86e0a; } .legend .lb::before { background:#2c6e48; }
+
+
+.l-game { background:#fbecea; border-left:3px solid #a83a32; }
+.l-face { background:#fbeaf0; border-left:3px solid #9b2c55; }
+.legend .lg::before { background:#a83a32; }
+.legend .lf::before { background:#9b2c55; }
+.proof { font-size:0.66rem; color:#0f172a; background:#edf6f0; border:1px solid #b9dcc6; border-radius:8px; padding:6px 9px; line-height:1.45; }
+.proof b { color:#2c6e48; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 25 of 25 · Faces, hands and cutscenes</span>
+  <h1>First Cutscene Milestone</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Weeks 1 and 2 are built (export contract, <code>/game</code>). Weeks 3 and 4 (character kit and motion) now carry more: the kit needs its face template and full hands, and motion needs the performance compiler. This decision fits the cutscene work into the existing plan and picks the smallest scene that proves all of decisions 19–24 together. The riskiest promise is "mouth moves realistically with words", so each card shows when you first see a talking face.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: talking face early, full scene by week 8</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">"The Forge Lesson", With a Talking-Face Checkpoint</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">kit</span><span class="lf">face + voice</span><span class="la">motion + performance</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-core">Humanoid kit: body, face template (~30 shapes + jaw/eyes), full hands, standard bone names</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-face">Lip sync: align audio + script → 15 shapes → smoothing + closure checks</span></div>
+        <div class="tl-row"><span class="tl-w"></span><span class="tl-milestone">Checkpoint: one close-up line, talking face, you judge it</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-ai">Motion ops (walk, idle) · life layer (blinks, eyes, breath) · hand poses + grips</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-game">Diorama walk (decision 18) in Godot + web</span></div>
+        <div class="tl-row"><span class="tl-w">WK 7</span><span class="tl-bar l-ai">Performance scripts → channels · gesture library</span></div>
+        <div class="tl-row"><span class="tl-w">WK 8</span><span class="tl-bar l-game">Cutscene file + storyboard review · Godot + three.js players</span></div>
+        <div class="tl-milestone">"The Forge Lesson" plays in both engines → end of week 8</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> two kit characters (blacksmith, apprentice), four shots, three lines in your voice or any text-to-speech voice. He grips tongs, gestures, softens; she reacts. <code>/studio make him firmer on the first line</code> changes one value, and face, hands and posture all follow.</div>
+    </div>
+    <div class="option-summary">
+      Weeks 3–4 build the kit with face and hands from the start, so nothing is retrofitted. Lip sync comes early, at the end of week 4, as a checkpoint: one close-up line, and you judge whether the mouth reads as speech before anything else is built on it. The walking diorama still lands (week 6, a week later than planned), and the first full cutscene plays in both engines by week 8. It's a thin slice through all of decisions 19–24, with the riskiest promise tested first.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The talking face is the thing to prove</li>
+        <li>You want a real scene, not a demo reel</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The diorama milestone slips a week</li>
+        <li>Eight weeks before a full cutscene</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Talking Head Only, First</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">kit</span><span class="lf">face + voice</span><span class="la">motion + performance</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 3</span><span class="tl-bar l-face">A head only: face template, ~30 shapes, jaw and eyes</span></div>
+        <div class="tl-row"><span class="tl-w">WK 4</span><span class="tl-bar l-face">Lip sync + smoothing, tuned until it's great</span></div>
+        <div class="tl-row"><span class="tl-w">WK 5</span><span class="tl-bar l-face">Expressions + life layer on the head</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6+</span><span class="tl-bar l-core">Then body, hands, motion, cutscenes</span></div>
+        <div class="tl-milestone">A great talking head → week 4–5 · cutscene → week 10+</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> a single head speaking a paragraph convincingly, in three.js.</div>
+    </div>
+    <div class="option-summary">
+      Spend the first weeks on one floating head until its speech and expressions are genuinely good, then build everything else. It's the deepest test of the hardest promise. But the head is built before the body it attaches to, so neck, posture and hands get added later and may not match, and the scene-level questions (cameras, gestures, two characters) wait until week 10 or later.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Face quality matters above everything</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Body and face built apart, then joined</li>
+        <li>Cutscene system proven last</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Diorama First, Then Cutscenes</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">kit</span><span class="lf">face + voice</span><span class="la">motion + performance</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 3–5</span><span class="tl-bar l-core">Original plan: body kit, motion, walkable diorama</span></div>
+        <div class="tl-row"><span class="tl-w">WK 6</span><span class="tl-bar l-face">Add face template + hands to the kit (rework)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 7</span><span class="tl-bar l-face">Lip sync</span></div>
+        <div class="tl-row"><span class="tl-w">WK 8–9</span><span class="tl-bar l-ai">Performance + cutscene file + players</span></div>
+        <div class="tl-milestone late">First talking face → week 7 · cutscene → week 9</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> the diorama on schedule (week 5), cutscene a month later.</div>
+    </div>
+    <div class="option-summary">
+      Keep the original plan untouched: the body-only kit and walking diorama by week 5, then add faces, hands and cutscenes on top. The diorama stays on schedule. But the kit gets built twice: faces and full hands added to a finished body template means redoing skin weights, topology and bone names. And the talking face, the riskiest promise, isn't seen until week 7.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Gameplay matters more than cutscenes</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Kit template reworked for faces and hands</li>
+        <li>Riskiest part tested late</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">A Full Story Scene With Branching</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="legend"><span class="lc">kit</span><span class="lf">face + voice</span><span class="la">motion + performance</span><span class="lg">engines</span><span class="lb">benchmarks</span></div>
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 3–8</span><span class="tl-bar l-core">Everything in A</span></div>
+        <div class="tl-row"><span class="tl-w">WK 9</span><span class="tl-bar l-ai">Dialogue tool: player choices trigger 2 cutscenes</span></div>
+        <div class="tl-row"><span class="tl-w">WK 10</span><span class="tl-bar l-game">Three characters, a choice, two endings</span></div>
+        <div class="tl-milestone late">Story scene → week 10</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> a short playable story moment with a choice that changes what's said.</div>
+    </div>
+    <div class="option-summary">
+      Go past one cutscene to a small story scene: three characters, a player choice in a dialogue tool, two cutscenes that respond. It's closer to what you'll actually ship and tests the dialogue-to-cutscene hand-off. But it adds two weeks and a dialogue tool before the first proof; it's the natural milestone after A.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Story games are the near-term goal</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two extra weeks before first proof</li>
+        <li>More moving parts at once</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A stretches the plan from six weeks to eight and pushes the walking diorama back a week, so you wait longer for anything playable. The kit in week 3 is also asked to do a lot at once: body, face template, full hands, all with clean weights. That's the most error-prone week of the plan. If the week-4 talking-face checkpoint fails, everything after it waits on fixing it. That's the point of the checkpoint, but it can stall the whole plan. If playable gameplay matters more to you than cutscenes right now, C keeps the diorama on schedule, at the cost of reworking the kit.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Roughly full-time with Claude Code, as before; weeks are estimates.</li>
+    <li>You record a few test lines (or pick a text-to-speech voice) by week 4 for the checkpoint.</li>
+    <li>Week-4 checkpoint tripwire: if the talking face doesn't read as speech after a week of tuning, stop and revisit decisions 19–21 (denser face, or Audio2Face on hero lines) before building further.</li>
+    <li>Week-8 tripwire: if the cutscene isn't playing in Godot, cut the three.js player to a later milestone.</li>
+    <li>D (a branching story scene) is the next milestone after A.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>One indie studio, unable to afford animators or motion capture, captured about 350 facial animations with one person and a budget camera. Cleanup took the time. Outsourcers say cost pushes studios to polish only selected shots. <a class="cite" href="https://medium.com/well-told-entertainment/how-an-indie-studio-attempted-facial-performance-cdb91d46ec7b">Well Told Entertainment</a> <a class="cite" href="https://www.mcvuk.com/development-news/cubic-motion-launches-new-animation-service/">MCV</a></li>
+    <li>Mass Effect Andromeda shows that bad faces dominate how a whole game is received. Proving the face early, before building on it, is cheap insurance. <a class="cite" href="https://www.pcgamer.com/bioware-responds-to-mass-effect-andromeda-animation-harassment">PC Gamer</a></li>
+    <li>The thin-slice first build found about a dozen real bugs in a week because the whole loop ran end to end. That's the case for one small scene through all the new parts. <a class="cite" href="../bench/TASKS.md">bench/TASKS.md</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Forge Lesson + checkpoint</th><th class="col-b">B: Talking head first</th><th class="col-c">C: Diorama first</th><th class="col-d">D: Branching story scene</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>First talking face</td><td class="col-pick col-chosen">Week 4</td><td>Week 4</td><td>Week 7</td><td>Week 4</td></tr>
+        <tr><td>Walkable diorama</td><td class="col-pick col-chosen">Week 6</td><td>Week 8+</td><td>Week 5</td><td>Week 6</td></tr>
+        <tr><td>First full cutscene</td><td class="col-pick col-chosen">Week 8, both engines</td><td>Week 10+</td><td>Week 9</td><td>Week 8 (story wk 10)</td></tr>
+        <tr><td>Kit built once</td><td class="col-pick col-chosen">Yes</td><td>Head and body apart</td><td>No (reworked)</td><td>Yes</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: reorder weeks</td><td>Low</td><td>Medium (kit rework)</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-25 I want Option C instead"</strong></p>
+</div>
+
+</body>
+</html>

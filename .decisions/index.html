@@ -49,8 +49,8 @@ a.decision-item:hover { border-color: #23466f; }
     <p class="project-description">AI-First 3D Studio — a 3D creation environment where AI agents and humans share the same typed modeling tools.</p>
   </header>
   <div class="progress-section">
-    <div class="progress-label"><span>18 of 25 decisions made · faces &amp; cutscenes phase started</span><span>72%</span></div>
-    <div class="progress-bar"><span class="progress-fill" style="width:72%"></span></div>
+    <div class="progress-label"><span>25 of 25 decisions made</span><span>100%</span></div>
+    <div class="progress-bar"><span class="progress-fill" style="width:100%"></span></div>
   </div>
   <div class="decision-list">
     <a href="decision-001-app-runtime.html" class="decision-item resolved">
@@ -161,11 +161,47 @@ a.decision-item:hover { border-color: #23466f; }
         <div class="decision-meta"><span class="badge interaction">Planning</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Walk around a tiny diorama</span></span></div>
         <p class="decision-summary">Tiny diorama, props first, character first, or a complete tiny game.</p></div>
       <span class="arrow-icon">→</span></a>
-    <a href="decision-019-face-fidelity.html" class="decision-item pending">
+    <a href="decision-019-face-fidelity.html" class="decision-item resolved">
       <div class="decision-number-badge">19</div>
       <div class="decision-info"><h3>How detailed faces get in cutscenes</h3>
-        <div class="decision-meta"><span class="badge visual">Visual</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="pending-text">Pending</span></span></div>
+        <div class="decision-meta"><span class="badge visual">Visual</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option B — Stylized big-shape faces in the kit</span></span></div>
         <p class="decision-summary">Low-poly face, stylized big-shape faces, a swapped-in detailed head, or realistic.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-020-face-rig.html" class="decision-item resolved">
+      <div class="decision-number-badge">20</div>
+      <div class="decision-info"><h3>How the face is rigged</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Standard shape keys + jaw and eye bones</span></span></div>
+        <p class="decision-summary">Standard shape keys + jaw/eye bones, full ARKit 52, face bones only, or 2D textures.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-021-lip-sync.html" class="decision-item resolved">
+      <div class="decision-number-badge">21</div>
+      <div class="decision-info"><h3>Where lip sync comes from</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Audio + script, aligned locally</span></span></div>
+        <p class="decision-summary">Audio + script aligned locally, text-to-speech timings, Audio2Face, or text only.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-022-hands.html" class="decision-item resolved">
+      <div class="decision-number-badge">22</div>
+      <div class="decision-info"><h3>Hands</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Full fingers, poses as settings, grips on props</span></span></div>
+        <p class="decision-summary">Full fingers with grip sockets, mitten hands, procedural grasping, or swappable shapes.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-023-one-performance.html" class="decision-item resolved">
+      <div class="decision-number-badge">23</div>
+      <div class="decision-info"><h3>Face, hands and body as one performance</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — One performance script per line</span></span></div>
+        <p class="decision-summary">Performance script per line, separate tracks, AI from voice, or act it yourself.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-024-cutscenes.html" class="decision-item resolved">
+      <div class="decision-number-badge">24</div>
+      <div class="decision-info"><h3>Where cutscenes are made and played</h3>
+        <div class="decision-meta"><span class="badge technical">Architecture</span><span class="badge one-way">🚪 One-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — Studio cutscene file + two thin players</span></span></div>
+        <p class="decision-summary">Studio cutscene file + two players, each engine's tools, all in glTF, or video.</p></div>
+      <span class="arrow-icon">→</span></a>
+    <a href="decision-025-first-cutscene.html" class="decision-item resolved">
+      <div class="decision-number-badge">25</div>
+      <div class="decision-info"><h3>First cutscene milestone</h3>
+        <div class="decision-meta"><span class="badge interaction">Planning</span><span class="badge two-way">🔁 Two-way</span><span class="decision-status"><span class="chosen-text">Chosen: Option A — The Forge Lesson, talking-face checkpoint</span></span></div>
+        <p class="decision-summary">Forge Lesson with a talking-face checkpoint, talking head first, diorama first, or a branching story scene.</p></div>
       <span class="arrow-icon">→</span></a>
   </div>
   <p class="footer-note">To change a decision, respond with: "for decision-1 I want Option B instead"</p>

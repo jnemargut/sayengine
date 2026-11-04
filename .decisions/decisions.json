@@ -741,9 +741,9 @@
    "category": "visual",
    "stakes": "high",
    "reversibility": "one-way",
-   "status": "pending",
-   "chosenOption": null,
-   "chosenTitle": null,
+   "status": "chosen",
+   "chosenOption": "B",
+   "chosenTitle": "Stylized big-shape faces in the kit",
    "htmlFile": "decision-019-face-fidelity.html",
    "options": {
     "A": "Keep the low-poly face",
@@ -767,7 +767,224 @@
     "https://pmc.ncbi.nlm.nih.gov/articles/PMC5024669",
     "https://github.com/DanielSWolf/rhubarb-lip-sync",
     "https://www.gamedeveloper.com/game-platforms/from-start-to-finish-bringing-characters-to-life-in-opus-echo-of-starsong"
-   ]
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 20,
+   "slug": "face-rig",
+   "title": "How the face is rigged",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "15 speech shapes + ARKit-named subset + jaw/eye bones",
+   "htmlFile": "decision-020-face-rig.html",
+   "options": {
+    "A": "15 standard viseme shape keys + ARKit-named expression subset (~16) + jaw/eye/head bones",
+    "B": "Full ARKit 52 shape keys",
+    "C": "Face bones only",
+    "D": "2D face textures that swap"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Bets against future face capture: ARKit-52 input (iPhone, Azure) needs a lossy fold-down mapping; shape keys cost size and break on some Android GPUs.",
+   "assumptions": [
+    "Lip sync mainly from audio/text (15 visemes)",
+    "Shapes generated from kit template",
+    "Face-shape budget check in game profiles",
+    "Fixed ARKit-52 \u2192 subset mapping if capture appears"
+   ],
+   "tripwires": [
+    "You start capturing performances on a phone -> extend to full ARKit 52"
+   ],
+   "sources": [
+    "https://developers.meta.com/horizon/documentation/unity/audio-ovrlipsync-viseme-reference/",
+    "https://learn.microsoft.com/azure/ai-services/speech-service/how-to-speech-synthesis-viseme",
+    "https://forum.playcanvas.com/t/tricks-to-decrease-morph-target-sizes/18628"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 21,
+   "slug": "lip-sync",
+   "title": "Where lip sync comes from",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Audio + script aligned locally, then smoothing",
+   "htmlFile": "decision-021-lip-sync.html",
+   "options": {
+    "A": "Any audio + script aligned locally (Rhubarb / Whisper + dictionary) \u2192 15 shapes \u2192 smoothing (coarticulation, M/B/P closure, emotion)",
+    "B": "Text-to-speech service timings (Azure / ElevenLabs)",
+    "C": "AI audio-to-face (Audio2Face, NVIDIA GPU)",
+    "D": "Text only, guessed timing (drafting)"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Alignment knows timing, not feeling: mouths can be flat without emotion layering; Audio2Face looks better if runnable; B fewer parts if all lines AI-voiced. All three feed one smoothing step.",
+   "assumptions": [
+    "Dialogue pre-recorded/pre-generated",
+    "English first",
+    "Smoothing pass + closure checks are ours",
+    "D kept for drafting"
+   ],
+   "tripwires": [
+    "Mouths read flat after smoothing tuning -> try C via cloud on hero lines"
+   ],
+   "sources": [
+    "https://github.com/DanielSWolf/rhubarb-lip-sync",
+    "https://www.dgp.toronto.edu/~karan/jali/index.html",
+    "https://github.com/NVIDIA/Audio2Face-3D"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 22,
+   "slug": "hands",
+   "title": "Hands",
+   "category": "technical",
+   "stakes": "med",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Full fingers, poses as settings, grip sockets on props",
+   "htmlFile": "decision-022-hands.html",
+   "options": {
+    "A": "Full fingers (3 joints each), poses as settings (curl/spread/thumb), grip sockets on props, finger-through-prop check",
+    "B": "Mitten hands (thumb, index, rest)",
+    "C": "Full fingers + procedural grasping",
+    "D": "Swappable hand shapes, no finger bones"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "~doubles bone count (25\u219255), hard knuckle weights, every touched prop needs a grip socket; B covers most acting in medium shots cheaply.",
+   "assumptions": [
+    "Hands in close-up in cutscenes",
+    "Template designs knuckles once",
+    "Studio props get generated grip sockets",
+    "LODs/mobile may drop finger bones"
+   ],
+   "tripwires": [
+    "Web/mobile bone budget fails repeatedly -> drop finger bones in those profiles"
+   ],
+   "sources": [
+    "https://vrlab.cmix.louisiana.edu/wp-content/uploads/2025/04/Prachyabrued_Borst_3DUI2012_Interpenetration.pdf",
+    "https://docs.godotengine.org/en/4.6/tutorials/assets_pipeline/retargeting_3d_skeletons.html"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 23,
+   "slug": "one-performance",
+   "title": "Face, hands and body as one performance",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "One performance script per line",
+   "htmlFile": "decision-023-one-performance.html",
+   "options": {
+    "A": "One performance script per line (emotion, gaze, gestures, grip, posture) compiled to shared-beat channels + procedural life layer",
+    "B": "Separate tracks lined up by hand",
+    "C": "AI model generates whole-body motion from voice",
+    "D": "Act it out on camera (MediaPipe) and retarget"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Rule-driven characters can feel tidy/repetitive; library gestures never invented; for key emotional scenes a real performance (D) wins \u2014 keep D as an override source.",
+   "assumptions": [
+    "Dialogue-heavy, directed in words",
+    "Gesture library on decision-22 hand poses covers most acting",
+    "Seeded procedural life layer",
+    "Performance file is plain text, reviewable"
+   ],
+   "tripwires": [
+    "Characters read repetitive across 20+ lines -> add gesture variation + D overrides for key scenes",
+    "A commercially licensed gesture model for custom rigs appears -> add as a source"
+   ],
+   "sources": [
+    "https://developer.valvesoftware.com/wiki/Faceposer_reference",
+    "https://v1.yarnspinner.dev/docs/writing/controlling/",
+    "https://arxiv.org/abs/2308.12646",
+    "https://smpl-x.is.tue.mpg.de/modellicense.html"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 24,
+   "slug": "cutscenes",
+   "title": "Where cutscenes are made and played",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "Studio cutscene file + two thin players",
+   "htmlFile": "decision-024-cutscenes.html",
+   "options": {
+    "A": "Studio cutscene file (shots, cameras, cuts, lines+performances, audio, events) + generated Godot AnimationPlayer + small three.js player; storyboard review; dialogue branching in Yarn/JSON",
+    "B": "Build in each engine's tools",
+    "C": "Everything inside glTF",
+    "D": "Render to video"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Inventing a format and two players; every new shot type lands in three places; Godot AnimationPlayer already does most \u2014 if Godot-only, B is less to build. Keep the format small with an escape hatch.",
+   "assumptions": [
+    "Cutscenes in both targets",
+    "Small format + engine escape hatch",
+    "Storyboard frames for review",
+    "Branching in a dialogue tool"
+   ],
+   "tripwires": [
+    "Format grows past ~15 shot/event kinds -> stop and push extras to engine escape hatches"
+   ],
+   "sources": [
+    "https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md",
+    "https://docs.godotengine.org/en/stable/tutorials/animation/animation_track_types.html",
+    "https://yarnspinner.dev/license"
+   ],
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 25,
+   "slug": "first-cutscene",
+   "title": "First cutscene milestone",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "chosenOption": "A",
+   "chosenTitle": "The Forge Lesson, talking-face checkpoint wk 4",
+   "htmlFile": "decision-025-first-cutscene.html",
+   "options": {
+    "A": "'The Forge Lesson' (2 characters, 4 shots, 3 lines) by wk 8, talking-face checkpoint wk 4, diorama wk 6",
+    "B": "Talking head only first",
+    "C": "Diorama first, then cutscenes (kit rework)",
+    "D": "Full branching story scene (wk 10)"
+   },
+   "recommended": "A",
+   "confidence": "strong",
+   "caseAgainst": "Plan grows 6\u21928 weeks, diorama slips a week; week 3 kit is the most error-prone week; a failed checkpoint stalls everything. C keeps gameplay on schedule at the cost of kit rework.",
+   "assumptions": [
+    "~full-time with Claude Code",
+    "Test lines recorded or TTS voice by wk 4",
+    "Checkpoint and wk-8 tripwires",
+    "D is next"
+   ],
+   "tripwires": [
+    "Talking face doesn't read as speech after a week of tuning -> revisit 19-21",
+    "Cutscene not playing in Godot by wk 8 -> defer three.js player"
+   ],
+   "sources": [
+    "https://medium.com/well-told-entertainment/how-an-indie-studio-attempted-facial-performance-cdb91d46ec7b"
+   ],
+   "decidedAt": "2026-11-04"
   }
  ],
  "phases": [

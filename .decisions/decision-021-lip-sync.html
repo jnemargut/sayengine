@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 21: Where Lip Sync Comes From — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.flow-container { display:flex; flex-direction:column; gap:0; width:100%; max-width:310px; margin:0 auto; }
+.flow-step { display:flex; align-items:center; gap:10px; background:white; border:2px solid #e2e8f0; border-radius:10px; padding:7px 11px; font-size:0.68rem; font-weight:600; color:#334155; }
+.flow-step.highlight { border-color:#1d6f80; background:#e6f3f6; color:#13505c; }
+.flow-step.error { border-color:#a83a32; background:#fbecea; color:#7d2a24; }
+.flow-step-number { width:20px; height:20px; border-radius:50%; background:#e2e8f0; color:#475569; display:flex; align-items:center; justify-content:center; font-size:0.58rem; font-weight:700; flex-shrink:0; }
+.flow-step.highlight .flow-step-number { background:#1d6f80; color:white; }
+.flow-step.error .flow-step-number { background:#a83a32; color:white; }
+.flow-down-arrow { font-size:0.9rem; color:#94a3b8; text-align:center; line-height:1.2; }
+.curve { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.curve svg { display:block; width:100%; height:auto; }
+@media (max-width: 900px) { .options-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 21 of 25 · Faces, hands and cutscenes</span>
+  <h1>Where Lip Sync Comes From</h1>
+  <span class="category-badge">Architecture</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Faces now have the 15 standard speech shapes (decision 20). Something has to say which shape, when, and how strongly, for every line of dialogue. The research is consistent on what makes a mouth look real: not more shapes, but timing and blending. Neighbouring sounds shape each other ("coarticulation"), and lips must fully close on M, B and P. Snapping from shape to shape is what made Mass Effect Andromeda's faces infamous. Every option below feeds the same final step: a smoothing pass that blends shapes and enforces closures.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: any voice, runs on your Mac</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Audio + Script, Aligned Locally</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span><span>Any audio: your recording, an actor, or any text-to-speech voice</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span><span>Align with the script: word and sound timings (Rhubarb, or Whisper timestamps + a pronunciation dictionary)</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">3</span><span>Sounds → the 15 speech shapes</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">4</span><span>Smoothing: blend neighbours, close lips on M/B/P, scale by emotion</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">5</span><span>Shape curves baked into the cutscene; reviewable</span></div>
+      </div>
+      <div class="curve">
+        <svg viewBox="0 0 300 70" role="img" aria-label="Smoothed mouth-shape curves overlapping in time, with lips fully closed on P">
+          <rect width="300" height="70" fill="white"/>
+          <line x1="0" y1="60" x2="300" y2="60" stroke="#e2e8f0"/>
+          <path d="M10 60 C30 60 40 20 60 20 S90 60 110 60" fill="none" stroke="#1d6f80" stroke-width="2"/>
+          <path d="M80 60 C100 60 110 30 130 30 S160 60 180 60" fill="none" stroke="#4b3a8c" stroke-width="2"/>
+          <path d="M160 60 L172 12 L184 12 L196 60" fill="none" stroke="#a83a32" stroke-width="2"/>
+          <path d="M190 60 C210 60 220 26 240 26 S270 60 290 60" fill="none" stroke="#2c6e48" stroke-width="2"/>
+          <g font-size="7" fill="#64748b" font-family="-apple-system, sans-serif"><text x="56" y="16">oh</text><text x="124" y="26">ih</text><text x="166" y="9">PP (closed)</text><text x="236" y="22">aa</text><text x="4" y="68">"Hold     still,    please"</text></g>
+        </svg>
+      </div>
+    </div>
+    <div class="option-summary">
+      Use any audio: you reading the lines, an actor, or any text-to-speech voice. In step 2 the studio aligns the audio with the script on your Mac, using Rhubarb Lip Sync (open source, made for games) or Whisper word timings plus a pronunciation dictionary for more precise sounds. Step 4 is where the realism comes from: shapes overlap and blend, lips always close on M/B/P, and the emotion of the line scales the mouth. It's free, offline, and doesn't care where the voice came from.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Any voice source, including your own</li>
+        <li>Offline on your Mac, no service fees</li>
+        <li>Cutscenes (offline is fine)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>English is most accurate; other languages rougher</li>
+        <li>The smoothing pass needs real tuning</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Timings From a Text-to-Speech Service</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span><span>Write the line</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span><span>A text-to-speech service speaks it and returns mouth timings (Azure: shapes; ElevenLabs: letters)</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">3</span><span>Map to the 15 shapes</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">4</span><span>Smoothing pass</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step error"><span class="flow-step-number">5</span><span>Only works for that service's voices</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Let a cloud text-to-speech service generate the voice and hand back timing in the same call. Azure returns mouth-shape curves directly; ElevenLabs returns per-letter timings. It's the most automatic option, since Claude writes a line and gets voice plus mouth together. But it only works for voices from that service: your own recordings or an actor wouldn't get lip sync. Users report Azure's mouth curves run too wide.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>All dialogue is AI-voiced</li>
+        <li>Fastest from script to talking character</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Recorded voices get no lip sync</li>
+        <li>Paid service, online, vendor lock-in</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">AI Audio-to-Face (Audio2Face)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span><span>Any audio</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step error"><span class="flow-step-number">2</span><span>NVIDIA model needs an NVIDIA GPU (Windows/Linux), not your Mac</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">3</span><span>Outputs whole-face motion incl. emotion, as ARKit weights</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">4</span><span>Fold 52 → your ~30 shapes</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">5</span><span>Review</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      NVIDIA open-sourced Audio2Face in 2025 (commercial use allowed). From audio alone it produces the whole face: mouth, plus brows, cheeks and emotion it infers. It's the highest quality available. But it needs an NVIDIA graphics card on Windows or Linux, so on your Mac it means a cloud machine. It outputs ARKit's 52 shapes, which need folding into your set, and it's tuned for realistic faces, not stylized ones.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You have an NVIDIA machine or cloud budget</li>
+        <li>Want emotion inferred from the voice too</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Won't run on your Mac</li>
+        <li>Tuned for realistic faces</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Text Only, No Audio Yet</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow-container">
+        <div class="flow-step"><span class="flow-step-number">1</span><span>Write the line</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step highlight"><span class="flow-step-number">2</span><span>Pronunciation dictionary → sounds</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step error"><span class="flow-step-number">3</span><span>Guess timing (average speaking rate)</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">4</span><span>Smoothing pass</span></div>
+        <div class="flow-down-arrow">↓</div>
+        <div class="flow-step"><span class="flow-step-number">5</span><span>Re-time when audio arrives</span></div>
+      </div>
+    </div>
+    <div class="option-summary">
+      Animate mouths from the script alone, guessing timing from an average speaking rate. It's useful for blocking out cutscenes before any voice exists, or for unvoiced games with text-box dialogue where a moving mouth just suggests speech. But guessed timing never matches a real voice, so on its own it can't deliver "mouth moves realistically with words".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Drafting before voices exist</li>
+        <li>Unvoiced dialogue (text boxes)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Never truly in sync with a voice</li>
+        <li>Not enough on its own</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Alignment tools only know when sounds happen, not how a person feels saying them. A's mouths will be well-timed but emotionally flat unless the smoothing pass and the performance layer (decision 23) add expression on top, which is real tuning work. Audio2Face infers emotion from the voice itself and simply looks better, if you can run it. And if every line in your games will be AI-voiced anyway, B is fewer moving parts. My answer: A as the default, with B's timings and C's output accepted as alternative inputs into the same smoothing step, since all three end in the same 15 shapes.</p>
+</section>
+
+<section class="assumptions">
+  <h2>This recommendation assumes</h2>
+  <ul>
+    <li>Cutscene dialogue is pre-recorded or pre-generated, so offline processing is fine.</li>
+    <li>English first; other languages work with lower accuracy.</li>
+    <li>The smoothing pass (blend, M/B/P closure, emotion scaling) is ours and is where quality is won. It gets automated checks: lips closed on every P/B/M, no shape held unnaturally long.</li>
+    <li>Option D's text-only mode is kept as a drafting tool for cutscenes before voices exist.</li>
+  </ul>
+</section>
+
+<section class="research-context">
+  <h2>What the research says</h2>
+  <ul class="findings">
+    <li>Rhubarb Lip Sync is an offline command-line tool built for games. It takes audio plus an optional script (recommended for accuracy) and outputs timed mouth shapes as JSON. Its default recognizer is English-only. A Godot add-on for it already exists. <a class="cite" href="https://github.com/DanielSWolf/rhubarb-lip-sync">Rhubarb</a> <a class="cite" href="https://godotengine.org/asset-library/asset/3629">Godot Baked Lipsync</a></li>
+    <li>Snapping one sound to one shape looks "robotic or creepy". The fix is coarticulation, where neighbouring sounds shape each pose, with each shape on an attack, peak and decay curve. <a class="cite" href="https://www.dgp.toronto.edu/~karan/jali/index.html">JALI, SIGGRAPH 2016</a></li>
+    <li>Volume-only lip sync can't place M/B/P closures, which causes mouth "flapping". A transcript fixes much of this. <a class="cite" href="https://github.com/DanielSWolf/rhubarb-lip-sync/issues/22">Rhubarb author</a></li>
+    <li>Azure text-to-speech returns 55 face values per frame at 60 fps, the first 52 in ARKit order. ElevenLabs returns per-letter timings, with no mouth shapes. <a class="cite" href="https://learn.microsoft.com/azure/ai-services/speech-service/how-to-speech-synthesis-viseme">Microsoft Learn</a> <a class="cite" href="https://elevenlabs.io/docs/api-reference/text-to-speech/convert-with-timestamps">ElevenLabs</a></li>
+    <li>Audio2Face-3D was open-sourced in September 2025: MIT-licensed tools, commercial-use model licence. It needs an NVIDIA GPU with CUDA on Windows or Linux. <a class="cite" href="https://github.com/NVIDIA/Audio2Face-3D">NVIDIA</a> <a class="cite" href="https://huggingface.co/nvidia/Audio2Face-3D-v3.0">Model card</a></li>
+    <li>Mass Effect Andromeda's widely mocked faces likely came from dialogue animated algorithmically at scale with little polish. Automation without a quality pass is the failure mode. <a class="cite" href="https://www.vice.com/en/article/animators-awkward-andromeda-animations-are-automation-amok">Vice</a></li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>How They Compare</h2>
+  <div class="comparison-table-wrapper">
+    <table class="comparison-table">
+      <thead>
+        <tr><th></th><th class="col-a col-pick">A: Audio + script, local</th><th class="col-b">B: Text-to-speech timings</th><th class="col-c">C: Audio2Face</th><th class="col-d">D: Text only</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Works with recorded voices</td><td class="col-pick col-chosen">Yes</td><td>No</td><td>Yes</td><td>No</td></tr>
+        <tr><td>Runs on your Mac, offline</td><td class="col-pick col-chosen">Yes</td><td>No (cloud)</td><td>No (NVIDIA GPU)</td><td>Yes</td></tr>
+        <tr><td>Mouth timing accuracy</td><td class="col-pick col-chosen">Good (with script)</td><td>Good</td><td>Best</td><td>Guessed</td></tr>
+        <tr><td>Emotion in the mouth</td><td class="col-pick col-chosen">From the line's emotion tag</td><td>Flat</td><td>Inferred from voice</td><td>From tag</td></tr>
+        <tr><td>Cost</td><td class="col-pick col-chosen">Free</td><td>Per character spoken</td><td>GPU or cloud time</td><td>Free</td></tr>
+        <tr><td>Undo cost</td><td class="col-pick col-chosen">Low: B and C plug into the same step</td><td>Low</td><td>Low</td><td>Low</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>To change a past decision: <strong>"for decision-21 I want Option B instead"</strong></p>
+</div>
+
+</body>
+</html>
