@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 50: Outside Characters as a Side Door — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.rep { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.rep .hd { font-weight:800; font-size:0.56rem; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:6px 0 3px; }
+.rep .hd:first-child { margin-top:0; }
+.ln { display:grid; grid-template-columns:1fr auto; gap:8px; padding:2px 0; border-bottom:1px solid #f1f5f9; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.yes { background:#edf6f0; color:#2c6e48; } .part { background:#fdf6e9; color:#8a5208; } .no { background:#fbecea; color:#a83a32; } .info { background:#e6edf6; color:#23466f; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 50 of 51 · Characters that look like yours</span>
+  <h1>Outside Characters as a Side Door</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Most characters will come from the studio (decisions 47–49), but now and then you may want a model from VRoid, an asset store, a free pack or Blender. Today any of those arrives as a statue. This decides how far the side door opens: which outside characters can walk, talk and appear in cutscenes, and what happens to the ones that can't.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: rigged models in, with an honest report</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Rigged Models Come In, With a Report of What Works</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Import · knight.vrm (from VRoid Hub)</div>
+        <div class="ln"><span>Bones matched to standard humanoid names</span><span class="pill yes">54 of 56</span></div>
+        <div class="ln"><span>Walk, run, gestures, cutscenes</span><span class="pill yes">work</span></div>
+        <div class="ln"><span>Face: own expressions found (aa, ih, ou, ee, oh, blink)</span><span class="pill part">10 of 15 speech shapes made from them</span></div>
+        <div class="ln"><span>Fingers for grips</span><span class="pill yes">yes</span></div>
+        <div class="ln"><span>Licence in the file: personal, non-profit</span><span class="pill no">can't ship commercially</span></div>
+        <div class="hd">Import · statue.obj</div>
+        <div class="ln"><span>No skeleton</span><span class="pill info">stays a prop</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> drop in a VRoid knight and the report says what carried over. It walks and takes part in cutscenes, its own vowel shapes become most of the 15 speech shapes, and its licence says personal use only. A model with no skeleton comes in as a prop, with a note on how to rig it.</div>
+    </div>
+    <div class="option-summary">
+      Characters that already have a skeleton (glTF, GLB, VRM) come in with their bones matched automatically to the standard humanoid names, so studio motion, life layer and cutscenes play on them (retargeted by our own code, since the built-in three.js version is unreliable). Faces use what the model brings: ARKit-style shapes first, then VRM's five vowels with consonants made from them, then a jaw if it has one, otherwise eyes only. The import reads the licence stored in VRM files and warns before you ship. Models without a skeleton stay props.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>VRoid, free packs (KayKit is CC0 and rigged), store characters</li>
+        <li>You want to know what carried over</li>
+        <li>Licences checked for you</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Unrigged models stay props</li>
+        <li>Faces vary with what the model brings</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">A, Plus Adding Skeletons to Unrigged Models</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Import · statue.obj</div>
+        <div class="ln"><span>Pose looks like a T or A pose</span><span class="pill yes">yes</span></div>
+        <div class="ln"><span>Joints found from front and side views</span><span class="pill part">guessed</span></div>
+        <div class="ln"><span>Skin weights</span><span class="pill part">auto, check the skirt</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> even a statue can walk. But only if it stands in a T or A pose with arms apart, and long hair, skirts and capes come out wrong.</div>
+    </div>
+    <div class="option-summary">
+      Everything in A, plus a local skeleton-adder for models that have none: render the model, find joints from the front and side, place bones and weights. On a Mac this has to be our own simpler method, because every machine-learning auto-rigger needs an NVIDIA GPU and Mixamo is online-only and in maintenance mode. It works on clean T- or A-pose humanoids and struggles with hair, skirts, capes and fused arms.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Store models without a skeleton</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Unreliable on clothing and hair</li>
+        <li>A sizeable build for a side door</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Curated Library of Free Rigged Characters</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Library</div>
+        <div class="ln"><span>KayKit Adventurers (CC0, rigged, 75 animations)</span><span class="pill yes">ready</span></div>
+        <div class="ln"><span>Kenney characters (CC0)</span><span class="pill yes">ready</span></div>
+        <div class="ln"><span>Your own VRoid or store models</span><span class="pill no">not supported</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> a shelf of tested, free characters that just work. But only those characters, not the one you found yesterday.</div>
+    </div>
+    <div class="option-summary">
+      Instead of a general importer, bundle a few tested packs of free rigged characters (KayKit is CC0 with 75 animations, Kenney is CC0), already mapped to the studio's skeleton. Guaranteed to work and safe to ship. But it's a fixed shelf, and any other model still arrives as a statue.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Quick prototypes with stand-in characters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Only those characters</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">No Side Door for Now</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Import · any character</div>
+        <div class="ln"><span>Comes in as a prop or reference shape</span><span class="pill info">as today</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> all effort goes into studio-made characters. Outside models stay references to copy from.</div>
+    </div>
+    <div class="option-summary">
+      Skip importing for now and put all effort into studio-made characters, using outside models only as reference shapes to copy from. Simplest and most focused. But the one time you want a specific VRoid character in a scene, you can't.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Studio characters are all you want</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No outside characters at all</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>You said characters should mostly come from the studio, so even A's importer may rarely be used, and D would put that effort into studio characters instead. Bone matching and retargeting are fiddly (rest poses, A- versus T-pose, missing finger bones), and faces will be inconsistent across imports. C's tested shelf might cover the "I need a stand-in" case with a fraction of the work.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the studio's skeleton uses VRM/Godot humanoid names, so most rigged models map automatically.</li>
+    <li>Assumes our own retargeter (rest-pose correction plus hip-height scaling), since three.js's built-in one is unreliable.</li>
+    <li>Tripwire: if you import unrigged models more than a couple of times, add B's skeleton-adder.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Rigged in + report</th><th class="col-b">B · Plus skeleton-adder</th><th class="col-c">C · Curated library</th><th class="col-d">D · None</th></tr></thead>
+    <tbody>
+      <tr><td>VRoid / store rigged models move</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>No</td></tr>
+      <tr><td>Unrigged models move</td><td class="col-pick">No (props)</td><td>Sometimes</td><td>No</td><td>No</td></tr>
+      <tr><td>Faces talk</td><td class="col-pick">With their own shapes</td><td>Same</td><td>Jaw/eyes</td><td>No</td></tr>
+      <tr><td>Licence checked</td><td class="col-pick">Yes (VRM)</td><td>Yes</td><td>Known CC0</td><td>n/a</td></tr>
+      <tr><td>Effort</td><td class="col-pick">Medium</td><td>Large</td><td>Small</td><td>None</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low</td><td>Low</td><td>Low</td><td>None</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Godot auto-maps bones to a standard humanoid profile; A-pose models need a silhouette fix.<a class="cite" href="https://docs.godotengine.org/en/4.7/tutorials/assets_pipeline/retargeting_3d_skeletons.html">Godot docs</a></li>
+    <li>VRM files carry licence fields (commercial use, who may use the avatar); defaults are personal and non-profit.<a class="cite" href="https://pixiv.github.io/three-vrm/docs/interfaces/three-vrm.VRM1Meta.html">three-vrm meta</a></li>
+    <li>A working retargeting approach: correct for rest poses and scale by hip height; three.js's built-in retargeting is unreliable.<a class="cite" href="https://github.com/V-Sekai/three-vrm-1-sandbox-mixamo">three-vrm sandbox</a><a class="cite" href="https://discourse.threejs.org/t/fixing-skeletonutils-retarget-and-retargetclip-functions/65149">three.js forum</a></li>
+    <li>VRM's five vowels map onto the standard speech shapes, with consonants synthesised; ARKit-style shapes cover more.<a class="cite" href="https://developers.meta.com/vr/documentation/unity/audio-ovrlipsync-viseme-reference/">Meta visemes</a><a class="cite" href="https://developer.apple.com/documentation/arkit/arfaceanchor/blendshapelocation">ARKit shapes</a></li>
+    <li>Machine-learning auto-riggers need NVIDIA GPUs; Mixamo is online-only and in maintenance mode; AccuRIG is Windows-only.<a class="cite" href="https://arxiv.org/html/2504.12451">UniRig</a><a class="cite" href="https://www.cgchannel.com/2025/07/rig-and-animate-3d-characters-for-free-with-accurig-2-0/">CG Channel</a></li>
+    <li>KayKit Adventurers is CC0, rigged and ships 75 animations; Ready Player Me shut down in January 2026.<a class="cite" href="https://kaylousberg.itch.io/kaykit-adventurers">KayKit</a><a class="cite" href="https://avatarsdk.com/blog/2026/07/07/ready-player-me-migration-guide/">Avatar SDK</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option D but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next and last: decision 51, when to build it.</p>
+</div>
+</body>
+</html>

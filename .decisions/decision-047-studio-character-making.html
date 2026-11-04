@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 47: How the Studio Makes Characters — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.cast { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px; }
+.cast svg { width:100%; height:auto; display:block; }
+.cap { font-size:0.6rem; color:#475569; text-align:center; margin-top:4px; }
+.how { margin-top:6px; display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+.how span { font-size:0.58rem; background:#efeaf8; border:1px solid #c6b9e6; border-radius:6px; padding:2px 6px; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 47 of 51 · Characters that look like yours</span>
+  <h1>How the Studio Makes Characters That Don't Look Alike</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Today every character is the same humanoid template with different settings, which is why the blacksmith and the apprentice look like cousins. You want characters to come mostly from the studio itself, made from a description like any other model, without being stuck with one family of look-alike people. This decides how the studio builds a character, which in turn sets how easily it can be rigged, animated and given a face (decisions 48–49).
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: skeleton first</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Skeleton First, Then Any Body, Face and Outfit</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="cast">
+        <svg viewBox="0 0 400 150" role="img" aria-label="Four very different characters built from different skeletons">
+          <g transform="translate(40,10)"><ellipse cx="20" cy="38" rx="22" ry="20" fill="#d9a066"/><rect x="6" y="56" width="28" height="40" rx="10" fill="#4f7a5a"/><rect x="8" y="96" width="9" height="28" rx="4" fill="#3a3a3a"/><rect x="23" y="96" width="9" height="28" rx="4" fill="#3a3a3a"/><circle cx="12" cy="36" r="4" fill="#fff"/><circle cx="28" cy="36" r="4" fill="#fff"/><circle cx="12" cy="36" r="2" fill="#222"/><circle cx="28" cy="36" r="2" fill="#222"/></g>
+          <g transform="translate(130,0)"><ellipse cx="20" cy="18" rx="10" ry="12" fill="#b8c4cf"/><rect x="12" y="30" width="16" height="62" rx="5" fill="#6b7f95"/><rect x="2" y="34" width="6" height="52" rx="3" fill="#6b7f95"/><rect x="32" y="34" width="6" height="52" rx="3" fill="#6b7f95"/><rect x="12" y="92" width="6" height="46" rx="3" fill="#4a596b"/><rect x="22" y="92" width="6" height="46" rx="3" fill="#4a596b"/><rect x="14" y="14" width="12" height="4" rx="2" fill="#f2c94c"/></g>
+          <g transform="translate(220,40)"><ellipse cx="30" cy="40" rx="34" ry="30" fill="#7a9b6a"/><ellipse cx="30" cy="14" rx="18" ry="14" fill="#8db07a"/><polygon points="22,18 30,26 38,18" fill="#e6b34a"/><circle cx="23" cy="10" r="3" fill="#222"/><circle cx="37" cy="10" r="3" fill="#222"/><rect x="14" y="66" width="8" height="30" rx="4" fill="#5a7650"/><rect x="38" y="66" width="8" height="30" rx="4" fill="#5a7650"/></g>
+          <g transform="translate(320,20)"><rect x="6" y="2" width="30" height="26" rx="4" fill="#c97b5a"/><rect x="2" y="30" width="38" height="44" rx="6" fill="#e0d2bd"/><rect x="0" y="74" width="42" height="26" rx="4" fill="#7b4a8f"/><rect x="8" y="100" width="10" height="26" rx="4" fill="#2d2d2d"/><rect x="24" y="100" width="10" height="26" rx="4" fill="#2d2d2d"/><rect x="12" y="12" width="5" height="5" fill="#222"/><rect x="25" y="12" width="5" height="5" fill="#222"/></g>
+        </svg>
+        <div class="cap">Chunky kid · lanky robot · beaked forest creature · boxy shopkeeper, all made by the studio</div>
+        <div class="how"><span>1 skeleton: chibi · lanky · stocky · beaked biped · quadruped later</span><span>2 body from blobs on the bones</span><span>3 face from feature parts</span><span>4 hair + outfit parts</span><span>5 style family + palette</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> "/studio make a nervous goblin shopkeeper with a long nose and a too-big apron". The studio picks a short, stocky skeleton, shapes a body around it, builds a face from parts (long nose, small eyes, wide mouth), adds an apron, and checks the new character's outline against the rest of your cast so it doesn't look like a cousin.</div>
+    </div>
+    <div class="option-summary">
+      Build every character the way the studio builds everything else, from ops, starting with its skeleton. You pick or describe a body plan (chibi, lanky, stocky, beaked, and later four-legged), shape the body as smooth blobs around the bones, assemble a face from interchangeable features, and add hair and outfit parts, with a style family and palette on top. Because the studio made the skeleton and face itself, rigging, motion and speech come for free (decisions 48–49). A cast check compares outlines so new characters don't come out as look-alikes. A reference picture can steer proportions and colours.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Characters made by the studio, from words</li>
+        <li>Very different shapes, not just different settings</li>
+        <li>Everything still walks, talks and holds things</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The biggest build of the four</li>
+        <li>Blobby bodies need good style rules to look crafted</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">A Much Richer Version of Today's Kit</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="cast">
+        <svg viewBox="0 0 400 150" role="img" aria-label="Four humanoids with different proportions from one template">
+          <g transform="translate(40,10)"><ellipse cx="20" cy="20" rx="12" ry="14" fill="#d9a066"/><rect x="8" y="34" width="24" height="50" rx="6" fill="#4f7a5a"/><rect x="10" y="84" width="8" height="44" rx="3" fill="#3a3a3a"/><rect x="22" y="84" width="8" height="44" rx="3" fill="#3a3a3a"/></g>
+          <g transform="translate(130,10)"><ellipse cx="20" cy="20" rx="12" ry="14" fill="#c48b5c"/><rect x="4" y="34" width="32" height="50" rx="8" fill="#8f4b3a"/><rect x="8" y="84" width="10" height="44" rx="3" fill="#3a3a3a"/><rect x="22" y="84" width="10" height="44" rx="3" fill="#3a3a3a"/></g>
+          <g transform="translate(220,10)"><ellipse cx="20" cy="20" rx="12" ry="14" fill="#e8c39e"/><rect x="10" y="34" width="20" height="50" rx="6" fill="#3d5a80"/><rect x="11" y="84" width="7" height="44" rx="3" fill="#3a3a3a"/><rect x="22" y="84" width="7" height="44" rx="3" fill="#3a3a3a"/></g>
+          <g transform="translate(310,10)"><ellipse cx="20" cy="20" rx="12" ry="14" fill="#a0704a"/><rect x="6" y="34" width="28" height="50" rx="6" fill="#6a4c93"/><rect x="9" y="84" width="9" height="44" rx="3" fill="#3a3a3a"/><rect x="22" y="84" width="9" height="44" rx="3" fill="#3a3a3a"/></g>
+        </svg>
+        <div class="cap">More body types, faces, hair and outfits, all on one human template</div>
+        <div class="how"><span>more proportions</span><span>more face parts</span><span>hair and outfit library</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> clearly better than today, with real body types, faces and clothes. But every character is still the same kind of human underneath, so a goblin or a robot is a costume, not a body.</div>
+    </div>
+    <div class="option-summary">
+      Keep the one humanoid template and greatly widen its settings: more body types, many face parts, hair and outfit libraries, style families. The smallest change, and everything already built keeps working. But it's still one human underneath, so creatures, chibis and robots are costumes on that body, and the cousin resemblance returns over a big cast.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Casts of ordinary people</li>
+        <li>Least new work</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Still one body family</li>
+        <li>No creatures</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Local AI Generator, Then Studio Clean-Up</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="cast">
+        <svg viewBox="0 0 400 150" role="img" aria-label="A lumpy generated character being cleaned up">
+          <g transform="translate(70,10)"><path d="M20,8 C38,6 44,30 34,42 C48,52 46,90 36,96 L40,130 L26,130 L22,100 L16,130 L2,130 L8,96 C-4,88 -2,52 10,42 C0,30 4,8 20,8 Z" fill="#b9a99a"/></g>
+          <text x="170" y="80" font-size="22" fill="#94a3b8">→</text>
+          <g transform="translate(240,10)"><ellipse cx="20" cy="22" rx="14" ry="15" fill="#c9a27e"/><rect x="6" y="38" width="28" height="56" rx="8" fill="#9c7a5a"/><rect x="8" y="94" width="9" height="34" rx="3" fill="#5a4a3a"/><rect x="23" y="94" width="9" height="34" rx="3" fill="#5a4a3a"/></g>
+        </svg>
+        <div class="cap">Picture in → lumpy mesh → studio simplifies and rigs it</div>
+        <div class="how"><span>TripoSR (MIT, fits 8 GB)</span><span>remesh to low-poly</span><span>add skeleton by landmarks</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> any picture becomes a character. But on an 8 GB Mac only the smallest generator fits, its output is blobby, and every one needs clean-up and a guessed skeleton before it can move.</div>
+    </div>
+    <div class="option-summary">
+      Generate a character from a picture or description with a local AI model, then have the studio simplify it to low-poly, add a skeleton and make it move. Any look is possible in principle. But on your 8 GB Mac only TripoSR fits (the better ones, TRELLIS and Hunyuan3D, need 16–24 GB, and Hunyuan's licence excludes the EU and UK), the output is blobby, every machine-learning rigger needs an NVIDIA GPU, and faces would have no speech shapes.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>A bigger machine later</li>
+        <li>Background or statue characters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Blobby on 8 GB</li>
+        <li>Rigging and faces are guesses</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Free-Form Sculpting From a Description</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="cast">
+        <svg viewBox="0 0 400 150" role="img" aria-label="A sculpted character then rigged by guesswork">
+          <g transform="translate(90,10)"><path d="M24,4 C44,4 50,24 42,36 C56,44 58,80 46,92 C54,104 50,130 40,130 L30,112 L20,130 C10,130 6,104 14,92 C2,80 4,44 18,36 C10,24 6,4 24,4 Z" fill="#9aa88f"/><circle cx="18" cy="20" r="3" fill="#222"/><circle cx="32" cy="20" r="3" fill="#222"/></g>
+          <text x="190" y="80" font-size="22" fill="#94a3b8">→</text>
+          <g transform="translate(250,10)"><path d="M24,4 C44,4 50,24 42,36 C56,44 58,80 46,92 C54,104 50,130 40,130 L30,112 L20,130 C10,130 6,104 14,92 C2,80 4,44 18,36 C10,24 6,4 24,4 Z" fill="#9aa88f"/><line x1="30" y1="20" x2="30" y2="100" stroke="#a83a32" stroke-width="2"/><line x1="30" y1="100" x2="22" y2="128" stroke="#a83a32" stroke-width="2"/><line x1="30" y1="100" x2="40" y2="128" stroke="#a83a32" stroke-width="2"/><text x="56" y="70" font-size="9" fill="#a83a32">skeleton guessed</text></g>
+        </svg>
+        <div class="cap">Sculpt any shape, then guess the skeleton afterwards</div>
+        <div class="how"><span>sculpt with smooth blobs</span><span>skeleton guessed after</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> total freedom of shape, like clay. But the skeleton and face come afterwards, by guesswork, so it may not walk or talk well.</div>
+    </div>
+    <div class="option-summary">
+      Claude sculpts any character shape freely (smooth blended forms, like digital clay), then a skeleton and face are fitted afterwards. The most freedom of shape. But fitting a skeleton and speech shapes to an arbitrary sculpt after the fact is the hard, error-prone direction (it's what the GPU-only research riggers attempt), so motion and lip sync become unreliable.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Statues and props shaped like creatures</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Rig and face fitted by guesswork</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A is the biggest build here: new skeleton types each need their own walk tuning (the crouched walk showed how fiddly one skeleton already is), and bodies made of blobs can look soft and samey unless the style rules are good. It also replaces the kit that weeks 3–8 built rather than extending it. B gets you real variety in a fraction of the time, and if your games are mostly about people, a much richer human kit may be all you ever notice.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes today's humanoid kit becomes one skeleton type among several, so the blacksmith and apprentice keep working.</li>
+    <li>Assumes skeletons use the standard humanoid bone names where they apply, so motion and engine export carry over.</li>
+    <li>Starts with bipeds (chibi, lanky, stocky, beaked); four-legged comes later.</li>
+    <li>Tripwire: if three new characters in a row still read as cousins in the cast check, add style families before more skeleton types.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Skeleton first</th><th class="col-b">B · Richer kit</th><th class="col-c">C · AI generator</th><th class="col-d">D · Free sculpt</th></tr></thead>
+    <tbody>
+      <tr><td>How different characters can be</td><td class="col-pick">Very (body plans)</td><td>Same body, new looks</td><td>Anything, blobby</td><td>Anything</td></tr>
+      <tr><td>Made by the studio from words</td><td class="col-pick">Yes</td><td>Yes</td><td>From a picture</td><td>Yes</td></tr>
+      <tr><td>Walks and talks reliably</td><td class="col-pick">Yes (built-in rig)</td><td>Yes</td><td>Guessed rig</td><td>Guessed rig</td></tr>
+      <tr><td>Runs on your 8 GB Mac</td><td class="col-pick">Yes</td><td>Yes</td><td>Smallest model only</td><td>Yes</td></tr>
+      <tr><td>Build effort</td><td class="col-pick">Large</td><td>Medium</td><td>Medium</td><td>Large</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: old kit stays as one body plan</td><td>Low</td><td>Low</td><td>Medium</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Every machine-learning auto-rigger (UniRig, Puppeteer) needs an NVIDIA GPU; on a Mac, rigging means Blender's Rigify or our own landmark rigger.<a class="cite" href="https://arxiv.org/html/2504.12451">UniRig</a><a class="cite" href="https://github.com/cansik/instance-rig">instance-rig</a></li>
+    <li>Local image-to-3D on 8 GB: only TripoSR (MIT, about 6 GB) fits; TRELLIS.2 peaks near 18 GB.<a class="cite" href="https://huggingface.co/stabilityai/TripoSR">TripoSR</a><a class="cite" href="https://github.com/shivampkumar/trellis-mac">trellis-mac</a></li>
+    <li>Hunyuan3D's licence excludes the EU, UK and South Korea, and its Mac fork needs 16 GB+.<a class="cite" href="https://raw.githubusercontent.com/VladimirTalyzin/hunyuan3d-2.1-mac/main/README.md">Mac fork</a></li>
+    <li>Auto-rigging fails most on long hair, skirts, arms fused to the body and chibi heads, which a skeleton-first build avoids.<a class="cite" href="https://neural4d.com/how-tos/how-to-prepare-3d-models-for-auto-rigging-and-animation">Neural4D</a></li>
+    <li>Generating speech shapes for a face that has none is research-grade work; building the face from known parts sidesteps it.<a class="cite" href="https://openaccess.thecvf.com/content_ICCVW_2019/html/3DRW/Onizuka_Landmark-Guided_Deformation_Transfer_of_Template_Facial_Expressions_for_Automatic_Generation_ICCVW_2019_paper.html">ICCVW 2019</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 48, rigging and motion for any shape the studio makes.</p>
+</div>
+</body>
+</html>

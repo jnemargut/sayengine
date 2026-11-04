@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 36: Where the Game Skills Live — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.confidence-badge.lean { background:#d97706; color:white; }
+.tree { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.62rem; color:#0f172a; line-height:1.6; white-space:pre; overflow-x:auto; }
+.tree b { color:#23466f; }
+.tree .c { color:#64748b; }
+.who { margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:0.62rem; }
+.who span { background:#f8fafc; border-radius:6px; padding:4px 7px; color:#334155; }
+.who .ok::before { content:"✓ "; color:#2c6e48; font-weight:700; }
+.who .no::before { content:"✕ "; color:#a83a32; font-weight:700; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 36 of 42 · Game planning skills</span>
+  <h1>Where the Game Skills Live and Ship</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Five skills (decision 35) need a home. Two things pull against each other: you'll make games in their own folders (so the skills must work outside this studio repo), and the studio tools they hand off to are private, while decision-kit, which they build on, is public. Today your x-skills live in <code>~/.claude/skills</code> and also ship publicly in decision-kit's X tier. <b>Updated:</b> the studio repo will go public once it's finished, so the skills and the tools they call can ship together.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option B"</strong> · <strong>"Option B but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+      </div>
+      <h2 class="option-title">Your Skills Folder, Built to Decision-Kit's Spec</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tree"><b>~/.claude/skills/</b>
+  x-decide-gaming/SKILL.md   <span class="c">router, auto-invoked</span>
+  x-game-concept/SKILL.md     <span class="c">+ references/</span>
+  x-game-design/SKILL.md      <span class="c">+ references/</span>
+  x-game-build/SKILL.md       <span class="c">calls studio CLI by path</span>
+  x-playtest/SKILL.md
+<b>AI3DModel/</b>  <span class="c">studio stays private</span>
+<b>~/games/bread-at-dawn/.decisions/</b>  <span class="c">each game keeps its own</span></div>
+      <div class="who"><span class="ok">Works in any game folder</span><span class="ok">Same as your x-skills today</span><span class="ok">Passes decision-kit's validator</span><span class="no">Not shareable yet</span></div>
+      <div class="proof"><b>What it feels like:</b> open any folder, type <code>/x-decide-gaming</code>, and it works. Each game keeps its own <code>.decisions/</code>. When the studio tools are missing, the build skill says so and falls back to plain Godot or three.js steps.</div>
+    </div>
+    <div class="option-summary">
+      Put the five skills next to your x-skills in <code>~/.claude/skills</code>, so they work in any folder where you start a game, and each game keeps its own <code>.decisions/</code>. Write them to decision-kit's spec and run its validator, so moving them into decision-kit or a plugin later is a copy, not a rewrite. The build skill finds the studio CLI if it's installed and otherwise falls back to plain engine steps, so nothing breaks on a machine without it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You're the main user for now</li>
+        <li>The studio tools are still changing weekly</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No versioned updates</li>
+        <li>Sharing needs a later move</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: ship with the studio, installed everywhere</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Ship With the Studio Repo, Installed for Every Folder</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tree"><b>AI3DModel/</b>  <span class="c">private now, public when finished</span>
+  skills/
+    studio/  game/  world/  look/ ...  <span class="c">tool skills</span>
+    x-decide-gaming/  x-game-concept/
+    x-game-design/  x-game-build/  x-playtest/
+  <span class="c">./studio install-skills → ~/.claude/skills/</span>
+<b>~/games/bread-at-dawn/.decisions/</b>  <span class="c">each game keeps its own</span></div>
+      <div class="who"><span class="ok">Versioned with the tools they call</span><span class="ok">Works in any game folder</span><span class="ok">Goes public with the studio, in one piece</span><span class="ok">Same .decisions/ format as decision-kit</span></div>
+      <div class="proof"><b>What it feels like:</b> the studio repo carries its own planning layer. Installing the studio puts <code>/studio</code>, <code>/game</code> and <code>/x-decide-gaming</code> into your skills folder, so they work wherever you start a game. When the repo goes public, people get the tools and the way to plan with them together.</div>
+    </div>
+    <div class="option-summary">
+      The game skills live in the studio repo, next to the tool skills they hand off to, and change in the same commits as the tools. An install step copies or links them into <code>~/.claude/skills</code>, so they work in any game folder (decision-kit installs the same way). They write decision-kit's <code>.decisions/</code> format and pass its validator, so <code>/x-challenge</code>, <code>/journal</code> and <code>/brief</code> keep working, and decision-kit can link to them as its game tier. Private today, public in one piece when the studio is finished; no "the skills are public but the tools aren't" gap.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The tools and the planning layer ship together</li>
+        <li>Skills and tools change in the same commit</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Planning-only users need the whole studio repo</li>
+        <li>Needs an install step</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Game Tier Inside Decision-Kit (Public)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tree"><b>decision-kit/</b>
+  thinking/  action/  orchestrator/
+  <b>game/</b>
+    x-decide-gaming/  x-game-concept/
+    x-game-design/  x-game-build/  x-playtest/
+    <span class="c">adapters: studio (if installed) · godot · three.js</span></div>
+      <div class="who"><span class="ok">Anyone can use it</span><span class="ok">One install with decision-kit</span><span class="no">Studio hand-off only for you</span><span class="no">Public while still changing</span></div>
+      <div class="proof"><b>What it feels like:</b> decision-kit gains a game tier anyone can install. The build skill works with plain Godot or three.js, and with your private studio when it's present.</div>
+    </div>
+    <div class="option-summary">
+      Ship the family publicly as a game tier of decision-kit, with the build skill using "adapters": your studio when installed, plain Godot or three.js otherwise. Others get it, and it fits decision-kit's story. But the best part (the studio hand-off) only works for you, and the skills would be public while the tools under them change every week.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want people using it soon</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Public churn</li>
+        <li>Weaker without the studio</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Claude Code Plugin That Depends on Decision-Kit</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tree"><b>game-kit/</b>  <span class="c">plugin, own marketplace</span>
+  .claude-plugin/plugin.json
+    dependencies: decision-kit ^2
+  skills/ decide-gaming  game-concept
+          game-design  game-build  playtest
+<span class="c">invoked as /game-kit:decide-gaming</span></div>
+      <div class="who"><span class="ok">Versioned updates</span><span class="ok">Declares decision-kit dependency</span><span class="no">Namespaced names</span><span class="no">Claude Code only</span></div>
+      <div class="proof"><b>What it feels like:</b> a proper installable package with updates. But the command becomes <code>/game-kit:decide-gaming</code>, and plugins are a Claude Code feature, while decision-kit works in any agent.</div>
+    </div>
+    <div class="option-summary">
+      Package the family as a Claude Code plugin in its own marketplace, declaring decision-kit as a dependency so it installs both. Versioned updates and clean installs. But plugin skills are namespaced (<code>/game-kit:decide-gaming</code>), plugins only work in Claude Code while decision-kit is tool-agnostic, and decision-kit itself would need to become a plugin for the dependency to work.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Distributing to Claude Code users</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Claude Code only</li>
+        <li>Decision-kit must become a plugin too</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>"When it's finished" may be a long way off, and until then nobody else can use even the planning half, which doesn't need the studio at all. Someone who only wants game planning would have to clone a 3D studio to get it. C gets the planning skills in front of people now, through decision-kit, with the studio hand-off switching on later. And a repo that holds both tools and skills is one more reason the studio could grow into one big tangle (the decision 26 worry).</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes an install step (<code>./studio install-skills</code>, linking into <code>~/.claude/skills</code>) so the skills follow the repo's version.</li>
+    <li>Assumes the build skill still degrades to plain Godot or three.js steps when the studio daemon isn't running.</li>
+    <li>Assumes decision-kit's validator runs on these skills in the studio's tests, so they stay portable.</li>
+    <li>Tripwire: if someone asks for the planning skills without the studio, publish them as a decision-kit game tier (C) that points at the studio for building.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a">A · Your skills folder</th><th class="col-b col-pick">B · Ship with the studio</th><th class="col-c">C · Decision-kit game tier</th><th class="col-d">D · Plugin</th></tr></thead>
+    <tbody>
+      <tr><td>Works in any game folder</td><td>Yes</td><td class="col-pick">Yes (installed)</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Others can use it</td><td>Not yet</td><td class="col-pick">When the studio goes public</td><td>Yes</td><td>Yes (Claude Code)</td></tr>
+      <tr><td>Studio hand-off</td><td>Yes, with fallback</td><td class="col-pick">Built in, with fallback</td><td>Adapter</td><td>Adapter</td></tr>
+      <tr><td>Works in other agents</td><td>Yes (plain skills)</td><td class="col-pick">Yes (plain skills)</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Versioned updates</td><td>No</td><td class="col-pick">With the studio</td><td>With decision-kit</td><td>Yes</td></tr>
+      <tr><td>Command name</td><td>/x-decide-gaming</td><td class="col-pick">/x-decide-gaming</td><td>/x-decide-gaming</td><td>/game-kit:decide-gaming</td></tr>
+      <tr><td>Undo cost</td><td>Low: copy the folders</td><td class="col-pick">Low: they are folders; move them to decision-kit any time</td><td>Medium: public users</td><td>Medium: packaging</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>The Agent Skills standard needs only <code>name</code> and <code>description</code>; it has no way to declare a dependency on another skill.<a class="cite" href="https://agentskills.io/specification">agentskills.io</a></li>
+    <li>Claude Code plugins bundle several skills with versioned updates, namespaced as <code>/plugin:skill</code>.<a class="cite" href="https://code.claude.com/docs/en/plugins">Claude Code plugins</a></li>
+    <li>Plugins can depend on other plugins by version range; dependencies across marketplaces are blocked unless allowlisted.<a class="cite" href="https://code.claude.com/docs/en/plugin-dependencies">Plugin dependencies</a></li>
+    <li>Personal skills take precedence over project skills; project skills only load in that project.<a class="cite" href="https://code.claude.com/docs/en/skills">Claude Code skills docs</a></li>
+    <li>Anthropic: never assume a tool is installed; declare needs in <code>compatibility</code> and handle their absence.<a class="cite" href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices">Anthropic best practices</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option B"</strong>, <strong>"Option A but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 37, the road from a loose idea to a first playable.</p>
+</div>
+</body>
+</html>

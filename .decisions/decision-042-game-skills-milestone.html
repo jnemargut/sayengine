@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 42: First Milestone for the Game Skills — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 52px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.6rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.64rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-mod { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-skill { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-game { background:#edf6f0; border-left:3px solid #2c6e48; }
+.l-done { background:#f1f5f9; border-left:3px solid #94a3b8; color:#475569; }
+.tl-milestone { font-size:0.64rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 42 of 42 · Game planning skills</span>
+  <h1>First Milestone for the Game Skills</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    The family is decided: a router and four skills shipping with the studio (35–36), toy first (37), playable decision pages (38), a one-page preview with the build inside (39), a game spec that stops at gaps (40), and question-led playtests with typed notes (41). Weeks 5–8 and then 9–14 (Pocket Raleigh) are already queued to build. This decides when the game skills get built and what proves them.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: build alongside, prove on your own idea</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Build Alongside Weeks 9–14, Then Take Your Idea to v1</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 5–8</span><span class="tl-bar l-done">Motion (crouch fix), diorama, performance, The Forge Lesson</span></div>
+        <div class="tl-row"><span class="tl-w">WK 9–10</span><span class="tl-bar l-skill">Router + concept + design skills, toy-first road, playable pages (uses /studio and /game, already built)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 11–12</span><span class="tl-bar l-skill">Game spec + build skill (studio, /game, world, look as they land) · one-page preview</span></div>
+        <div class="tl-row"><span class="tl-w">WK 13–14</span><span class="tl-bar l-skill">Playtest skill (typed notes, bots via life module) · validator + evals · install step</span></div>
+        <div class="tl-row"><span class="tl-w">alongside</span><span class="tl-bar l-mod">Pocket Raleigh modules, weeks 9–14, unchanged</span></div>
+        <div class="tl-row"><span class="tl-w">WK 15</span><span class="tl-bar l-game">You bring a game idea; /x-decide-gaming takes it to a great first version</span></div>
+        <div class="tl-milestone">Your idea → a playable, playtested v1 in about a week → end of week 15</div>
+      </div>
+      <div class="proof"><b>Proof moment:</b> you type one sentence of a game idea you actually want to make. A week later there's a small game you've played, playtested and decided every part of, with a one-page design and every decision on record. The toy was playable within the first hour.</div>
+    </div>
+    <div class="option-summary">
+      Build the skills alongside the Pocket Raleigh modules, so the planning half (router, concept, design, the toy-first road, playable pages) comes first using tools that already exist, then the build and playtest skills, which plug into each module as it lands. Week 15 is the proof: you bring a real game idea you want to make, and the family takes it from one sentence to a great first version in about a week, with you deciding every part.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want a real game out of it, not a demo</li>
+        <li>No delay to Pocket Raleigh</li>
+        <li>Your own idea tests what matters to you</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two builds running at once</li>
+        <li>Build skill chases modules that are still landing</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">After Pocket Raleigh, With All Modules Ready</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9–14</span><span class="tl-bar l-mod">Pocket Raleigh modules</span></div>
+        <div class="tl-row"><span class="tl-w">WK 15–17</span><span class="tl-bar l-skill">Game skills, all at once</span></div>
+        <div class="tl-row"><span class="tl-w">WK 18</span><span class="tl-bar l-game">Your idea to v1</span></div>
+        <div class="tl-milestone late">Proof → end of week 18</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> calm and sequential, since every tool is finished before the skills that use them. But it's three weeks later, and the skills never shape the modules.</div>
+    </div>
+    <div class="option-summary">
+      Finish Pocket Raleigh first, then build the game skills against finished modules. One thing at a time, and the build skill never chases moving targets. But the proof lands three weeks later, and the modules get designed without a real game asking for things.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Stability over speed</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Three weeks later</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Now, Before Pocket Raleigh</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9–11</span><span class="tl-bar l-skill">Game skills, on /studio, /game and the character kit only</span></div>
+        <div class="tl-row"><span class="tl-w">WK 12</span><span class="tl-bar l-game">Your idea to v1 (no towns, looks or crowds yet)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 13–18</span><span class="tl-bar l-mod">Pocket Raleigh modules, shaped by what the game needed</span></div>
+        <div class="tl-milestone">Proof → week 12, Pocket Raleigh → week 18</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the fastest way to use the skills, and your game tells the modules what matters. But the first game has no town builder, look lab or crowds, and Pocket Raleigh slips four weeks.</div>
+    </div>
+    <div class="option-summary">
+      Put the game skills before the Pocket Raleigh modules: build them on what exists, prove them on your idea in week 12, and let that game's needs shape the modules. The fastest route to using the skills, and real needs guide the tools. But the first game can't use towns, looks or crowds, and Pocket Raleigh, which you asked to follow week 8, slips four weeks.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The game matters more than the modules</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Pocket Raleigh slips</li>
+        <li>Thin first game</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Make Pocket Raleigh the First Game Through the Skills</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9–10</span><span class="tl-bar l-skill">Concept + design skills, then /x-decide-gaming "a tiny Raleigh game"</span></div>
+        <div class="tl-row"><span class="tl-w">WK 11–14</span><span class="tl-bar l-mod">Modules built as that game's decisions ask for them</span></div>
+        <div class="tl-row"><span class="tl-w">WK 14</span><span class="tl-bar l-game">Pocket Raleigh ships as a small game, not a demo</span></div>
+        <div class="tl-milestone">Both proofs → end of week 14</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> one milestone that proves both things, answering decision 34's "a demo isn't a game" worry. But the game's decisions could pull the modules off the plan you just made.</div>
+    </div>
+    <div class="option-summary">
+      Run Pocket Raleigh itself through <code>/x-decide-gaming</code>: the three blocks and invented twin become a tiny game, and the modules get built as its decisions ask for them. Both proofs land in week 14, and it fixes the "a demo isn't a game" weakness of decision 34. But a game's decisions may not need everything the Pocket Raleigh plan promised (two looks, a bus), so the module plan bends, and it isn't your own fresh idea.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want one milestone, not two</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Module plan bends</li>
+        <li>Not your own idea</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Two builds at once (modules and skills) doubles the chance of tangles, and the build skill would be written against modules that are still landing, so it may need reworking in week 15. D is the more elegant answer: one milestone, a real game instead of a demo, and the skills tested on the hardest case. If you don't already have a game idea you're itching to make, D is better than inventing one for week 15.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the skills are mostly markdown plus the game spec and build steps, so they can be built by a separate agent without touching module code.</li>
+    <li>Assumes you'll have a game idea ready for week 15.</li>
+    <li>Tripwire: if the build skill breaks twice because a module changed under it, pause it until that module's week ends.</li>
+    <li>Tripwire: if you don't have an idea by week 14, switch the proof to D's "tiny Raleigh game".</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Alongside, your idea</th><th class="col-b">B · After</th><th class="col-c">C · Before</th><th class="col-d">D · Pocket Raleigh as the game</th></tr></thead>
+    <tbody>
+      <tr><td>Skills proven by</td><td class="col-pick">Week 15</td><td>Week 18</td><td>Week 12</td><td>Week 14</td></tr>
+      <tr><td>Pocket Raleigh</td><td class="col-pick">Week 14, as planned</td><td>Week 14</td><td>Week 18</td><td>Week 14, as a game</td></tr>
+      <tr><td>First game uses towns, looks, crowds</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Your own idea</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Risk of tangles</td><td class="col-pick">Medium (two builds)</td><td>Low</td><td>Low</td><td>Medium (plan bends)</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: switch to D at week 14</td><td>Low</td><td>Medium: replan modules</td><td>Medium: module plan changed</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option D but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>This is the last decision; the game-skills plan gets written after it.</p>
+</div>
+</body>
+</html>

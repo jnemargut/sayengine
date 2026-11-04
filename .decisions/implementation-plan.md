@@ -219,3 +219,277 @@ It's six months later and the cutscenes didn't work. Most likely reasons:
 
 ## Decision History
 `.decisions/index.html` for all decisions · `.decisions/preview.html` for the composite mockup · `.decisions/decisions.json` for the machine-readable record.
+
+
+# Phase 4: The Tool Suite (decisions 26–34, decided 2026-11-04)
+
+## What We're Building
+Six new studio modules, each turning a pain from the Raleigh Terrarium audit into a tool: **world** (towns, real or invented), **look** (whole-scene looks), **life** (folk, animals, vehicles), **proof** (pictures and release checks), **reel** (trailers) and **sound**. They are proven together on "Pocket Raleigh": three real blocks of downtown Raleigh plus an invented river town, walkable in Godot and on the web. The audit is in `.decisions/terrarium-audit.html`. **See it: `.decisions/preview.html`**.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 26 | Shape of the suite | One studio, modules on demand (each a tool group + skill) | Strong | One-way |
+| 27 | Real places to scenes | Custom: one town pipeline, real or invented, with fix layers | Your call | One-way |
+| 28 | Splats | No splats | Your call | One-way |
+| 29 | Look lab | Looks as data, reference boards, measured targets | Strong | Two-way |
+| 30 | Life, crowds and traffic | Smart places, seeded schedules, one set of lanes | Strong | Two-way |
+| 31 | Proof gate | Mac only: pinned views, picture diffs, imitated phone, word lists | Your call over A | Two-way |
+| 32 | Capture and trailers | Trailers are cutscene files, cut to the beat | Strong | Two-way |
+| 33 | Sound and music | Layered: synth, Stable Audio Open Small, CC0 libraries, seeded stems | Lean | Two-way |
+| 34 | Build order | Pocket Raleigh, weeks 9–14, after Phase 3 week 8 | Strong | Two-way |
+
+## Implementation Steps (start after Phase 3 week 8)
+
+Each module is a folder in the monorepo with its own ops, checks, CLI tool group and small skill. `/studio` is always loaded; the others load only when needed (D26).
+
+### Week 9: world, real
+- [ ] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature.
+- [ ] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area.
+- [ ] Building rules:
+  - square up outlines
+  - roofs from the roof type
+  - clamp silly values
+  - grade roads
+  - per-region style rules
+- [ ] Fix layer, keyed by Overture building ID with a position fallback. Every rebuild re-applies the fixes, and a check flags any fix that has lost its building. Landmarks can be swapped for studio models.
+- [ ] Credits and shared data as the open-data licence (ODbL) requires.
+
+### Week 10: world, invented + proof
+- [ ] Invented source: a style plus a street sketch, or a short description, becomes the same town plan. IDs come from seed + lot.
+- [ ] Remix source: real streets with invented buildings.
+- [ ] proof (D31, Mac only): pinned clock and seed, fixed views in Godot and web, FLIP picture diffs, budgets, a phone-sized WebKit window with a throttled CPU.
+
+### Week 11: look
+- [ ] Look record:
+  - tonemapper, pinned
+  - 33³ colour grade
+  - toon and outline
+  - palette
+  - fog, sky and light
+  - material tweaks
+- [ ] The look drives the view, Godot (with the LUT converted), three.js, bakes, thumbnails and reels.
+- [ ] Bake fallback for renderers without colour grading.
+- [ ] Reference boards and gates: colourfulness range, palette match, and a local style score (CSD or DINOv2-small). Claude judges only by A/B picks.
+- [ ] Two looks: "day toy" and "neon night".
+
+### Week 12: life, people
+- [ ] Smart places: benches, stalls, piers, dog walks.
+- [ ] Seeded cast and schedules by hour, season and event.
+- [ ] One baked walk mesh and lane graph, with the same polygons exported to both engines.
+- [ ] Small runtimes in TypeScript and GDScript with shared tests.
+- [ ] A sped-up headless day checks overlaps, wall crossings, pops and player collision.
+
+### Week 13: life, vehicles + sound
+- [ ] Cars and a bus on lanes: car following, stop lines, braking for the player.
+- [ ] sound:
+  - synth for game sounds
+  - Stable Audio Open Small and CC0 libraries for foley and ambience
+  - seeded stems that adapt to the action (Godot interactive streams and a web version)
+  - beat-cut loops
+  - a licence on every file, feeding the credits
+
+### Week 14: reel + milestone
+- [ ] Reel: a cutscene file plus an edit track.
+  - Godot movie mode and web fixed-step capture.
+  - Beat cuts, with beat detection by librosa as a separate tool.
+  - A crop box per shot for 16:9, 1:1 and 9:16.
+  - The final edit written as an ffmpeg recipe.
+- [ ] Release checks: on-Mac OCR against brand and team lists, a wording list, and REUSE credits.
+- [ ] **Milestone, Pocket Raleigh:**
+  - three real blocks plus an invented twin, walkable in Godot and web
+  - two looks
+  - folk, cars and a bus on a seeded Saturday, with sound
+  - a 30 s trailer
+  - a roof fix that survives a data refresh
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| Modules stay separate inside one daemon | `/studio` edits take more than 200 ms while a town is loaded → move world building into a worker process | D26 |
+| Overture IDs stay stable | More than 10% of fixes lose their building on a refresh → key by position + shape | D27 |
+| Rule-built buildings look good enough | Generic in the look lab → regional style rules before more data | D27, D29 |
+| Godot and web colours match closely | They visibly differ after pinning the tonemapper → bake the grade for the web | D29 |
+| Two life runtimes agree | More than 0.5 m apart on the same seed → one shared core (WASM + GDExtension) | D30 |
+| Mac-only proof is enough | A phone-only bug reaches players → add the real-iPhone tier from D31 option A | D31 |
+| ACE-Step weights can be shipped | Licence not clearly commercial → no song generation | D33 |
+| A game idea doesn't take over | One does → switch to "build what the game needs" at a week boundary | D34 |
+
+## Pre-Mortem
+It's six months later and the suite didn't pay off. Most likely reasons:
+1. **Towns looked generic.** The rules made tidy boxes with no charm, the opposite of Terrarium's appeal. *Early warning:* week 9's blocks need many hand fixes before they read as Raleigh.
+2. **The phone bit back.** Mac-only proof passed, but iPhone Safari froze or fizzed again. *Early warning:* the first real-phone try of Pocket Raleigh shows problems the imitated phone missed.
+3. **The modules tangled.** One daemon grew a Terrarium-style 5,000-line file. *Early warning:* a change to one module keeps breaking another's tests.
+
+## Low-Confidence Picks Worth Revisiting
+- **D33, sound (Lean):** the music half is unproven. A first listen to seeded stems in week 13 settles it.
+- **D31, proof (your call over A):** watch for phone-only bugs and add the iPhone tier if one appears.
+
+
+# Phase 5: Game Planning Skills (decisions 35–42, decided 2026-11-04)
+
+## What We're Building
+`/x-decide-gaming` takes a loose game idea to a great first playable. It surfaces the decisions decision-kit style (visual pages, you pick, everything recorded) and hands each stage to the studio tools to build. Toy first: you get something to play about an hour after the idea, and the look comes last. Reference: https://github.com/jnemargut/decision-kit.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 35 | Shape of the family | Router + `x-game-concept`, `x-game-design` (thinking) + `x-game-build`, `x-playtest` (action) | Strong | One-way |
+| 36 | Where it lives | Ships in the studio repo (private now, public when finished); an install step links it into `~/.claude/skills` | Strong (after your note) | One-way |
+| 37 | Idea to first version | Toy first, then grow it: fantasy/pillars → grey-box toy → 3Cs + feel → loop + playtest → one-page scope → look/world/cast → v1 | Strong | One-way |
+| 38 | What a decision page shows | Playable toy presets for feel, studio renders for looks, clips for motion, diagrams for loop/scope | Strong | Two-way |
+| 39 | Living preview | One-page design with the current build embedded, plus a decision ledger | Strong | Two-way |
+| 40 | Hand-off to building | `game-spec.json` (each field cites a decision) → build steps as studio proposals; stop at real gaps; partial rebuilds | Strong | One-way |
+| 41 | Playtests | Question-led; you play then **type** notes (talking aloud optional); bots measure; great-v1 checklist; findings link to decisions | Your change to A | Two-way |
+| 42 | Milestone | Build alongside weeks 9–14; week 15: your own idea to a great v1 | Strong | Two-way |
+
+## Implementation Steps (run alongside Phase 4, weeks 9–14)
+
+### Weeks 9–10: planning half
+- [ ] `skills/x-decide-gaming`: the router, and the only skill Claude can invoke on its own. It routes by stage and passes `/autodecide`, `/overdecide` and `/underdecide` through. The four child skills are manual-only.
+- [ ] `skills/x-game-concept`: one-line fantasy, 3 pillars, toy / loop / story, scope. Story-led ideas get the pitch-first order.
+- [ ] `skills/x-game-design`: the 3Cs, a feel pass, loop, look, world, cast.
+- [ ] Playable decision pages: a parametric web toy with four presets, built via `/game`. Fall back to clips if a page takes more than 5 minutes, or to diagrams if the studio is missing.
+- [ ] Every skill writes decision-kit's `.decisions/` format and stays under 500 lines, with `references/` one level deep.
+
+### Weeks 11–12: building
+- [ ] `game-spec.json` schema. Each field carries a `from: dN` decision reference, plus named settings for anything not settled yet.
+- [ ] `skills/x-game-build`:
+  - Turn the spec into a step list of `/studio`, `/game`, world and look calls.
+  - Run each step as a studio proposal with its checks.
+  - Stop with a small decision page at gaps that change how the game plays or looks; fill small gaps with defaults and list them afterwards.
+  - Rebuild only the parts a changed decision affects.
+- [ ] The one-page living preview (`.decisions/preview.html`): pitch, pillars, controls, loop, scope and look blocks, plus the embedded web build. Undecided blocks stay grey.
+
+### Weeks 13–14: playtests and packaging
+- [ ] `skills/x-playtest`:
+  - Claude suggests the question for each playtest.
+  - You play, then type your notes. Talking aloud with local transcription is optional.
+  - Bots play the game using the life runtime.
+  - A great-v1 checklist: 30 seconds of fun, a newcomer gets it, the pillars show.
+  - Each finding links to a decision, with a one-click "revisit".
+- [ ] `./studio install-skills` links the skills into `~/.claude/skills`.
+- [ ] Decision-kit's `validate-skills.py` runs in the studio's tests.
+- [ ] At least 3 trigger evals per skill: should-trigger and should-not-trigger.
+
+### Week 15: milestone
+- [ ] You bring a game idea, and `/x-decide-gaming` takes it to a played, playtested first version in about a week.
+- [ ] Before calling v1 done, run one round with real newcomers.
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| A grey-box toy can be built in about an hour | It takes more than a session → one verb, one camera | D37 |
+| Only the router is auto-invoked | Wrong skill fires → narrow its description and add evals | D35 |
+| Playable pages stay quick | More than 5 minutes per page → use clips for that decision | D38 |
+| Build stops are rare | More than 3 stops per toy → raise the gap threshold | D40 |
+| You'll have an idea for week 15 | None by week 14 → make Pocket Raleigh the game (option D) | D42 |
+| The planning half is useful without the studio | Someone asks for it → publish a decision-kit game tier | D36 |
+
+## Pre-Mortem
+It's six months later and nobody uses `/x-decide-gaming`, including you. Most likely reasons:
+1. **Too slow to fun.** Decision pages and playable presets took longer than just prototyping. *Early warning:* in week 15, the first toy arrives after more than one session.
+2. **Decision fatigue.** Build stops and playtest forms piled up. *Early warning:* you start answering "just pick" more than half the time.
+3. **The build skill lagged the tools.** Modules changed under it and builds broke. *Early warning:* the build skill gets two breaking fixes in a single week.
+
+
+# Phase 6: Printing Path (decisions 43–46, decided 2026-11-04)
+
+## What We're Building
+An easy, occasional path from "/studio make X" to a print on your Bambu Lab A1 mini (single spool, no AMS) using Bambu Studio 2.08 on this Mac. You type one command, glance at the plate and press Print.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 43 | Path to print | `/studio print`: checks run, Bambu Studio's command line builds an A1 mini project, it opens in Bambu Studio, and you press Print. If the command line fails, it falls back to a checked STL | Strong | One-way |
+| 44 | Checks | A print profile (A1 mini, 0.4 nozzle, PLA) with live checks; fixes come as proposals | Strong | Two-way |
+| 45 | Colour | One colour, always (your call over a pause-and-swap option) | Your call | Two-way |
+| 46 | Helpers | `fit` (named gaps), `fit-test` coupon, `text`, `hole`, `split` with pegs | Strong | Two-way |
+
+## Implementation Steps
+- [ ] **Print profile `a1-mini-pla`**, with live checks:
+  - fits the bed (180 mm cube, 5 mm margin)
+  - sealed shape
+  - minimum wall 0.8 mm (warn below 1.2 mm)
+  - overhang estimate (support below 30° from horizontal)
+  - base area
+  - features under 0.4 mm
+- [ ] **Fix proposals:**
+  - orient for fewest supports
+  - thicken thin walls
+  - 0.4 mm bottom chamfer
+  - split (from the helpers)
+- [ ] **Helper ops:**
+  - `fit` gaps as params (`$fit.press`, `$fit.slide`, `$fit.loose`)
+  - `fit-test` coupon, plus a `set-fit` command to record which slot fit
+  - `text` using a bundled open font, with strokes of at least 0.8 mm
+  - `hole` (M2–M5 clearance, self-tap, heat-set insert)
+  - `split` with pegs and holes
+- [ ] **`studio print`:**
+  1. Run the checks.
+  2. Export the STL in mm.
+  3. Merge the A1 mini printer, process and filament presets into full JSON files. This avoids the Apple Silicon crash in issue #9636.
+  4. Run `BambuStudio --orient --arrange 1 --ensure-on-bed --load-settings ... --load-filaments ... --export-3mf`.
+  5. Run `open -a BambuStudio`.
+  - If the command line fails, fall back to the STL plus `open -a BambuStudio`, and say why.
+  - Use the user's "Bambu PLA Basic @BBL A1M" preset by default, and allow choosing a filament by name.
+- [ ] **Install self-test:** build a test cube project through the command line once.
+- [ ] **`/studio` skill update:** a "printing" section, plus an example "make a box with a sliding lid".
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| The Bambu Studio command line works with merged presets | It breaks twice after updates → make the STL fallback the default | D43 |
+| Overhang estimates are close to what the slicer finds | Often off → show as a hint only | D44 |
+| One colour is enough | You ask for two-tone prints → revisit D45 option A | D45 |
+| Five helpers are enough | You ask for a thread, gear or hinge twice → add that helper | D46 |
+
+
+# Phase 7: Characters That Don't Look Alike (decisions 47–51, decided 2026-11-04)
+
+## What We're Building
+The studio makes characters from words, starting with each one's skeleton. Every body plan gets its own body, a face made of parts that each know how to talk, and hair and outfits. Motion is computed from each body's proportions. Outside rigged characters come in through a side door. **New order:** weeks 9–11 are characters, weeks 12–17 are Pocket Raleigh (Phase 4) with the game skills alongside (Phase 5), and week 18 is your own game idea.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 47 | How characters are made | Skeleton first: body plans → blob bodies → face parts → hair and outfits → style family; cast outline check | Strong | One-way |
+| 48 | Motion for any body | Computed from proportions (stride and cadence from leg length, IK feet), style settings, body-relative checks | Strong | One-way |
+| 49 | Faces | Face parts carry their own 15 speech shapes and expressions | Strong | Two-way |
+| 50 | Outside characters | Rigged glTF/VRM import, automatic bone map, our own retargeter, faces from the model's own shapes, VRM licence check, a report | Strong | Two-way |
+| 51 | When | Right after week 8, before Pocket Raleigh | Lean | Two-way |
+
+## Implementation Steps
+### Week 9: bodies
+- [ ] Body plans: today's human, plus chibi, lanky, stocky and beaked biped. Standard humanoid bone names apply where they fit.
+- [ ] Bodies are smooth-blended shapes around the bones, with automatic skin weights.
+- [ ] Style families and palettes.
+- [ ] Cast outline check: a new character must differ from the existing cast.
+- [ ] A reference picture can steer proportions and colour.
+### Week 10: motion and faces
+- [ ] Generalise the week 5–6 walk, run, idle and turn:
+  - stride and cadence scale with leg length
+  - feet placed with IK
+  - style settings: waddle, swagger, shuffle, bounce
+- [ ] Make the checks body-relative: upright, no foot slide, no crouch.
+- [ ] Face parts: the human mouth (with teeth and tongue), a cartoon mouth, a beak, a muzzle, and a grille. Each defines the same 15 speech shapes and the same expression names. Add 3 eye and brow styles.
+- [ ] A blend step where parts meet the head.
+- [ ] Per-face checks: M/B/P closure, and speech shapes that look distinct from each other.
+### Week 11: side door and proof
+- [ ] Import rigged glTF/GLB/VRM:
+  - automatic map to humanoid names
+  - our own retargeter (rest-pose fix and hip-height scale)
+  - faces from the model's own shapes, in order: ARKit → VRM vowels with synthesised consonants → jaw → eyes
+  - read the VRM licence and warn
+  - a "what carried over" report
+  - unrigged models stay props
+- [ ] Recast The Forge Lesson with two new, clearly different characters, in both engines.
+- [ ] Bench tasks, plus a cast-variety benchmark.
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| Blob bodies can look crafted | Three new characters still read as cousins → style families before more body plans | D47 |
+| Computed motion has enough character | A body plan still looks generic after its style pass → hand-tuned walk override | D48 |
+| Face parts blend into the head | Parts look stuck on → blend step | D49 |
+| Imports are rare | You import unrigged models repeatedly → add a skeleton-adder | D50 |

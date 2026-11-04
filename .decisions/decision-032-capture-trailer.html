@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 32: Capture and Trailer Maker — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.reel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.reel .lbl { font-size:0.6rem; font-weight:700; color:#64748b; letter-spacing:.05em; text-transform:uppercase; margin:4px 0; }
+.track { display:flex; gap:2px; height:22px; margin:2px 0; }
+.track span { display:flex; align-items:center; justify-content:center; border-radius:3px; font-size:0.56rem; color:#0f172a; overflow:hidden; white-space:nowrap; }
+.s1 { background:#e6f3f6; } .s2 { background:#efeaf8; } .s3 { background:#edf6f0; } .s4 { background:#fdf6e9; }
+.beats { display:flex; justify-content:space-between; height:8px; margin:2px 0; }
+.beats i { display:block; width:2px; height:8px; background:#94a3b8; }
+.beats i.on { background:#23466f; }
+.ratios { display:flex; gap:8px; justify-content:center; align-items:flex-end; margin-top:6px; }
+.ratios span { display:flex; align-items:center; justify-content:center; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:3px; font-size:0.55rem; color:#475569; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 32 of 34 · Tool suite (from the Terrarium audit)</span>
+  <h1>Capture and Trailer Maker</h1>
+  <span class="category-badge">Interaction</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Terrarium's explainer video was recut five times by hand with ffmpeg; filming lightning and home runs needed special hooks (<code>__strike</code>, <code>__homer</code>), and 576 MB of video piled up. The <code>reel</code> module (decision 26) decides how trailers, explainers and short clips get made from the game itself, in every shape (16:9, square, vertical), building on the cutscene work in weeks 7–8 (decision 24).
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: a trailer is a cutscene file with an edit</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Trailers Are Cutscene Files, Cut to the Beat</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="reel">
+        <div class="lbl">reel: "Raleigh at night, 60 s"</div>
+        <div class="track"><span class="s1" style="flex:2">rainy hook</span><span class="s2" style="flex:1">title</span><span class="s3" style="flex:3">pedicab ride</span><span class="s4" style="flex:2">lightning</span><span class="s3" style="flex:2">goose chase</span><span class="s2" style="flex:1">end card</span></div>
+        <div class="beats"><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on"></i></div>
+        <div class="lbl">cuts land on beats · captions burned in · lightning is a scheduled event, not a hook</div>
+        <div class="ratios"><span style="width:64px;height:36px">16:9</span><span style="width:36px;height:36px">1:1</span><span style="width:24px;height:42px">9:16</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/reel "60 s, gameplay in the first 3 seconds, end on the goose"</code>. Claude writes a shot list into a cutscene-style file, the game renders frame by frame (Godot movie mode, or the web at a fixed step), and you review it as a storyboard in the view. "Swap shots 3 and 4" re-cuts in seconds with no re-capture.</div>
+    </div>
+    <div class="option-summary">
+      A trailer is a cutscene file (decision 24) plus an edit: shots, cameras, scheduled events like "lightning at 0:41", music, captions, and a crop box per shot for each shape. Capture is frame by frame from the game itself: Godot's movie mode at a fixed frame rate, and the web build's fixed-step mode encoded in the browser. The daemon cuts on the music's beats and writes the final edit as an ffmpeg recipe, so a re-cut never needs a re-capture. Templates follow trailer craft: gameplay in the first seconds, a hook by 10–15 s, 60–90 s long.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You re-cut often (Terrarium did five times)</li>
+        <li>One capture should feed every shape</li>
+        <li>Events must happen on cue</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Text and titles are plain compared with a motion-graphics tool</li>
+        <li>Depends on weeks 7–8 landing first</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Record Play Sessions, Auto-Edit the Best Bits</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="reel">
+        <div class="lbl">reel: from 40 min of play</div>
+        <div class="track"><span class="s3" style="flex:5">recorded play, 40 min</span></div>
+        <div class="lbl">↓ cut on loudness and motion</div>
+        <div class="track"><span class="s3" style="flex:2">bit 1</span><span class="s3" style="flex:1">bit 2</span><span class="s3" style="flex:2">bit 3</span><span class="s3" style="flex:1">bit 4</span></div>
+        <div class="ratios"><span style="width:64px;height:36px">16:9</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> play the game, and a tool keeps the loud, busy moments. It's genuine gameplay, but the timing is luck, and lightning still needs you to wait for it.</div>
+    </div>
+    <div class="option-summary">
+      Record real play sessions and let a tool (auto-editor style) keep the busiest, loudest moments, then stitch them with music. Authentic and needs no script. But the cuts follow loudness, not the music; events happen when they happen; vertical and square versions are crops after the fact; and every re-cut starts from hours of footage.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Quick, raw clips</li>
+        <li>Devlogs</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No control over timing</li>
+        <li>Big files</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Video-as-Code Editor (Motion Canvas)</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="reel">
+        <div class="lbl">trailer.tsx: clips + animated titles</div>
+        <div class="track"><span class="s2" style="flex:1">animated title</span><span class="s3" style="flex:3">captured clip</span><span class="s2" style="flex:1">kinetic text</span><span class="s3" style="flex:3">captured clip</span></div>
+        <div class="ratios"><span style="width:64px;height:36px">16:9</span><span style="width:24px;height:42px">9:16</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> slick titles and motion graphics, written in TypeScript. It's a second tool next to the studio, with its own preview and its own way of working.</div>
+    </div>
+    <div class="option-summary">
+      Capture clips from the game, then build the trailer in a video-as-code tool like Motion Canvas (MIT) or Remotion (free for individuals). The best titles and motion graphics, and Claude writes it well. But it's a separate app with its own timeline and preview, outside the studio's history and review, which is decision 26's "separate tools" path for this one module.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Explainers with lots of text and diagrams</li>
+        <li>Polished launch trailers</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>A second tool and timeline</li>
+        <li>Remotion needs a paid licence at 4+ people</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Clean Captures Only, You Edit by Hand</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="reel">
+        <div class="lbl">capture kit</div>
+        <div class="track"><span class="s1" style="flex:1">shot 1.mov</span><span class="s1" style="flex:1">shot 2.mov</span><span class="s1" style="flex:1">shot 3.mov</span><span class="s1" style="flex:1">shot 4.mov</span></div>
+        <div class="lbl">↓ into DaVinci Resolve / iMovie</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the suite makes smooth, perfectly timed clips, and you cut them in a free editor. Full creative control, but every re-cut is your evening.</div>
+    </div>
+    <div class="option-summary">
+      The suite only captures: smooth, fixed-step clips with scheduled events, in every shape. You edit in a free editor like DaVinci Resolve or iMovie. Full control and the least to build. But the five recuts were the pain, and this keeps them by hand.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You enjoy editing</li>
+        <li>One big trailer per game</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Re-cuts stay manual</li>
+        <li>Not AI-first</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Good trailers are an editor's craft, and a beat grid plus a template can produce something tidy but forgettable; Terrarium's recuts were about story and pacing, not timing. A's titles and text will be plain next to Motion Canvas, and an explainer video is mostly text and diagrams. It also can't start until the cutscene players from weeks 7–8 exist, while C or D could be used next week.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the cutscene format from weeks 7–8 can carry an edit track (cuts, crops, captions, music) without bending out of shape.</li>
+    <li>Assumes beat detection runs as a separate local tool (librosa, permissive licence), never shipped inside a game.</li>
+    <li>Tripwire: if you rewrite titles or text by hand in more than one trailer, add Motion Canvas just for title cards.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Cutscene file + edit</th><th class="col-b">B · Auto-edit play</th><th class="col-c">C · Video as code</th><th class="col-d">D · You edit</th></tr></thead>
+    <tbody>
+      <tr><td>Re-cut cost</td><td class="col-pick">Seconds, no re-capture</td><td>Re-run on footage</td><td>Minutes</td><td>Your evening</td></tr>
+      <tr><td>Events on cue (lightning, home run)</td><td class="col-pick">Scheduled</td><td>Luck</td><td>Needs capture hooks</td><td>Scheduled in capture</td></tr>
+      <tr><td>Every shape from one capture</td><td class="col-pick">Crop box per shot</td><td>Crop after</td><td>Yes</td><td>By hand</td></tr>
+      <tr><td>Titles and motion graphics</td><td class="col-pick">Plain</td><td>None</td><td>Best</td><td>Whatever you make</td></tr>
+      <tr><td>Inside the studio's review</td><td class="col-pick">Yes</td><td>Partly</td><td>No</td><td>No</td></tr>
+      <tr><td>Local and free</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes (Motion Canvas)</td><td>Yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: captures are plain video files</td><td>Low</td><td>Low</td><td>None</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Godot's movie mode (<code>--write-movie</code> + <code>--fixed-fps</code>) renders frame by frame with audio in sync, even in exported builds.<a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html">Godot docs</a></li>
+    <li>For the web, mp4-muxer is deprecated; its successor Mediabunny encodes in the browser with WebCodecs.<a class="cite" href="https://github.com/Vanilagy/mp4-muxer">mp4-muxer</a></li>
+    <li>Screen-recording a browser runs in real time and drops frames; a fixed-step mode like Terrarium's <code>?capture=1</code> is the robust route.<a class="cite" href="https://github.com/upspawn/overcrank">Overcrank</a></li>
+    <li>MoviePy 2 broke its API and most examples online are v1; generating ffmpeg recipes directly is simpler.<a class="cite" href="https://zulko.github.io/moviepy/getting_started/updating_to_v2.html">MoviePy</a></li>
+    <li>Remotion is free for individuals and teams up to 3, paid at 4+; Motion Canvas is MIT.<a class="cite" href="https://www.remotion.dev/docs/license/faq">Remotion licence</a></li>
+    <li>auto-editor cuts on loudness or motion, not on beats.<a class="cite" href="https://github.com/wyattblue/auto-editor">auto-editor</a></li>
+    <li>For vertical video, keep key action and captions inside a centred 900×1400 box on a 1080×1920 frame.<a class="cite" href="https://reap.video/blog/short-form-video-safe-zones">Safe zones</a></li>
+    <li>Derek Lieu: show gameplay in the first seconds, hook within 10–15 s; Steam trailers run 60–90 s.<a class="cite" href="https://gameworldobserver.com/2022/09/22/common-game-trailer-mistkaes-indie-developers-steam">Game World Observer</a><a class="cite" href="https://presskit.gg/field-guides/game-trailers-screenshots-guide">presskit.gg</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Music for trailers comes from decision 33 (sound and music), next.</p>
+</div>
+</body>
+</html>

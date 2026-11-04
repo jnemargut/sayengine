@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 29: Look Lab — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.board { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px; font-size:0.64rem; color:#334155; }
+.board .row { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.board .tile { border-radius:6px; height:58px; position:relative; overflow:hidden; }
+.tile .b1 { position:absolute; left:10%; bottom:0; width:26%; height:62%; }
+.tile .b2 { position:absolute; left:42%; bottom:0; width:20%; height:80%; }
+.tile .b3 { position:absolute; left:68%; bottom:0; width:24%; height:48%; }
+.tile .st { position:absolute; left:0; bottom:0; width:100%; height:12%; }
+.board .cap { display:block; margin-top:3px; font-size:0.6rem; color:#475569; text-align:center; }
+.board .lbl { font-size:0.6rem; font-weight:700; color:#64748b; letter-spacing:.05em; text-transform:uppercase; margin:6px 0 4px; }
+.ref { background:#1b2a4a; } .ref .b1,.ref .b3 { background:#34497e; } .ref .b2 { background:#e05a8a; } .ref .st { background:#f3a6c0; }
+.okv { background:#1c2b4c; } .okv .b1,.okv .b3 { background:#364b80; } .okv .b2 { background:#d9628c; } .okv .st { background:#efb0c4; }
+.hot { background:#120a2e; } .hot .b1,.hot .b3 { background:#3b1d8f; } .hot .b2 { background:#ff2d95; } .hot .st { background:#ffd1f0; }
+.flat { background:#4a5568; } .flat .b1,.flat .b3 { background:#718096; } .flat .b2 { background:#a0aec0; } .flat .st { background:#cbd5e0; }
+.gen { background:#2a1b4a; } .gen .b1,.gen .b3 { background:#6a3fa0; } .gen .b2 { background:#ff7aa8; } .gen .st { background:#ffe0ec; }
+.stat { display:grid; grid-template-columns:96px 1fr 40px; gap:6px; align-items:center; margin-top:3px; font-size:0.6rem; }
+.stat .track { display:block; height:7px; background:#e8eef5; border-radius:4px; position:relative; }
+.stat .band { display:block; position:absolute; top:0; height:100%; background:#cfe3d6; border-radius:4px; }
+.stat .dot { display:block; position:absolute; top:-2px; width:3px; height:11px; background:#23466f; border-radius:2px; }
+.stat .bad { background:#b42323; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.58rem; font-weight:700; }
+.pass { background:#edf6f0; color:#2c6e48; } .fail { background:#fbecea; color:#a83a32; }
+.flow { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; margin-top:6px; }
+.flow span { background:#efeaf8; border:1px solid #c6b9e6; border-radius:6px; padding:3px 7px; font-size:0.6rem; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 29 of 34 · Tool suite (from the Terrarium audit)</span>
+  <h1>Look Lab</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Looks were Terrarium's biggest time sink: 157 commits, 57 redos, the first-visit look changed four times, and Neon, Clay, Cel and Poster all redone. You steered with reference pictures and "not too saturated". The <code>look</code> module (decision 26) decides how a whole-scene look is defined, how it gets checked against what you meant, and how the same look reaches the studio view, Godot, three.js, baked textures, thumbnails and trailers.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: a look is data, checked against your pictures</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Looks as Data, Reference Boards, Measured Targets</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="board">
+        <div class="lbl">Board: "Neon, city-pop night"</div>
+        <div class="row">
+          <div><div class="tile ref"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Your reference</span></div>
+          <div><div class="tile okv"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">neon v3 (Godot)</span></div>
+          <div><div class="tile okv"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">neon v3 (web, iPhone)</span></div>
+        </div>
+        <div class="stat"><span>Colourfulness 38–52</span><span class="track"><span class="band" style="left:38%;width:14%"></span><span class="dot" style="left:46%"></span></span><span class="pill pass">46</span></div>
+        <div class="stat"><span>Palette match</span><span class="track"><span class="band" style="left:70%;width:30%"></span><span class="dot" style="left:84%"></span></span><span class="pill pass">0.84</span></div>
+        <div class="stat"><span>Style match</span><span class="track"><span class="band" style="left:75%;width:25%"></span><span class="dot" style="left:81%"></span></span><span class="pill pass">0.81</span></div>
+        <div class="flow"><span>tonemapper (pinned)</span><span>33³ colour grade</span><span>toon + outline</span><span>palette</span><span>fog · sky · light rig</span><span>material tweaks</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> you drop two pictures and say "like this, not too saturated". Claude makes a look, renders the board in both engines and on an iPhone-sized web view, and the numbers say whether it's in range before you look. When you pick between two versions, that's an A/B choice, never a score out of 10.</div>
+    </div>
+    <div class="option-summary">
+      A look is one record: tonemapper (pinned, since it changes saturation), a colour grade, toon and outline settings, palette, fog, sky and light, and material tweaks. One record drives the studio view, Godot, three.js, bakes, thumbnails and trailers. Each look has a board of your reference pictures and measured targets: a colourfulness range (so "not too saturated" becomes a number), a palette match and a style-match score from a small local model. Claude may only judge looks as A/B picks. Where a renderer can't do colour grading (Godot's web/low-end mode), the look bakes into the textures.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You steer with pictures and words like "not too saturated"</li>
+        <li>The same look must match in Godot, web and phone</li>
+        <li>Looks change often and need to be compared</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Numbers catch "too saturated", not "no charm"</li>
+        <li>Matching two engines' tonemappers takes care</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Hand-Tuned Shaders per Game, Plus a Compare Board</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="board">
+        <div class="lbl">Board: "Neon"</div>
+        <div class="row">
+          <div><div class="tile ref"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Your reference</span></div>
+          <div><div class="tile hot"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Godot shader</span></div>
+          <div><div class="tile okv"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">three.js shader</span></div>
+        </div>
+        <div class="flow"><span>neon.gdshader</span><span>neon.glsl</span><span>side-by-side screenshots</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> Terrarium's way, with a nicer compare page. Every look is free-form shader code for each engine, so anything is possible, but the two engines drift apart and nothing says "too saturated" except you.</div>
+    </div>
+    <div class="option-summary">
+      Keep looks as hand-written shader code, one version per engine, and add a board that shows them side by side with your references. The most freedom, and it is how Terrarium's 12 looks were made. But each look is written twice, the two drift apart, and the only judge is you looking, which is the loop that cost 57 redos.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>One-off, wild looks</li>
+        <li>Only one engine matters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Written twice, drifts apart</li>
+        <li>No measured "not too saturated"</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Bake the Look Into the Assets, No Screen Effects</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="board">
+        <div class="lbl">Board: "Neon", baked</div>
+        <div class="row">
+          <div><div class="tile ref"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Your reference</span></div>
+          <div><div class="tile flat"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Baked textures</span></div>
+          <div><div class="tile flat"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Same on every device</span></div>
+        </div>
+        <div class="flow"><span>graded at bake</span><span>vertex colours</span><span>no glow · no outlines</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> identical everywhere, even on the oldest phone, but glows, wet reflections, outlines and pixel effects aren't possible, so neon reads flat.</div>
+    </div>
+    <div class="option-summary">
+      Grade colours and palette into the textures at bake time and use no full-screen effects. It looks identical in every engine and on every phone, and costs nothing at run time. But it rules out most of what made Terrarium's looks: glow, outlines, wet reflections, pixel, pencil and poster effects. Good as the fallback inside A, too limited as the whole answer.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Phones and low-end devices come first</li>
+        <li>Simple, flat looks</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No glow, outlines or screen effects</li>
+        <li>Changing a look means re-baking everything</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">AI Paints the Target, AI Judges the Match</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="board">
+        <div class="lbl">Board: "Neon", AI-led</div>
+        <div class="row">
+          <div><div class="tile gen"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">AI-painted target</span></div>
+          <div><div class="tile hot"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Render</span></div>
+          <div><div class="tile okv"><span class="b1"></span><span class="b2"></span><span class="b3"></span><span class="st"></span></div><span class="cap">Render, retry 4</span></div>
+        </div>
+        <div class="stat"><span>Vision-model score</span><span class="track"><span class="dot bad" style="left:72%"></span></span><span class="pill fail">7/10?</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> you type "neon city-pop", a local image model paints a target, and Claude tunes until a vision model says it matches. It's fast, but the judge is unreliable, and you end up reviewing anyway.</div>
+    </div>
+    <div class="option-summary">
+      A local image model paints a target picture from your words, and Claude tunes the look until a vision model says the render matches. Hands-off when it works. But vision models are poor judges of taste: on a 2026 benchmark, the best of 20 picked the best and worst image only 26.5% of the time, against 68.9% for human experts. It also needs a heavy image model on an 8 GB laptop.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You have no reference pictures</li>
+        <li>Rough exploration</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Unreliable judge</li>
+        <li>Heavy for an 8 GB Mac</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Your redos were about charm and mood ("way less sterile", "a look like this"), and no colourfulness number or style score measures charm. A could pass every gate and still feel wrong, and the record format may box in the odd, wonderful one-off look that free shader code (B) allows. Getting Godot and three.js to match colour for colour is fiddly: they share only some tonemappers, and nobody has published a parity test, so the first look may take longer than writing it by hand.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes a look can carry custom shader code as an escape hatch, for the one-off look that doesn't fit the record.</li>
+    <li>Assumes a small local style model (CSD or DINOv2-small) runs in under a second per frame on the M2 Air.</li>
+    <li>Tripwire: if Godot and web renders of the same look differ visibly after pinning the tonemapper, grade in the bake for web and accept small differences.</li>
+    <li>Tripwire: if the numbers pass but you redo a look twice anyway, drop the style score and keep only colourfulness and the A/B board.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Looks as data + targets</th><th class="col-b">B · Hand shaders + board</th><th class="col-c">C · Baked only</th><th class="col-d">D · AI paints + judges</th></tr></thead>
+    <tbody>
+      <tr><td>Catches "too saturated"</td><td class="col-pick">Yes, as a number</td><td>Only by eye</td><td>At bake</td><td>Sometimes</td></tr>
+      <tr><td>Same in Godot, web, phone</td><td class="col-pick">Close (pinned tonemapper, bake fallback)</td><td>Drifts</td><td>Identical</td><td>Drifts</td></tr>
+      <tr><td>Glow, outlines, pixel, pencil</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Reaches thumbnails and trailers</td><td class="col-pick">Same record</td><td>Re-done per output</td><td>Yes</td><td>Re-done per output</td></tr>
+      <tr><td>Who judges</td><td class="col-pick">Numbers first, you on A/B</td><td>You</td><td>You</td><td>A vision model (unreliable)</td></tr>
+      <tr><td>Fits an 8 GB Mac</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>Barely</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: looks are data, easy to convert</td><td>Medium: shader code per game</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Godot's colour grade takes a 3D lookup texture and runs after tonemapping, but only in Forward+ and Mobile; the Compatibility (web/low-end) renderer has no colour adjustments at all.<a class="cite" href="https://docs.godotengine.org/en/4.3/classes/class_environment.html">Godot Environment</a><a class="cite" href="https://docs.godotengine.org/ja/4.4/_sources/tutorials/3d/3d_rendering_limitations.rst.txt">Godot rendering limits</a></li>
+    <li>three.js loads <code>.cube</code> colour grades directly (<code>LUTCubeLoader</code> + <code>LUTPass</code>); Godot needs a converted strip image.<a class="cite" href="https://github.com/mrdoob/three.js/pull/27941/files">three.js PR</a><a class="cite" href="https://bittwo.itch.io/gd-grader">GD Grader</a></li>
+    <li>The tonemapper is part of the look: AgX desaturates colours heavily, Khronos Neutral keeps them faithful.<a class="cite" href="https://projects.blender.org/blender/blender/issues/118824">Blender proposal</a></li>
+    <li>The VRM toon material (MToon) has maintained versions in both three.js and Godot, the only shared cross-engine look standard found.<a class="cite" href="https://pixiv.github.io/three-vrm/docs/classes/three-vrm.MToonMaterial.html">three-vrm</a></li>
+    <li>Hasler–Süsstrunk colourfulness tracks human ratings at over 90%, with a scale from about 15 (slightly) to 82 (highly colourful).<a class="cite" href="https://github.com/DrNickRedfern/HSM3">HSM3</a></li>
+    <li>A style-specific embedding (CSD, 2024) beats general image models at matching style, not content.<a class="cite" href="https://arxiv.org/abs/2404.01292">CSD paper</a></li>
+    <li>Vision models are poor taste judges: 26.5% vs 68.9% for experts; ask for A/B picks, not scores.<a class="cite" href="https://icml.cc/virtual/2026/68543">Visual Aesthetic Benchmark</a></li>
+    <li>Studios turn a look into a few named, testable rules (Saints Row: The Third used seven).<a class="cite" href="https://gdcvault.com/play/1015366/The-Art-Direction-of-Saints">GDC Vault</a></li>
+    <li>Small (16³) colour grades band on skies and fog; use 33³ with dithering.<a class="cite" href="https://journal.smpte.org/periodicals/SMPTE%20Motion%20Imaging%20Journal/129/2/17/">SMPTE journal</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Decisions 26–28 are settled: one studio with modules, one town pipeline for real or invented places, no splats.</p>
+</div>
+</body>
+</html>

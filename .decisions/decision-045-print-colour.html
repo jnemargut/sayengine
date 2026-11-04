@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 45: Colour Without an AMS — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.obj { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:0.62rem; color:#0f172a; }
+.row { display:flex; gap:12px; align-items:flex-end; justify-content:center; }
+.sign { width:110px; border-radius:4px; overflow:hidden; display:flex; flex-direction:column; }
+.sign span { display:block; }
+.part { border-radius:4px; }
+.cap { text-align:center; font-size:0.58rem; color:#475569; margin-top:4px; }
+.lines { margin-top:8px; display:grid; grid-template-columns:1fr; gap:3px; font-size:0.6rem; }
+.lines div { background:#f8fafc; border-radius:6px; padding:3px 7px; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 45 of 46 · Printing path</span>
+  <h1>Colour Without an AMS</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Your A1 mini has one spool and no AMS, so a print is one colour unless you change filament by hand. Studio models already have materials and colours (a walnut seat, black legs). This decides what <code>/studio print</code> does with those colours: ignore them, turn them into a pause where you swap filament at a height, split the model into parts you print in different colours, or leave colour for paint.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: one colour by default, two tricks when you want more</span>
+          <span class="confidence-badge strong">Strong pick</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Colour, Plus Height Swaps and Colour-by-Part</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="obj">
+        <div class="row">
+          <div><div class="sign"><span style="height:14px;background:#2b2b2b"></span><span style="height:36px;background:#e9e2d4"></span></div><div class="cap">Swap at 3.2 mm: white plate, black letters on top</div></div>
+          <div style="display:flex;gap:4px;align-items:flex-end"><div><div class="part" style="width:36px;height:40px;background:#8a5a3b"></div></div><div><div class="part" style="width:10px;height:56px;background:#2b2b2b"></div></div><div><div class="part" style="width:10px;height:56px;background:#2b2b2b"></div></div></div>
+        </div>
+        <div class="cap">Mini stool: seat printed in brown, legs in black, snapped together</div>
+        <div class="lines">
+          <div><b>Default:</b> one colour; studio colours become a hint, not a problem</div>
+          <div><b>Height swap:</b> the studio places a filament-change pause at the layer where colour changes</div>
+          <div><b>By part:</b> one project per colour, parts joined with snap-fits or pegs (decision 46)</div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> "print this sign, black letters on white". The studio sees the colour change is purely by height, adds a pause at 3.2 mm, and Bambu Studio stops there for you to swap spools. For a two-colour stool, it makes two plates, one per colour, with snap-fit joints.</div>
+    </div>
+    <div class="option-summary">
+      Print one colour by default and treat studio colours as a hint. When colours split cleanly by height (signs, badges, coasters, text on top), the studio adds a filament-change pause at that layer, which Bambu Studio supports on a single-spool printer: it stops, you swap, it carries on. When colours belong to separate parts (a seat and legs), the studio makes one plate per colour and joins the parts with the fit helpers from decision 46. Anything else gets one colour plus a note.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Mostly single-colour prints with the odd colourful one</li>
+        <li>No extra hardware</li>
+        <li>No waste from purging</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Height swaps need you at the printer</li>
+        <li>Parts need joining</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">One Colour, Always</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="obj">
+        <div class="row">
+          <div><div class="sign"><span style="height:50px;background:#e9e2d4"></span></div><div class="cap">Sign: letters raised, same colour</div></div>
+          <div style="display:flex;gap:4px;align-items:flex-end"><div class="part" style="width:36px;height:40px;background:#9aa3ad"></div><div class="part" style="width:10px;height:56px;background:#9aa3ad"></div></div>
+        </div>
+        <div class="cap">Everything in whatever spool is loaded</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> nothing to think about. Colours in the model are ignored, and you rely on raised detail and shape for contrast.</div>
+    </div>
+    <div class="option-summary">
+      Ignore colours and print everything in the loaded spool. Nothing to build and nothing to babysit. But signs, badges and two-tone objects lose their contrast, and a single-spool printer can do more with a pause.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Functional parts</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No colour at all</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Always Split by Colour Into Parts</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="obj">
+        <div class="row">
+          <div style="display:flex;gap:6px;align-items:flex-end"><div class="part" style="width:46px;height:30px;background:#e9e2d4"></div><div class="part" style="width:30px;height:10px;background:#2b2b2b"></div></div>
+          <div style="display:flex;gap:4px;align-items:flex-end"><div class="part" style="width:36px;height:40px;background:#8a5a3b"></div><div class="part" style="width:10px;height:56px;background:#2b2b2b"></div></div>
+        </div>
+        <div class="cap">Every colour its own print, glued or snapped together</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> any colour mix is possible, even inlaid letters as separate pieces. But a sign becomes a fiddly glue job.</div>
+    </div>
+    <div class="option-summary">
+      Every colour becomes its own set of parts, printed separately and assembled. Works for any colour layout. But simple cases like a sign become fiddly inlay assembly, and every print in more than one colour means multiple plates and glue or joints.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Toys and models in several colours</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Assembly every time</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Print in One Colour, Paint After</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="obj">
+        <div class="row">
+          <div><div class="sign"><span style="height:50px;background:#d9d9d9"></span></div><div class="cap">Grey print + a painting guide</div></div>
+        </div>
+        <div class="lines"><div>Studio exports a colour guide: which surfaces get which paint</div></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the most freedom (gradients, small details), and a satisfying craft. But it's hours of painting per print.</div>
+    </div>
+    <div class="option-summary">
+      Print in one neutral colour and paint afterwards; the studio exports a colour guide from the model's materials. Any colour detail is possible. But it's hours of hand work, and most occasional prints don't merit it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Figures, display pieces</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Hours of painting</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>For occasional prints, B's "one colour, always" may be all you ever use, and the height-swap and split-by-part logic would be code that rarely runs. Height swaps also mean standing by the printer at the right moment, which is easy to miss on a long print. If you buy an AMS lite later, the by-part plumbing changes anyway (one plate, filament per part), so building it now may be partly wasted.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes Bambu Studio's "pause / change filament at layer" works on the A1 mini without an AMS, written into the project file.</li>
+    <li>Assumes the studio can tell when colours split cleanly by height (all faces of a colour above or below one layer).</li>
+    <li>Tripwire: if you buy an AMS lite, switch colour-by-part to one plate with filament per part.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a">A · One + two tricks</th><th class="col-b col-chosen">B · One colour</th><th class="col-c">C · Split by colour</th><th class="col-d">D · Paint after</th></tr></thead>
+    <tbody>
+      <tr><td>Two-tone signs and badges</td><td class="col-pick">Height swap</td><td>No</td><td>Inlay pieces</td><td>Paint</td></tr>
+      <tr><td>Two-colour objects</td><td class="col-pick">By part</td><td>No</td><td>Yes</td><td>Paint</td></tr>
+      <tr><td>Your time at the printer</td><td class="col-pick">One swap, sometimes</td><td>None</td><td>Extra plates</td><td>Hours painting</td></tr>
+      <tr><td>Filament waste</td><td class="col-pick">None</td><td>None</td><td>None</td><td>None</td></tr>
+      <tr><td>Effort to build</td><td class="col-pick">Medium</td><td>None</td><td>Medium</td><td>Small</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next and last: decision 46, modelling helpers for print.</p>
+</div>
+</body>
+</html>

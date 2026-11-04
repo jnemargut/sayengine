@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 38: What a Game Decision Page Shows — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.pg { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px; font-size:0.62rem; color:#0f172a; }
+.pg .lbl { font-size:0.58rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:2px 0 5px; }
+.grid4 { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; }
+.cell { border-radius:6px; height:54px; position:relative; overflow:hidden; display:flex; align-items:flex-end; justify-content:center; font-size:0.56rem; color:#0f172a; padding-bottom:3px; }
+.toy { background:#dfe7ef; border:1px solid #b8c7d6; }
+.toy::before { content:""; position:absolute; left:42%; top:38%; width:14px; height:10px; background:#8a6a4a; border-radius:2px; }
+.toy::after { content:"▶ play"; position:absolute; top:4px; right:5px; font-size:0.5rem; font-weight:800; color:#2c6e48; background:#edf6f0; border-radius:4px; padding:0 4px; }
+.ren { background:#efe6da; border:1px solid #d9c9b5; }
+.ren::before { content:""; position:absolute; left:20%; bottom:12px; width:60%; height:22px; background:#c9a87f; border-radius:3px 3px 0 0; }
+.clip { background:#e6edf6; border:1px solid #b9c9de; }
+.clip::after { content:"0:04"; position:absolute; top:4px; right:5px; font-size:0.5rem; font-weight:700; color:#23466f; }
+.clip::before { content:""; position:absolute; left:46%; top:30%; border-left:10px solid #23466f; border-top:6px solid transparent; border-bottom:6px solid transparent; }
+.dia { background:#f8fafc; border:1px dashed #94a3b8; }
+.dia::before { content:"○ → ○ → ○"; position:absolute; top:40%; left:0; right:0; text-align:center; color:#64748b; font-size:0.62rem; }
+.rows { display:grid; grid-template-columns:96px 1fr; gap:4px 8px; margin-top:8px; font-size:0.6rem; }
+.rows .k { font-weight:700; color:#475569; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 38 of 42 · Game planning skills</span>
+  <h1>What a Game Decision Page Shows</h1>
+  <span class="category-badge">Visual</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Decision-kit's rule is "show, don't tell": a UI choice gets four working mockups, a schema gets four sets of tables. For games, most early choices are about feel (camera, controls, how the cart handles), and you can't judge feel from a picture. This decides what the four options on a game decision page actually are, given the road you chose (decision 37: toy first).
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: the right medium for each kind of choice</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Playable for Feel, Renders for Looks, Clips for Motion</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="pg">
+        <div class="lbl">"How does the cart handle?"</div>
+        <div class="grid4"><div class="cell toy">A heavy</div><div class="cell toy">B floaty</div><div class="cell toy">C snappy</div><div class="cell toy">D drifty</div></div>
+        <div class="lbl" style="margin-top:8px">"What does the bakery look like?"</div>
+        <div class="grid4"><div class="cell ren">A</div><div class="cell ren">B</div><div class="cell ren">C</div><div class="cell ren">D</div></div>
+        <div class="rows">
+          <span class="k">Toy, camera, controls, feel</span><span>playable: one small web toy, four settings, try each in the page</span>
+          <span class="k">Look, world, cast</span><span>studio renders of the real scene, on the look lab's boards</span>
+          <span class="k">Motion, cutscenes</span><span>4-second clips</span>
+          <span class="k">Loop, scope</span><span>diagrams and one-page designs</span>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the handling page has four "play" tiles. Click one and drive the grey cart down the hill with that handling. Because the toy is parametric, the four options are one toy with four settings, not four builds.</div>
+    </div>
+    <div class="option-summary">
+      Pick the medium by the kind of choice. Feel choices (the toy, camera, controls, handling) get a small playable web toy right in the page, with four presets, since the studio and <code>/game</code> make parametric toys and an option is just a setting. Look, world and cast choices get studio renders of the actual scene on look-lab boards. Motion and cutscene choices get short clips. Loop and scope choices get diagrams and one-page designs. You judge each choice the way players will meet it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Feel decides whether the game is fun</li>
+        <li>The studio can build what's shown</li>
+        <li>You want to judge like a player</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Playable pages take minutes to make, not seconds</li>
+        <li>Four media kinds to keep consistent</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Studio Renders for Everything</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="pg">
+        <div class="lbl">"How does the cart handle?"</div>
+        <div class="grid4"><div class="cell ren">A</div><div class="cell ren">B</div><div class="cell ren">C</div><div class="cell ren">D</div></div>
+        <div class="rows"><span class="k">Every decision</span><span>still images from the studio, with labels and arrows</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> clean, fast pages that look like your game. But "heavy" and "floaty" handling look identical in a still.</div>
+    </div>
+    <div class="option-summary">
+      Every option is a still render from the studio, labelled and annotated. Quick to make, consistent, and it shows your actual game rather than a mockup. But feel is invisible in a still, and the early decisions on the toy-first road are mostly about feel.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Look-led decisions</li>
+        <li>Fast pages</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Can't show feel</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Short Clips of Each Option Being Played</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="pg">
+        <div class="lbl">"How does the cart handle?"</div>
+        <div class="grid4"><div class="cell clip">A</div><div class="cell clip">B</div><div class="cell clip">C</div><div class="cell clip">D</div></div>
+        <div class="rows"><span class="k">Every decision</span><span>a bot plays each option for 4 seconds; looping clips</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> you can see the cart bounce or slide, which is better than a still. But watching someone else drive isn't the same as holding the controls.</div>
+    </div>
+    <div class="option-summary">
+      A bot plays each option for a few seconds and the page shows looping clips. You see motion and timing, the clips work anywhere (even on your phone), and they double as trailer material. But you watch the feel rather than feel it, and game feel is about the player's own hands on the controls.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Motion and timing choices</li>
+        <li>Reviewing on a phone</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Watching isn't feeling</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Diagrams and Mockups, Decision-Kit Style</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="pg">
+        <div class="lbl">"How does the cart handle?"</div>
+        <div class="grid4"><div class="cell dia">A</div><div class="cell dia">B</div><div class="cell dia">C</div><div class="cell dia">D</div></div>
+        <div class="rows"><span class="k">Every decision</span><span>HTML diagrams, speed curves, flow charts, mockups</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> exactly like decision-kit today: quick and portable, with no studio needed. Handling becomes a speed-over-time curve you have to imagine.</div>
+    </div>
+    <div class="option-summary">
+      Keep decision-kit's current style: diagrams, curves, flow charts and HTML mockups. Fast, needs no studio, and works for anyone with decision-kit. But for games it describes rather than shows, which is the thing decision-kit's own rule says not to do.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>No studio available</li>
+        <li>Loop and scope choices</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Describes feel instead of showing it</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Playable options are slow to make: each feel decision needs a working toy before the page can open, so the pause between decisions grows from seconds to minutes, and a broken toy blocks the decision. Four kinds of media means four ways a page can fail. C's clips are a reasonable middle: motion is visible, pages open instantly, and you can review them on your phone, with the playable toy saved for the one or two decisions where hands-on feel really matters.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the toy is parametric, so four options are four settings on one web build, not four builds.</li>
+    <li>Assumes playable options are limited to feel decisions (about 3–5 per game); everything else uses renders, clips or diagrams.</li>
+    <li>Tripwire: if a playable page takes more than about 5 minutes to appear, fall back to clips for that decision.</li>
+    <li>Without the studio installed (decision 36), pages fall back to D's diagrams.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Right medium per choice</th><th class="col-b">B · Renders</th><th class="col-c">C · Clips</th><th class="col-d">D · Diagrams</th></tr></thead>
+    <tbody>
+      <tr><td>Judge feel</td><td class="col-pick">Hands on</td><td>No</td><td>By watching</td><td>Imagine it</td></tr>
+      <tr><td>Judge looks</td><td class="col-pick">Real renders</td><td>Real renders</td><td>In motion</td><td>Mockups</td></tr>
+      <tr><td>Time to open a page</td><td class="col-pick">Seconds to minutes</td><td>Seconds</td><td>About a minute</td><td>Seconds</td></tr>
+      <tr><td>Works on your phone</td><td class="col-pick">Mostly (web toys)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Needs the studio</td><td class="col-pick">Yes, falls back to D</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Doubles as trailer material</td><td class="col-pick">Clips do</td><td>Stills</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: per-decision choice</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Game feel is "real-time control of virtual objects", a design layer of its own that you judge with your hands.<a class="cite" href="https://en.wikipedia.org/wiki/Game_feel">Swink, Game Feel</a></li>
+    <li>About 20 small tweaks to response and motion transform how the same game feels.<a class="cite" href="https://gdcvault.com/play/1016487/Juice-It-or-Lose">Juice It or Lose It</a></li>
+    <li>Studios decide camera, controls and character together, early: all hands-on qualities.<a class="cite" href="https://news.ubisoft.com/en-us/article/P8R9SX3LGlQrlXuTuwAfQ/games-explained-from-game-engines-to-going-gold">Ubisoft</a></li>
+    <li>godogen checks quality by looking at the running game, not a clean compile.<a class="cite" href="https://github.com/htdt/godogen">godogen</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 39, the living preview for a game.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 51: When to Build the Character System — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.confidence-badge.lean { background:#d97706; color:white; }
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 56px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.6rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.64rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-chr { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-mod { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-skill { background:#fdf6e9; border-left:3px solid #b86e0a; }
+.l-game { background:#edf6f0; border-left:3px solid #2c6e48; }
+.l-done { background:#f1f5f9; border-left:3px solid #94a3b8; color:#475569; }
+.tl-milestone { font-size:0.64rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 51 of 51 · Characters that look like yours</span>
+  <h1>When to Build the Character System</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    The character system (decisions 47–50) is skeleton-first body plans, motion from proportions, talking face parts and a side door for rigged imports: about three weeks. Weeks 7–8 (cutscenes) are running now; weeks 9–14 are Pocket Raleigh with the game skills alongside; week 15 is your own game idea. Pocket Raleigh's crowds (week 12) and your game (week 15) will be full of characters, so when this lands decides whether they're full of cousins.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: right after the cutscenes</span>
+          <span class="confidence-badge lean">Lean</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Right After Week 8, Before Pocket Raleigh</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 7–8</span><span class="tl-bar l-done">Cutscenes, The Forge Lesson, your four motion fixes (running)</span></div>
+        <div class="tl-row"><span class="tl-w">WK 9</span><span class="tl-bar l-chr">Body plans + blob bodies + cast check</span></div>
+        <div class="tl-row"><span class="tl-w">WK 10</span><span class="tl-bar l-chr">Motion from proportions + talking face parts</span></div>
+        <div class="tl-row"><span class="tl-w">WK 11</span><span class="tl-bar l-chr">Side door for rigged imports · recast The Forge Lesson with new characters</span></div>
+        <div class="tl-row"><span class="tl-w">WK 12–17</span><span class="tl-bar l-mod">Pocket Raleigh (towns, looks, crowds of varied folk, sound, trailer)</span></div>
+        <div class="tl-row"><span class="tl-w">alongside</span><span class="tl-bar l-skill">Game skills</span></div>
+        <div class="tl-row"><span class="tl-w">WK 18</span><span class="tl-bar l-game">Your game idea to a great v1</span></div>
+        <div class="tl-milestone">New characters in week 11 · Pocket Raleigh week 17 · your game week 18</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> by week 11 the blacksmith could be a stocky dwarf and the apprentice a lanky kid, and every crowd and game after that is built on characters that don't look alike. Pocket Raleigh moves three weeks later.</div>
+    </div>
+    <div class="option-summary">
+      Build the character system right after the cutscenes, before Pocket Raleigh. Everything that follows (crowds of folk, the game skills' playable pages, your week-18 game) uses varied characters from the start, and nothing gets built twice on the old look-alike kit. Pocket Raleigh and your game move three weeks later.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Characters matter in what comes next</li>
+        <li>Nothing gets redone</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Pocket Raleigh and your game slip three weeks</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Alongside Pocket Raleigh, in Parallel</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9–14</span><span class="tl-bar l-mod">Pocket Raleigh</span></div>
+        <div class="tl-row"><span class="tl-w">WK 9–11</span><span class="tl-bar l-chr">Character system (third track)</span></div>
+        <div class="tl-row"><span class="tl-w">alongside</span><span class="tl-bar l-skill">Game skills</span></div>
+        <div class="tl-row"><span class="tl-w">WK 15</span><span class="tl-bar l-game">Your game idea</span></div>
+        <div class="tl-milestone">All dates hold · three builds at once</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> nothing slips, and the new characters land in week 11, in time for week 12's crowds. But three agents building at once means more tangles to sort out.</div>
+    </div>
+    <div class="option-summary">
+      Run the character system as a third parallel build during weeks 9–11, alongside the Pocket Raleigh modules and the game skills. All dates hold, and new characters arrive in time for week 12's crowds. But three builds at once touching shared pieces (characters, motion, export) multiplies merge tangles, and a problem in one can stall the others.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Dates matter most</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Three builds at once</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">After Pocket Raleigh</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9–14</span><span class="tl-bar l-mod">Pocket Raleigh, with today's characters</span></div>
+        <div class="tl-row"><span class="tl-w">WK 15–17</span><span class="tl-bar l-chr">Character system</span></div>
+        <div class="tl-row"><span class="tl-w">WK 18</span><span class="tl-bar l-game">Your game idea</span></div>
+        <div class="tl-milestone late">Pocket Raleigh's crowds are look-alikes</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> Pocket Raleigh lands on time, but its folk are all cousins, and they get redone afterwards.</div>
+    </div>
+    <div class="option-summary">
+      Finish Pocket Raleigh first with today's characters, then build the character system. Pocket Raleigh keeps its date. But its crowds are built from the look-alike kit you're unhappy with, and get recast later.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Towns matter more than people</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Look-alike crowds, redone later</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Quick Variety Pass Now, the Full System Later</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">WK 9</span><span class="tl-bar l-chr">Quick pass: more faces, hair, outfits, proportions on today's kit</span></div>
+        <div class="tl-row"><span class="tl-w">WK 10–15</span><span class="tl-bar l-mod">Pocket Raleigh</span></div>
+        <div class="tl-row"><span class="tl-w">WK 16–18</span><span class="tl-bar l-chr">Full character system</span></div>
+        <div class="tl-row"><span class="tl-w">WK 19</span><span class="tl-bar l-game">Your game idea</span></div>
+        <div class="tl-milestone">Better crowds soon · full system later</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> a week of quick variety makes crowds look less samey right away. But it's work on the old kit that the full system replaces.</div>
+    </div>
+    <div class="option-summary">
+      Spend one week widening today's kit (more faces, hair, outfits and proportions) so Pocket Raleigh's crowds look varied, then build the full system after. Crowds improve soon with a one-week slip. But that week goes into the kit the full system replaces, and your game waits until week 19.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want better crowds soonest</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Throwaway week</li>
+        <li>Latest game date</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>This is a lean. Pocket Raleigh and your own game both slip three weeks, and Pocket Raleigh is mostly about towns, looks and traffic, where characters are small in frame. B keeps every date by running the characters as a third build, and the merges, while messier, are manageable because the character system mostly lives in its own module. Tiebreaker: if dates matter more to you than keeping things simple, take B.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the character system takes about three weeks: body plans and bodies, motion and faces, imports and recasting.</li>
+    <li>Assumes The Forge Lesson gets recast with new characters in week 11 as the proof.</li>
+    <li>Tripwire: if week 9's first new body plans still look like cousins in the cast check, spend week 10 on style families before motion.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Before Pocket Raleigh</th><th class="col-b">B · In parallel</th><th class="col-c">C · After</th><th class="col-d">D · Quick pass, then full</th></tr></thead>
+    <tbody>
+      <tr><td>New characters arrive</td><td class="col-pick">Week 11</td><td>Week 11</td><td>Week 17</td><td>Week 9 (partly), 18</td></tr>
+      <tr><td>Pocket Raleigh crowds varied</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>Somewhat</td></tr>
+      <tr><td>Pocket Raleigh lands</td><td class="col-pick">Week 17</td><td>Week 14</td><td>Week 14</td><td>Week 15</td></tr>
+      <tr><td>Your game idea</td><td class="col-pick">Week 18</td><td>Week 15</td><td>Week 18</td><td>Week 19</td></tr>
+      <tr><td>Builds at once</td><td class="col-pick">Two</td><td>Three</td><td>Two</td><td>Two</td></tr>
+      <tr><td>Work redone</td><td class="col-pick">None</td><td>None</td><td>Crowds recast</td><td>Quick pass replaced</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>This is the last character decision; the plan gets written after it.</p>
+</div>
+</body>
+</html>

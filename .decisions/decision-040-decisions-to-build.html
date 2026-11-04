@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 40: Hand-off From Decisions to Building — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.flow { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:6px 8px; white-space:pre; overflow-x:auto; font-size:0.58rem; line-height:1.5; }
+.code .c { color:#64748b; }
+.steps { margin-top:6px; }
+.st { display:grid; grid-template-columns:1fr auto; gap:6px; padding:3px 0; border-bottom:1px solid #f1f5f9; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.ok { background:#edf6f0; color:#2c6e48; } .stop { background:#fdf6e9; color:#8a5208; } .run { background:#e6edf6; color:#23466f; } .no { background:#fbecea; color:#a83a32; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 40 of 42 · Game planning skills</span>
+  <h1>The Hand-off From Decisions to Building</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    "A planning layer that's easy to execute on." On the toy-first road (decision 37), building happens after every few decisions, not once at the end, so the hand-off runs many times per game. This decides what <code>/x-game-build</code> reads, how it turns decisions into studio, <code>/game</code> and module tool calls, and what happens when building hits a question no decision answered.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: decisions compile into a spec the tools can run</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">A Game Spec, Built Step by Step, Stopping at Gaps</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow">
+        <div class="code">.decisions/game-spec.json  <span class="c">every field cites its decision</span>
+{ "toy":     { "verb": "push cart", "mass": 1.4,  "from": "d2" },
+  "handling":{ "preset": "heavy",    "from": "d3" },
+  "camera":  { "kind": "follow-high", "from": "d3" },
+  "scope":   { "streets": 4, "minutes": 10, "from": "d5" },
+  "look":    { "record": "dawn-toy", "from": "d6" } }</div>
+        <div class="steps">
+          <div class="st"><span>1 /studio: cart, grey hills (proposal p1)</span><span class="pill ok">checks pass</span></div>
+          <div class="st"><span>2 /game: web toy, handling preset "heavy"</span><span class="pill ok">plays</span></div>
+          <div class="st"><span>3 What happens when the cart tips over?</span><span class="pill stop">stop: mini decision page</span></div>
+          <div class="st"><span>4 world: 4 invented streets from the town plan</span><span class="pill run">after your call</span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> each build runs as studio proposals you can keep or undo. When it hits a question none of your decisions answer ("what happens when the cart tips over?"), it stops and shows a small decision page instead of guessing. Change decision 3 later, and only the parts that came from decision 3 rebuild.</div>
+    </div>
+    <div class="option-summary">
+      Decisions compile into a typed game spec (<code>.decisions/game-spec.json</code>), where every field cites the decision it came from. <code>/x-game-build</code> turns the spec into a step list of studio, <code>/game</code> and module calls, and runs each step as a studio proposal with its checks. When a step needs a choice no decision covers, it stops and makes a small decision page (decision-kit's "state your case" pattern) instead of deciding silently. Change a decision, and only the steps that cite it rebuild.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Building happens many times per game</li>
+        <li>You want no silent decisions during building</li>
+        <li>Changing one decision shouldn't redo everything</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The spec format has to grow with the tools</li>
+        <li>Stops can feel frequent early on</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">A Written Plan Handed to Claude Code</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow">
+        <div class="code">implementation-plan.md
+## Build the toy
+- [ ] cart model, heavy handling (decision 3)
+- [ ] follow camera, high (decision 3)
+- [ ] four streets, ten minutes (decision 5)</div>
+        <div class="steps">
+          <div class="st"><span>Claude Code reads the plan and builds</span><span class="pill run">builds</span></div>
+          <div class="st"><span>Cart tipping behaviour</span><span class="pill no">decided silently</span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> decision-kit today. The plan becomes the prompt and Claude Code builds it. It's simple and flexible, but gaps get filled by the builder without asking.</div>
+    </div>
+    <div class="option-summary">
+      Decision-kit's current hand-off: decisions become a markdown plan, and Claude Code builds from it with the studio skills. Simple, flexible, and nothing new to design. But the plan is prose, so the builder fills gaps with its own choices, nothing traces a built part back to a decision, and changing one decision means re-reading the whole plan.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>One build at the end</li>
+        <li>You trust the builder's defaults</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Silent decisions during building</li>
+        <li>No partial rebuilds</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Task Roadmap You Work Through</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow">
+        <div class="steps">
+          <div class="st"><span>Week 1 · Day 1: cart and hills</span><span class="pill run">AI</span></div>
+          <div class="st"><span>Day 2: tune handling by feel</span><span class="pill stop">you</span></div>
+          <div class="st"><span>Day 3: follow camera</span><span class="pill run">AI</span></div>
+          <div class="st"><span>Day 4: playtest with a friend</span><span class="pill stop">you</span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> an <code>/x-game-plan</code>-style roadmap with each task tagged "you" or "AI". It's clear and paced, but slow for a toy you want to play within the hour.</div>
+    </div>
+    <div class="option-summary">
+      Decisions become a dated roadmap of tasks, each tagged for you or for AI, like <code>/x-game-plan</code>. Clear pacing and good for longer builds. But it's a schedule, not a build: you start each task by hand, and it's far slower than the "playable in an hour" the toy-first road needs.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Long projects with real-life deadlines</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Slow</li>
+        <li>Manual starts</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Decide, Then Build Everything Unattended</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="flow">
+        <div class="steps">
+          <div class="st"><span>All decisions made</span><span class="pill ok">done</span></div>
+          <div class="st"><span>Build runs unattended for an hour</span><span class="pill run">builds</span></div>
+          <div class="st"><span>You review the result</span><span class="pill stop">review</span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> walk away and come back to a game. But any question the decisions missed gets answered by the builder, and you only find out at review.</div>
+    </div>
+    <div class="option-summary">
+      Once the decisions for a stage are made, the build runs unattended and you review the result. The least of your time during building. But it fills every gap on its own, and you only learn about those calls at review, which is the "decisions made while you weren't looking" that decision-kit exists to prevent.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Small, well-specified stages</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Hidden decisions</li>
+        <li>Review is all-or-nothing</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A typed spec is one more format to design and keep in step with every tool, and the tools are still growing weekly (weeks 5–14). Early on it will be missing fields, so builds will stop often, and a stream of mini decision pages about cart tipping and door hinges is the decision fatigue decision-kit warns about. B works today with nothing new, and Claude Code with good skills makes sensible small calls; you could add the spec later once you see which gaps actually matter.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes small, low-stakes gaps can be filled by a default and listed afterwards, with stops reserved for gaps that change how the game plays or looks.</li>
+    <li>Assumes every build step runs as a studio proposal, so anything can be kept or undone.</li>
+    <li>Tripwire: if a build stops more than three times for one toy, raise the threshold for what counts as a real gap.</li>
+    <li>Tripwire: if the spec needs a new field every week, keep it loose (named settings) until the tools settle.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Spec + stops</th><th class="col-b">B · Written plan</th><th class="col-c">C · Task roadmap</th><th class="col-d">D · Unattended</th></tr></thead>
+    <tbody>
+      <tr><td>Silent decisions during building</td><td class="col-pick">None that matter</td><td>Many</td><td>Some</td><td>Many</td></tr>
+      <tr><td>Built part traces to a decision</td><td class="col-pick">Every field</td><td>Loosely</td><td>Per task</td><td>No</td></tr>
+      <tr><td>Change one decision</td><td class="col-pick">Rebuild only its parts</td><td>Re-read the plan</td><td>Re-plan</td><td>Rebuild all</td></tr>
+      <tr><td>First toy in an hour</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Your time during building</td><td class="col-pick">Real gaps only</td><td>Little</td><td>A lot</td><td>None until review</td></tr>
+      <tr><td>New things to design</td><td class="col-pick">Spec format</td><td>None</td><td>None</td><td>None</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: the spec format spreads</td><td>Low</td><td>Low</td><td>High: hidden calls in the build</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Decision-kit's own split: thinking skills decide, action skills execute and never make judgment calls; a gap during building is a judgment call.<a class="cite" href="https://github.com/jnemargut/decision-kit">decision-kit</a></li>
+    <li>The closest existing tool, godogen, builds on a loop and lets the human steer only if they step in; most calls are made silently.<a class="cite" href="https://github.com/htdt/godogen">godogen</a></li>
+    <li>Anthropic: skills shouldn't assume a tool is installed; a spec that names the tools it needs makes that checkable up front.<a class="cite" href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices">Anthropic best practices</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 41, playtests and what makes the first version great.</p>
+</div>
+</body>
+</html>

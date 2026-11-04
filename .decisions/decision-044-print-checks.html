@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 44: Print-Ready Checks and Fixes — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.panel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.63rem; color:#0f172a; }
+.panel .hd { font-weight:800; font-size:0.56rem; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:6px 0 3px; }
+.panel .hd:first-child { margin-top:0; }
+.ln { display:grid; grid-template-columns:1fr auto; gap:8px; padding:2px 0; border-bottom:1px solid #f1f5f9; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.pass { background:#edf6f0; color:#2c6e48; } .warn { background:#fdf6e9; color:#8a5208; } .fail { background:#fbecea; color:#a83a32; } .fix { background:#efeaf8; color:#4b3a8c; } .off { background:#f1f5f9; color:#64748b; }
+.option-summary ul { padding-left:1.2rem; margin:0.3rem 0; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 44 of 46 · Printing path</span>
+  <h1>Print-Ready Checks and Fixes</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Before <code>/studio print</code> (decision 43) hands a project to Bambu Studio, the studio can catch what makes a print fail or come out weak on your A1 mini: too big for the 180 mm bed, walls thinner than two lines of a 0.4 nozzle (about 0.8 mm), steep overhangs that need supports, a tiny base that won't stick, details smaller than the nozzle. The studio's game checks already work live while you model (decision 17). This decides when print checks run and whether the studio only warns or also fixes.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: live checks, fixes offered as proposals</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">A Print Profile: Live Checks, Fixes You Keep or Undo</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="hd">Profile: A1 mini · 0.4 nozzle · PLA · live</div>
+        <div class="ln"><span>Fits the bed (190 × 60 × 40 mm vs 180 mm)</span><span class="pill fail">10 mm too long</span></div>
+        <div class="ln"><span>Sealed, no holes or loose faces</span><span class="pill pass">pass</span></div>
+        <div class="ln"><span>Walls at least 0.8 mm (hook tip 0.6 mm)</span><span class="pill warn">thin</span></div>
+        <div class="ln"><span>Overhangs needing support</span><span class="pill warn">14 cm²</span></div>
+        <div class="ln"><span>Flat base for bed grip</span><span class="pill pass">6.2 cm²</span></div>
+        <div class="hd">Suggested fixes · each is a proposal</div>
+        <div class="ln"><span>Lay it on its back: no supports needed, fits diagonally</span><span class="pill fix">try it</span></div>
+        <div class="ln"><span>Thicken the hook tip to 1.2 mm</span><span class="pill fix">try it</span></div>
+        <div class="ln"><span>0.4 mm chamfer on the bottom edge (no flared first layer)</span><span class="pill fix">try it</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> say "this is for printing" and the print checks join the others, live as you model, with the same red parts in the view. Fixes show up as proposals: lay it flat, thicken the tip, add a chamfer. Keep or undo each one, like any other change.</div>
+    </div>
+    <div class="option-summary">
+      Add a print profile next to the game profiles: an A1 mini with a 0.4 nozzle and PLA. Its checks run live while you model, the same way game budgets do. They cover bed fit, a sealed shape, minimum wall thickness, overhangs that need support, base area, and details smaller than the nozzle. Fixes come as proposals you keep or undo:
+      <ul>
+        <li>turn the model to the orientation with the fewest supports</li>
+        <li>thicken thin walls</li>
+        <li>chamfer the bottom edge so the first layer doesn't flare out</li>
+        <li>split a model that's too big, which comes in decision 46</li>
+      </ul>
+      Problems turn up while the model is still easy to change, not after Bambu Studio has sliced it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You catch problems while designing, not at the slicer</li>
+        <li>You want fixes but stay in charge</li>
+        <li>Same habits as the game checks</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Overhang numbers are estimates until sliced</li>
+        <li>More checks to tune</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Warn at Print Time Only</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="hd">/studio print · report</div>
+        <div class="ln"><span>Too long for the bed</span><span class="pill fail">stop</span></div>
+        <div class="ln"><span>Thin hook tip (0.6 mm)</span><span class="pill warn">warn</span></div>
+        <div class="ln"><span>Overhangs</span><span class="pill warn">warn</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> nothing in your way while modelling, then a list when you print. It's simple, but problems surface at the end, when the model feels finished.</div>
+    </div>
+    <div class="option-summary">
+      Run the checks only when you call <code>/studio print</code>, and only report. Nothing to see while modelling, simplest to build. But problems turn up when the model feels done, and fixing them is up to you.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Simple shapes</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Late surprises</li>
+        <li>No fixes</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Auto-Fix Everything at Print Time</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="hd">/studio print · auto-fixed</div>
+        <div class="ln"><span>Rotated, thickened tip, chamfered, cut in two</span><span class="pill fix">done</span></div>
+        <div class="ln"><span>What changed?</span><span class="pill off">see log</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> it always prints. But what prints may not be what you designed: a thicker tip, a seam where it was cut.</div>
+    </div>
+    <div class="option-summary">
+      At print time the studio silently fixes everything it can (orientation, wall thickness, chamfers, splitting) and sends the fixed version. The fewest failed prints. But the printed object differs from your model without your say, which the studio's proposal-based design (decision 9) exists to avoid.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Functional parts where exact looks don't matter</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Changes you didn't approve</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Leave It to Bambu Studio</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="hd">Studio checks</div>
+        <div class="ln"><span>Sealed shape only</span><span class="pill pass">pass</span></div>
+        <div class="hd">Bambu Studio</div>
+        <div class="ln"><span>Auto-orient, supports, out-of-bed warning</span><span class="pill off">in the slicer</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the slicer already orients, adds supports and warns when something's off the bed. You just won't learn about a thin wall until you see the sliced preview, or the print.</div>
+    </div>
+    <div class="option-summary">
+      The studio only makes sure the shape is sealed; Bambu Studio's own auto-orient, supports and warnings do the rest. Nothing new to build. But the slicer can't fix the design (a too-thin wall, a part that's too long), so you'd go back to the studio anyway.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Downloaded or simple models</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Design problems found in the slicer</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>For an occasional hobby print, live checks may be more than you need, and they duplicate what Bambu Studio already does well (orienting and supports). Overhang and support estimates before slicing are rough; Bambu itself says overhang area is hard to judge before slicing, so A's "14 cm² of supports" could be off and nag you for nothing. B plus Bambu's own tools may be enough until a print actually fails.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the A1 mini numbers come from your presets: 180 mm cube, 2 walls of 0.42 mm, supports below 30° from horizontal.</li>
+    <li>Assumes the studio's geometry engine (Manifold) already guarantees a sealed shape.</li>
+    <li>Tripwire: if the overhang estimate is regularly far from what Bambu Studio slices, show it as a hint only and let the slicer decide.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Live + fix proposals</th><th class="col-b">B · Warn at print</th><th class="col-c">C · Auto-fix</th><th class="col-d">D · Bambu Studio</th></tr></thead>
+    <tbody>
+      <tr><td>When you find out</td><td class="col-pick">While modelling</td><td>At print</td><td>Never (fixed silently)</td><td>In the slicer</td></tr>
+      <tr><td>Fixes</td><td class="col-pick">Offered, you choose</td><td>None</td><td>Automatic</td><td>Orient + supports only</td></tr>
+      <tr><td>Prints match your model</td><td class="col-pick">Yes</td><td>Yes</td><td>Not always</td><td>Yes</td></tr>
+      <tr><td>Catches thin walls</td><td class="col-pick">Yes</td><td>Yes</td><td>Fixes them</td><td>Only in the preview</td></tr>
+      <tr><td>Effort to build</td><td class="col-pick">Medium</td><td>Small</td><td>Medium</td><td>None</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: it's a profile</td><td>Low</td><td>Low</td><td>None</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Your A1 mini presets: 180 mm build cube, two 0.42 mm walls (about 0.84 mm minimum), supports for faces flatter than 30° from horizontal. Read locally from Bambu Studio 2.08.<a class="cite" href="https://wiki.bambulab.com/en/software/bambu-studio/auto-orientation">Bambu wiki</a></li>
+    <li>Bambu's auto-orient scores candidate orientations by overhang and contact area, and notes overhang area is hard to estimate before slicing.<a class="cite" href="https://wiki.bambulab.com/en/software/bambu-studio/auto-orientation">Bambu auto-orientation</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 45, colour without an AMS.</p>
+</div>
+</body>
+</html>

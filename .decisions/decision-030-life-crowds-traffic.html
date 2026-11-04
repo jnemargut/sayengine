@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 30: Life, Crowds and Traffic — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.arch { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:0.66rem; color:#0f172a; }
+.arch .lane { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:4px 0; }
+.arch .box { border-radius:6px; padding:5px 8px; line-height:1.3; text-align:center; }
+.arch .src { background:#f8fafc; border:1px dashed #94a3b8; }
+.arch .core { background:#e6f3f6; border:1px solid #9cc9d3; font-weight:700; }
+.arch .mod { background:#efeaf8; border:1px solid #c6b9e6; }
+.arch .fix { background:#fdf6e9; border:1px solid #e3c48f; }
+.arch .out { background:#edf6f0; border:1px solid #a9cfb6; }
+.arch .warn { background:#fbecea; border:1px solid #e3a9a3; }
+.arch .wide { flex:1 1 100%; }
+.arch .arrow { text-align:center; color:#64748b; font-size:0.7rem; line-height:1.1; }
+.checks { margin-top:8px; display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:0.62rem; }
+.checks span { background:#f8fafc; border-radius:6px; padding:4px 7px; color:#334155; }
+.checks .ok::before { content:"✓ "; color:#2c6e48; font-weight:700; }
+.checks .no::before { content:"✕ "; color:#a83a32; font-weight:700; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 30 of 34 · Tool suite (from the Terrarium audit)</span>
+  <h1>Life, Crowds and Traffic</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Terrarium's folk, wildlife, cars and boats took about 12,000 lines across 11 separate modules, and the bugs repeated: jitter, pops of up to 2 m, folk sitting inside each other on the boat, a dog inside its walker, boats paddling through walls, and the player colliding with nothing until decision 183. The <code>life</code> module (decision 26) decides how towns, real or invented (decision 27), get people, animals and vehicles that go about their day in both Godot and the web, and how "nothing passes through anything" is checked before you ever see it.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: smart places, seeded days, shared lanes</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Smart Places, Seeded Schedules, One Set of Lanes</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box src">Places say what they offer: bench "sit ×2" · stall "browse" · pier "fish" · dog "walk me"</span></div>
+        <div class="lane"><span class="box src">Cast + schedule from a seed: who, where, by hour · season · event</span></div>
+        <div class="arrow">↓ baked once in the studio</div>
+        <div class="lane"><span class="box core wide">One walk mesh + one lane graph (roads, sidewalks, water) · same polygons exported to both engines</span></div>
+        <div class="lane"><span class="box mod">small runtime: lane walking · car following + stop lines · gentle avoidance with a pass-on-the-right rule · near/far/off detail tiers that never pop</span></div>
+        <div class="lane"><span class="box out">Godot</span><span class="box out">three.js</span></div>
+      </div>
+      <div class="checks">
+        <span class="ok">No two seated in one seat</span><span class="ok">Dog stays at leash length</span>
+        <span class="ok">No boat crosses land</span><span class="ok">No jump over 0.3 m in a frame</span>
+        <span class="ok">Player collides with all of it</span><span class="ok">24 game-hours run headless</span>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/life glenwood-south "Saturday market, rain at 3pm"</code>. Claude adds a cast and their schedule, runs the whole day sped up in the background, and only shows you the proposal once nothing overlapped, floated or popped.</div>
+    </div>
+    <div class="option-summary">
+      People stay simple; places carry the behaviour (the Sims rule: "dumb people, smart objects"). A bench offers two seats, a dog offers "walk me" and becomes linked to its walker. Each town gets a cast and a schedule from a seed, by hour, season and event, so the same day always plays the same way. The studio bakes one walk mesh and one lane graph (roads from map data for real towns, from rules for invented ones) and exports the same polygons to both engines. A small runtime in each engine follows lanes, does simple car following with stop lines, and adds gentle avoidance. A sped-up headless day checks for overlaps, wall crossings and pops before you see it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Lots of ambient life on phones</li>
+        <li>New behaviour should come from new places, not new code</li>
+        <li>Bugs must be caught before you look</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Two small runtimes to keep in step (TypeScript + GDScript)</li>
+        <li>Not truly emergent; life follows schedules</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Each Engine's Own Navigation and Avoidance</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box src">Schedules written per game</span></div>
+        <div class="arrow">↓</div>
+        <div class="lane"><span class="box mod">Godot NavigationServer + its avoidance</span><span class="box mod">recast-navigation-js crowd (web)</span></div>
+        <div class="lane"><span class="box warn">Navmesh baked separately per engine, so they differ</span></div>
+        <div class="lane"><span class="box out">Godot</span><span class="box out">three.js</span></div>
+      </div>
+      <div class="checks">
+        <span class="no">Avoidance ignores walls (Godot)</span><span class="ok">Ready-made, documented</span>
+        <span class="no">Positions differ per engine</span><span class="no">No shared checks</span>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the fastest start, using what the engines give you. But Godot's avoidance "has no information from navigation meshes or physics", which is exactly how boats end up crossing walls.</div>
+    </div>
+    <div class="option-summary">
+      Use each engine's built-in navigation: Godot's NavigationServer and avoidance, and Detour's crowd in the browser. The fastest start, well documented. But Godot's avoidance works in its own space, ignoring walls and the navmesh, the two engines bake different meshes so agents end up in different places, and there's no shared check, so Terrarium's bugs come back per engine.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>A few characters, one engine</li>
+        <li>You need it working this week</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Through-walls and overlap bugs return</li>
+        <li>Two different behaviours</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Pre-Recorded Paths, Played Back</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box src">Schedule + simulation, run once in the studio</span></div>
+        <div class="arrow">↓ record every path</div>
+        <div class="lane"><span class="box core wide">Recorded paths per tile, looped (crowd patches)</span></div>
+        <div class="lane"><span class="box out">Both engines just play them back</span></div>
+      </div>
+      <div class="checks">
+        <span class="ok">Zero run-time cost</span><span class="ok">Identical in both engines</span>
+        <span class="no">Can't react to the player</span><span class="no">Loops show over time</span>
+      </div>
+      <div class="proof"><b>What it feels like:</b> rock-solid and cheap, like a diorama with moving parts. But walk into the crowd and nobody steps aside, and a car drives through you.</div>
+    </div>
+    <div class="option-summary">
+      Simulate once in the studio and record every path; the games just play recordings back. Zero cost on phones, identical in both engines, and every bug can be found before shipping. But nothing can react to the player: people don't step aside and cars don't brake for you, and Terrarium's own decision 185 ("every car brakes for you") shows that's what you want.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Background life you only watch</li>
+        <li>The weakest phones</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Doesn't react to the player</li>
+        <li>Repeating loops</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Full Agent Simulation, Everyone Thinks</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box src">Each person has needs: hunger · rest · company · errands</span></div>
+        <div class="arrow">↓ live, every frame</div>
+        <div class="lane"><span class="box core wide">Per-agent choices + pathfinding + avoidance, all at run time</span></div>
+        <div class="lane"><span class="box out">Godot</span><span class="box out">three.js</span></div>
+      </div>
+      <div class="checks">
+        <span class="ok">Surprising, emergent days</span><span class="no">Different every run</span>
+        <span class="no">Heavy on phones</span><span class="no">Hard to test</span>
+      </div>
+      <div class="proof"><b>What it feels like:</b> a living sim where folk wander off on their own errands. It's charming when it works, but jams, jitter and "why is everyone at the bakery" bugs are hard to reproduce.</div>
+    </div>
+    <div class="option-summary">
+      Every person has needs and decides live what to do next, with pathfinding and avoidance at run time. The richest, most surprising towns. But it's the most expensive on phones, every run is different so bugs are hard to reproduce, and big sims hide their jams by despawning people (Cities: Skylines did). It's the opposite of what Terrarium's bug list asks for.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The sim is the game</li>
+        <li>Desktop only</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Phone cost</li>
+        <li>Bugs you can't reproduce</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A means writing and keeping two small runtimes in step, one in TypeScript and one in GDScript, and drift between them is the same class of bug as Terrarium's "same measurements as the viewer". Seeded schedules make towns predictable; a player who comes back at 3pm sees the same people doing the same thing. Nobody publishes how many agents a phone can carry, so the budget is a guess until measured. If your next game only needs a few characters, B gets there in days, not weeks.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes lane graphs can come from map data (osm2streets-style) for real towns and from the same rules that lay out invented towns.</li>
+    <li>Assumes the runtime stays small (a few hundred lines per engine) with the same tests run against both.</li>
+    <li>Tripwire: if the two runtimes disagree on the same seeded day by more than 0.5 m, move the logic into one shared core (WASM for web, GDExtension for Godot).</li>
+    <li>Tripwire: measure agents per frame on a real iPhone (decision 31) before promising a crowd size.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Smart places + lanes</th><th class="col-b">B · Engine navigation</th><th class="col-c">C · Recorded paths</th><th class="col-d">D · Full agent sim</th></tr></thead>
+    <tbody>
+      <tr><td>Stops overlaps and through-walls</td><td class="col-pick">Yes, checked by a sped-up day</td><td>No (avoidance ignores walls)</td><td>Yes, at recording</td><td>Mostly, at run time</td></tr>
+      <tr><td>Reacts to the player</td><td class="col-pick">Yes (step aside, brake)</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Same in Godot and web</td><td class="col-pick">Same mesh, lanes and seed</td><td>No</td><td>Identical</td><td>No</td></tr>
+      <tr><td>Phone cost</td><td class="col-pick">Low, with detail tiers</td><td>Medium</td><td>Lowest</td><td>High</td></tr>
+      <tr><td>Reproducible bugs</td><td class="col-pick">Yes (seeded)</td><td>Partly</td><td>Yes</td><td>No</td></tr>
+      <tr><td>New behaviour means</td><td class="col-pick">A new smart place</td><td>New code per engine</td><td>Re-record</td><td>New needs and rules</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: places and schedules are data any runtime can read</td><td>Medium: logic lives in two engines</td><td>Low</td><td>High: games built around a sim</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>The Sims put behaviour in objects that "advertise" what they offer, so new behaviour comes from new objects, not new agent code.<a class="cite" href="https://en.wikipedia.org/wiki/The_Sims_(video_game)">Wikipedia</a></li>
+    <li>Unreal's City Sample moves pedestrians and traffic along authored lanes, not a navmesh, with avoidance only as a nudge and separate simulation and visual detail levels.<a class="cite" href="https://dev.epicgames.com/documentation/unreal-engine/overview-of-mass-gameplay-in-unreal-engine">Epic docs</a></li>
+    <li>Godot's avoidance "exists in its own space and has no information from navigation meshes or physics collision", and many agents cost a lot.<a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html">Godot docs</a></li>
+    <li>Detour's crowd (in recast-navigation-js) keeps agents on the navmesh, with a 6-neighbour limit; a pure TypeScript version (navcat) exists but is slower.<a class="cite" href="https://recastnav.com/group__crowd.html">Recast docs</a><a class="cite" href="https://github.com/isaac-mason/navcat-vs-recast-navigation-js-bench">navcat benchmark</a></li>
+    <li>osm2streets turns map tags into lane-level roads and intersections and runs in the browser; intersections are still hard where map data is thin.<a class="cite" href="https://github.com/a-b-street/osm2streets/issues/5">osm2streets</a></li>
+    <li>SUMO is too heavy for games; a lane graph with simple car-following (IDM) and stop lines fits in a few hundred lines.<a class="cite" href="https://github.com/volkhin/RoadTrafficSimulator">RoadTrafficSimulator</a></li>
+    <li>Pre-recorded "crowd patches" cut run-time cost sharply, trading quality, memory and speed.<a class="cite" href="https://infoscience.epfl.ch/record/135637">EPFL</a></li>
+    <li>ORCA-style avoidance deadlocks in symmetric flows (the doorway case) without a passing-side rule.<a class="cite" href="https://arxiv.org/pdf/2407.16771">arXiv 2407.16771</a></li>
+    <li>Godot bakes navmeshes with its own cell sizes; a separately baked web mesh will differ, so bake once and export the same polygons.<a class="cite" href="https://docs.godotengine.org/en/4.2/classes/class_navigationmesh.html">Godot NavigationMesh</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>Unreal's City Sample says "lanes for everyone, avoidance as a nudge"; Godot's tools say "navmesh plus avoidance". A takes the lanes side. No source gave a trustworthy number of agents a phone can carry at 60 fps, so that has to be measured.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Vehicles are part of this module: cars, buses and boats use the same lanes, seeds and checks as people.</p>
+</div>
+</body>
+</html>

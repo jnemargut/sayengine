@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 49: Faces and Speech Beyond the Template — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.faces { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px; }
+.faces svg { width:100%; height:auto; display:block; }
+.cap { font-size:0.6rem; color:#475569; text-align:center; margin-top:4px; }
+.tiers { margin-top:6px; display:grid; grid-template-columns:1fr; gap:3px; font-size:0.6rem; }
+.tiers div { background:#f8fafc; border-radius:6px; padding:3px 7px; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 49 of 51 · Characters that look like yours</span>
+  <h1>Faces and Speech Beyond the Template Face</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Today's lip sync, blinks and expressions (15 speech shapes, about 18 expressions, teeth and tongue) were built for one face. Skeleton-first characters (decision 47) get faces assembled from parts: a wide mouth, a beak, a muzzle, a mask, a long nose. Generating speech shapes for an arbitrary face is research-grade work, but these faces aren't arbitrary: the studio built them from known parts. This decides how a face made of parts gets to speak and emote.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: each face part knows how to talk</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Face Parts That Carry Their Own Speech Shapes</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 400 110" role="img" aria-label="Four faces saying the vowel O in their own way">
+          <g transform="translate(20,10)"><circle cx="40" cy="40" r="38" fill="#d9a066"/><circle cx="26" cy="30" r="5" fill="#222"/><circle cx="54" cy="30" r="5" fill="#222"/><ellipse cx="40" cy="58" rx="9" ry="11" fill="#4a1f1f"/></g>
+          <g transform="translate(120,10)"><rect x="6" y="2" width="68" height="76" rx="10" fill="#b8c4cf"/><rect x="18" y="22" width="14" height="6" fill="#f2c94c"/><rect x="48" y="22" width="14" height="6" fill="#f2c94c"/><rect x="26" y="50" width="28" height="4" fill="#4a596b"/><rect x="26" y="58" width="28" height="4" fill="#4a596b"/><rect x="26" y="66" width="28" height="4" fill="#f2c94c"/></g>
+          <g transform="translate(220,10)"><circle cx="40" cy="40" r="38" fill="#8db07a"/><circle cx="26" cy="28" r="5" fill="#222"/><circle cx="54" cy="28" r="5" fill="#222"/><polygon points="26,44 54,44 40,54" fill="#e6b34a"/><polygon points="28,58 52,58 40,66" fill="#d29a2e"/></g>
+          <g transform="translate(320,10)"><rect x="4" y="2" width="72" height="76" rx="14" fill="#c97b5a"/><circle cx="24" cy="28" r="4" fill="#222"/><circle cx="56" cy="28" r="4" fill="#222"/><path d="M36,34 Q40,52 46,50" stroke="#8a4a32" stroke-width="5" fill="none"/><ellipse cx="40" cy="62" rx="12" ry="8" fill="#4a1f1f"/></g>
+        </svg>
+        <div class="cap">Saying "oh": round mouth · robot speaker bars · beak opening · goblin wide mouth</div>
+        <div class="tiers">
+          <div><b>Mouth part</b> defines its own 15 speech shapes: a beak opens and clacks, a speaker grille lights in bars</div>
+          <div><b>Eye and brow parts</b> define blinks, glances and the expression set</div>
+          <div><b>Teeth and tongue</b> come with mouths that have them</div>
+          <div><b>Checks</b> per face: lips close on M/B/P, speech shapes look different from each other</div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> give the goblin a wide mouth part and it lip-syncs like the blacksmith. Give the forest creature a beak part and the same line makes the beak open on vowels and snap shut on M, B and P. Every face is assembled from parts that already know how to talk.</div>
+    </div>
+    <div class="option-summary">
+      Every face part comes with its own motion. A mouth part defines how its 15 speech shapes look (lips round and close; a beak opens, narrows and snaps shut; a robot's speaker bars light up), and eye and brow parts define blinks, glances and expressions. Assembling a face assembles its speech. The existing lip sync, blinks and checks work unchanged because every mouth answers to the same 15 names. New mouth styles are new parts, made once and reused.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Any face the studio builds can speak</li>
+        <li>Lip sync and checks stay as they are</li>
+        <li>New styles added one part at a time</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Each new mouth style needs its shapes made once</li>
+        <li>Parts must blend cleanly into different heads</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Generate Speech Shapes on Any Finished Face</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 400 110" role="img" aria-label="A template face's shapes being transferred onto a new face">
+          <g transform="translate(70,10)"><circle cx="40" cy="40" r="38" fill="#e2c4a4"/><ellipse cx="40" cy="58" rx="9" ry="11" fill="#4a1f1f"/></g>
+          <text x="180" y="58" font-size="22" fill="#94a3b8">→</text>
+          <g transform="translate(240,10)"><circle cx="40" cy="40" r="38" fill="#8db07a"/><polygon points="26,44 54,44 40,58" fill="#e6b34a"/><text x="-30" y="100" font-size="10" fill="#a83a32">landmarks guessed on a beak</text></g>
+        </svg>
+        <div class="cap">Template shapes moved onto a new face by matching landmarks</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> any face, however it was made, gets speech shapes automatically. Great on humanlike faces, unreliable on beaks, snouts and masks, where there's no "lip" to find.</div>
+    </div>
+    <div class="option-summary">
+      Find landmarks on any finished face (lip corners, jaw, eyes) and transfer the template's speech shapes onto it. Works on faces the studio didn't build from parts, too. But it's research-grade: face detectors fail on stylised, low-poly and non-human faces, and a beak or mask has no lips to map, so results vary face by face.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Humanlike faces of any origin</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Unreliable on stylised faces</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Painted 2D Mouths and Eyes for Everyone</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 400 110" role="img" aria-label="Flat painted mouth frames on a face">
+          <g transform="translate(40,10)"><circle cx="40" cy="40" r="38" fill="#d9a066"/><circle cx="26" cy="30" r="5" fill="#222"/><circle cx="54" cy="30" r="5" fill="#222"/><path d="M28,56 Q40,64 52,56" stroke="#4a1f1f" stroke-width="4" fill="none"/></g>
+          <g transform="translate(150,30)"><rect width="40" height="22" rx="4" fill="#f8fafc" stroke="#cbd5e1"/><ellipse cx="20" cy="11" rx="8" ry="6" fill="#4a1f1f"/></g>
+          <g transform="translate(200,30)"><rect width="40" height="22" rx="4" fill="#f8fafc" stroke="#cbd5e1"/><rect x="10" y="9" width="20" height="4" fill="#4a1f1f"/></g>
+          <g transform="translate(250,30)"><rect width="40" height="22" rx="4" fill="#f8fafc" stroke="#cbd5e1"/><ellipse cx="20" cy="11" rx="5" ry="7" fill="#4a1f1f"/></g>
+          <g transform="translate(300,30)"><rect width="40" height="22" rx="4" fill="#f8fafc" stroke="#cbd5e1"/><path d="M8,9 Q20,18 32,9" stroke="#4a1f1f" stroke-width="3" fill="none"/></g>
+        </svg>
+        <div class="cap">Mouth frames swapped like a cartoon (6–9 frames)</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> a charming cartoon style, and it works on any head. But it's flat: no teeth, no jaw, and it overrides the 3D faces you already have.</div>
+    </div>
+    <div class="option-summary">
+      Every character uses painted mouth and eye frames swapped like a cartoon (Rhubarb's 6–9 mouth shapes). Works on any head shape and reads clearly. But it changes the whole style to flat toon faces, gives up the teeth, tongue and 3D shapes built in week 4, and suits some games but not all.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Toon, paper or pixel styles</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>One flat style for all</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Jaw and Eyes Only for Non-Template Faces</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="faces">
+        <svg viewBox="0 0 400 110" role="img" aria-label="A face with only a hinged jaw">
+          <g transform="translate(150,10)"><circle cx="40" cy="34" r="32" fill="#8db07a"/><circle cx="28" cy="26" r="5" fill="#222"/><circle cx="52" cy="26" r="5" fill="#222"/><path d="M14,50 L66,50 L58,78 L22,78 Z" fill="#6f9160"/></g>
+        </svg>
+        <div class="cap">The jaw flaps with the voice; eyes blink and glance</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> it reads as "talking", like a puppet, and works on anything. But it isn't lip sync: no M/B/P closures, no rounded "oo".</div>
+    </div>
+    <div class="option-summary">
+      New faces get a hinged jaw that opens with the voice, plus blinks and glances; only the human template keeps full lip sync. Works on every head and costs little. But it reads as a puppet flapping, not speech, which undoes the week-4 work for every non-human character.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Background characters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Not real lip sync</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A only works for faces made of the studio's parts, so it does nothing for the occasional outside character (decision 50); B's landmark transfer would help both. Each new mouth style (beak, muzzle, grille) is a small project of its own, so variety in mouths grows only as fast as parts get made. And parts must blend cleanly into very different heads, or faces will look like masks stuck on.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Starting parts: the current human mouth (with teeth and tongue), a small cartoon mouth, a beak, a muzzle, a speaker-grille mouth; three eye and brow styles.</li>
+    <li>Every mouth answers to the same 15 speech-shape names and the same expression names, so lip sync, performances and checks don't change.</li>
+    <li>Tripwire: if a part looks stuck on in renders, add a blend step that smooths where it meets the head.</li>
+    <li>For outside characters, decision 50 picks the fallback (their own shapes, jaw only, or B).</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Parts that talk</th><th class="col-b">B · Generate on any face</th><th class="col-c">C · Painted mouths</th><th class="col-d">D · Jaw and eyes</th></tr></thead>
+    <tbody>
+      <tr><td>Real lip sync on new faces</td><td class="col-pick">Yes</td><td>Humanlike faces only</td><td>Cartoon frames</td><td>No</td></tr>
+      <tr><td>Works on beaks, masks, robots</td><td class="col-pick">Yes, with their own parts</td><td>Poorly</td><td>Yes, flat</td><td>Yes, puppet-like</td></tr>
+      <tr><td>Keeps teeth, tongue, 3D faces</td><td class="col-pick">Yes</td><td>Partly</td><td>No</td><td>No</td></tr>
+      <tr><td>Reliability</td><td class="col-pick">High (known parts)</td><td>Varies per face</td><td>High</td><td>High</td></tr>
+      <tr><td>Works on outside characters</td><td class="col-pick">No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: parts are data</td><td>Low</td><td>Medium: restyle faces</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Generating speech shapes for a face that has none is research-grade work (landmark-guided transfer, 2019; collision-aware transfer, 2026 preprint).<a class="cite" href="https://openaccess.thecvf.com/content_ICCVW_2019/html/3DRW/Onizuka_Landmark-Guided_Deformation_Transfer_of_Template_Facial_Expressions_for_Automatic_Generation_ICCVW_2019_paper.html">ICCVW 2019</a><a class="cite" href="https://arxiv.org/pdf/2606.08043v1">2026 preprint</a></li>
+    <li>Face detectors commonly find no face on stylised, anime and illustrated characters.<a class="cite" href="https://huggingface.co/CrucibleAI/ControlNetMediaPipeFace/discussions/19">MediaPipe discussion</a></li>
+    <li>The 15 standard speech shapes (sil, PP, FF, TH, DD, kk, CH, SS, nn, RR, aa, E, ih, oh, ou) are a fixed set any mouth can answer to.<a class="cite" href="https://developers.meta.com/vr/documentation/unity/audio-ovrlipsync-viseme-reference/">Meta viseme reference</a></li>
+    <li>2D mouth frames (Rhubarb's 6–9 shapes) are the robust fallback for toon styles; jaw-only reads as "talking" but not as lip sync.<a class="cite" href="https://github.com/wzpan/rhubarb-lip-sync-ccc">rhubarb-lip-sync-ccc</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 50, outside characters as a side door.</p>
+</div>
+</body>
+</html>

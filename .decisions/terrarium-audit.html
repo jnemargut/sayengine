@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terrarium Audit</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:#1a1a2e;line-height:1.6;padding:2rem 16px}
+main{max-width:1100px;margin:0 auto}
+.kicker{font-size:.75rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b}
+h1{font-size:1.75rem;color:#0f172a;letter-spacing:-.02em;margin:.25rem 0 .5rem}
+h2{font-size:1.15rem;color:#0f172a;margin:2.25rem 0 .75rem;padding-bottom:.4rem;border-bottom:2px solid #e2e8f0}
+p.lede{color:#475569;max-width:780px}
+a{color:#23466f}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:1.25rem}
+.stat{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+.stat b{display:block;font-size:1.5rem;color:#23466f;line-height:1.2}
+.stat span{font-size:.8rem;color:#64748b}
+.bars{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px}
+.bar{display:grid;grid-template-columns:200px 1fr 90px;gap:12px;align-items:center;font-size:.85rem;margin:6px 0}
+.track{display:block;height:14px;background:#e8eef5;border-radius:4px;position:relative;overflow:hidden}
+.fill{display:block;height:100%;background:#23466f;border-radius:4px}
+.fix{display:block;position:absolute;left:0;top:0;height:100%;background:#c2603a;border-radius:4px}
+.legend{font-size:.75rem;color:#64748b;margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 12px;vertical-align:middle}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:.85rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #eef2f6;vertical-align:top}
+th{background:#f8fafc;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:#64748b}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.7rem;font-weight:700;white-space:nowrap}
+.yes{background:#e3f1ea;color:#1f6b46}.part{background:#fdf2e3;color:#94570f}.new{background:#e6edf6;color:#23466f}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px}
+.card h3{font-size:.95rem;color:#0f172a;margin-bottom:6px}
+.card ul{padding-left:18px;font-size:.88rem;color:#334155}
+.card li{margin:4px 0}
+blockquote{border-left:4px solid #23466f;background:#fff;padding:10px 14px;margin:8px 0;font-size:.9rem;color:#334155;border-radius:0 8px 8px 0}
+.ev{font-size:.78rem;color:#64748b;display:block;margin-top:2px;overflow-wrap:anywhere}
+ol.top{counter-reset:t;list-style:none}
+ol.top li{counter-increment:t;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px 12px 56px;margin:8px 0;position:relative;font-size:.9rem}
+ol.top li::before{content:counter(t);position:absolute;left:16px;top:12px;width:26px;height:26px;border-radius:50%;background:#23466f;color:#fff;font-weight:700;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+footer{margin-top:2.5rem;font-size:.8rem;color:#64748b}
+@media (max-width:720px){.grid2{grid-template-columns:1fr}.bar{grid-template-columns:110px 1fr 60px}}
+</style>
+</head>
+<body>
+<main>
+<div class="kicker">Before decision 26 · audit</div>
+<h1>Raleigh Terrarium, read as a test case for the tool suite</h1>
+<p class="lede">What it took to build raleighterrarium.com, where the time went, and which of those hours a set of AI-first game tools would have saved. Read from the code, about 190 decisions, 877 commits and your corrections along the way.</p>
+
+<div class="stats">
+<div class="stat"><b>877</b><span>commits in 25 days (Oct 9 – Nov 2)</span></div>
+<div class="stat"><b>~110</b><span>of 682 non-merge commits are fixes or redos</span></div>
+<div class="stat"><b>~100k</b><span>lines of viewer JavaScript, 169 modules</span></div>
+<div class="stat"><b>64</b><span>Blender scripts (28.9k lines) making 297 models</span></div>
+<div class="stat"><b>0</b><span>AI-generated assets; everything is open data and hand-written code</span></div>
+</div>
+
+<h2>Where the effort went</h2>
+<div class="bars">
+<div class="bar"><span>Sky &amp; weather</span><span class="track"><span class="fill" style="width:100%"></span><span class="fix" style="width:27.6%"></span></span><span>174 · 48 fixes</span></div>
+<div class="bar"><span>Buildings &amp; landmarks</span><span class="track"><span class="fill" style="width:100%"></span><span class="fix" style="width:20.7%"></span></span><span>174 · 36</span></div>
+<div class="bar"><span>Looks</span><span class="track"><span class="fill" style="width:90.2%"></span><span class="fix" style="width:32.8%"></span></span><span>157 · 57</span></div>
+<div class="bar"><span>Performance &amp; phones</span><span class="track"><span class="fill" style="width:70.7%"></span><span class="fix" style="width:28.2%"></span></span><span>123 · 49</span></div>
+<div class="bar"><span>Cars</span><span class="track"><span class="fill" style="width:62.6%"></span><span class="fix" style="width:27%"></span></span><span>109 · 47</span></div>
+<div class="bar"><span>Folk</span><span class="track"><span class="fill" style="width:57.5%"></span><span class="fix" style="width:19.5%"></span></span><span>100 · 34</span></div>
+<div class="legend"><i style="background:#23466f"></i>commits touching it <i style="background:#c2603a"></i>of which fixes or redos · counts come from matching commit subjects, so they overlap</div>
+</div>
+
+<h2>What kept coming back</h2>
+<div class="grid2">
+<div class="card"><h3>The look, over and over</h3><ul>
+<li>The look a first-time visitor sees changed four times: Toy, then Dreamlike, then Photo, then Diorama.</li>
+<li>Clay, Cel, Neon and Poster each needed a redo or a second pass; Lifelike and Blocky were added and then removed.</li>
+<li>You steered with reference pictures and "not too saturated", twice.</li></ul></div>
+<div class="card"><h3>Phones</h3><ul>
+<li>123 commits, 49 of them fixes: a crash when changing look, an iPhone Safari freeze, walls that fizzed only on the phone.</li>
+<li>Page limits were found by crashing (<code>maxPagedSplats</code> 64 vs 420).</li>
+<li>Speed was only ever checked on an imitated phone; you confirmed the real one by hand.</li></ul></div>
+<div class="card"><h3>Buildings from survey data</h3><ul>
+<li>A melted, stepped Legislative Building; sawtooth walls; a hole through the State Capitol.</li>
+<li>A chain of seven fixer scripts, from <code>outlines</code> and <code>roofshape</code> to <code>oddballs</code>.</li>
+<li>26 hand fixes that a data rebuild could wipe out; <code>rebuild_town.py</code> is called "the riskiest thing we do".</li></ul></div>
+<div class="card"><h3>Things inside things</h3><ul>
+<li>About 55 commits with "through" or "inside": folk sitting inside each other on the boat, a dog inside its walker, paddling through walls, floating window panes.</li>
+<li>The player didn't collide with anything until decision 183.</li></ul></div>
+<div class="card"><h3>Folk and creatures</h3><ul>
+<li>Jitter, pops of up to 2 m, the no-arms rule breaking again, outfits shredding when remeshed.</li>
+<li>Seven separate <code>*life.js</code> and four <code>*wild.js</code> modules (~12k lines): one idea, written seven times.</li></ul></div>
+<div class="card"><h3>Video, names, and the Unity detour</h3><ul>
+<li>The explainer video was recut five times; filming lightning and home runs needed hooks (<code>__strike</code>, <code>__homer</code>).</li>
+<li>About 164 commits on names and the About page; brands were kept, then removed.</li>
+<li>17 decisions spent on a Unity port that ended up as a "lab".</li></ul></div>
+</div>
+
+<h2>What you kept pushing back on</h2>
+<blockquote>Don't trade quality for speed. Features turned off "way too aggressively on computers", and anything that turns itself off should say so and offer a force-on switch.</blockquote>
+<blockquote>Taste from pictures: "For the neon I was hoping for a look like this…" Unity had "way less character… should feel way less sterile."</blockquote>
+<blockquote>True to real places, but no brands, team names or logos, and wording that shows a place rather than claims it's accurate.</blockquote>
+
+<h2>Would the suite have helped?</h2>
+<table>
+<thead><tr><th>Terrarium pain</th><th>Built or planned in AI3DModel</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td>64 Blender scripts, five helper kits, <code>reset</code>/<code>material</code>/<code>save</code> written six times</td><td>Parametric studio, <code>/studio render</code>, proposals, reference import</td><td><span class="tag yes">Covered</span></td></tr>
+<tr><td>Far copies, decimated minimarks, crashes from memory</td><td>Game profiles: budgets, LOD, collision ops</td><td><span class="tag yes">Covered for single assets</span></td></tr>
+<tr><td>Textures painted in code (<code>surfaces.py</code>)</td><td>Auto-unwrap + baked procedural materials</td><td><span class="tag yes">Covered</span></td></tr>
+<tr><td>Folk, goose, dog and bird rigs each written from scratch</td><td>Character kits, motion ops (week 5)</td><td><span class="tag part">Partly: no crowds, no style rules</span></td></tr>
+<tr><td>Landmark likeness (Sir Walter, Rainier, Beacon of Freedom)</td><td>Studio + reference import</td><td><span class="tag part">Partly: no likeness check</span></td></tr>
+<tr><td>Passing through and floating</td><td>Scene checks for overlap and resting</td><td><span class="tag part">Partly: not for anything moving</span></td></tr>
+<tr><td>Explainer and sizzle videos</td><td>Cutscenes (week 8)</td><td><span class="tag part">Partly: no capture or trailer cut</span></td></tr>
+<tr><td>Open data to a whole town, with fixes that survive rebuilds</td><td>none</td><td><span class="tag new">New tool</span></td></tr>
+<tr><td>Look churn across 12 looks</td><td>none</td><td><span class="tag new">New tool</span></td></tr>
+<tr><td>Real-phone speed and picture regressions</td><td>none (budgets are per asset)</td><td><span class="tag new">New tool</span></td></tr>
+<tr><td>Ambient life, schedules, crowds, traffic</td><td>none</td><td><span class="tag new">New tool</span></td></tr>
+<tr><td>Sky, weather, tides, water from real data</td><td>none</td><td><span class="tag new">New tool</span></td></tr>
+<tr><td>Splats: mesh to splats, tiled LoD, phone sets, fog</td><td>none (suite chose low-poly)</td><td><span class="tag new">New tool, or out of scope</span></td></tr>
+<tr><td>Brand and wording checks before release</td><td>none</td><td><span class="tag new">New tool, small</span></td></tr>
+</tbody>
+</table>
+<p class="ev" style="margin-top:8px">The pattern: the suite is strong at one object at a time. Terrarium's hard problems were at the scale of a whole town, a running game, and a real phone.</p>
+
+<h2>Biggest time-savers, ranked</h2>
+<ol class="top">
+<li><b>Look lab.</b> Compare whole-scene looks side by side against your reference pictures, with saturation and contrast checks, applied the same way to the game, baked assets, thumbnails and videos.<span class="ev">157 look commits, 57 fixes; the first-visit look changed four times.</span></li>
+<li><b>Proof on real devices.</b> Lock time, weather, look and device; render fixed views; diff pictures; measure memory and frame time on a real iPhone; brand and wording checks in the same gate.<span class="ev">123 phone/speed commits; <code>check_release.mjs</code>, <code>ab_fps.mjs</code>, <code>speed_views.mjs</code> built by hand.</span></li>
+<li><b>Real places to scenes.</b> Area in; LiDAR, OpenStreetMap, footprints and aerial photos out as terrain, buildings, roads and water. Hand fixes stored as layers that survive a rebuild.<span class="ev">20+ <code>fetch_*.py</code>, seven fixer scripts, <code>hand-fixes.md</code>.</span></li>
+<li><b>Life, crowds and traffic.</b> Who is where, doing what, by hour, season and event; steering that never overlaps; vehicle rigs and lanes.<span class="ev">~12k lines across 11 life/wild modules; <code>taxi.js</code>, <code>traffic.js</code>; walker collision only at D183.</span></li>
+<li><b>Overlap and grounding checks for moving things.</b> Extend the studio's scene checks to a running game.<span class="ev">~55 "through" or "inside" commits.</span></li>
+<li><b>Capture and trailer maker.</b> Shot list, fixed-step frames from the game itself, a cut to the beat with captions, every aspect ratio.<span class="ev">Five recuts; <code>?capture=1</code>, <code>watchshots.js</code>, 576 MB of video by hand.</span></li>
+<li><b>Environment presets.</b> Real sun and stars, weather history or live, tides, water and puddles.<span class="ev"><code>sky.js</code>, <code>dayweather.js</code>, <code>tides.js</code>, <code>water.js</code> (2,130 lines).</span></li>
+<li><b>One model, offline and at runtime.</b> Let the browser build variants from the same op graph instead of copying measurements between JS and Blender.<span class="ev"><code>claysculpt_dump.mjs</code>, <code>kit.py</code> "same measurements the viewer uses".</span></li>
+</ol>
+
+<footer>Sources: Raleigh Terrarium repo, its <code>.decisions/</code> and git history, and its project memory, read on 2026-11-04. <a href="index.html">All decisions →</a></footer>
+</main>
+</body>
+</html>

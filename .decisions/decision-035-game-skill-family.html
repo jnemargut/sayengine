@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 35: Shape of the Game Skill Family — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.arch { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:0.66rem; color:#0f172a; }
+.arch .lane { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:4px 0; }
+.arch .box { border-radius:6px; padding:5px 8px; line-height:1.3; text-align:center; }
+.arch .router { background:#fdf6e9; border:1px solid #e3c48f; font-weight:700; }
+.arch .think { background:#efeaf8; border:1px solid #c6b9e6; }
+.arch .act { background:#edf6f0; border:1px solid #a9cfb6; }
+.arch .tool { background:#e6f3f6; border:1px solid #9cc9d3; }
+.arch .file { background:#f8fafc; border:1px dashed #94a3b8; }
+.arch .warn { background:#fbecea; border:1px solid #e3a9a3; }
+.arch .wide { flex:1 1 100%; }
+.arch .arrow { text-align:center; color:#64748b; font-size:0.7rem; line-height:1.1; }
+.arch .note { font-size:0.62rem; color:#64748b; text-align:center; margin-top:6px; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 35 of 42 · Game planning skills</span>
+  <h1>Shape of the Game Skill Family</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You want <code>/x-decide-gaming</code>: say a loose game idea, and get walked through the decisions to a great first playable, the way decision-kit does for products, then handed to the studio tools to build it. Decision-kit keeps thinking skills (show options, wait for you) apart from action skills (do what you decided), with a router in front. This decides how the game version is cut into skills.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: decision-kit's shape, made for games</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">A Router and Four Game Skills</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box router wide">/x-decide-gaming · the only one Claude calls on its own · routes by where you are</span></div>
+        <div class="arrow">↓</div>
+        <div class="lane"><span class="box think">/x-game-concept<br>fantasy · toy or loop · pillars · scope</span><span class="box think">/x-game-design<br>3Cs · feel · look · world · cast</span></div>
+        <div class="lane"><span class="box act">/x-game-build<br>decisions → build spec → studio tools</span><span class="box act">/x-playtest<br>play · findings → decisions</span></div>
+        <div class="arrow">↓ all read and write the same .decisions/</div>
+        <div class="lane"><span class="box tool">/studio</span><span class="box tool">/game</span><span class="box tool">world · look · life · proof · reel · sound</span></div>
+        <div class="lane"><span class="box file">decision-kit's /x-challenge, /journal, /brief work on game decisions too</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/x-decide-gaming a cozy game where you deliver bread around a tiny invented town at dawn</code> sends you to the concept skill. Four or five decisions later, the design skill picks up from your choices. <code>/x-game-build</code> then turns them into a first playable, stopping where a call is yours.</div>
+    </div>
+    <div class="option-summary">
+      Mirror decision-kit, made for games. One router (the only skill Claude calls on its own) sends you to the right stage. Two thinking skills cover concept (fantasy, toy or loop, pillars, scope) and design (camera, controls, character, feel, look, world, cast). Two action skills cover building (compile decisions into a build spec the studio tools run) and playtesting (play it, turn findings into revisited decisions). Every skill uses decision-kit's <code>.decisions/</code> format, so <code>/x-challenge</code>, <code>/journal</code> and <code>/brief</code> work on games for free.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want to stop and resume at any stage</li>
+        <li>Each skill stays small (under 500 lines)</li>
+        <li>It should feel like decision-kit</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Four new skills to keep consistent</li>
+        <li>The concept and design boundary needs care</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">One Big Skill That Does It All</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box router wide">/x-decide-gaming</span></div>
+        <div class="lane"><span class="box think wide">concept → design → build → playtest, all in one SKILL.md</span></div>
+        <div class="lane"><span class="box warn">~1,500 lines; after a long session only the start may survive</span></div>
+        <div class="lane"><span class="box tool">studio tools</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> one command, one long journey. It's simple to start, but hard to jump back into "just the design part", and the end of the skill fades once the session grows long.</div>
+    </div>
+    <div class="option-summary">
+      One skill holds the whole journey, with stages inside it. One thing to learn and invoke. But it'd be three times Anthropic's 500-line guidance, Claude doesn't re-read a skill after loading it so later stages blur in long sessions, and you can't run just one stage on an existing game.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Short, one-sitting game ideas</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Too long for one skill</li>
+        <li>Can't run one stage alone</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">A Game Lens on Your Existing X-Skills</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box router wide">/x-decide-gaming = /x-decide with "game lens" switched on</span></div>
+        <div class="lane"><span class="box think">/x-product-strategy + references/game.md</span><span class="box think">/x-product-design + references/game.md</span></div>
+        <div class="lane"><span class="box act">/x-game-plan for the build</span></div>
+        <div class="lane"><span class="box warn">product questions creep in: business model, navigation, onboarding funnel</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the least new to write, since your skills just learn about games. But a game's first questions (what's the toy, how does it feel to move) aren't product questions, and the hand-off to the studio tools has no home.</div>
+    </div>
+    <div class="option-summary">
+      Don't add skills; add a game reference file to <code>/x-product-strategy</code> and <code>/x-product-design</code>, and make <code>/x-decide-gaming</code> a router that switches the lens on. The least to write and maintain, and improvements to the x-skills flow straight in. But those skills think in products (positioning, business model, navigation), games need different first questions (toy, loop, the 3Cs, feel), and building through the studio tools doesn't fit any existing action skill.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Games are a side use</li>
+        <li>You want the least to maintain</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Product-shaped questions</li>
+        <li>No build hand-off</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">An Autonomous Builder That Pauses at Big Calls</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box router wide">/x-decide-gaming "a bread delivery game"</span></div>
+        <div class="lane"><span class="box act wide">build → generate assets → run → prove, on a loop</span></div>
+        <div class="lane"><span class="box think">pause: the toy?</span><span class="box think">pause: the look?</span><span class="box think">pause: ship it?</span></div>
+        <div class="lane"><span class="box tool">studio tools</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> godogen-style. A playable appears fast, and you weigh in at three or four moments. But most decisions get made for you while you aren't looking.</div>
+    </div>
+    <div class="option-summary">
+      One loop builds the game on its own (build, make assets, run, check), pausing for you only at three or four big moments. Fastest to something playable, and it's how godogen, the closest existing tool, works. But it's the opposite of decision-kit: the many small calls that shape a game (camera, feel, scope) get made silently, which is the "vibe coding" decision-kit exists to avoid.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Throwaway experiments</li>
+        <li>Speed over say</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Decisions made for you</li>
+        <li>Against decision-kit's whole idea</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Four new skills plus a router is real upkeep, and the line between "concept" and "design" is blurry for games (is the camera a concept call or a design call?), so the two skills could overlap and Claude could pick the wrong one. C reuses everything you've already tuned in the x-skills and would ship in a day. And godogen shows people like seeing a playable fast; A could feel slow if the first build comes only after eight or nine decisions.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes only the router is auto-invoked; the four children run when the router or you call them, so their descriptions can't collide.</li>
+    <li>Assumes the concept skill reaches a first playable toy early (decision 37 settles when), so A doesn't feel slow.</li>
+    <li>Tripwire: if you keep jumping between concept and design mid-game, merge them into one design skill.</li>
+    <li>Tripwire: if any skill passes 500 lines, move detail into one-level <code>references/</code> files.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Router + four skills</th><th class="col-b">B · One big skill</th><th class="col-c">C · Game lens</th><th class="col-d">D · Autonomous builder</th></tr></thead>
+    <tbody>
+      <tr><td>You make the calls</td><td class="col-pick">Every decision</td><td>Every decision</td><td>Every decision</td><td>3–4 moments</td></tr>
+      <tr><td>Game-shaped questions</td><td class="col-pick">Yes</td><td>Yes</td><td>Product-shaped</td><td>Few questions</td></tr>
+      <tr><td>Run one stage alone</td><td class="col-pick">Yes</td><td>No</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Hands off to the studio tools</td><td class="col-pick">Build skill</td><td>Inside</td><td>No home</td><td>Built in</td></tr>
+      <tr><td>Works with decision-kit skills</td><td class="col-pick">Same format</td><td>Same format</td><td>Is decision-kit</td><td>Partly</td></tr>
+      <tr><td>Size per skill</td><td class="col-pick">Under 500 lines</td><td>~1,500 lines</td><td>+1 reference each</td><td>Large</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: decisions stay in one format, so skills can be merged later</td><td>Medium: splitting later</td><td>Low</td><td>High: no decision record to build on</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>The closest existing tool, godogen, is a set of Claude Code skills that builds whole Godot and three.js games on a loop, autonomous by default.<a class="cite" href="https://github.com/htdt/godogen">godogen</a></li>
+    <li>Ludo.ai auto-fills a whole design document by default; Rosebud goes from a prompt straight to a game; none has the human decide before generation.<a class="cite" href="https://ludo.ai/features/game-concept">Ludo</a></li>
+    <li>Anthropic recommends keeping each SKILL.md under 500 lines, references one level deep, and descriptions that say what and when.<a class="cite" href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices">Anthropic best practices</a></li>
+    <li>The skill listing gets about 1% of context and drops the least-used descriptions first; skills can opt out of auto-invocation.<a class="cite" href="https://code.claude.com/docs/en/skills">Claude Code skills docs</a></li>
+    <li>Claude doesn't re-read a skill after loading; after compaction only the start may survive.<a class="cite" href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Anthropic engineering</a></li>
+    <li>Overlapping descriptions mean one skill wins and the other rarely fires; measure with should-trigger and should-not-trigger evals.<a class="cite" href="https://dev.to/lizechengnet/why-claude-code-skills-dont-trigger-and-how-to-fix-them-in-2026-o7h">dev.to</a></li>
+    <li>Game designers decide the toy or loop first, then camera, controls and character together, then scope, feel, and art last.<a class="cite" href="https://news.ubisoft.com/en-us/article/P8R9SX3LGlQrlXuTuwAfQ/games-explained-from-game-engines-to-going-gold">Ubisoft</a><a class="cite" href="https://redesign.time.com/4816417/super-mario-odyssey-interview-e3">TIME (Nintendo)</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 36, where these skills live and how they ship.</p>
+</div>
+</body>
+</html>

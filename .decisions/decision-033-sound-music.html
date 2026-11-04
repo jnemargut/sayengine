@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 33: Sound and Music — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.confidence-badge.lean { background:#d97706; color:white; }
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.mix { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.mix .row { display:grid; grid-template-columns:78px 1fr; gap:8px; align-items:center; padding:3px 0; border-bottom:1px solid #f1f5f9; }
+.mix .k { font-weight:700; color:#475569; }
+.src { display:inline-block; border-radius:5px; padding:2px 6px; margin:1px 2px 1px 0; font-size:0.58rem; }
+.syn { background:#e6f3f6; } .gen { background:#efeaf8; } .lib { background:#edf6f0; } .no { background:#fbecea; color:#a83a32; }
+.lic { margin-top:6px; font-size:0.6rem; color:#475569; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 33 of 34 · Tool suite (from the Terrarium audit)</span>
+  <h1>Sound and Music From Local Models</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Terrarium's sound was 2,800 lines of hand-written code plus generated music and 16 recordings. The <code>sound</code> module (decision 26) decides where effects, ambience and music come from, using only local, free tools (your rule), and only ones whose licences let you ship the result. That second part is the catch: most of the well-known sound models (Meta's AudioCraft and MusicGen, MMAudio, AudioLDM2, TangoFlux) are non-commercial only.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: the right source for each kind of sound</span>
+          <span class="confidence-badge lean">Lean</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">Layered: Synth, a Small Model, and Free Libraries</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mix">
+        <div class="row"><span class="k">UI, blips, hits</span><span><span class="src syn">synth from settings</span></span></div>
+        <div class="row"><span class="k">Foley, textures</span><span><span class="src gen">Stable Audio Open Small</span><span class="src lib">CC0 library</span></span></div>
+        <div class="row"><span class="k">Ambience beds</span><span><span class="src gen">model texture</span><span class="src syn">synth layers</span><span class="src lib">CC0 field recordings</span></span></div>
+        <div class="row"><span class="k">Music</span><span><span class="src syn">seeded stems (melody, drums, pads)</span><span class="src gen">ACE-Step if its licence checks out</span></span></div>
+        <div class="row"><span class="k">Playback</span><span><span class="src syn">Godot interactive + layered streams · web equivalent</span></span></div>
+        <div class="lic">Every sound carries its source and licence; the credits list is built from them. Loops are cut on beats and crossfaded so they never click.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/sound "rainy evening on Fayetteville St"</code> layers a synth rain bed, a generated distant-traffic texture and a CC0 thunder roll, and adds a mellow seeded track whose drums fade in when you start running.</div>
+    </div>
+    <div class="option-summary">
+      Use the right source for each kind of sound. Short game sounds come from a tiny synth driven by settings (crisp, free, identical in both engines). Foley and textures come from Stable Audio Open Small, which makes clips of up to about 11 seconds in seconds on the Mac and is free to ship under $1M a year, or from CC0 libraries. Music is seeded stems that the game layers and switches by mood, played through Godot's interactive music streams and a web version. ACE-Step for full songs joins only after its weights licence is confirmed. Every file carries its licence.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Lots of small sounds plus calm, adaptive music</li>
+        <li>Everything must be shippable and credited</li>
+        <li>An 8 GB Mac</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Seeded music can sound samey</li>
+        <li>Three kinds of source to keep tidy</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">AI Models for Everything</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mix">
+        <div class="row"><span class="k">All effects</span><span><span class="src gen">Stable Audio Open 1.0</span></span></div>
+        <div class="row"><span class="k">Ambience</span><span><span class="src gen">Stable Audio Open 1.0</span></span></div>
+        <div class="row"><span class="k">Music</span><span><span class="src gen">ACE-Step 1.5 (small model)</span></span></div>
+        <div class="row"><span class="k">Can't use</span><span><span class="src no">MusicGen · AudioGen · MMAudio · AudioLDM2 (non-commercial)</span></span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> type any sound and get it. It's the most flexible option, but slow and heavy on 8 GB, uneven in quality, and a click needs a model run too.</div>
+    </div>
+    <div class="option-summary">
+      Generate every sound and every track from text with the shippable models: Stable Audio Open for effects and ambience, ACE-Step for music. The most flexible and the most "AI-first". But it's heavy on an 8 GB Mac (no published timings), quality varies run to run, short UI sounds are better made by a synth, seamless loops aren't built in, and everything rests on two licences, one with a revenue cap.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Unusual sounds you can't find anywhere</li>
+        <li>Rapid sketching</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Slow and memory-hungry on 8 GB</li>
+        <li>Uneven quality, clicky loops</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">All Procedural: Sound and Music Made by Code</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mix">
+        <div class="row"><span class="k">Effects</span><span><span class="src syn">synth</span></span></div>
+        <div class="row"><span class="k">Ambience</span><span><span class="src syn">noise + filters</span></span></div>
+        <div class="row"><span class="k">Music</span><span><span class="src syn">sequencer + songbook rules</span></span></div>
+        <div class="lic">No files, no licences, tiny downloads.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> Terrarium's songbook, made reusable. It's charming and tiny, but birds, rain on leaves and crowds sound synthetic.</div>
+    </div>
+    <div class="option-summary">
+      Everything is synthesised by code at run time or bake time, like Terrarium's songbook and drum sounds, turned into a reusable module. No licences, tiny downloads, endless variation. But natural sounds (birds, water, crowds, footsteps on gravel) are hard to synthesise convincingly, and Terrarium already needed 16 real recordings alongside its synth.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Stylised, chiptune or toy-like games</li>
+        <li>Tiny web downloads</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Natural sounds sound fake</li>
+        <li>Music variety is capped by the rules</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Free Libraries, Picked and Arranged by Claude</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="mix">
+        <div class="row"><span class="k">Effects</span><span><span class="src lib">Sonniss GDC bundles</span><span class="src lib">Freesound CC0</span></span></div>
+        <div class="row"><span class="k">Ambience</span><span><span class="src lib">CC0 field recordings</span></span></div>
+        <div class="row"><span class="k">Music</span><span><span class="src lib">CC0 / CC-BY tracks</span></span></div>
+        <div class="lic">Real recordings; searching and licences are the work.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> a well-tagged local library that Claude searches, trims and mixes. Real sounds, but you hear the same famous thunder clap everyone uses.</div>
+    </div>
+    <div class="option-summary">
+      Build a local library from free collections (Sonniss's yearly GDC bundles, CC0 sounds on Freesound) and let Claude search, trim, layer and mix them. The most natural sound quality. But it's searching rather than making, music choices are thin, the sounds are shared with every other indie game, and each collection has its own rules (Sonniss forbids AI training, Freesound mixes licences per sound).
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Realistic, natural soundscapes</li>
+        <li>No generation at all</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Thin music options</li>
+        <li>Sounds everyone else uses</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>This is a lean, not a strong pick, because the music half is unproven: seeded stems may sound like background loops, and the only shippable song model that fits on 8 GB (ACE-Step's small model) has no published Mac timings and an unconfirmed weights licence. Three kinds of source means three ways to go wrong and a licence ledger to keep. If music matters most to you, B with ACE-Step is the tiebreaker: take B if you'd rather have real songs than adaptive loops.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes Stable Audio Open Small runs comfortably on the M2 Air (Arm CPUs make about 10 s of audio in 7–8 s).</li>
+    <li>Assumes your games stay under Stability's $1M revenue cap, or you switch effects to synth and libraries if not.</li>
+    <li>Tripwire: if ACE-Step's weights licence isn't clearly commercial, leave song generation out and keep seeded stems.</li>
+    <li>Tripwire: if you skip or mute the seeded music in playtests, try B's song model for music only.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Layered</th><th class="col-b">B · AI models</th><th class="col-c">C · All procedural</th><th class="col-d">D · Libraries</th></tr></thead>
+    <tbody>
+      <tr><td>Natural sounds (rain, birds)</td><td class="col-pick">Good</td><td>Good, uneven</td><td>Weak</td><td>Best</td></tr>
+      <tr><td>Short game sounds</td><td class="col-pick">Crisp (synth)</td><td>Overkill</td><td>Crisp</td><td>Good</td></tr>
+      <tr><td>Music</td><td class="col-pick">Adaptive stems</td><td>Real songs</td><td>Rule-bound</td><td>Thin</td></tr>
+      <tr><td>Runs on an 8 GB Mac</td><td class="col-pick">Yes</td><td>Barely</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Licence risk</td><td class="col-pick">Low, tracked per file</td><td>Two licences, one capped</td><td>None</td><td>Per collection</td></tr>
+      <tr><td>Loops that never click</td><td class="col-pick">Beat-cut + crossfade</td><td>Needs fixing</td><td>Built in</td><td>Needs fixing</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: every sound is a file with its source</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Stable Audio Open (1.0 and Small) is free for commercial use under $1M annual revenue, under Stability's Community License.<a class="cite" href="https://stability.ai/membership">Stability licence</a></li>
+    <li>Stable Audio Open Small makes clips up to about 11 s, about 10 s of audio in 7–8 s on Arm CPUs: suited to foley, loops and textures.<a class="cite" href="https://stability.ai/news/stability-ai-and-arm-release-stable-audio-open-small-enabling-real-world-deployment-for-on-device-audio-control">Stability and Arm</a></li>
+    <li>Meta's AudioCraft (MusicGen, AudioGen) code is MIT but its weights are non-commercial.<a class="cite" href="https://github.com/facebookresearch/audiocraft">AudioCraft</a></li>
+    <li>MMAudio, AudioLDM2 and TangoFlux are also non-commercial.<a class="cite" href="https://github.com/hkchengrex/MMAudio">MMAudio</a><a class="cite" href="https://huggingface.co/cvssp/audioldm2">AudioLDM2</a><a class="cite" href="https://huggingface.co/declare-lab/TangoFlux/blob/main/LICENSE.md">TangoFlux</a></li>
+    <li>ACE-Step 1.5 code is MIT and claims under 4 GB with INT8, with Apple GPU support; its weights licence must be checked per model card.<a class="cite" href="https://github.com/ace-step/ACE-Step-1.5">ACE-Step</a></li>
+    <li>YuE is Apache 2.0 and invites commercial use, but its 7B model won't fit on 8 GB.<a class="cite" href="https://github.com/multimodal-art-projection/YuE">YuE</a></li>
+    <li>Generated loops click at the seam; cut on beats or zero crossings and crossfade.<a class="cite" href="https://arxiv.org/abs/2504.04466">LoopGen</a></li>
+    <li>Godot 4.3+ has interactive music streams with beat-timed transitions, plus layered streams for intensity.<a class="cite" href="https://docs.godotengine.org/en/latest/classes/class_audiostreaminteractive.html">Godot docs</a></li>
+    <li>ZzFX, a tiny MIT-licensed sound synth for the web.<a class="cite" href="https://github.com/KilledByAPixel/ZzFX">ZzFX</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Voices stay on Kokoro (decision 21 work), which is already local and free.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 26: Shape of the Suite — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+/* architecture diagrams */
+.arch { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px; font-size:0.66rem; color:#0f172a; }
+.arch .lane { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin:4px 0; }
+.arch .box { border-radius:6px; padding:5px 8px; line-height:1.3; text-align:center; }
+.arch .ai { background:#fdf6e9; border:1px solid #e3c48f; }
+.arch .core { background:#e6f3f6; border:1px solid #9cc9d3; font-weight:700; }
+.arch .mod { background:#efeaf8; border:1px solid #c6b9e6; }
+.arch .file { background:#f8fafc; border:1px dashed #94a3b8; }
+.arch .eng { background:#edf6f0; border:1px solid #a9cfb6; }
+.arch .warn { background:#fbecea; border:1px solid #e3a9a3; }
+.arch .wide { flex:1 1 100%; }
+.arch .arrow { text-align:center; color:#64748b; font-size:0.7rem; line-height:1.1; }
+.arch .note { font-size:0.62rem; color:#64748b; text-align:center; margin-top:6px; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 26 of 34 · Tool suite (from the Terrarium audit)</span>
+  <h1>Shape of the Suite</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    The <a href="terrarium-audit.html">Raleigh Terrarium audit</a> says the next tools work at the size of a whole town, a running game and a real phone: real places to scenes, a look lab, life and traffic, a proof gate, trailers and sound. Decision 11 chose an asset forge feeding real engines; this decides how that forge grows to world scale and where all of it lives. The studio you have (one daemon, one op graph, <code>/studio</code> CLI, live view, checks, proposals) could grow, be split up, move into Godot, or turn into a library your games import.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: one engine, modules you load when needed</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Studio, Modules on Demand</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box ai">Claude Code · <code>/studio</code> always loaded · <code>/world</code> <code>/look</code> <code>/life</code> <code>/proof</code> <code>/reel</code> <code>/sound</code> load when asked</span></div>
+        <div class="arrow">↓ one CLI, tool groups</div>
+        <div class="lane"><span class="box core wide">Studio daemon · one scene + op graph · history, proposals, checks · live view</span></div>
+        <div class="lane"><span class="box mod">world</span><span class="box mod">look</span><span class="box mod">life</span><span class="box mod">proof</span><span class="box mod">reel</span><span class="box mod">sound</span></div>
+        <div class="arrow">↓ one asset contract (glTF + extras)</div>
+        <div class="lane"><span class="box eng">Godot</span><span class="box eng">three.js</span></div>
+        <div class="note">Each module is a folder in the monorepo with its own ops, checks, tool group and skill.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/world raleigh-glenwood</code> makes the blocks; the same view shows them; <code>/look neon</code> and <code>/proof iphone</code> run on that scene with the same undo, proposals and checks you already use for a stool.</div>
+    </div>
+    <div class="option-summary">
+      Keep one daemon and one scene format, and add each new tool as a module: its own ops, checks and a CLI tool group with its own small skill that Claude loads only when the work needs it. A town, a look, a crowd schedule and a trailer are all things in the same history, so a proposal can change a building and the look together, and checks see the whole scene. This is the pattern Houdini, Blender's extensions and Remedy's USD rebuild converge on: one shared scene, modules around it.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Tools need to see each other's work (a look on a town, a crowd on a road)</li>
+        <li>You want one undo, one review panel, one set of checks</li>
+        <li>Claude sees few tools at a time</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The daemon must handle town-sized data without slowing a stool</li>
+        <li>Module boundaries need discipline or it becomes one big file</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">A Family of Separate Tools Sharing Files</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box ai">Claude Code · one skill per tool</span></div>
+        <div class="arrow">↓ separate CLIs</div>
+        <div class="lane"><span class="box core">studio</span><span class="box mod">worldgen</span><span class="box mod">looklab</span><span class="box mod">lifekit</span><span class="box mod">proofer</span><span class="box mod">reelmaker</span></div>
+        <div class="arrow">↓ each reads and writes</div>
+        <div class="lane"><span class="box file wide">Shared files: scene.json · .glb · look.json · schedule.json</span></div>
+        <div class="lane"><span class="box eng">Godot</span><span class="box eng">three.js</span></div>
+        <div class="note">Own processes, own versions; they meet only through files.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> run <code>worldgen</code> to write a town file, open it in the studio, run <code>looklab</code> on an export. Each tool is small and simple, but there's no single undo across them.</div>
+    </div>
+    <div class="option-summary">
+      Each tool is its own small program with its own CLI and skill, and they talk through shared files. Easy to build one at a time, easy for parallel agents to work without touching each other, and any tool can be thrown away. The cost is everything between the tools: no shared history or proposals, checks that can't see across tools, and file formats that drift as each tool evolves.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Tools are truly independent</li>
+        <li>You want to try and discard tools quickly</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No undo or review across tools</li>
+        <li>Format drift: Terrarium's "same measurements as the viewer" problem, again</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Move the Tools Into the Godot Editor</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box ai">Claude Code · godot MCP</span></div>
+        <div class="arrow">↓</div>
+        <div class="lane"><span class="box eng wide">Godot editor · world / look / life / proof as editor plugins</span></div>
+        <div class="lane"><span class="box core">studio (asset forge only)</span><span class="box warn">three.js games: export only</span></div>
+        <div class="note">The world lives as Godot scenes; the web gets exports.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> towns, crowds and looks are built straight into a Godot project. Godot's own editor is the view. Your web games get second-class exports.</div>
+    </div>
+    <div class="option-summary">
+      Keep the studio for single assets, but build the world-scale tools as Godot editor plugins, so towns, crowds and looks live directly in a Godot project. You get Godot's editor, lighting and play button for free. But it splits decision 13 (Godot and three.js as equals): web games become exports from Godot scenes, and plugins break on Godot minor versions (4.0→4.1 and 4.4's <code>uid://</code> change both broke plugins).
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Godot is the main target</li>
+        <li>You want a real engine editor now</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Breaks the Godot + three.js equality</li>
+        <li>Plugin breakage on engine upgrades</li>
+        <li>Two places to look: studio view and Godot</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Runtime Library Your Games Import</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="arch">
+        <div class="lane"><span class="box ai">Claude Code writes game code</span></div>
+        <div class="arrow">↓ imports</div>
+        <div class="lane"><span class="box core wide">@studio/runtime · op graph, world, look, life in the game itself</span></div>
+        <div class="lane"><span class="box eng">three.js game</span><span class="box warn">Godot: port or GDExtension</span></div>
+        <div class="lane"><span class="box file">studio view becomes a debug panel</span></div>
+        <div class="note">Everything is built when the game runs; nothing is baked ahead.</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the game builds its town and folk from the op graph as it loads, like Terrarium's JavaScript did. It's flexible, but there's no review step or proposals before players see it.</div>
+    </div>
+    <div class="option-summary">
+      Turn the engine into a library that games import, so towns, variants and crowds are built when the game runs, from the same op graph the studio uses. This fixes Terrarium's "copy the viewer's measurements into Blender" problem directly. But it moves work from build time to load time (phones pay), Godot needs a port, and you lose the review-before-it-ships loop that decisions 2 and 9 built the studio around.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Variety at runtime matters most (endless towns)</li>
+        <li>Web-only games</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Phones pay at load time</li>
+        <li>Godot needs a second implementation</li>
+        <li>Loses proposals and review</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Terrarium's own worst files (<code>main.js</code> at 5,343 lines, <code>buildings.js</code> at 3,761) are what "one thing that grows" turns into without strict edges. A town is gigabytes of LiDAR and thousands of buildings; a daemon built for one stool may get slow or fragile, and one crash takes every tool down with it. B lets parallel agents build tools without stepping on each other, and nothing in A stops that from becoming a tangle. If you expect most of these tools to be thrown away after one game, B's "small and disposable" is worth more than a shared undo.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes modules can be kept apart by folder and by tool group (each with its own skill), with heavy data streamed from disk, not held in the daemon's memory.</li>
+    <li>Tripwire: if building one town makes ordinary <code>/studio</code> edits slower than about 200 ms, move world building into a worker process (still one scene format) before going further.</li>
+    <li>Tripwire: if Claude regularly picks the wrong tool, cut the always-loaded set back to <code>/studio</code> plus the one module in use.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · One studio, modules</th><th class="col-b">B · Separate tools</th><th class="col-c">C · Inside Godot</th><th class="col-d">D · Runtime library</th></tr></thead>
+    <tbody>
+      <tr><td>Undo and review across tools</td><td class="col-pick">One history for everything</td><td>Per tool only</td><td>Godot's undo + studio's</td><td>None before players see it</td></tr>
+      <tr><td>Checks see the whole scene</td><td class="col-pick">Yes</td><td>Only what's in each file</td><td>Partly (Godot side)</td><td>At run time only</td></tr>
+      <tr><td>Godot + three.js equal (decision 13)</td><td class="col-pick">Yes</td><td>Yes</td><td>No, web is second</td><td>No, Godot is second</td></tr>
+      <tr><td>Tools Claude sees at once</td><td class="col-pick">Studio + 1 module</td><td>One tool's</td><td>Godot MCP's set</td><td>Your code</td></tr>
+      <tr><td>Parallel agents building tools</td><td class="col-pick">Good if folders are respected</td><td>Best</td><td>Fair</td><td>Fair</td></tr>
+      <tr><td>Breaks on engine upgrades</td><td class="col-pick">Rarely (exports only)</td><td>Rarely</td><td>Often (plugins)</td><td>Godot port does</td></tr>
+      <tr><td>Fits what's built</td><td class="col-pick">Fully</td><td>Studio stays, rest new</td><td>Studio shrinks to assets</td><td>Big rewrite</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: modules can be split into their own tools later, since they share one format</td><td>High: merging histories later is hard</td><td>High: locks worlds into Godot scenes</td><td>High: runtime code spreads into every game</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Houdini stays one app around a node graph; heavy work runs headless (<code>hython --pdg</code>), and SideFX deprecated its separate TOPs app, folding it back in.<a class="cite" href="https://www.sidefx.com/docs/houdini/tops/pilotpdg.html">SideFX docs</a></li>
+    <li>NVIDIA retired the Omniverse Launcher and its separate apps (Oct 2025) for one Kit SDK with extensions, keeping the shared format.<a class="cite" href="https://developer.nvidia.com/omniverse/legacy-tools">NVIDIA</a></li>
+    <li>Remedy retired its old editor and rebuilt Northlight on one shared scene description with plugin tools.<a class="cite" href="https://www.remedygames.com/northlight">Remedy</a></li>
+    <li>Blender 4.2 moved most bundled add-ons out to an extensions platform with declared permissions: smaller core, modules around it.<a class="cite" href="https://www.blendernation.com/2024/07/18/blender-4-2-lts-overview/">BlenderNation</a></li>
+    <li>Godot plugins break between minor versions (4.0→4.1 binary break; 4.4's <code>uid://</code> change silently broke plugins).<a class="cite" href="https://docs.godotengine.org/en/stable/tutorials/migrating/upgrading_to_godot_4.1.html">Godot 4.1 upgrade notes</a><a class="cite" href="https://forum.godotengine.org/t/resourcegroups-breaks-with-4-4-but-not-sure-why/104425">Godot forum</a></li>
+    <li>Tool count costs agents: 58 tools across 5 servers cost about 55K tokens; loading tools on demand cut usage about 85% and raised accuracy from 79.5% to 88.1% (Opus 4.5). Wrong-tool picks are the most common failure.<a class="cite" href="https://www.anthropic.com/engineering/advanced-tool-use">Anthropic</a></li>
+    <li>Retrieving tools before the call raised tool selection accuracy from 13.6% to 43.1% in a study.<a class="cite" href="https://arxiv.org/abs/2505.03275">arXiv 2505.03275</a></li>
+    <li>Godot has no native USD import and recommends glTF, so keep your own scene format and export glTF.<a class="cite" href="https://docs.godotengine.org/fr/stable/tutorials/assets_pipeline/importing_3d_scenes/available_formats.html">Godot import formats</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>SideFX sells "pipeline in a box", while its users say big studios keep their own pipelines around Houdini. And the number of tools where agents start choosing badly isn't settled: blogs put it anywhere from 20 to 120. I found no clean write-up of a tool family drifting apart on formats, so the case against B rests on Terrarium's own evidence more than on outside sources.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Decision 28 is already settled: no splats.</p>
+</div>
+</body>
+</html>

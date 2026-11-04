@@ -985,6 +985,761 @@
     "https://medium.com/well-told-entertainment/how-an-indie-studio-attempted-facial-performance-cdb91d46ec7b"
    ],
    "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 26,
+   "slug": "suite-shape",
+   "title": "Shape of the suite",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-026-suite-shape.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "One studio, modules on demand",
+    "B": "Family of separate tools sharing files",
+    "C": "Tools inside the Godot editor",
+    "D": "Runtime library games import"
+   },
+   "caseAgainst": "One growing daemon risks Terrarium's main.js problem; town-scale data may slow or crash it; B is better for disposable tools and parallel agents.",
+   "assumptions": [
+    "Modules separated by folder + tool group + skill",
+    "Heavy data streamed from disk"
+   ],
+   "tripwires": [
+    "/studio edits >200 ms while a town is loaded -> worker process",
+    "Frequent wrong-tool picks -> cut always-loaded tools"
+   ],
+   "sources": [
+    "https://www.anthropic.com/engineering/advanced-tool-use",
+    "https://developer.nvidia.com/omniverse/legacy-tools",
+    "https://www.remedygames.com/northlight"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "One studio, modules on demand",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 27,
+   "slug": "real-places",
+   "title": "Real places to scenes",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-027-real-places.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Open data rebuilt by rules, fixes as layers keyed to stable IDs",
+    "B": "Simplify ready-made city 3D models",
+    "C": "Invented towns from the street map",
+    "D": "AI traces each building from photos"
+   },
+   "caseAgainst": "A is a large pipeline; rule-built buildings look generic; US LiDAR too sparse for scanned roofs; D+C may get charming blocks sooner.",
+   "assumptions": [
+    "Overture IDs stable",
+    "ODbL credits + shared data acceptable"
+   ],
+   "tripwires": [
+    ">10% fixes lose their building on refresh -> key by position+shape",
+    "Generic-looking buildings -> per-region style rules first"
+   ],
+   "sources": [
+    "https://developers.google.com/maps/documentation/tile/policies",
+    "https://docs.overturemaps.org/gers/",
+    "https://github.com/3DBAG/roofer"
+   ],
+   "chosenOption": "custom",
+   "chosenTitle": "One town pipeline, real or invented",
+   "decidedAt": "2026-11-04",
+   "reasoning": "User: A is great for real or realistic towns; for invented towns they still want the same general pattern to help. So: A's pipeline with pluggable plan sources (real data / invented / remix), shared rules, checks and fix layer (seed+lot IDs for invented)."
+  },
+  {
+   "id": 28,
+   "slug": "splats",
+   "title": "Splats in the suite",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "chosenOption": "custom",
+   "chosenTitle": "No splats",
+   "reasoning": "User: \"I don't want splats\" (stated up front, no options page needed).",
+   "decidedAt": "2026-11-04",
+   "htmlFile": null
+  },
+  {
+   "id": 29,
+   "slug": "look-lab",
+   "title": "Look lab",
+   "category": "visual",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-029-look-lab.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Looks as data + reference boards + measured targets (colourfulness, palette, style score), A/B judging, bake fallback",
+    "B": "Hand-tuned shaders per engine + compare board",
+    "C": "Bake look into assets, no screen effects",
+    "D": "AI paints target, vision model judges"
+   },
+   "caseAgainst": "Numbers do not measure charm; record format may box in one-off looks; Godot/three.js colour parity is fiddly.",
+   "assumptions": [
+    "Custom shader escape hatch",
+    "Local style model <1 s/frame on M2 Air"
+   ],
+   "tripwires": [
+    "Godot vs web visibly differ after pinning tonemapper -> bake grade for web",
+    "Numbers pass but look redone twice -> drop style score"
+   ],
+   "sources": [
+    "https://docs.godotengine.org/en/4.3/classes/class_environment.html",
+    "https://arxiv.org/abs/2404.01292",
+    "https://icml.cc/virtual/2026/68543"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Looks as data, reference boards, measured targets",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 30,
+   "slug": "life-crowds-traffic",
+   "title": "Life, crowds and traffic",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-030-life-crowds-traffic.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Smart places + seeded schedules + one baked walk mesh and lane graph for both engines + small runtimes + sped-up-day checks",
+    "B": "Each engine's own navigation and avoidance",
+    "C": "Pre-recorded paths played back",
+    "D": "Full live agent simulation"
+   },
+   "caseAgainst": "Two small runtimes (TS + GDScript) can drift; seeded towns are predictable; phone agent budget unknown; B is days not weeks for few characters.",
+   "assumptions": [
+    "Lane graphs from map data or town rules",
+    "Runtime a few hundred lines per engine, shared tests"
+   ],
+   "tripwires": [
+    "Runtimes disagree >0.5 m on same seed -> one shared core (WASM + GDExtension)",
+    "Measure agents/frame on real iPhone before promising crowd size"
+   ],
+   "sources": [
+    "https://dev.epicgames.com/documentation/unreal-engine/overview-of-mass-gameplay-in-unreal-engine",
+    "https://docs.godotengine.org/en/stable/tutorials/navigation/navigation_using_navigationagents.html",
+    "https://github.com/a-b-street/osm2streets/issues/5"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Smart places, seeded schedules, one set of lanes",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 31,
+   "slug": "proof-gate",
+   "title": "Proof gate: pictures, real phones, release checks",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-031-proof-gate.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Three tiers: Mac pictures every change, real iPhone via safaridriver before release, release checks (OCR, logos, wording, REUSE credits)",
+    "B": "Mac only: imitated phones + screenshots",
+    "C": "Mac automatic, phone by checklist",
+    "D": "Paid device cloud"
+   },
+   "caseAgainst": "Real-phone automation is fiddly and Apple can break it; screenshot tests flaky; one phone is one data point; C cheaper for rare releases.",
+   "assumptions": [
+    "safaridriver over USB keeps working",
+    "Phone memory limit measured once by ramp test"
+   ],
+   "tripwires": [
+    ">1 false picture change per run for a week -> loosen per scene",
+    "safaridriver breaks after iOS update -> checklist for that release"
+   ],
+   "sources": [
+    "https://github.com/appium/appium-safari-driver",
+    "https://bugs.webkit.org/show_bug.cgi?id=253172",
+    "https://pypi.org/project/flip-evaluator/"
+   ],
+   "chosenOption": "B",
+   "chosenTitle": "Mac only: imitated phones and screenshots",
+   "decidedAt": "2026-11-04",
+   "history": [
+    {
+     "from": "A",
+     "to": "B",
+     "at": "2026-11-04"
+    }
+   ],
+   "dissent": true
+  },
+  {
+   "id": 32,
+   "slug": "capture-trailer",
+   "title": "Capture and trailer maker",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-032-capture-trailer.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Trailers are cutscene files + an edit: frame-by-frame capture, beat cuts, crop per shot, ffmpeg recipe",
+    "B": "Record play, auto-edit best bits",
+    "C": "Video-as-code editor (Motion Canvas)",
+    "D": "Clean captures only, edit by hand"
+   },
+   "caseAgainst": "Templates make tidy but forgettable trailers; plain titles; waits on weeks 7-8; C/D usable now.",
+   "assumptions": [
+    "Cutscene format can carry an edit track",
+    "Beat detection as a separate local tool (librosa)"
+   ],
+   "tripwires": [
+    "Titles rewritten by hand in 2+ trailers -> add Motion Canvas for title cards"
+   ],
+   "sources": [
+    "https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html",
+    "https://github.com/Vanilagy/mp4-muxer",
+    "https://presskit.gg/field-guides/game-trailers-screenshots-guide"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Trailers are cutscene files, cut to the beat",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 33,
+   "slug": "sound-music",
+   "title": "Sound and music from local models",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-033-sound-music.html",
+   "recommended": "A",
+   "confidence": "lean",
+   "options": {
+    "A": "Layered: synth for game sounds, Stable Audio Open Small + CC0 for foley/ambience, seeded adaptive stems for music, ACE-Step if licence checks out",
+    "B": "AI models for everything (Stable Audio Open + ACE-Step)",
+    "C": "All procedural",
+    "D": "Free libraries picked by Claude"
+   },
+   "caseAgainst": "Music half unproven; ACE-Step licence/timings unknown; three source kinds to keep tidy. Tiebreaker: B if real songs matter more than adaptive loops.",
+   "assumptions": [
+    "SAO Small runs well on M2 Air",
+    "Games under $1M revenue"
+   ],
+   "tripwires": [
+    "ACE-Step weights not clearly commercial -> no song generation",
+    "Seeded music skipped/muted in playtests -> try B for music"
+   ],
+   "sources": [
+    "https://stability.ai/membership",
+    "https://github.com/facebookresearch/audiocraft",
+    "https://github.com/ace-step/ACE-Step-1.5"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Layered: synth, a small model, and free libraries",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 34,
+   "slug": "suite-build-order",
+   "title": "Build order and first milestone",
+   "category": "planning",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-034-suite-build-order.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Pocket Raleigh: thin slice of every module, 3 real blocks + invented twin, weeks 9-14",
+    "B": "Biggest time-saver first, one module at a time",
+    "C": "Pick next game, build only what it needs",
+    "D": "Rebuild Raleigh Terrarium on the suite"
+   },
+   "caseAgainst": "A demo is not a game; thin modules hide depth; C teaches more if a game is in mind; six weeks before sharing.",
+   "assumptions": [
+    "Weeks 5-8 on time",
+    "3 blocks have Overture heights + roof shapes"
+   ],
+   "tripwires": [
+    "Generic buildings wk 9 -> regional style rules wk 10",
+    "Game idea takes hold -> switch to C at week boundary"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Pocket Raleigh: three real blocks and an invented twin",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 35,
+   "slug": "game-skill-family",
+   "title": "Shape of the game skill family",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-035-game-skill-family.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Router + four game skills (concept, design thinking; build, playtest action), decision-kit format",
+    "B": "One big skill",
+    "C": "Game lens on existing x-skills",
+    "D": "Autonomous builder pausing at big calls"
+   },
+   "caseAgainst": "Four skills of upkeep; concept/design boundary blurry; C ships in a day; A may feel slow before first playable.",
+   "assumptions": [
+    "Only router auto-invoked",
+    "Concept skill reaches a toy early (D37)"
+   ],
+   "tripwires": [
+    "Jumping between concept and design -> merge",
+    "Skill >500 lines -> references/"
+   ],
+   "sources": [
+    "https://github.com/htdt/godogen",
+    "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices",
+    "https://code.claude.com/docs/en/skills"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A router and four game skills",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 36,
+   "slug": "game-skills-home",
+   "title": "Where the game skills live and ship",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-036-game-skills-home.html",
+   "recommended": "B",
+   "confidence": "strong",
+   "options": {
+    "A": "~/.claude/skills, written to decision-kit spec, studio CLI with fallback",
+    "B": "Ship with the studio repo (private now, public when finished), install step links skills into ~/.claude/skills",
+    "C": "Game tier inside public decision-kit with adapters",
+    "D": "Claude Code plugin depending on decision-kit"
+   },
+   "caseAgainst": "Finished may be far off; planning-only users must clone the studio; C gets planning skills out now; repo tangle risk.",
+   "tripwires": [
+    "Someone wants planning without studio -> publish decision-kit game tier pointing at studio"
+   ],
+   "history": [
+    {
+     "at": "2026-11-04",
+     "note": "User: studio repo will be made public when finished. Option B rewritten as \"ship with the studio repo, installed for every folder\"; recommendation moved from A (lean) to B (strong)."
+    }
+   ],
+   "chosenOption": "B",
+   "chosenTitle": "Ship with the studio repo, installed for every folder",
+   "decidedAt": "2026-11-04",
+   "reasoning": "User: studio repo will be made public when finished."
+  },
+  {
+   "id": 37,
+   "slug": "idea-to-first-playable",
+   "title": "The road from loose idea to first version",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-037-idea-to-first-playable.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Toy first, then grow: fantasy+pillars -> grey-box toy -> 3Cs+feel -> loop+playtest -> one-page scope -> look/world/cast -> first version",
+    "B": "Design document first, then build v1",
+    "C": "Polished vertical slice first",
+    "D": "Pitch and mood first, then grey-box"
+   },
+   "caseAgainst": "Grey boxes deflate; mood pass must be good; suits mechanic-led more than story/toy-led; D better for mood-first ideas.",
+   "assumptions": [
+    "Grey-box toy in ~1 hour from 3-4 decisions",
+    "Concept skill asks toy/loop/story and adjusts road"
+   ],
+   "tripwires": [
+    "Toy takes >1 session -> one verb, one camera",
+    "Skip playing twice -> merge steps 3-4"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Toy first, then grow it",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 38,
+   "slug": "game-decision-pages",
+   "title": "What a game decision page shows",
+   "category": "visual",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-038-game-decision-pages.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Right medium per choice: playable parametric web toy for feel, studio renders for looks, clips for motion, diagrams for loop/scope",
+    "B": "Studio renders for everything",
+    "C": "Short bot-played clips",
+    "D": "Diagrams and mockups (decision-kit style)"
+   },
+   "caseAgainst": "Playable pages slow and can break; four media to maintain; clips a good middle.",
+   "tripwires": [
+    "Playable page >5 min -> clips for that decision",
+    "No studio -> diagrams"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Playable for feel, renders for looks, clips for motion",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 39,
+   "slug": "game-living-preview",
+   "title": "Living preview for a game",
+   "category": "visual",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-039-game-living-preview.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "One-page design (pitch, pillars, controls, loop, scope, look) with current build embedded + ledger",
+    "B": "The playable build with decision overlay",
+    "C": "Pitch board of renders",
+    "D": "World map that fills in"
+   },
+   "caseAgainst": "Still a document that can drift from the build; embedding needs rebuilds; B simpler and cannot lie.",
+   "tripwires": [
+    "Written loop/controls disagree with build at playtest -> flag block for re-decision"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A one-page design with the current build inside",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 40,
+   "slug": "decisions-to-build",
+   "title": "The hand-off from decisions to building",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-040-decisions-to-build.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Typed game-spec.json citing decisions; build steps as studio proposals; stop with mini decision page at real gaps; partial rebuilds",
+    "B": "Written plan handed to Claude Code",
+    "C": "Task roadmap you work through",
+    "D": "Build everything unattended, review after"
+   },
+   "caseAgainst": "Spec format to maintain while tools change weekly; frequent stops = decision fatigue; B works today.",
+   "tripwires": [
+    ">3 stops per toy -> raise gap threshold",
+    "Spec needs new field weekly -> keep loose named settings"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A game spec, built step by step, stopping at gaps",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 41,
+   "slug": "playtest-loop",
+   "title": "Playtests and what makes v1 great",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-041-playtest-loop.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Question-led playtests: you play then type thoughts (talk-aloud optional), bots measure, great-v1 checklist, findings link to decisions with revisit",
+    "B": "You play, Claude summarises notes",
+    "C": "Bots only",
+    "D": "Share early with real players"
+   },
+   "caseAgainst": "Ceremony for a solo dev; bots need goals; newcomer test needs real people anyway.",
+   "tripwires": [
+    "Form/think-aloud skipped -> drop them",
+    "Before v1 done: one real-newcomer round"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Question-led playtests, typed notes by default",
+   "decidedAt": "2026-11-04",
+   "reasoning": "User: Option A, but don't force talking out loud and local transcription; let me just type my thoughts after playing."
+  },
+  {
+   "id": 42,
+   "slug": "game-skills-milestone",
+   "title": "First milestone for the game skills",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-042-game-skills-milestone.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Build skills alongside weeks 9-14; week 15 your own idea to great v1",
+    "B": "After Pocket Raleigh, proof week 18",
+    "C": "Before Pocket Raleigh, proof week 12, Pocket Raleigh slips",
+    "D": "Make Pocket Raleigh the first game through the skills"
+   },
+   "caseAgainst": "Two builds at once; build skill chases landing modules; D more elegant if no idea ready.",
+   "tripwires": [
+    "Build skill breaks twice from module change -> pause until module week ends",
+    "No idea by week 14 -> D"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Build alongside weeks 9\u201314, then take your idea to v1",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 43,
+   "slug": "print-path",
+   "title": "The path from model to print",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-043-print-path.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "/studio print: checks -> Bambu Studio CLI builds A1 mini project (merged presets) -> opens in Bambu Studio -> you press Print; falls back to D",
+    "B": "Headless slice, send via Bambu Connect",
+    "C": "Straight to printer in LAN developer mode",
+    "D": "Checked STL in a folder"
+   },
+   "caseAgainst": "Bambu CLI has Apple Silicon crash bug; updates could break it; D has zero moving parts.",
+   "tripwires": [
+    "CLI breaks twice after updates -> D default"
+   ],
+   "sources": [
+    "https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage",
+    "https://github.com/bambulab/BambuStudio/issues/9636",
+    "https://blog.bambulab.com/updates-and-third-party-integration-with-bambu-connect"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "/studio print opens a ready project in Bambu Studio",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 44,
+   "slug": "print-checks",
+   "title": "Print-ready checks and fixes",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-044-print-checks.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Print profile (A1 mini, 0.4, PLA): live checks + fixes as proposals",
+    "B": "Warn at print time only",
+    "C": "Auto-fix at print time",
+    "D": "Leave it to Bambu Studio"
+   },
+   "caseAgainst": "Overkill for occasional prints; duplicates slicer orient/supports; pre-slice overhang estimates rough.",
+   "tripwires": [
+    "Overhang estimate often off vs slicer -> hint only"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A print profile: live checks, fixes you keep or undo",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 45,
+   "slug": "print-colour",
+   "title": "Colour without an AMS",
+   "category": "visual",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-045-print-colour.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "One colour default + filament-change pause at a layer when colours split by height + one plate per colour for separate parts",
+    "B": "One colour always",
+    "C": "Always split by colour into parts",
+    "D": "Print one colour, paint after"
+   },
+   "caseAgainst": "B may be all you use; height swaps need you present; AMS later changes by-part.",
+   "tripwires": [
+    "Buy AMS lite -> one plate, filament per part"
+   ],
+   "chosenOption": "B",
+   "chosenTitle": "One colour, always",
+   "decidedAt": "2026-11-04",
+   "dissent": true
+  },
+  {
+   "id": 46,
+   "slug": "print-modelling",
+   "title": "Modelling helpers for print",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-046-print-modelling.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Five helpers: fit (named gaps), fit-test coupon, text, hole, split with pegs",
+    "B": "Just text and split",
+    "C": "Full mechanical library",
+    "D": "No helpers"
+   },
+   "caseAgainst": "May outrun occasional decorative prints; calibration drifts with filament.",
+   "tripwires": [
+    "Ask for thread/gear/hinge twice -> add that helper"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Five everyday helpers, tuned to your printer",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 47,
+   "slug": "studio-character-making",
+   "title": "How the studio makes characters that don't look alike",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-047-studio-character-making.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Skeleton first (body plans: chibi, lanky, stocky, beaked biped; quadruped later) -> blob body on bones -> face from feature parts -> hair/outfit parts -> style family; cast outline check",
+    "B": "Much richer humanoid kit",
+    "C": "Local AI generator (TripoSR) + studio clean-up",
+    "D": "Free-form sculpt then fit skeleton"
+   },
+   "caseAgainst": "Biggest build; each body plan needs walk tuning; blob bodies can look soft; B gives variety faster for people-games.",
+   "tripwires": [
+    "3 new characters read as cousins -> style families before more skeletons"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Skeleton first, then any body, face and outfit",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 48,
+   "slug": "rig-any-shape",
+   "title": "Rigging and motion for any shape the studio makes",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-048-rig-any-shape.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Motion computed from each body's proportions (stride/cadence from leg length, IK foot planting, style settings), gestures on standard bone names, body-relative checks",
+    "B": "Hand-tuned motions per body plan",
+    "C": "Retarget human motions to every body",
+    "D": "Physics-learned characters"
+   },
+   "caseAgainst": "Computed walks look bland; generalising is real work; hand-tuned may look better for 3-4 favourites.",
+   "tripwires": [
+    "Plan looks generic after style pass -> hand-tuned walk override"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Motion built from each body's proportions",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 49,
+   "slug": "character-faces",
+   "title": "Faces and speech beyond the template face",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-049-character-faces.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Face parts carry their own 15 speech shapes + expressions (human mouth, cartoon mouth, beak, muzzle, grille); same names so lip sync/checks unchanged",
+    "B": "Landmark transfer onto any finished face",
+    "C": "Painted 2D mouths/eyes for all",
+    "D": "Jaw and eyes only"
+   },
+   "caseAgainst": "Only for studio-part faces; each mouth style is a mini project; parts may look stuck on.",
+   "tripwires": [
+    "Part looks stuck on -> blend step"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Face parts that carry their own speech shapes",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 50,
+   "slug": "outside-characters",
+   "title": "Outside characters as a side door",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-050-outside-characters.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Rigged glTF/VRM import, auto bone map, own retargeter, faces from their shapes (ARKit > VRM vowels > jaw > eyes), VRM licence check, report; unrigged = props",
+    "B": "A + local skeleton-adder",
+    "C": "Curated free rigged library (KayKit, Kenney)",
+    "D": "No side door for now"
+   },
+   "caseAgainst": "Rarely used if studio makes characters; retargeting fiddly; C covers stand-ins cheaply.",
+   "tripwires": [
+    "Import unrigged models repeatedly -> add skeleton-adder"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Rigged models come in, with a report of what works",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 51,
+   "slug": "characters-build-order",
+   "title": "When to build it",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-051-characters-build-order.html",
+   "recommended": "A",
+   "confidence": "lean",
+   "options": {
+    "A": "Right after week 8 (weeks 9-11), Pocket Raleigh 12-17, your game week 18",
+    "B": "Parallel third build in weeks 9-11, dates hold",
+    "C": "After Pocket Raleigh",
+    "D": "Quick variety pass week 9, full system later"
+   },
+   "caseAgainst": "Pocket Raleigh and game slip 3 weeks; B keeps dates. Tiebreaker: dates over simplicity -> B.",
+   "tripwires": [
+    "Week 9 plans still cousins -> style families before motion"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Right after week 8, before Pocket Raleigh",
+   "decidedAt": "2026-11-04"
   }
  ],
  "phases": [
@@ -997,6 +1752,32 @@
    "name": "Faces, hands and cutscenes",
    "decisions": "19-25",
    "startedAt": "2026-11-04"
+  },
+  {
+   "name": "Tool suite (from the Terrarium audit)",
+   "decisions": "26-34",
+   "startedAt": "2026-11-04",
+   "audit": "terrarium-audit.html"
+  },
+  {
+   "name": "Game planning skills",
+   "decisions": "35-42",
+   "startedAt": "2026-11-04",
+   "reference": "https://github.com/jnemargut/decision-kit"
+  },
+  {
+   "name": "Printing path",
+   "decisions": "43-46",
+   "startedAt": "2026-11-04",
+   "printer": "Bambu Lab A1 mini, no AMS lite",
+   "slicer": "Bambu Studio 02.08.02.61"
+  },
+  {
+   "name": "Characters that look like yours",
+   "decisions": "47-51",
+   "startedAt": "2026-11-04",
+   "why": "User: \"I don't want to be stuck with similar looking dumb characters\"",
+   "note": "User: characters should mostly be generated by the studio itself; imports secondary."
   }
  ]
 }

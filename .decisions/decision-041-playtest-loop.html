@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 41: Playtests and What Makes v1 Great — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.rep { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; font-size:0.62rem; color:#0f172a; }
+.rep .hd { font-weight:800; font-size:0.56rem; letter-spacing:.06em; text-transform:uppercase; color:#64748b; margin:6px 0 3px; }
+.rep .hd:first-child { margin-top:0; }
+.ln { display:grid; grid-template-columns:1fr auto; gap:8px; padding:2px 0; border-bottom:1px solid #f1f5f9; }
+.pill { display:inline-block; padding:1px 7px; border-radius:999px; font-size:0.54rem; font-weight:700; white-space:nowrap; }
+.yes { background:#edf6f0; color:#2c6e48; } .meh { background:#fdf6e9; color:#8a5208; } .no { background:#fbecea; color:#a83a32; } .ref { background:#e6edf6; color:#23466f; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 41 of 42 · Game planning skills</span>
+  <h1>Playtests and What Makes v1 Great</h1>
+  <span class="category-badge">Interaction</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    You asked for a great first version, not just a first version. On the toy-first road (decision 37) there's a playtest after the toy, after the feel pass and after the loop. This decides what <code>/x-playtest</code> does: who plays, what gets measured, what "great" means for v1, and how findings flow back into decisions, since decisions are the gate.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: you play, bots measure, findings point at decisions</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen, with your change</span>
+        </div>
+      </div>
+      <h2 class="option-title">Test a Question, Play It, Measure It, Revisit Decisions</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Playtest 3 · question: "Is pushing up Steep Lane fun or a chore?"</div>
+        <div class="ln"><span>You played 6 min, then typed your thoughts (or talked, if you chose to)</span><span class="pill yes">notes in</span></div>
+        <div class="ln"><span>"Love the brake at the top" · "third hill felt like work"</span><span class="pill meh">mixed</span></div>
+        <div class="ln"><span>Bots: 40 runs, 31% stall on Steep Lane, median delivery 48 s</span><span class="pill no">stall spot</span></div>
+        <div class="hd">Great-v1 checks</div>
+        <div class="ln"><span>30 seconds of fun, over and over</span><span class="pill yes">yes</span></div>
+        <div class="ln"><span>A newcomer gets it without help</span><span class="pill meh">not tried yet</span></div>
+        <div class="ln"><span>Every pillar shows up in play</span><span class="pill yes">3 of 3</span></div>
+        <div class="hd">Points back at</div>
+        <div class="ln"><span>Decision 3, handling: "heavy" may be too heavy on hills</span><span class="pill ref">revisit?</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> <code>/x-playtest</code> asks what this test is for, you play and then type what you thought, bots play 40 times overnight, and you get one page where each finding links to the decision it questions. "Revisit decision 3?" reopens that page with the playtest attached.</div>
+    </div>
+    <div class="option-summary">
+      Every playtest is an experiment with a question, the way Valve runs them. You play (or a friend does), then type your thoughts afterwards in a plain text box; talking out loud with local transcription is there if you want it, never required. Claude sorts the notes into fun moments and confusions. Bots play the build many times and measure what people can't see: stall spots, time per delivery, falls, frame time. "Great v1" is a short checklist from the research: the 30 seconds of fun holds up, a newcomer gets it without help, and every pillar shows in play. Each finding links to the decision it questions, with a one-click "revisit".
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want feedback to change decisions, not sit in notes</li>
+        <li>Fun from you, numbers from bots</li>
+        <li>Local and free</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Bots need a goal they can play toward</li>
+        <li>Newcomer tests need real people</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">You Play, Claude Summarises Your Notes</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Playtest notes</div>
+        <div class="ln"><span>"hills too hard, brake is great, camera too low on corners"</span><span class="pill meh">notes</span></div>
+        <div class="ln"><span>Claude's summary + suggested tweaks</span><span class="pill ref">summary</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> light and natural. You play, jot notes, and get a tidy summary. But nothing is measured, and the summary doesn't touch the decisions.</div>
+    </div>
+    <div class="option-summary">
+      You play and write or say what you noticed, and Claude summarises it with suggested tweaks. The lightest loop, and your gut is often right. But there are no numbers (stall spots, timing), no question going in, and the findings land in a summary rather than reopening the decisions they question.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Very early toys</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>No measurements</li>
+        <li>Findings don't reach decisions</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Bots Only: Automated Playtests</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Bot report · 200 runs</div>
+        <div class="ln"><span>Stall rate on Steep Lane</span><span class="pill no">31%</span></div>
+        <div class="ln"><span>Median delivery time</span><span class="pill ref">48 s</span></div>
+        <div class="ln"><span>Was it fun?</span><span class="pill meh">can't tell</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> runs overnight with no effort from you, and catches stuck spots and balance problems. But no bot can tell you if pushing the cart feels good.</div>
+    </div>
+    <div class="option-summary">
+      Bots play every build hundreds of times and report stall spots, timings and balance. Zero effort, repeatable, and great at catching regressions. But fun and feel are exactly what bots can't judge, and Valve's whole point is that playtesting is for fun, not for finding bugs.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Balance and stuck spots</li>
+        <li>Catching regressions</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Can't judge fun or feel</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Share Early, Learn From Real Players</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="rep">
+        <div class="hd">Shared build · 3 days</div>
+        <div class="ln"><span>23 friends played</span><span class="pill yes">23</span></div>
+        <div class="ln"><span>Quit before first delivery</span><span class="pill no">35%</span></div>
+        <div class="ln"><span>Feedback form: "cute!", "hills hard"</span><span class="pill meh">mixed</span></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> real fresh eyes, which is what onboarding needs. But it's slow, you need people willing to play, and anonymous stats are thin on why.</div>
+    </div>
+    <div class="option-summary">
+      Share each build as a web link with friends (or on itch.io) and collect a short form and simple play stats. Real newcomers are the only way to test onboarding (Hodent), and it's motivating. But it takes days per round, needs willing players, and stats show where people quit without saying why.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Onboarding and first impressions</li>
+        <li>Near the first version</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Slow rounds</li>
+        <li>Thin on why</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A asks a lot of a solo developer: a question before every test, talking out loud, a form, bot goals to write. For an early toy that's ceremony; B's "play and jot" may get the same insight in five minutes. Bots need a goal they can play toward, which a cozy toy may not have, and writing one can take longer than playing yourself. And the "newcomer gets it" check needs real people anyway, which is D's whole point.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Assumes the playtest question is suggested by Claude from the current stage (toy: "is it fun to play with?"; loop: "does it hold up?"), so you only confirm it.</li>
+    <li>Assumes bots reuse the life module's runtime and the proof module's capture, so they cost little to add.</li>
+    <li>Your notes are typed after playing by default; talking out loud with local transcription is optional.</li>
+    <li>Tripwire: if even typed notes get skipped, ask one question after each playtest instead.</li>
+    <li>Before calling v1 done, run at least one D-style round with real newcomers.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Question, play, measure</th><th class="col-b">B · Notes + summary</th><th class="col-c">C · Bots only</th><th class="col-d">D · Real players</th></tr></thead>
+    <tbody>
+      <tr><td>Judges fun and feel</td><td class="col-pick">You, on purpose</td><td>You</td><td>No</td><td>Players</td></tr>
+      <tr><td>Measures stuck spots and timing</td><td class="col-pick">Bots</td><td>No</td><td>Yes</td><td>Rough stats</td></tr>
+      <tr><td>Tests onboarding</td><td class="col-pick">Checklist + a newcomer round</td><td>No</td><td>No</td><td>Best</td></tr>
+      <tr><td>Findings reopen decisions</td><td class="col-pick">Linked, one-click revisit</td><td>Summary only</td><td>Report only</td><td>Form only</td></tr>
+      <tr><td>Time per round</td><td class="col-pick">~15 min + overnight bots</td><td>~10 min</td><td>Overnight</td><td>Days</td></tr>
+      <tr><td>Local and free</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>Needs hosting</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: drop pieces you don't use</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Valve: the goal of playtesting is fun, not bug-finding; each test is an experiment on a design hypothesis, using observation, think-aloud, Q&amp;A, surveys and metrics.<a class="cite" href="https://cdn.fastly.steamstatic.com/apps/valve/2009/GDC2009_ValvesApproachToPlaytesting.pdf">Valve, GDC 2009</a></li>
+    <li>Riot playtests "ugly but fun" prototypes early and often, including outside the team.<a class="cite" href="https://www.riotgames.com/en/r-and-d-office/prototype-building-a-games-substance">Riot R&amp;D</a></li>
+    <li>Onboarding has to be tested with real newcomers, because developers can't see their own game fresh.<a class="cite" href="https://gamedeveloper.com/design/video-inside-the-ux-of-onboarding-and-player-engagement">Celia Hodent</a></li>
+    <li>"30 seconds of fun over and over" as the core test of a great game.<a class="cite" href="https://www.engadget.com/2011-07-14-half-minute-halo-an-interview-with-jaime-griesemer.html">Griesemer</a></li>
+    <li>Design pillars are the filter every feature, and every playtest finding, passes through.<a class="cite" href="https://gamedeveloper.com/design/design-pillars-the-core-of-your-game">Game Developer</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next and last: decision 42, the first milestone for the game skills.</p>
+</div>
+</body>
+</html>
