@@ -135,6 +135,30 @@ export interface LineClip {
   sync?: number;                 // ms the mouth trails the voice (negative = leads), measured at record time
   phonemes?: Array<{ start: number; end: number; ph: string; viseme: string; stress: number; word: number }>; // when the text was phonemized: what drives the 15 shapes
   life?: LineLife;               // blinks, eye darts and brow lifts while speaking (seeded; see life.ts)
+  performance?: PerformanceScript; // how the whole body delivers the line (Decision 23); compiled on export (performance.ts)
+}
+
+/** A gesture on a word of the line (or at a time): the stroke lands just before the word's stress. */
+export interface PerformanceGesture {
+  gesture: string;               // from the gesture library (performance.ts GESTURES)
+  word?: string | number;        // "hammer", "hammer#2" (second "hammer") or a word index
+  at?: number;                   // s, instead of a word
+  hand?: 'left' | 'right' | 'both';
+  size?: number;                 // 0.3 small … 1 normal … 1.5 big
+  hold?: number;                 // s the stroke is held
+}
+
+/** One performance per line (Decision 23): settings, not keyframes. */
+export interface PerformanceScript {
+  emotion?: string;              // the face (and default posture); defaults to the line's emotion
+  intensity?: number;            // 0..1.5
+  posture?: 'neutral' | 'upright' | 'lean-in' | 'slump' | 'proud' | 'guarded';
+  gaze?: 'listener' | 'down' | 'away' | 'up';
+  look?: [number, number];       // where the listener is: yaw, pitch degrees from the body's facing (+yaw = the character's left)
+  gestures?: PerformanceGesture[];
+  beats?: Array<{ word?: string | number; at?: number; emotion?: string; intensity?: number }>;   // the emotion changes mid-line
+  idle?: string;                 // the motion underneath (default "idle")
+  auto?: boolean;                // made by the rules from the words and emotion (studio perform --auto)
 }
 
 /** The face's life during a line (the start of week 5's life layer): extra shape-key curves and the gaze, per frame. */
@@ -161,8 +185,8 @@ export interface CharacterState {
  * walk/run/idle loop; turn and action play once.
  */
 export interface MotionSpec {
-  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action';
-  speed?: number;      // m/s (walk ~1.3, run ~3.5)
+  kind: 'walk' | 'run' | 'idle' | 'turn' | 'action' | 'start' | 'stop';
+  speed?: number;      // m/s (walk ~1.3, run ~3.5; start/stop: the walk they lead into / out of)
   stride?: number;     // m per full cycle (two steps); default from leg length and speed
   bounce?: number;     // m of hip rise and fall
   armSwing?: number;   // degrees
@@ -173,6 +197,7 @@ export interface MotionSpec {
   turn?: number;       // degrees, + = to the character's left (turn)
   action?: string;     // a library action (action): wave, nod, shrug, point, hammer-strike, pick-up, look-around
   seed?: number;       // blinks and glances
+  from?: string;       // start/stop: the walk motion they pair with (default "walk"; its settings are used)
 }
 
 /** A 3D-print profile (Decisions 43–46): one printer, one filament, the fit gaps measured for it. */
@@ -201,6 +226,7 @@ export interface SceneDoc {
   units: 'm';
   objects: Record<string, SceneObject>;
   objectOrder: string[];
+  cutscenes?: Record<string, import('./cutscene.ts').Cutscene>;   // Decision 24: shots, cameras, lines, actions
 }
 
 export function emptyDoc(): SceneDoc {

@@ -68,8 +68,11 @@ export interface CharParams {
   legLength: number;   // ×
   handSize: number;    // ×
   hair: 'short' | 'none';
+  apron?: boolean;     // a hanging apron: two extra bones (ApronUpper, ApronLower) so the cloth bends and swings (secondary motion)
 }
 export const CHAR_DEFAULTS: CharParams = { height: 1.75, build: 0.55, headSize: 1, armLength: 1, legLength: 1, handSize: 1, hair: 'short' };
+/** Where an apron hangs (its back face, object space z) for a build: the kit's apron op and the apron bones share it. */
+export const apronZ = (s: number, build: number) => 0.123 * s * (0.9 + 0.3 * build);
 
 export type Piece =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides: number; part: string }
@@ -112,6 +115,7 @@ export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharP
     height: n('height', 0.5, 3), build: n('build', 0, 1), headSize: n('headSize', 0.7, 1.6),
     armLength: n('armLength', 0.7, 1.4), legLength: n('legLength', 0.7, 1.4), handSize: n('handSize', 0.6, 1.6),
     hair: a.hair === 'none' ? 'none' : 'short',
+    ...(a.apron === true || a.apron === 'true' || a.apron === 1 ? { apron: true } : {}),
   };
 }
 
@@ -176,6 +180,13 @@ export function characterSpec(p: CharParams): CharSpec {
   // eyelids turn about the eye centre (blinks are rotations: a shape key would cut through the eyeball)
   bone('LeftUpperLid', 'Head', [eyeX, eyeY, eyeZ], [eyeX, eyeY + eyeR, eyeZ]);
   bone('RightUpperLid', 'Head', [-eyeX, eyeY, eyeZ], [-eyeX, eyeY + eyeR, eyeZ]);
+  if (p.apron) {
+    // the apron hangs from the waist in front of the thighs: two bones down its middle, swung by a
+    // spring when motions are baked (it lags, sways and is pushed forward by the knees)
+    const az = apronZ(s, b) + 0.015 * s;
+    bone('ApronUpper', 'Hips', [0, hipY + 0.02 * s, az], [0, hipY - 0.17 * s, az]);
+    bone('ApronLower', 'ApronUpper', [0, hipY - 0.17 * s, az], [0, hipY - 0.36 * s, az]);
+  }
   for (const side of ['Left', 'Right'] as const) {
     const sx = side === 'Left' ? 1 : -1;
     const sh: V3 = [sx * shW, shoulderY, 0], el: V3 = [sx * (shW + upperArm), shoulderY, 0], wr: V3 = [sx * (shW + upperArm + lowerArm), shoulderY, 0];
@@ -606,6 +617,7 @@ function allowedBones(part: string, bones: BoneDef[], byName: Map<string, number
     if (/UpperLeg$/.test(base)) set.add('Hips');
     return [...set].map(id);
   }
+  if (part === 'apron' && byName.has('ApronUpper')) return ['Hips', 'Spine', 'Chest', 'UpperChest', 'ApronUpper', 'ApronLower'].map(id);
   if (part === 'torso') return ['Hips', 'Spine', 'Chest', 'UpperChest', 'LeftShoulder', 'RightShoulder', 'LeftUpperArm', 'RightUpperArm', 'Neck', 'LeftUpperLeg', 'RightUpperLeg'].map(id);
   if (base === 'Neck') return ['Neck', 'Head', 'UpperChest'].map(id);
   if (isFacePart(part)) return ['Head'].map(id);
@@ -634,6 +646,12 @@ export function buildRig(spec: CharSpec, pos: Float32Array, vertPart: string[]):
   // the torso hands over to the legs and shoulders gradually (no hard cut-offs: those tear when posed)
   const hipY = bones[byName.get('Hips')!].head[1], shY = bones[byName.get('LeftUpperArm')!].head[1], shX = bones[byName.get('LeftUpperArm')!].head[0], s = spec.s;
   const regionFactor = (part: string, bone: string, p: V3) => {
+    if (part === 'apron') {
+      // below the waist the apron bones carry it (the cloth swings), above it the trunk
+      if (/^Apron/.test(bone)) return smooth(hipY + 0.01 * s, hipY - 0.06 * s, p[1]);
+      if (bone !== 'Hips') return smooth(hipY - 0.01 * s, hipY + 0.07 * s, p[1]);
+      return 1;
+    }
     if (part !== 'torso') return 1;
     if (/UpperLeg$/.test(bone)) return smooth(hipY + 0.13 * s, hipY - 0.1 * s, p[1]);
     if (/Shoulder$/.test(bone)) return smooth(shY - 0.16 * s, shY - 0.02 * s, p[1]);

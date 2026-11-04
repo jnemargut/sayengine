@@ -63,6 +63,16 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' } } },
   },
   {
+    name: 'cutscene-data',
+    description: 'Every cutscene as the timeline the engine players read (shots with camera keys, cues per character, events), with its voices as base64 WAV. `studio game import` uses it.',
+    flags: { type: 'object', properties: {} },
+  },
+  {
+    name: 'cutscene-preview',
+    description: 'Review a cutscene (Decision 24): writes a folder with the studio scene (GLB with every character\'s clips), the cutscene timeline, the line audio and the three.js cutscene player (the same one web games use), plus storyboard.html — one frame per shot with its framing, lines and the checks (Read the storyboard PNGs to look). --video true also renders every frame in headless Chrome and muxes an MP4 with the voices. --id cutscene [--out dir]',
+    flags: { type: 'object', properties: { id: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false } } },
+  },
+  {
     name: 'run',
     description: 'Code mode: run JavaScript in a QuickJS WASM sandbox with a `studio` API (studio.call(tool,args) or studio.setParam({...}), camelCase per tool) and console.log: --file x.js|x.ts or --code "…". No fs/network; 5 s, 64 MB. Each call is a normal commit. Use for loops/many similar parts.',
     flags: { type: 'object', properties: { file: { type: 'string' }, code: { type: 'string' } } },

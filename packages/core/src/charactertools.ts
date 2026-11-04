@@ -8,7 +8,8 @@ import { CHAR_DEFAULTS, EXPRESSIONS, NAMED_HAND_POSES, SHAPE_KEYS, VISEMES, char
 import { autoGrip, fitGrip, heldPlacement } from './grip.ts';
 import { lineLife } from './life.ts';
 import { ACTIONS, MOTION_DEFAULTS, bakeMotion, motionSettings } from './motion.ts';
-import type { MotionSpec } from './types.ts';
+import type { MotionSpec, PerformanceGesture, PerformanceScript } from './types.ts';
+import { EMOTION_FACE, GESTURES, POSTURES, autoPerformance, compilePerformance, findWord, lineWords, performanceReport } from './performance.ts';
 import { placeVerts } from './kernel.ts';
 
 const ObjRef = z.string().optional().describe('object id or name (defaults to the only/last object)');
@@ -124,6 +125,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       const opOrder = ['body'];
       let output = 'body';
       if (look.apron) {
+        (ops.body.args as any).apron = true;
         // a leather apron hung from the chest, in front of the legs (follows the hips and thighs)
         const hip = spec.bones.find((b) => b.name === 'Hips')!.head[1], chest = spec.bones.find((b) => b.name === 'UpperChest')!.head[1];
         const s = spec.s;
@@ -144,7 +146,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         hands: { left: { ...NAMED_HAND_POSES.relaxed }, right: { ...NAMED_HAND_POSES.relaxed } },
         expression: {},
         // every character can stand and walk in a game from the start (set-motion tunes or adds more)
-        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' } },
+        motions: { idle: { kind: 'idle' }, walk: { kind: 'walk' }, start: { kind: 'start' }, stop: { kind: 'stop' } },
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,
@@ -355,12 +357,77 @@ export const CHARACTER_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'perform', mode: 'modify', mutates: true,
+    description: 'How a character delivers one of its lines with the whole body (Decision 23): a short performance script — emotion (the face follows it), posture, gaze, and gestures on words — compiled into one clip with the mouth, face, eyes, hands and body sharing the line\'s beats, on top of the idle (breathing, weight shift). Gestures land just before the stressed syllable of their word, ease in with the forearm and hand trailing, and flow into each other when close. --gestures "palm-down@still, point@hammer:left"; --auto true picks gestures from the words and emotion (deictic words point, "still" presses down, numbers count, "no" shakes the head…); --clear true removes the performance (the line goes back to face only). Exports carry it as the line\'s clip ("line:<id>", now full body).',
+    input: z.object({
+      object: ObjRef,
+      line: z.string().describe('line id (studio character shows them)'),
+      emotion: z.string().optional().describe(`face and default posture: ${Object.keys(EMOTION_FACE).join(', ')} (default: the line's)`),
+      intensity: z.number().optional().describe('0..1.5 (default 1)'),
+      posture: z.enum(['neutral', 'upright', 'lean-in', 'slump', 'proud', 'guarded']).optional(),
+      gaze: z.enum(['listener', 'down', 'away', 'up']).optional(),
+      look: z.array(z.number()).length(2).optional().describe('where the listener is: [yaw, pitch] degrees from the facing (+yaw = left); cutscenes set it'),
+      gestures: z.union([z.string(), z.array(z.any())]).optional().describe(`"gesture@word[:hand][*size]" comma-separated, or a JSON array; library: ${Object.keys(GESTURES).join(', ')}`),
+      beats: z.array(z.any()).optional().describe('[{ word: "perfect", emotion: "happy" }]: the emotion changes mid-line'),
+      auto: z.boolean().optional().describe('pick gestures from the words and emotion'),
+      clear: z.boolean().optional(),
+    }),
+    example: `studio perform --object blacksmith --line hold-still --gestures "palm-down@still" --emotion firm`,
+    run(ctx, a) {
+      const o = asCharacter(ctx.obj(a.object));
+      const line = o.character?.lines?.[a.line];
+      if (!line) throw new Error(`${o.name} has no line "${a.line}" (have: ${Object.keys(o.character?.lines ?? {}).join(', ') || 'none'}; studio say first)`);
+      const lines = { ...(o.character?.lines ?? {}) };
+      if (a.clear) {
+        const { performance: _p, ...rest } = line;
+        lines[a.line] = rest;
+        ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), lines });
+        ctx.summary(`${o.name}: "${line.text}" back to face only`);
+        return { cleared: a.line };
+      }
+      if (a.emotion && !EMOTION_FACE[a.emotion]) throw new Error(`unknown emotion "${a.emotion}" — one of ${Object.keys(EMOTION_FACE).join(', ')}`);
+      let gestures: PerformanceGesture[] | undefined;
+      if (typeof a.gestures === 'string') {
+        gestures = a.gestures.split(',').map((x: string) => x.trim()).filter(Boolean).map((x: string) => {
+          const m = x.match(/^([a-z-]+)(?:@([^:*]+))?(?::(left|right|both))?(?:\*([0-9.]+))?$/);
+          if (!m) throw new Error(`can't read gesture "${x}" — write gesture@word, e.g. point@hammer or palm-down@still:left`);
+          const word = m[2] === undefined ? undefined : /^\d+(\.\d+)?s$/.test(m[2]) ? undefined : m[2];
+          const at = m[2] && /^\d+(\.\d+)?s$/.test(m[2]) ? Number(m[2].slice(0, -1)) : undefined;
+          return { gesture: m[1], ...(word !== undefined ? { word } : {}), ...(at !== undefined ? { at } : {}), ...(m[3] ? { hand: m[3] as 'left' | 'right' | 'both' } : {}), ...(m[4] ? { size: Number(m[4]) } : {}) };
+        });
+      } else if (Array.isArray(a.gestures)) gestures = a.gestures;
+      for (const g of gestures ?? []) if (!GESTURES[g.gesture]) throw new Error(`no gesture "${g.gesture}" — library: ${Object.keys(GESTURES).join(', ')}; did you mean ${closest(g.gesture, Object.keys(GESTURES)).join(' or ')}?`);
+      const words = lineWords(line);
+      for (const g of gestures ?? []) if (g.word !== undefined && findWord(words, g.word) < 0) throw new Error(`"${g.word}" is not a word of "${line.text}" (words: ${words.map((w) => w.word).join(' ')})`);
+      const prev = line.performance ?? {};
+      let script: PerformanceScript = a.auto ? autoPerformance(line) : { ...prev };
+      for (const k of ['emotion', 'intensity', 'posture', 'gaze', 'look', 'beats'] as const) if (a[k] !== undefined) (script as any)[k] = a[k];
+      if (gestures) { script.gestures = gestures; delete script.auto; }
+      const r = ctx.studio.evaluate(o);
+      if (!r.rig) throw new Error(`${o.name} has no rig (its geometry doesn't evaluate)`);
+      const clip = compilePerformance(r.rig.rig, o.character, line, script);
+      const rep = performanceReport(r.rig.rig, line, script, clip, o.character);
+      lines[a.line] = { ...line, performance: script };
+      ctx.set(['objects', o.id, 'character'], { ...(o.character ?? {}), lines });
+      ctx.summary(`${o.name} performs "${line.text}": ${script.emotion ?? line.emotion}${script.posture ? `, ${script.posture}` : ''}${clip.gestures.length ? `, ${clip.gestures.map((g) => `${g.gesture}${g.word ? `@${g.word}` : ''}`).join(', ')}` : ''}`);
+      return { line: a.line, script, gestures: clip.gestures, notes: clip.notes, check: { pass: rep.pass, detail: rep.detail }, library: a.auto ? Object.keys(GESTURES) : undefined };
+    },
+  },
+  {
+    name: 'gestures', mode: 'inspect', mutates: false,
+    description: 'The gesture library for `perform` (what each one means, its hands and timing), the emotions the face can show, and the postures.',
+    input: z.object({}),
+    run() {
+      return { gestures: Object.fromEntries(Object.entries(GESTURES).map(([k, g]) => [k, `${g.label} (${g.hands === 'none' ? 'head' : g.hands === 'both' ? 'both hands' : 'one hand'}, ${(g.prep + g.hold + g.retract).toFixed(1)} s)`])), emotions: Object.keys(EMOTION_FACE), postures: Object.keys(POSTURES) };
+    },
+  },
+  {
     name: 'set-motion', mode: 'modify', mutates: true,
     description: 'Add or tune a parametric motion on a character (Decision 16): walk, run, idle (breathing, weight shifts, blinks, glances), turn, or a library action. Settings, not keyframes: it is baked onto this character\'s skeleton on export, with the legs solved so planted feet never slide, and re-fits when the body changes. Calling it again with the same --id changes only the settings you pass. Clips are in place; games move the character at the clip\'s speed. Hands keep their pose (and grip) while moving.',
     input: z.object({
       object: ObjRef,
       id: z.string().regex(/^[a-z0-9][a-z0-9-]*$/).describe('clip name, e.g. walk, run, idle, turn-left, wave'),
-      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action']).optional().describe('required for a new motion'),
+      kind: z.enum(['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop']).optional().describe('required for a new motion (start/stop: the steps into and out of a walk; the game plays them when movement begins and ends)'),
       speed: z.number().optional().describe('m/s (walk 0.3–2.2, default ~1.3; run 1.8–7, default ~3.4)'),
       stride: z.number().optional().describe('m per cycle (two steps); default from leg length and speed'),
       bounce: z.number().optional().describe('m of hip rise and fall'),
@@ -372,12 +439,13 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       turn: z.number().optional().describe('degrees, + = to the left (turn)'),
       action: z.string().optional().describe(`library action (action): ${Object.keys(ACTIONS).join(', ')}`),
       seed: z.number().optional().describe('blinks and glances'),
+      from: z.string().optional().describe('start/stop: the walk motion they pair with (default walk)'),
     }),
     example: `studio set-motion --object blacksmith --id walk --speed 1.1 --energy 0.3`,
     run(ctx, a) {
       const o = asCharacter(ctx.obj(a.object));
       const prev = o.character?.motions?.[a.id];
-      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action)`);
+      if (!prev && !a.kind) throw new Error(`${o.name} has no motion "${a.id}" yet: pass --kind (walk, run, idle, turn, action, start, stop)`);
       const { object: _o, id: _id, ...settings } = a;
       const spec: MotionSpec = { ...(prev ?? {}), ...Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined)) } as MotionSpec;
       if (prev && a.kind && a.kind !== prev.kind) for (const k of Object.keys(spec) as Array<keyof MotionSpec>) if (k !== 'kind' && !(k in settings && (settings as any)[k] !== undefined)) delete spec[k];
@@ -420,7 +488,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
           return [id, { spec, duration: c.duration, loop: c.loop, speed: c.speed, stride: c.stride, frames: c.frames, checks }];
         } catch (e: any) { return [id, { spec, error: e.message }]; }
       }));
-      return { motions, kinds: ['walk', 'run', 'idle', 'turn', 'action'], defaults: MOTION_DEFAULTS, actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, v]) => [k, `${v.label} (${v.duration} s)`])) };
+      return { motions, kinds: ['walk', 'run', 'idle', 'turn', 'action', 'start', 'stop'], defaults: MOTION_DEFAULTS, actions: Object.fromEntries(Object.entries(ACTIONS).map(([k, v]) => [k, `${v.label} (${v.duration} s)`])) };
     },
   },
 ];

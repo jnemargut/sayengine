@@ -1,0 +1,266 @@
+[
+  {
+    "id": "cutscene-forge-lesson-framing",
+    "label": "Cutscene \"forge-lesson\": speakers in frame",
+    "pass": true,
+    "detail": "3 line(s), each speaker in frame"
+  },
+  {
+    "id": "cutscene-forge-lesson-cuts",
+    "label": "Cutscene \"forge-lesson\": cuts between words",
+    "pass": true,
+    "detail": "3 cut(s), none inside a word"
+  },
+  {
+    "id": "cutscene-forge-lesson-axis",
+    "label": "Cutscene \"forge-lesson\": the camera keeps one side (180° rule)",
+    "pass": true,
+    "detail": "every shot on one side of Blacksmith ↔ Apprentice"
+  },
+  {
+    "id": "cutscene-forge-lesson-lines",
+    "label": "Cutscene \"forge-lesson\": lines and actions",
+    "pass": true,
+    "detail": "4 shot(s), 14.8 s, 4 cue(s)"
+  },
+  {
+    "id": "line-hold-still-closures",
+    "label": "\"hold-still\": lips close on M/B/P",
+    "pass": true,
+    "detail": "no M/B/P sounds in this line"
+  },
+  {
+    "id": "line-hold-still-shapes",
+    "label": "\"hold-still\": F/V and OO sounds show",
+    "pass": true,
+    "detail": "3 F/V or OO sounds, all clearly shaped"
+  },
+  {
+    "id": "line-hold-still-held",
+    "label": "\"hold-still\": no shape held too long",
+    "pass": true,
+    "detail": "longest held shape 0.17 s"
+  },
+  {
+    "id": "line-hold-still-sync",
+    "label": "\"hold-still\": mouth in sync with the voice",
+    "pass": true,
+    "detail": "mouth trails the voice by 10 ms (≤ 90 ms reads as in sync)"
+  },
+  {
+    "id": "line-hold-still-performance",
+    "label": "Line \"hold-still\": the performance",
+    "pass": true,
+    "detail": "palm-down on \"still\" (left), point on \"this\" (left); strokes within 0 ms of their words, no pops (≤ 271°/s), ends on the idle; the right hand holds hammer: palm-down with the left; the right hand holds hammer: point with the left"
+  },
+  {
+    "id": "line-perfect-closures",
+    "label": "\"perfect\": lips close on M/B/P",
+    "pass": true,
+    "detail": "2 closures, all fully closed"
+  },
+  {
+    "id": "line-perfect-shapes",
+    "label": "\"perfect\": F/V and OO sounds show",
+    "pass": true,
+    "detail": "6 F/V or OO sounds, all clearly shaped"
+  },
+  {
+    "id": "line-perfect-held",
+    "label": "\"perfect\": no shape held too long",
+    "pass": true,
+    "detail": "longest held shape 0.57 s"
+  },
+  {
+    "id": "line-perfect-sync",
+    "label": "\"perfect\": mouth in sync with the voice",
+    "pass": true,
+    "detail": "mouth trails the voice by 0 ms (≤ 90 ms reads as in sync)"
+  },
+  {
+    "id": "line-perfect-performance",
+    "label": "Line \"perfect\": the performance",
+    "pass": true,
+    "detail": "nod on \"perfect\", open-palms on \"cool\" (left); strokes within 0 ms of their words, no pops (≤ 212°/s), ends on the idle; one hand holds hammer: open-palms with the left only"
+  },
+  {
+    "id": "motion-idle",
+    "label": "Motion \"idle\": feet planted, loops",
+    "pass": true,
+    "detail": "loops cleanly; planted feet slide ≤ 0 mm, nothing below the floor; 6.00 s"
+  },
+  {
+    "id": "motion-idle-skin",
+    "label": "Motion \"idle\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): LeftUpperArm keeps 89% of its volume, edges stretch ≤ 2.10×"
+  },
+  {
+    "id": "motion-idle-apron",
+    "label": "Motion \"idle\": the apron follows the legs",
+    "pass": true,
+    "detail": "apron clears the legs, swings 1° and bends 0°"
+  },
+  {
+    "id": "motion-walk",
+    "label": "Motion \"walk\": feet planted, loops",
+    "pass": true,
+    "detail": "loops cleanly; planted feet slide ≤ 2 mm, nothing below the floor; upright: hips 97% of standing, planted knee 172°; 1.34 m/s, 1.25 m stride, 0.93 s cycle"
+  },
+  {
+    "id": "motion-walk-skin",
+    "label": "Motion \"walk\": bends cleanly",
+    "pass": true,
+    "detail": "2 key frame(s): LeftUpperArm keeps 88% of its volume, edges stretch ≤ 2.11×"
+  },
+  {
+    "id": "motion-walk-apron",
+    "label": "Motion \"walk\": the apron follows the legs",
+    "pass": true,
+    "detail": "apron clears the legs, swings 21° and bends 11°"
+  },
+  {
+    "id": "motion-start",
+    "label": "Motion \"start\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 2 mm, nothing below the floor; travels 0.35 m; 0.80 s"
+  },
+  {
+    "id": "motion-start-skin",
+    "label": "Motion \"start\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): LeftUpperArm keeps 89% of its volume, edges stretch ≤ 2.11×"
+  },
+  {
+    "id": "motion-start-apron",
+    "label": "Motion \"start\": the apron follows the legs",
+    "pass": true,
+    "detail": "apron clears the legs, swings 36° and bends 12°"
+  },
+  {
+    "id": "motion-stop",
+    "label": "Motion \"stop\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 3 mm, nothing below the floor; travels 0.28 m; 0.90 s"
+  },
+  {
+    "id": "motion-stop-skin",
+    "label": "Motion \"stop\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): LeftUpperArm keeps 89% of its volume, edges stretch ≤ 2.10×"
+  },
+  {
+    "id": "motion-stop-apron",
+    "label": "Motion \"stop\": the apron follows the legs",
+    "pass": true,
+    "detail": "apron clears the legs, swings 20° and bends 5°"
+  },
+  {
+    "id": "motion-strike",
+    "label": "Motion \"strike (hammer-strike)\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 0 mm, nothing below the floor; strike: 0.9 s wind-up, 0.17 s downswing, knees dip 5.7 cm; 1.80 s"
+  },
+  {
+    "id": "motion-strike-skin",
+    "label": "Motion \"strike (hammer-strike)\": bends cleanly",
+    "pass": true,
+    "detail": "3 key frame(s): LeftUpperArm keeps 89% of its volume, edges stretch ≤ 2.11×"
+  },
+  {
+    "id": "motion-strike-apron",
+    "label": "Motion \"strike (hammer-strike)\": the apron follows the legs",
+    "pass": true,
+    "detail": "apron clears the legs, swings 16° and bends 21°"
+  },
+  {
+    "id": "line-glow-closures",
+    "label": "\"glow\": lips close on M/B/P",
+    "pass": true,
+    "detail": "1 closure, all fully closed"
+  },
+  {
+    "id": "line-glow-shapes",
+    "label": "\"glow\": F/V and OO sounds show",
+    "pass": true,
+    "detail": "2 F/V or OO sounds, all clearly shaped"
+  },
+  {
+    "id": "line-glow-held",
+    "label": "\"glow\": no shape held too long",
+    "pass": true,
+    "detail": "longest held shape 0.30 s"
+  },
+  {
+    "id": "line-glow-sync",
+    "label": "\"glow\": mouth in sync with the voice",
+    "pass": true,
+    "detail": "mouth trails the voice by 70 ms (≤ 90 ms reads as in sync)"
+  },
+  {
+    "id": "line-glow-performance",
+    "label": "Line \"glow\": the performance",
+    "pass": true,
+    "detail": "point on \"glow\", shrug on \"that\" (both); strokes within 0 ms of their words, no pops (≤ 331°/s), ends on the idle"
+  },
+  {
+    "id": "motion-idle",
+    "label": "Motion \"idle\": feet planted, loops",
+    "pass": true,
+    "detail": "loops cleanly; planted feet slide ≤ 0 mm, nothing below the floor; 6.00 s"
+  },
+  {
+    "id": "motion-idle-skin",
+    "label": "Motion \"idle\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): LeftUpperArm keeps 84% of its volume, edges stretch ≤ 2.01×"
+  },
+  {
+    "id": "motion-walk",
+    "label": "Motion \"walk\": feet planted, loops",
+    "pass": true,
+    "detail": "loops cleanly; planted feet slide ≤ 0 mm, nothing below the floor; upright: hips 97% of standing, planted knee 172°; 1.27 m/s, 1.10 m stride, 0.87 s cycle"
+  },
+  {
+    "id": "motion-walk-skin",
+    "label": "Motion \"walk\": bends cleanly",
+    "pass": true,
+    "detail": "2 key frame(s): LeftUpperArm keeps 84% of its volume, edges stretch ≤ 2.01×"
+  },
+  {
+    "id": "motion-start",
+    "label": "Motion \"start\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 2 mm, nothing below the floor; travels 0.30 m; 0.80 s"
+  },
+  {
+    "id": "motion-start-skin",
+    "label": "Motion \"start\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): LeftUpperArm keeps 84% of its volume, edges stretch ≤ 2.02×"
+  },
+  {
+    "id": "motion-stop",
+    "label": "Motion \"stop\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 3 mm, nothing below the floor; travels 0.25 m; 0.90 s"
+  },
+  {
+    "id": "motion-stop-skin",
+    "label": "Motion \"stop\": bends cleanly",
+    "pass": true,
+    "detail": "1 key frame(s): RightUpperArm keeps 84% of its volume, edges stretch ≤ 2.01×"
+  },
+  {
+    "id": "motion-wave",
+    "label": "Motion \"wave (wave)\": feet planted",
+    "pass": true,
+    "detail": "planted feet slide ≤ 0 mm, nothing below the floor; 2.20 s"
+  },
+  {
+    "id": "motion-wave-skin",
+    "label": "Motion \"wave (wave)\": bends cleanly",
+    "pass": true,
+    "detail": "3 key frame(s): RightLowerArm keeps 66% of its volume, edges stretch ≤ 2.00×"
+  }
+]

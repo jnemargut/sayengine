@@ -65,7 +65,7 @@ test('walk fits the body: longer legs → longer stride at the same speed; faste
 
 test('new characters can stand and walk; set-motion adds, tunes and explains; checks run per motion', () => {
   const { s, ok } = kit('blacksmith');
-  assert.deepEqual(Object.keys(s.doc().objects.smith.character!.motions!).sort(), ['idle', 'walk']);
+  assert.deepEqual(Object.keys(s.doc().objects.smith.character!.motions!).sort(), ['idle', 'start', 'stop', 'walk']);
   ok('set-motion', { object: 'smith', id: 'walk', speed: 1.0, energy: 0.2 });
   assert.deepEqual(s.doc().objects.smith.character!.motions!.walk, { kind: 'walk', speed: 1, energy: 0.2 });
   ok('set-motion', { object: 'smith', id: 'strike', kind: 'action', action: 'hammer-strike' });
@@ -77,7 +77,7 @@ test('new characters can stand and walk; set-motion adds, tunes and explains; ch
   const tooFast = s.call('set-motion', { object: 'smith', id: 'walk', speed: 5 });
   assert.match(tooFast.error!, /speed must be between/);
   const checks = s.checks('smith').filter((c) => c.id.startsWith('motion-'));
-  assert.equal(checks.length, 6, checks.map((c) => c.id).join(','));
+  assert.equal(checks.length, 15, checks.map((c) => c.id).join(','));
   assert.deepEqual(checks.filter((c) => !c.pass).map((c) => `${c.label}: ${c.detail}`), []);
   const m = s.call('motions', { object: 'smith' });
   assert.ok(m.ok && m.result.motions.strike.duration > 1 && m.result.actions.wave);

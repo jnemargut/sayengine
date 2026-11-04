@@ -13,6 +13,8 @@ import { parseTarget, parseViews } from './util.ts';
 
 export { GAME_TOOLS, gameTool };
 export { findGodot } from './godot.ts';
+import { writeCutscenes, muxCutscene, type CutsceneBundle } from './cutscene.ts';
+export { writeCutscenes, godotCutsceneScene } from './cutscene.ts';
 export { findChrome } from './chrome.ts';
 
 export interface GameContext {
@@ -21,6 +23,8 @@ export interface GameContext {
   exportGlb(out: string, object: string | undefined, engine: Engine, opts?: { exclude?: string[]; atOrigin?: boolean }): Promise<{ ok: boolean; error?: string; result?: any }>;
   /** Where a studio object stands (for the player's start). */
   objectInfo?(object: string): Promise<{ id: string; name: string; position: [number, number, number]; rotation: number; character: boolean } | null>;
+  /** The studio's cutscenes as timelines + their voices (Decision 24). */
+  cutscenes?(): Promise<CutsceneBundle[]>;
 }
 
 /**
@@ -87,6 +91,8 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
           if (e.result?.skipped?.length) return out({ ok: false, ...base, error: `these objects don't evaluate, fix them in the studio first: ${e.result.skipped.join(', ')}` });
         }
         fs.writeFileSync(path.join(dir, 'assets', 'studio', 'characters.json'), JSON.stringify(charactersManifest(dest, player ? { ...player, glb: playerGlb } : null), null, 2) + '\n');
+        // cutscenes: the timelines, voices and (Godot) generated scenes
+        const cutscenes = !args.file && ctx.cutscenes ? writeCutscenes(dir, config.engine, await ctx.cutscenes()) : [];
         const rep: any = config.engine === 'godot' ? await godot.importProject(dir) : await web.webCommand(dir, { cmd: 'info' });
         const report = config.engine === 'godot' ? rep : { ...rep.result, warnings: rep.warnings ?? [], errors: [...(rep.errors ?? []), ...(rep.error ? [rep.error] : [])] };
         const strict = args.strict !== false;
@@ -95,7 +101,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
+          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }
@@ -127,6 +133,25 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         if (video && r.ok) Object.assign(r.result ?? {}, framesToVideo(frameDir, 30));
         const summary = r.ok && r.result ? (r.result.reached ? `reached ${typeof target === 'string' ? target : JSON.stringify(target)} in ${r.result.seconds} s` : `did not reach it: ${r.result.timedOut ? 'timed out' : 'blocked'} ${r.result.distanceToTarget} m short at ${JSON.stringify(r.result.final)}`) : undefined;
         return out({ ...base, ...r, ...(summary ? { summary } : {}) });
+      }
+      case 'game-cutscene': {
+        const id = String(args.id ?? '');
+        const json = path.join(dir, 'assets', 'studio', 'cutscenes', `${id}.json`);
+        if (!fs.existsSync(json)) return out({ ok: false, ...base, error: `no cutscene "${id}" in the game`, hint: `studio game import --project ${project} (it writes the studio's cutscenes)` });
+        const tl = JSON.parse(fs.readFileSync(json, 'utf8'));
+        const video = args.video === true || args.video === 'true';
+        const frameDir = path.join(workDir(dir, 'video'), `${stamp()}-${id}`);
+        if (video) fs.mkdirSync(frameDir, { recursive: true });
+        let r: any;
+        if (config.engine === 'godot') r = await godot.runnerCommand(dir, { cmd: 'cutscene', id, ...(video ? { frames: frameDir, every: 2 } : {}) }, { windowed: true, size: video ? 1280 : 640, timeoutMs: 600000 });
+        else {
+          r = await web.webCommand(dir, { cmd: 'cutscene', id, fps: 30, frames: video }, { size: video ? 1280 : 640 });
+          const frames: string[] = r.result?.frames ?? [];
+          frames.forEach((d, i) => fs.writeFileSync(path.join(frameDir, `${String(i).padStart(5, '0')}.jpg`), Buffer.from(d.split(',')[1], 'base64')));
+          if (r.result) delete r.result.frames;
+        }
+        if (video && r.ok) Object.assign(r.result ?? (r.result = {}), muxCutscene(frameDir, 30, tl, path.join(dir, 'assets', 'studio', 'cutscenes', 'audio'), path.join(workDir(dir, 'video'), `${stamp()}-${id}.mp4`)));
+        return out({ ...base, ...r, ...(r.ok ? { summary: `${tl.title ?? id}: ${tl.shots.length} shots, ${tl.duration.toFixed(1)} s in ${config.engine}${r.result?.video ? ` → ${r.result.video}` : ''}` } : {}) });
       }
       case 'game-test': {
         const assertions = typeof args.assertions === 'string' ? JSON.parse(args.assertions) : args.assertions ?? [];
@@ -161,7 +186,7 @@ export function charactersManifest(sceneGlb: string, player: { id: string; name:
         if (prefix && !a.name.startsWith(prefix)) continue;
         const nm = a.name.slice(prefix.length);
         if (!prefix && j.nodes.some((m: any) => m.extras?.character?.clipPrefix && a.name.startsWith(m.extras.character.clipPrefix))) continue;
-        clips[nm] = a.extras?.motion ? { motion: a.extras.motion, loop: !!a.extras.loop, speed: a.extras.speed ?? 0, duration: a.extras.duration } : { line: nm.startsWith('line:'), loop: false };
+        clips[nm] = a.extras?.motion ? { motion: a.extras.motion, loop: !!a.extras.loop, speed: a.extras.speed ?? 0, duration: a.extras.duration, ...(a.extras.travel ? { travel: a.extras.travel, then: a.extras.then, ...(a.extras.phase !== undefined ? { phase: a.extras.phase } : {}) } : {}) } : { line: nm.startsWith('line:'), loop: false };
       }
       let lo = Infinity, hi = -Infinity;
       for (const p of j.meshes[n.mesh].primitives) { const acc = j.accessors[p.attributes.POSITION]; if (acc?.min) { lo = Math.min(lo, acc.min[1]); hi = Math.max(hi, acc.max[1]); } }

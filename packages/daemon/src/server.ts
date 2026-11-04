@@ -285,6 +285,47 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           return { ok: true, tool: name, summary: `${motions.length} motion(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, motions: motions.map((m) => m.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server)${r.video ? '; Read the stills to look at the poses' : ''}` } };
         } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
       }
+      case 'cutscene-data': {
+        // every cutscene as the timeline the engine players read, with its voices (for `studio game import`)
+        const doc = studio.doc();
+        const { cutsceneTimeline } = await import('../../core/src/cutscene.ts');
+        const bundles: any[] = [], errors: string[] = [];
+        for (const cs of Object.values((doc as any).cutscenes ?? {}) as any[]) {
+          try {
+            const timeline = cutsceneTimeline(studio, doc, cs);
+            const audio: Record<string, string> = {};
+            for (const c of timeline.cues) if (c.audio && !audio[c.audio]) { try { audio[c.audio] = Buffer.from(studio.assets.get(c.audio)).toString('base64'); } catch { /* no audio */ } }
+            bundles.push({ timeline, audio });
+          } catch (e: any) { errors.push(`${cs.id}: ${e.message}`); }
+        }
+        return errors.length ? { ok: false, tool: name, error: errors.join('; ') } : { ok: true, tool: name, result: { cutscenes: bundles } };
+      }
+      case 'cutscene-preview': {
+        const doc = studio.doc();
+        const all = (doc as any).cutscenes ?? {};
+        const cs = all[String(args.id ?? '')] ?? (Object.keys(all).length === 1 && !args.id ? Object.values(all)[0] : null);
+        if (!cs) return { ok: false, tool: name, error: args.id ? `no cutscene "${args.id}"` : 'which cutscene? --id', hint: `cutscenes: ${Object.keys(all).join(', ') || 'none (studio new-cutscene)'}` };
+        const { cutsceneTimeline, cutsceneChecks } = await import('../../core/src/cutscene.ts');
+        let tl;
+        try { tl = cutsceneTimeline(studio, doc, cs as any); } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+        const checks = cutsceneChecks(studio, doc, cs as any);
+        let items;
+        try { items = selectForExport(studio, doc, {}); } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+        const glb = toGLB(items.filter((i) => i.obj.role !== 'reference' && i.res.ok), {});
+        const validation = await validateGlb(glb);
+        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
+        const audio: Record<string, Uint8Array> = {};
+        for (const c of tl.cues) if (c.audio && !audio[c.audio]) { try { audio[c.audio] = studio.assets.get(c.audio); } catch { /* a test line without audio */ } }
+        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${(cs as any).id}-cutscene`);
+        const cp = await import('./cutsceneplayer/make.ts');
+        try {
+          const b = await cp.buildCutscenePreview(out, glb, tl, audio);
+          const cap = await cp.captureCutscene(out, tl, { video: !!args.video });
+          const sb = cp.writeStoryboard(out, tl, cap.boards, checks, { video: cap.video ? path.basename(cap.video) : undefined });
+          const failing = checks.filter((c) => !c.pass);
+          return { ok: true, tool: name, summary: `${tl.shots.length} shots, ${tl.duration.toFixed(1)} s${cap.video ? ` → ${cap.video}` : ''}${failing.length ? `; ${failing.length} check(s) failing` : ''}`, result: { ...b, storyboard: sb, storyboardFrames: cap.stills, ...(cap.video ? { video: cap.video, frames: cap.frames } : {}), seconds: tl.duration, checks, note: 'Read the storyboard PNGs to look at each shot; open storyboard.html (or the MP4) to review the whole cutscene' } };
+        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+      }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
         const file = args.file ? path.resolve(dir, args.file) : 'inline.js';

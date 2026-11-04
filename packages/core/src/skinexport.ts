@@ -10,6 +10,7 @@ import type { SceneObject } from './types.ts';
 import { GlbBuilder } from './glb.ts';
 import { forward, localRotations, qAxisAngle, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { bakeMotion } from './motion.ts';
+import { compilePerformance } from './performance.ts';
 
 /**
  * A prop in a hand rides on the hand joint (a child node), so it follows every clip — walk, actions,
@@ -160,6 +161,39 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
   for (const [id, line] of Object.entries(obj.character?.lines ?? {})) {
     const frames = line.curves.sil?.length ?? 0;
     if (!frames) continue;
+    if (line.performance) {
+      // a performed line (Decision 23): the whole body — mouth, face, eyes, hands, posture, arms — one clip
+      let pc;
+      try { pc = compilePerformance(rig, obj.character, line, line.performance, { look: (obj.character as any)?.look }); } catch { pc = null; }
+      if (pc) {
+        const n = pc.local.length;
+        const input = B.typed(new Float32Array(n).map((_, f) => f / pc!.fps), 'SCALAR', { minmax: true });
+        const samplers: any[] = [], channels: any[] = [];
+        info.kept.forEach((bi, k) => {
+          let moves = false;
+          for (let f = 0; f < n && !moves; f++) if (Math.abs(pc!.local[f][bi][3]) < 0.999999) moves = true;
+          if (!moves) return;
+          const o = new Float32Array(n * 4);
+          for (let f = 0; f < n; f++) o.set(pc!.local[f][bi], f * 4);
+          samplers.push({ input, output: B.typed(o, 'VEC4'), interpolation: 'LINEAR' });
+          channels.push({ sampler: samplers.length - 1, target: { node: info.jointNodes[k], path: 'rotation' } });
+        });
+        const hj = jointOf('Hips');
+        if (hj) {
+          const restT = B.gltf.nodes[hj.node].translation as number[];
+          const o = new Float32Array(n * 3);
+          for (let f = 0; f < n; f++) o.set([restT[0] + pc.hips[f][0], restT[1] + pc.hips[f][1], restT[2] + pc.hips[f][2]], f * 3);
+          samplers.push({ input, output: B.typed(o, 'VEC3'), interpolation: 'LINEAR' });
+          channels.push({ sampler: samplers.length - 1, target: { node: hj.node, path: 'translation' } });
+        }
+        const out = new Float32Array(n * info.shapeNames.length);
+        for (let f = 0; f < n; f++) out.set(info.shapeNames.map((nme) => pc!.shapes[nme]?.[f] ?? expr[nme] ?? 0), f * info.shapeNames.length);
+        samplers.push({ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' });
+        channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
+        anims.push({ name: `${prefix}line:${id}`, samplers, channels, extras: { text: line.text, audio: line.audio, duration: line.duration, emotion: line.performance.emotion ?? line.emotion, performance: true, gestures: pc.gestures.map((g) => ({ gesture: g.gesture, hand: g.hand, word: g.word, stroke: g.stroke })), ...(line.voice ? { voice: line.voice, voiceLicence: line.voiceLicence } : {}) } });
+        continue;
+      }
+    }
     const life = line.life;
     const times = new Float32Array(frames).map((_, f) => f / line.fps);
     const out = new Float32Array(frames * info.shapeNames.length);
@@ -237,6 +271,6 @@ function addClips(B: GlbBuilder, obj: SceneObject, res: EvalResult, meshNode: nu
     for (let f = 0; f < n; f++) out.set(weightsAt((nme) => (clip.shapes[nme] ? Math.max(clip.shapes[nme][f] ?? 0, expr[nme] ?? 0) : undefined)), f * info.shapeNames.length);
     samplers.push({ input, output: B.typed(out, 'SCALAR'), interpolation: 'LINEAR' });
     channels.push({ sampler: samplers.length - 1, target: { node: meshNode, path: 'weights' } });
-    anims.push({ name: `${prefix}${id}`, samplers, channels, extras: { motion: spec.kind, loop: clip.loop, speed: clip.speed, duration: clip.duration, ...(clip.stride ? { stride: clip.stride } : {}), ...(clip.turn !== undefined ? { turn: clip.turn } : {}), ...(spec.action ? { action: spec.action } : {}) } });
+    anims.push({ name: `${prefix}${id}`, samplers, channels, extras: { motion: spec.kind, loop: clip.loop, speed: clip.speed, duration: clip.duration, ...(clip.stride ? { stride: clip.stride } : {}), ...(clip.turn !== undefined ? { turn: clip.turn } : {}), ...(spec.action ? { action: spec.action } : {}), ...(clip.travel ? { travel: clip.travel, then: spec.kind === 'start' ? (spec.from ?? 'walk') : 'idle', ...(spec.kind === 'start' ? { phase: 0.5 } : {}) } : {}) } });
   }
 }

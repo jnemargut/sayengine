@@ -326,6 +326,35 @@ func _record(rec: Dictionary, player: Node3D) -> void:
 	img.save_png("%s/%05d.png" % [rec.dir, rec.n])
 	rec.n += 1
 
+## Play a studio cutscene (res://assets/studio/cutscenes/<id>.tscn) in the game scene, in real time at
+## the fixed frame rate; with "frames" (a folder) save every `every`-th rendered frame as PNG.
+func _cmd_cutscene(c: Dictionary) -> Dictionary:
+	var id := String(c.get("id", ""))
+	var path := "res://assets/studio/cutscenes/%s.tscn" % id
+	if not ResourceLoader.exists(path):
+		return {"ok": false, "error": "no cutscene %s (studio game import writes res://assets/studio/cutscenes/)" % id}
+	var cs: Node = load(path).instantiate()
+	main.add_child(cs)
+	await get_tree().process_frame
+	cs.call("play")
+	var ap: AnimationPlayer = cs.get_node("Player")
+	var length := ap.current_animation_length
+	var dir = c.get("frames")
+	var every := int(c.get("every", 2))
+	var i := 0
+	var n := 0
+	var warnings := []
+	while ap.is_playing():
+		await RenderingServer.frame_post_draw
+		if dir is String and i % every == 0:
+			get_viewport().get_texture().get_image().save_png("%s/%05d.png" % [dir, n])
+			n += 1
+		i += 1
+		if i > 60 * (length + 5.0):
+			warnings.append("the cutscene did not finish")
+			break
+	return {"ok": true, "cutscene": id, "seconds": length, "framesRecorded": n, "warnings": warnings}
+
 # ── assertions ───────────────────────────────────────────────────────────────
 
 func _cmd_test(c: Dictionary) -> Dictionary:

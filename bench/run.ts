@@ -392,7 +392,8 @@ const tasks: Task[] = [
       const bad = allPass(s);
       if (bad) return bad;
       const motions = s.checks('smith').filter((c) => c.id.startsWith('motion-'));
-      if (motions.length !== 6) return `${motions.length} motion checks (want idle, walk, wave × 2)`;
+      for (const id of ['idle', 'walk', 'wave', 'start', 'stop']) if (!motions.some((c) => c.id === `motion-${id}`) || !motions.some((c) => c.id === `motion-${id}-skin`)) return `no checks for motion ${id} (${motions.map((c) => c.id).join(', ')})`;
+      if (!motions.some((c) => c.id === 'motion-walk-apron')) return 'no apron check on the walk';
       const obj = s.doc().objects.smith;
       const j = gltfJson(toGLB([{ obj, res: s.evaluate(obj) }], {}));
       const walk = j.animations.find((a: any) => a.name === 'walk');

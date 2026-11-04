@@ -102,7 +102,7 @@ test('export: GLB with skin, sparse morph targets and line clips passes the vali
   assert.ok(targets.every((t: any) => j.accessors[t.POSITION].bufferView === undefined), 'no dense morph targets');
   const used = new Set(prims.flatMap((p: any) => p.targets.map((t: any, i: number) => (j.accessors[t.POSITION].sparse ? i : -1))).filter((i: number) => i >= 0));
   assert.ok(used.size >= 25, `face shapes stored sparse (${used.size})`);
-  assert.deepEqual(j.animations.map((a: any) => a.name).sort(), ['idle', 'line:hi', 'pose', 'walk']);
+  assert.deepEqual(j.animations.map((a: any) => a.name).sort(), ['idle', 'line:hi', 'pose', 'start', 'stop', 'walk']);
   // web-mobile: finger bones folded into the hand, shape budget enforced
   ok('set-profile', { object: 'smith', profile: 'web-mobile' });
   assert.ok(s.checks('smith').find((c) => c.id === 'budget-shapes'));
