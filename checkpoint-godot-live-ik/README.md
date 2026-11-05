@@ -44,7 +44,7 @@ Captured in Godot 4.7.2 (Forward+, Metal), 30 fps, by `node bench/godot-ik.ts`. 
   - The live crab stands taller, with straighter legs, than in its baked crouch. The IK pole points the knees up and out, but the body height comes from the planted feet alone. It is correct, but stiltier than the baked walk.
   - The bumps are gentle on screen. The numbers show the difference more clearly than the stills do.
 - **Tentacle: follows a moving goal.** FABRIK3D bends the arm at a few joints rather than spreading the bend along it, so the reaching arm shows a kink. The web runtime smooths its FABRIK result; Godot's node doesn't.
-  - Joint limits (`JointLimitationCone3D`) are available and are the next thing to try.
+  - I tried a `JointLimitationCone3D` on every joint (32–60° cones) to spread the bend. The tip then missed its goal by 11–14 cm, so it is off. Spreading the bend needs a smoothing pass of our own after the FABRIK3D.
 - **Not live in Godot yet:** springs (antennae) and wheels. Those still come from the baked clip.
 - Some check rows are trivially satisfied for a live capture:
   - "Leg reach" is fed 0. The foot-to-target distance stands in for it.

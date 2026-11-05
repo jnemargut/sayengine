@@ -152,6 +152,8 @@ func reach(chain: String, goal) -> void:
 		fab.set_root_bone_name(0, String(sk.get_bone_name(_bi[ch["bones"][0]])))
 		fab.set_end_bone_name(0, String(sk.get_bone_name(_bi[ch["tip"]])))
 		fab.max_iterations = 12
+		# (tried: a JointLimitationCone3D per joint to spread the bend; at 32–60° cones the tip missed its
+		# goal by 11–14 cm, so the arm stays unlimited and can kink at a few joints)
 		var t := Marker3D.new()
 		t.top_level = true
 		add_child(t)
