@@ -38,10 +38,10 @@ export async function ensureDaemon(): Promise<string | null> {
   throw new Error(`could not start the daemon — see ${path.join(DIR, '.studio', 'daemon.log')}`);
 }
 
-export async function callTool(tool: string, args: object, author = process.env.STUDIO_AUTHOR ?? 'claude'): Promise<any> {
+export async function callTool(tool: string, args: object, author = process.env.STUDIO_AUTHOR ?? 'claude', why?: string): Promise<any> {
   const r = await fetch(`${BASE}/api/call`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tool, args, author }),
+    body: JSON.stringify({ tool, args, author, ...(why ? { why } : {}) }),
   });
   return r.json();
 }

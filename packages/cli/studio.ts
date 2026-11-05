@@ -46,6 +46,9 @@ async function main() {
 usage: studio <command> [--flag value]…   values are JSON when they look like JSON
        studio <command> --json '{"key": "value"}'
        studio <command> --help             full schema for one command
+       studio <command> … --why "slower"   the word note this step answers (shown on the step in review)
+       studio notes [list|add|on-it|done|reopen|stale|repin|refresh]   the notes inbox (--text, --at, --id)
+       studio taste [list|add|learn]       the taste file (add needs --said true: the user said it outright)
 ${toolsHelp()}
 
 [daemon]
@@ -74,6 +77,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   game status       Game projects here and which engines are available.`);
     return;
   }
+  if (rest[0] === 'help' && (cmd === 'notes' || cmd === 'taste')) return printToolHelp(cmd);
   if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills' && cmd !== 'world-fetch' && cmd !== 'proof' && cmd !== 'look' && cmd !== 'sound' && cmd !== 'reel') return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
@@ -136,7 +140,12 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     process.exitCode = 1;
     return;
   }
-  const args = parseFlags(rest);
+  // studio notes add --text …  /  studio taste add …: the first word is the action
+  const restArgs = (cmd === 'notes' || cmd === 'taste') && rest[0] && !rest[0].startsWith('--') ? ['--action', rest[0], ...rest.slice(1)] : rest;
+  const args = parseFlags(restArgs);
+  // --why "slower": the word note a step answers (Decision 62); it rides on the step, not the tool
+  const why = typeof args.why === 'string' ? args.why : undefined;
+  delete args.why;
   const tool = toolByName(cmd);
   const dtool = DAEMON_TOOLS.find((t) => t.name === cmd);
   if (tool || dtool) {
@@ -156,7 +165,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   }
   const note = await ensureDaemon();
   if (note) process.stderr.write(`studio: ${note}\n`);
-  const body = await callTool(cmd, args);
+  const body = await callTool(cmd, args, undefined, why);
   console.log(JSON.stringify(body, null, 2));
   if (!body.ok) process.exitCode = 1;
 }

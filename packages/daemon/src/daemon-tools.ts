@@ -22,6 +22,7 @@ export const DAEMON_TOOLS: DaemonTool[] = [
         style: { type: 'string', enum: ['labeled', 'presentation'], default: 'labeled' },
         size: { type: 'number', description: 'image width in px (labeled 768, presentation 1600)' },
         labels: { type: 'boolean', default: true }, object: { type: 'string' }, proposal: { type: 'string' },
+        cache: { type: 'boolean', default: true, description: 'renders are cached by the recipe that made them; false re-renders' },
       },
     },
   },

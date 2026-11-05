@@ -11,6 +11,7 @@ import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence, EMOTIO
 import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../../core/src/phonemes.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
 import { setWorldCacheDir, worldNodes, addTownsToGlb, landmarkObjects, landmarkMeshes } from '../../core/src/world/index.ts';
+import { FsIO, RenderCache, renderKey, stamp } from '../../core/src/collab/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
 // warning or error fails the export (decision 17). Skipped, not failed, when the engine isn't installed;
@@ -50,6 +51,10 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
   const data: RepoData | undefined = fs.existsSync(repoFile) ? JSON.parse(fs.readFileSync(repoFile, 'utf8')) : undefined;
   const studio = new Studio(data, { assets: new DirAssets(path.join(stateDir, 'assets'), dir) });
   setWorldCacheDir(path.join(stateDir, 'cache', 'world'));
+  // notes, picks and the project taste file live in .studio (gitignored); studio-wide taste in ~/.studio
+  studio.collab.setIO(new FsIO(dir));
+  // renders are caches keyed by the recipe that made them (Decision 62): never history, re-made on demand
+  const renderCache = new RenderCache(path.join(stateDir, 'cache', 'renders'));
   studio.onPersist = (d) => {
     const tmp = repoFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(d));
@@ -66,7 +71,6 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
   const pendingRenders = new Map<string, (msg: any) => void>();
   const pendingBakes = new Map<string, (msg: any) => void>();
   let renderSeq = 0;
-  let selection: { object: string; part: string | null; time: string } | null = null;
   let broadcastTimer: NodeJS.Timeout | null = null;
 
   const sendState = (ws?: WebSocket) => {
@@ -139,6 +143,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         return r;
       }
       case 'selection': {
+        const selection = studio.selection;
         if (!selection) return { ok: true, tool: name, result: { selected: null, note: 'nothing selected — ask the human to click a part in the view, or name it' } };
         const doc = studio.doc();
         const obj = doc.objects[selection.object];
@@ -146,19 +151,31 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const res = studio.evaluate(obj);
         const part = selection.part ? res.parts.find((p) => p.name === selection!.part) : null;
         const r4 = (v: number[]) => v.map((x) => +x.toFixed(4));
+        // a moment address for what's selected (Decision 61): notes and cards point with it
+        const address = studio.collab.address('selection', doc);
         return { ok: true, tool: name, result: {
           selected: { object: obj.id, name: obj.name, type: obj.semanticType, part: selection.part, since: selection.time },
+          address, words: studio.collab.describe(address, doc),
           part: part ? { name: part.name, min: r4(part.bbox.min), max: r4(part.bbox.max), madeBy: part.ops } : null,
           hint: part ? `edit the op(s) ${part.ops.join(', ')} or the params they use (studio inspect --object ${obj.id})` : `whole object selected — studio inspect --object ${obj.id}`,
         } };
       }
       case 'status':
-        return { ok: true, tool: name, result: { dir, port, active: studio.history.data.active, selection, views: clients.size, commits: Object.keys(studio.history.data.commits).length, url: `http://localhost:${port}` } };
+        return { ok: true, tool: name, result: { dir, port, active: studio.history.data.active, selection: studio.selection, review: studio.collab.stats(), views: clients.size, commits: Object.keys(studio.history.data.commits).length, url: `http://localhost:${port}` } };
       case 'render': {
         const view = [...clients].reverse().find((c) => c.readyState === 1);
         if (!view) return { ok: false, tool: name, error: 'no browser view is connected', hint: `open http://localhost:${port} in Chrome so the view can render` };
         const id = `r${++renderSeq}`;
         const views = typeof args.views === 'string' ? args.views.split(',').map((s: string) => s.trim()) : args.views ?? ['front', 'side', 'iso'];
+        // the cache key: the recipe of what is shown (that doc, or one object of it), the look, and how
+        const h = studio.history;
+        const shown = args.proposal && h.data.proposals[args.proposal] ? h.proposalDoc(h.proposal(args.proposal)) : h.activeDoc();
+        const recipe = args.object ? shown.objects[studio.findObject(shown, args.object).id] : { objects: shown.objectOrder.map((k) => shown.objects[k]), look: (shown as any).look ?? null };
+        const key = renderKey(stamp(recipe), { views, style: args.style ?? 'labeled', size: args.size ?? null, labels: args.labels ?? true, theme: 'light' });
+        const names = views.map((v: string) => `${v}.png`);
+        const hit = args.cache === false ? null : renderCache.get(key, names);
+        if (hit && args.style === 'presentation') return { ok: true, tool: name, result: { images: hit, cached: true, key, note: 'From the render cache (same recipe as before). Read it to judge the look; share the PNG.' } };
+        if (hit) return { ok: true, tool: name, result: { images: hit, cached: true, key, note: 'From the render cache (same recipe as before). Read these PNGs to look; numbers from `studio check` are the authority.' } };
         const reply = await new Promise<any>((resolve) => {
           const t = setTimeout(() => { pendingRenders.delete(id); resolve({ error: 'view did not answer within 20 s' }); }, 20000);
           pendingRenders.set(id, (m) => { clearTimeout(t); resolve(m); });
@@ -167,10 +184,12 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           view.send(JSON.stringify({ type: 'render', id, views: viewsFinal, style, size: Math.min(2400, Math.max(256, Number(args.size) || (style === 'presentation' ? 1600 : 768))), labels: style === 'labeled' && args.labels !== false, object: args.object, proposal: args.proposal }));
         });
         if (reply.error) return { ok: false, tool: name, error: reply.error };
-        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const when = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const files = reply.images.map((img: { view: string; data: string }) => {
-          const f = path.join(stateDir, 'renders', `${stamp}-${id}-${img.view}.png`);
-          fs.writeFileSync(f, Buffer.from(img.data.replace(/^data:image\/png;base64,/, ''), 'base64'));
+          const bytes = Buffer.from(img.data.replace(/^data:image\/png;base64,/, ''), 'base64');
+          renderCache.put(key, `${img.view}.png`, bytes);
+          const f = path.join(stateDir, 'renders', `${when}-${id}-${img.view}.png`);
+          fs.writeFileSync(f, bytes);
           return f;
         });
         return { ok: true, tool: name, result: args.style === 'presentation'
@@ -413,9 +432,9 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
       if (req.method === 'POST' && url.pathname === '/api/call') {
         let body = '';
         for await (const chunk of req) body += chunk;
-        const { tool, args = {}, author = 'claude' } = JSON.parse(body || '{}');
+        const { tool, args = {}, author = 'claude', why } = JSON.parse(body || '{}');
         const d = await daemonTool(tool, args, author);
-        return json(200, d ?? studio.call(tool, args, author));
+        return json(200, d ?? studio.call(tool, args, author, why ? { why } : {}));
       }
       if (url.pathname === '/api/state') return json(200, studio.snapshot());
       if (url.pathname.startsWith('/assets/')) {
@@ -467,7 +486,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
       let m: any;
       try { m = JSON.parse(String(raw)); } catch { return; }
       if (m.type === 'call') {
-        const r = studio.call(m.tool, m.args ?? {}, 'human');
+        const r = studio.call(m.tool, m.args ?? {}, 'human', m.why ? { why: String(m.why) } : {});
         ws.send(JSON.stringify({ type: 'call-result', id: m.id, result: r }));
       } else if (m.type === 'preview') {
         // live slider scrubbing: evaluate params on a scratch copy of the active branch, no commit
@@ -482,7 +501,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           ws.send(JSON.stringify({ type: 'preview', id: m.id, error: e.message }));
         }
       } else if (m.type === 'select') {
-        selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, time: new Date().toISOString() } : null;
+        studio.selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, ...(m.clock ? { clock: m.clock, seconds: Number(m.seconds ?? 0), ...(m.near ? { near: String(m.near) } : {}) } : {}), time: new Date().toISOString() } : null;
       } else if (m.type === 'bake-result') {
         pendingBakes.get(m.id)?.(m);
         pendingBakes.delete(m.id);
