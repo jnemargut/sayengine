@@ -10,6 +10,7 @@ import { runSandboxed } from './sandbox.ts';
 import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence, EMOTION_SCALE } from '../../core/src/lipsync.ts';
 import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../../core/src/phonemes.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
+import { setWorldCacheDir, worldNodes, addTownsToGlb, landmarkObjects, landmarkMeshes } from '../../core/src/world/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
 // warning or error fails the export (decision 17). Skipped, not failed, when the engine isn't installed;
@@ -48,6 +49,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
   const repoFile = path.join(stateDir, 'repo.json');
   const data: RepoData | undefined = fs.existsSync(repoFile) ? JSON.parse(fs.readFileSync(repoFile, 'utf8')) : undefined;
   const studio = new Studio(data, { assets: new DirAssets(path.join(stateDir, 'assets'), dir) });
+  setWorldCacheDir(path.join(stateDir, 'cache', 'world'));
   studio.onPersist = (d) => {
     const tmp = repoFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(d));
@@ -183,6 +185,10 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         // a character comes with the props in its hands; --exclude drops objects (and what they hold);
         // --at-origin stands the object at the origin facing +Z
         let items;
+        // towns (Decision 27) export with the scene; studio objects a town uses as landmarks export inside it
+        const towns = !args.object && doc.world && Object.keys(doc.world.towns ?? {}).length ? doc.world : null;
+        const landmarks = towns ? landmarkObjects(towns).filter((id) => doc.objects[id]) : [];
+        if (landmarks.length) args.exclude = [...String(args.exclude ?? '').split(',').filter(Boolean), ...landmarks].join(',');
         try { items = selectForExport(studio, doc, { object: args.object, exclude: args.exclude, atOrigin: !!args.atOrigin }); }
         catch (e: any) { return { ok: false, tool: name, error: e.message }; }
         const ids = items.map((i) => i.obj.id);
@@ -199,20 +205,20 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         let extra: Record<string, unknown> = {};
         if (target) {
           const models = items.filter((i) => i.obj.role !== 'reference' && i.res.ok);
-          if (!models.length) return { ok: false, tool: name, error: 'nothing to export: no finished, non-reference objects' };
+          if (!models.length && !towns) return { ok: false, tool: name, error: 'nothing to export: no finished, non-reference objects' };
           // game checks must be green (pending = still building) unless --force
           const blocking = models.flatMap((i) => studio.checks(i.obj.id, doc).filter((c) => !c.pass && /^(budget-|collision|lod)/.test(c.id)).map((c) => `${i.obj.name}: ${c.label} — ${c.detail}`));
           if (blocking.length && !args.force) return { ok: false, tool: name, error: `game checks not green:\n${blocking.join('\n')}`, hint: 'fix them (studio check), or --force true to export anyway' };
           const bake = args.bake !== false;
           const view = [...clients].reverse().find((c) => c.readyState === 1);
-          if (bake && !view) return { ok: false, tool: name, error: 'the texture bake needs the browser view, and none is connected', hint: `open http://localhost:${port} (or --bake false for untextured per-part materials)` };
+          if (bake && !view && models.length) return { ok: false, tool: name, error: 'the texture bake needs the browser view, and none is connected', hint: `open http://localhost:${port} (or --bake false for untextured per-part materials)` };
           let res;
           try {
-            res = await exportGame(models, { target, baker: bake ? (req) => bakeViaView(view!, req) : null, evaluateOp: (o, id) => studio.evaluateOp(o, id), ...(args.texture ? { texture: Number(args.texture) } : {}) });
+            res = await exportGame(models, { target, baker: bake ? (req) => bakeViaView(view!, req) : null, evaluateOp: (o, id) => studio.evaluateOp(o, id), ...(args.texture ? { texture: Number(args.texture) } : {}), ...(towns ? { extend: (B: any) => addTownsToGlb(B, worldNodes(towns, landmarkMeshes(studio, doc))) } : {}) });
           } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
           bytes = res.glb;
           const noProfile = models.filter((i) => !i.obj.profile).map((i) => i.obj.name);
-          extra = { target, objectsReport: res.objects, ...(noProfile.length ? { noProfile: `${noProfile.join(', ')}: no game profile, so no budgets were checked (studio set-profile)` } : {}) };
+          extra = { target, objectsReport: res.objects, ...(res.extended ? { towns: res.extended } : {}), ...(noProfile.length ? { noProfile: `${noProfile.join(', ')}: no game profile, so no budgets were checked (studio set-profile)` } : {}) };
         } else if (fmt === 'glb') bytes = toGLB(items, opts);
         else if (fmt === 'obj') bytes = new TextEncoder().encode(toOBJ(items, opts));
         else if (fmt === 'stl') bytes = toSTL(items, opts);

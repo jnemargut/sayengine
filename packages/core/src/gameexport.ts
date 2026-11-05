@@ -52,6 +52,8 @@ export interface GameExportOpts {
   baker: Baker | null;             // null = no bake (flat per-part materials, no textures)
   evaluateOp: (obj: SceneObject, opId: string) => EvalResult;
   texture?: number;                // px; default from the object's profile (else 1024)
+  /** Add more nodes before the file is written (the world module adds its towns here). Returns a report. */
+  extend?: (B: GlbBuilder) => unknown;
 }
 export interface ObjectReport {
   object: string; name: string; triangles: number; materials: string[];
@@ -59,7 +61,7 @@ export interface ObjectReport {
   baked: boolean;
   rig?: { bones: number; shapes: number; clips: number };
 }
-export interface GameExportResult { glb: Uint8Array; objects: ObjectReport[] }
+export interface GameExportResult { glb: Uint8Array; objects: ObjectReport[]; extended?: unknown }
 
 // ── xatlas ─────────────────────────────────────────────────────────────
 let xatlasApi: any = null;
@@ -479,9 +481,10 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     }
     reports.push(report);
   }
-  if (!reports.length) throw new Error('nothing to export (no evaluated, non-reference objects)');
+  const extended = opts.extend ? opts.extend(B) : undefined;
+  if (!reports.length && !B.gltf.scenes[0].nodes.length) throw new Error('nothing to export (no evaluated, non-reference objects)');
   attachHeldProps(B, items.map((i) => i.obj), charNodes, propNodes);
-  return { glb: B.build(), objects: reports };
+  return { glb: B.build(), objects: reports, ...(extended !== undefined ? { extended } : {}) };
 }
 
 /** Without a bake: one material per distinct part material (like the plain GLB export). */

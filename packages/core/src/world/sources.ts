@@ -97,10 +97,13 @@ export function realPlan(name: string, raw: RawArea, style = 'raleigh-downtown')
     const polys: number[][][][] = f.geometry?.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry?.type === 'MultiPolygon' ? f.geometry.coordinates : [];
     const gers = String(f.id ?? p.id);
     polys.forEach((rings, k) => {
-      const ring = rings[0].map(([lon, lat]) => project(frame, lon, lat));
+      let ring = rings[0].map(([lon, lat]) => project(frame, lon, lat));
       const c = centroid(ring);
       if (c[0] < min[0] || c[0] > max[0] || c[1] < min[1] || c[1] > max[1]) { outside++; return; }
+      // outlines that cross the edge of the area are cut at it (the town is a diorama with clean sides)
+      if (ring.some((q) => q[0] < min[0] || q[0] > max[0] || q[1] < min[1] || q[1] > max[1])) ring = clipPoly(ring, [min[0] + 0.5, min[1] + 0.5], [max[0] - 0.5, max[1] - 0.5]);
       const a = area(ring);
+      if (ring.length < 3 || a < 20) { outside++; return; }
       buildings.push({
         id: `ov:${gers}${k ? `#${k}` : ''}`, sourceId: gers,
         ...(p.names?.primary ? { name: p.names.primary } : {}),

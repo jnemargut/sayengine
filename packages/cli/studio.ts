@@ -37,7 +37,7 @@ async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const { TOOLS, toolsHelp, toolByName } = await import('../core/src/tools.ts');
   const { DAEMON_TOOLS } = await import('../daemon/src/daemon-tools.ts');
-  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp', 'install-skills'];
+  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp', 'install-skills', 'world-fetch', 'proof'];
 
   if (!cmd || cmd === 'help' || cmd === '--help') {
     const one = rest[0] && (toolByName(rest[0]) ?? DAEMON_TOOLS.find((t) => t.name === rest[0]));
@@ -54,6 +54,8 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   stop              Stop the daemon.
   mcp               Run the MCP adapter on stdio (same tools, for other agents).
   install-skills    Link /x-decide-gaming and the game skills into ~/.claude/skills (--copy, --all, --bin <dir>).
+  world-fetch       Fetch and cache open data for an area: --name <area> --bbox west,south,east,north (Overture
+                    buildings, USGS 3DEP ground, OSM streets/water/parks → .studio/cache/world/<area>). Then world-town.
 
 [game]  (studio game <command> --help for flags)
   game init         Create a game project (Godot or web/three.js) under games/<name>.
@@ -65,7 +67,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   game status       Game projects here and which engines are available.`);
     return;
   }
-  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills') return printToolHelp(cmd);
+  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills' && cmd !== 'world-fetch' && cmd !== 'proof') return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
     const flags = parseFlags(rest);
@@ -82,6 +84,22 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     const body = installSkills({ dest: flags.dest as string | undefined, copy: !!flags.copy, all: !!flags.all, force: !!flags.force, bin: flags.bin as string | undefined });
     console.log(JSON.stringify(body, null, 2));
     if (!body.ok) process.exitCode = 1;
+    return;
+  }
+  if (cmd === 'world-fetch') {
+    const flags = parseFlags(rest);
+    if (flags.help || !flags.name || !flags.bbox) { console.log(JSON.stringify({ command: 'world-fetch', description: 'Fetch and cache the open data for an area once (Decision 27): Overture buildings (the free overturemaps CLI), USGS 3DEP ground heights and OpenStreetMap streets, water and parks. Cached under .studio/cache/world/<name>; rebuilds never touch the network. Credits: ODbL (OSM, Overture), public domain (USGS).', flags: { '--name': 'area name, e.g. raleigh-fayetteville', '--bbox': 'west,south,east,north in degrees (a few blocks; < 5 km)', '--spacing': 'ground sample spacing in metres (default 6)', '--force': 'fetch again even when cached' }, example: 'studio world-fetch --name raleigh-fayetteville --bbox=-78.6420,35.7738,-78.6360,35.7792' }, null, 2)); if (!flags.help) process.exitCode = 1; return; }
+    process.env.STUDIO_DIR ??= DIR;
+    const { fetchArea } = await import('../core/src/world/fetch.ts');
+    try { console.log(JSON.stringify({ ok: true, tool: 'world-fetch', result: await fetchArea(String(flags.name), flags.bbox as any, { spacing: flags.spacing as number | undefined, force: !!flags.force }) }, null, 2)); }
+    catch (e: any) { console.log(JSON.stringify({ ok: false, tool: 'world-fetch', error: e.message, ...(e.hint ? { hint: e.hint } : {}) }, null, 2)); process.exitCode = 1; }
+    return;
+  }
+  if (cmd === 'proof') {
+    const { proofCli } = await import('../proof/src/cli.ts');
+    const body = await proofCli(rest, parseFlags);
+    console.log(JSON.stringify(body, null, 2));
+    if (body.ok === false) process.exitCode = 1;
     return;
   }
   if (cmd === 'game' || cmd.startsWith('game-')) {

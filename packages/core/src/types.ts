@@ -249,6 +249,7 @@ export interface SceneDoc {
   cutscenes?: Record<string, import('./cutscene.ts').Cutscene>;   // Decision 24: shots, cameras, lines, actions
   effects?: Record<string, import('./effects.ts').EffectDef>;       // Decisions 56–57: particles and shape effects
   ui?: import('./uikit.ts').UiKit;                                  // Decision 58: tokens, parts, icons
+  world?: import('./world/town.ts').WorldState;                     // Decision 27: towns (recipe + fix layer)
 }
 
 export function emptyDoc(): SceneDoc {

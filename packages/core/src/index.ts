@@ -35,3 +35,4 @@ export * from './rigparts.ts';
 export * from './creatures.ts';
 export { PART_TOOLS, characterMotionChecks } from './parttools.ts';
 export * from './creatureruntime.ts';
+export * from './world/index.ts';

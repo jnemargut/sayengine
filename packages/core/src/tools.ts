@@ -14,6 +14,7 @@ import { PART_TOOLS } from './parttools.ts';
 import { CUTSCENE_TOOLS, cutsceneChecks } from './cutscene.ts';
 import { EFFECT_TOOLS, effectChecks } from './effects.ts';
 import { UI_TOOLS, uiChecks } from './uikit.ts';
+import { WORLD_TOOLS, worldChecks } from './world/tools.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -663,6 +664,8 @@ export const TOOLS: ToolDef[] = [
       // effects and the UI kit (Decisions 56–58): budgets, fallback, palette, contrast, overflow, tap size
       if (!a.object) for (const fx of Object.values((ctx.doc as any).effects ?? {})) out[`effect:${(fx as any).id}`] = effectChecks(fx as any, (ctx.doc as any).look?.palette);
       if (!a.object && (ctx.doc as any).ui) out['ui'] = uiChecks((ctx.doc as any).ui);
+      // towns (Decision 27): fixes that lost their building, overlaps, budgets, credits
+      if (!a.object) for (const t of Object.values((ctx.doc as any).world?.towns ?? {})) out[`town:${(t as any).name}`] = worldChecks(t as any, ctx.doc);
       const all = Object.values(out).flat() as any[];
       const fail = all.filter((c) => !c.pass && !c.pending).length, pend = all.filter((c) => !c.pass && c.pending).length;
       ctx.summary(fail || pend ? `${fail} failing, ${pend} pending of ${all.length}` : `all ${all.length} checks pass`);
@@ -765,6 +768,7 @@ TOOLS.push(...PART_TOOLS);
 TOOLS.push(...CUTSCENE_TOOLS);
 TOOLS.push(...EFFECT_TOOLS);
 TOOLS.push(...UI_TOOLS);
+TOOLS.push(...WORLD_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

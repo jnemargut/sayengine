@@ -30,6 +30,7 @@ export function applyRules(plan: TownPlan): TownPlan {
     kept.push(b);
   }
   plan.buildings = kept;
+  fitSidewalks(plan);
   gradeRoads(plan);
   seatBuildings(plan);
   if (!plan.trees.length) plan.trees = streetTrees(plan, style);
@@ -62,6 +63,32 @@ export function clampBuilding(b: Building, style: Style, notes: string[] = []): 
     b.roofHeight = +Math.min(b.roofHeight ?? want, max, 9).toFixed(2);
   } else delete b.roofHeight;
   return clamped;
+}
+
+/**
+ * Sidewalks reach the building line: for each street, the median distance from its edge to the nearest
+ * building frontage on either side (within 14 m) becomes the sidewalk width, so downtown gets its wide
+ * brick sidewalks and a lane of houses gets a narrow path. Never narrower than the street kind's default.
+ */
+export function fitSidewalks(plan: TownPlan) {
+  for (const s of plan.streets) {
+    if (s.kind === 'footway' || s.kind === 'service' || s.kind === 'pedestrian' || !s.sidewalk) continue;
+    const gaps: number[] = [];
+    const L = polylineLength(s.points);
+    for (let d = 4; d < L - 4; d += 8) {
+      const { p, dir } = along(s.points, d);
+      for (const side of [-1, 1]) {
+        for (let o = s.width / 2 + 0.5; o < s.width / 2 + 14; o += 0.5) {
+          const q: P2 = [p[0] - dir[1] * o * side, p[1] + dir[0] * o * side];
+          if (plan.buildings.some((b) => pointInPoly(q, b.footprint))) { gaps.push(o - s.width / 2); break; }
+        }
+      }
+    }
+    if (gaps.length < 3) continue;
+    gaps.sort((a, b) => a - b);
+    const med = gaps[Math.floor(gaps.length * 0.35)];
+    s.sidewalk = +Math.min(Math.max(s.sidewalk, med - 0.4), 9).toFixed(2);
+  }
 }
 
 /**
