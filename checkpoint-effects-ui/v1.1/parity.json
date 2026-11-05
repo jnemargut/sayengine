@@ -1,0 +1,22 @@
+{
+  "forge-fire": {
+    "score": 0.091,
+    "detail": "coverage 1.3% vs 1.2% of the screen (4% apart), colour 5% apart, centre 0.3% of the screen apart → match (0.091)"
+  },
+  "sparks": {
+    "score": 0.304,
+    "detail": "coverage 0.3% vs 0.2% of the screen (35% apart), colour 15% apart, centre 0.3% of the screen apart → differ (0.304)"
+  },
+  "chimney-smoke": {
+    "score": 0.521,
+    "detail": "coverage 1.2% vs 2.0% of the screen (37% apart), colour 2% apart, centre 26.0% of the screen apart → differ (0.521)"
+  },
+  "embers": {
+    "score": 0.279,
+    "detail": "coverage 0.2% vs 0.1% of the screen (25% apart), colour 14% apart, centre 3.9% of the screen apart → differ (0.279)"
+  },
+  "rain": {
+    "score": 0.446,
+    "detail": "coverage 0.4% vs 0.1% of the screen (79% apart), colour 4% apart, centre 22.3% of the screen apart → differ (0.446)"
+  }
+}

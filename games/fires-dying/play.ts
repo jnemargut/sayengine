@@ -64,6 +64,8 @@ await serve(GAME, (url) => withPage(url + 'index.html', { width: 1280, height: 7
       await page.eval(`window.__fires.advance(${DT}, 2)`);
       marks.title = await shot();
       await page.eval('window.__fires.press()');
+      // Start loads the cutscene first (a fetch): wait for it to begin
+      await page.eval(`new Promise((r) => { const t = () => (window.__fires.mode === 'intro' ? r(true) : setTimeout(t, 50)); t(); })`, 30000);
       for (let i = 0; i < 30 * 20; i += 2) { st = await page.eval(`__bot.chunk('idle', 2, ${DT})`); await shot(); if (st.mode !== 'intro') break; }
       marks.play = await shot();
     } else {

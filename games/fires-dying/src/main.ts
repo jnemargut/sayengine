@@ -190,7 +190,7 @@ async function start(): Promise<StudioGame> {
   /** what using a station does now, or null when it does nothing (the hint shows this) */
   const useOf = (s: Station): string | null => {
     const st = state!;
-    if (s.key === 'smith') return heldKey && heldKey !== 'charcoal' ? `give him ${ITEMS[heldKey].label}` : null;
+    if (s.key === 'smith') return heldKey && heldKey !== 'charcoal' && heldKey !== 'bucket' ? `give him ${ITEMS[heldKey].label}` : null;   // water goes in the tub
     if (s.key === 'forge') return heldKey === 'charcoal' ? 'tip the charcoal in' : null;
     if (s.key === 'tub') return heldKey === 'bucket' ? (st.request === 'quench' ? 'fill the quench tub' : null) : null;
     if (s.key === 'bellows') return st.request === 'bellows' ? 'pump the bellows' : st.pumpCool > 0 ? null : 'pump the bellows (a little heat)';
