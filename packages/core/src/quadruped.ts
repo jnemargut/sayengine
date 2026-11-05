@@ -183,11 +183,11 @@ export function quadrupedSpec(p: CharParams): CharSpec {
     // the haunch: a broad, deep thigh (flattened side to side) that narrows into the stifle
     const thigh = sub(stifle, hip);
     pieces.push({ kind: 'hull', part: `${side}UpperLeg`, pts: [
-      ...blob(add(lerpV(hip, stifle, 0.3), [sx * t * 0.05, 0, 0]), thigh, t * 1.0, len(thigh) * 0.42, t * 1.55),
-      ...blob(lerpV(hip, stifle, 0.93), thigh, t * 0.5, t * 0.5, t * 0.56),
+      ...blob(add(lerpV(hip, stifle, 0.3), [sx * t * 0.05, 0, -t * 0.25]), thigh, t * 1.0, len(thigh) * 0.42, t * 1.35),
+      ...blob(lerpV(hip, stifle, 0.86), thigh, t * 0.5, t * 0.45, t * 0.55),
     ] });
-    ball(stifle, t * 0.46, `${side}LowerLeg`); seg(stifle, hock, t * 0.54, t * 0.4, `${side}LowerLeg`);
-    ball(hock, t * 0.42, `${side}Foot`); seg(hock, paw, t * 0.38, t * 0.34, `${side}Foot`);
+    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.62, t * 0.41, `${side}LowerLeg`);
+    ball(hock, t * 0.42, `${side}Foot`); seg(hock, paw, t * 0.39, t * 0.35, `${side}Foot`);
     pieces.push({ kind: 'hull', part: `${side}Toes`, pts: pawPts(paw, t * 1.05, pawY, toeLen * 1.15) });
     // the upper arm: muscle from the shoulder down to the elbow
     const arm = sub(elbow, sh);
