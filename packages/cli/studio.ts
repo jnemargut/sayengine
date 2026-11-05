@@ -37,7 +37,7 @@ async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const { TOOLS, toolsHelp, toolByName } = await import('../core/src/tools.ts');
   const { DAEMON_TOOLS } = await import('../daemon/src/daemon-tools.ts');
-  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp', 'install-skills', 'world-fetch', 'proof', 'look'];
+  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp', 'install-skills', 'world-fetch', 'proof', 'look', 'sound', 'reel'];
 
   if (!cmd || cmd === 'help' || cmd === '--help') {
     const one = rest[0] && (toolByName(rest[0]) ?? DAEMON_TOOLS.find((t) => t.name === rest[0]));
@@ -59,6 +59,10 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   proof <cmd>       Pinned views in Godot + web, FLIP diffs, budgets, imitated phone (studio proof help).
   look board|ab|pick  The look's gates on the rendered views (colourfulness, palette, local style score), an
                     A | B sheet, and logged A/B picks (looks are never scored out of 10).
+  sound <cmd>       Game sounds from settings, ambience beds, seeded music stems, CC0 library, sound packs
+                    for Godot + web, listening reports, licences and credits (studio sound help).
+  reel <cmd>        Trailers as cutscene files cut to the beat: music, capture (Godot movie mode / web fixed
+                    step), cut (16:9, 1:1, 9:16 via ffmpeg recipes), release checks (studio reel help).
 
 [game]  (studio game <command> --help for flags)
   game init         Create a game project (Godot or web/three.js) under games/<name>.
@@ -70,7 +74,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   game status       Game projects here and which engines are available.`);
     return;
   }
-  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills' && cmd !== 'world-fetch' && cmd !== 'proof' && cmd !== 'look') return printToolHelp(cmd);
+  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills' && cmd !== 'world-fetch' && cmd !== 'proof' && cmd !== 'look' && cmd !== 'sound' && cmd !== 'reel') return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
     const flags = parseFlags(rest);
@@ -102,6 +106,12 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     const { proofCli } = await import('../proof/src/cli.ts');
     // studio look board|ab|pick = studio proof look-board|look-ab|look-pick
     const body = await proofCli(cmd === 'look' ? (rest.length && !['help', '--help'].includes(rest[0]) ? [`look-${rest[0]}`, ...rest.slice(1)] : ['help']) : rest, parseFlags);
+    console.log(JSON.stringify(body, null, 2));
+    if (body.ok === false) process.exitCode = 1;
+    return;
+  }
+  if (cmd === 'sound' || cmd === 'reel') {
+    const body = cmd === 'sound' ? await (await import('../sound/src/cli.ts')).soundCli(rest, parseFlags) : await (await import('../reel/src/cli.ts')).reelCli(rest, parseFlags);
     console.log(JSON.stringify(body, null, 2));
     if (body.ok === false) process.exitCode = 1;
     return;

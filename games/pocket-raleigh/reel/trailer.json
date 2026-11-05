@@ -1,0 +1,60 @@
+{
+  "id": "trailer",
+  "title": "Pocket Raleigh, 30 s",
+  "fps": 30,
+  "size": 1920,
+  "music": {
+    "seed": "pocket-raleigh-trailer",
+    "mood": "night",
+    "bpm": 128,
+    "sections": [
+      { "bars": 4, "label": "intro", "mix": { "pad": 0.9, "arp": 0.55 } },
+      { "bars": 4, "label": "build", "mix": { "pad": 0.85, "arp": 0.75, "bass": 0.9, "hats": 0.7 } },
+      { "bars": 6, "label": "drop", "riser": true, "hit": true, "mix": { "pad": 0.75, "arp": 0.7, "bass": 1, "hats": 0.85, "beat": 1, "lead": 0.85 } },
+      { "bars": 2, "label": "end", "hit": true, "mix": { "pad": 0.85, "arp": 0.35, "bass": 0.6 } }
+    ]
+  },
+  "takes": [
+    { "id": "day-street", "look": "day-toy", "seconds": 6, "note": "eye level, pushing north up Fayetteville St towards the Wells Fargo top",
+      "keys": [ { "position": [-1, 2.2, 150], "target": [5, 7, -100] }, { "position": [0, 2.4, 105], "target": [6, 8, -110] }, { "position": [1, 2.7, 62], "target": [8, 10, -120] } ],
+      "crop": { "16:9": { "y": 0.5 }, "9:16": { "x": 0.52 } } },
+    { "id": "day-plaza", "look": "day-toy", "seconds": 6, "note": "City Plaza: rising past the light masts to PNC Plaza",
+      "keys": [ { "position": [-2, 1.7, 62], "target": [25, 22, -60] }, { "position": [-3, 9, 52], "target": [24, 32, -60] }, { "position": [-4, 18, 44], "target": [22, 40, -60] } ],
+      "crop": { "16:9": { "y": 0.45 }, "9:16": { "x": 0.58 } } },
+    { "id": "day-aerial", "look": "day-toy", "seconds": 6, "note": "the three real blocks from the air, orbiting",
+      "keys": [ { "position": [-210, 170, 280], "target": [10, 10, -10] }, { "position": [-90, 160, 330], "target": [10, 10, -10] }, { "position": [60, 150, 330], "target": [10, 10, -10] } ],
+      "crop": { "9:16": { "x": 0.5 } } },
+    { "id": "twin-river", "look": "day-toy", "seconds": 5, "note": "the invented river town at the water",
+      "keys": [ { "position": [405, 4, 112], "target": [350, 5, 0] }, { "position": [385, 5, 96], "target": [345, 6, 0] } ],
+      "crop": { "9:16": { "x": 0.45 } } },
+    { "id": "twin-aerial", "look": "day-toy", "seconds": 5, "note": "the twin from above",
+      "keys": [ { "position": [560, 125, 235], "target": [380, 0, 0] }, { "position": [480, 110, 265], "target": [380, 0, 0] } ] },
+    { "id": "night-crown", "look": "neon-night", "seconds": 5, "note": "rising beside PNC Plaza to its lit crown",
+      "keys": [ { "position": [-70, 55, 70], "target": [40, 120, -40] }, { "position": [-60, 85, 55], "target": [40, 140, -40] }, { "position": [-50, 115, 40], "target": [42, 150, -40] } ],
+      "crop": { "16:9": { "y": 0.4 }, "9:16": { "x": 0.6 } } },
+    { "id": "night-street", "look": "neon-night", "seconds": 5, "note": "Fayetteville St at night, lit windows and blade signs",
+      "keys": [ { "position": [-4, 2.2, 190], "target": [2, 5, 0] }, { "position": [-2, 2.4, 140], "target": [4, 7, -40] }, { "position": [-1, 2.6, 100], "target": [6, 9, -60] } ],
+      "crop": { "9:16": { "x": 0.52 } } },
+    { "id": "night-plaza", "look": "neon-night", "seconds": 5, "note": "the light masts glowing over City Plaza",
+      "keys": [ { "position": [22, 12, 72], "target": [2, 18, -40] }, { "position": [12, 14, 42], "target": [0, 22, -50] } ],
+      "crop": { "16:9": { "y": 0.45 }, "9:16": { "x": 0.48 } } },
+    { "id": "night-skyline", "look": "neon-night", "seconds": 5, "note": "the skyline from the south, pulling back",
+      "keys": [ { "position": [150, 40, 400], "target": [0, 70, -100] }, { "position": [190, 55, 480], "target": [0, 70, -100] } ],
+      "crop": { "9:16": { "x": 0.42 } } },
+    { "id": "night-aerial", "look": "neon-night", "seconds": 9, "note": "pulling out to the whole lit downtown (also behind the end card)",
+      "keys": [ { "position": [-150, 150, 140], "target": [10, 50, -110] }, { "position": [-190, 165, 230], "target": [10, 20, -50] }, { "position": [-215, 175, 290], "target": [10, 0, -10] } ] }
+  ],
+  "edit": [
+    { "take": "day-street", "beats": 8, "in": 0.3, "title": { "text": "Pocket Raleigh", "sub": "three real blocks of downtown" } },
+    { "take": "day-plaza", "beats": 8, "in": 0.5, "caption": "City Plaza, from open map data" },
+    { "take": "day-aerial", "beats": 8, "in": 0.5, "caption": "Fayetteville Street, block by block" },
+    { "take": "twin-river", "beats": 4, "in": 0.5, "caption": "…and an invented river town" },
+    { "take": "twin-aerial", "beats": 4, "in": 0.5 },
+    { "take": "night-crown", "beats": 4, "in": 0.6, "title": { "text": "Day toy. Neon night." } },
+    { "take": "night-street", "beats": 4, "in": 0.6 },
+    { "take": "night-plaza", "beats": 4, "in": 0.6 },
+    { "take": "night-skyline", "beats": 4, "in": 0.6, "caption": "Walk it in Godot and on the web" },
+    { "take": "night-aerial", "beats": 8, "in": 0.3 }
+  ],
+  "endCard": { "beats": 8, "title": "Pocket Raleigh", "sub": "a studio proof · Phase 4", "credit": "Map data © OpenStreetMap contributors (ODbL) · Overture Maps Foundation · USGS 3DEP" }
+}
