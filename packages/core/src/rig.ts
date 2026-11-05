@@ -264,7 +264,7 @@ export function characterSpec(p: CharParams): CharSpec {
   const style = p.style ?? 'faceted';
   const shape: Shape = p.shape ?? PD.shape;
   const birdLegs = p.legs === 'bird';
-  const SIDES = style === 'toy' ? 6 : style === 'smooth' ? 12 : 8, HEAD_N = style === 'toy' ? 8 : style === 'smooth' ? 18 : 12;
+  const SIDES = style === 'toy' ? 6 : style === 'smooth' ? (p.wings ? 10 : 12) : 8, HEAD_N = style === 'toy' ? 8 : style === 'smooth' ? 18 : 12;
   const s = p.height / 1.75, H = p.height, b = p.build;
   const L = PD.limb, T = PD.torso;
   const headH = PD.head * H * p.headSize, neckLen = 0.028 * H * PD.neck;

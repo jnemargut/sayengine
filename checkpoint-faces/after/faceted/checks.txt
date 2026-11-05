@@ -5,5 +5,5 @@ Robot Porter (faceted): 16/16 checks pass, 16912 triangles
 Marsh Bird (faceted): 16/16 checks pass, 18698 triangles
 Kid (faceted): 16/16 checks pass, 17980 triangles
 Elder (faceted): 16/16 checks pass, 14158 triangles
-Dog (faceted): 16/16 checks pass, 18124 triangles
+Dog (faceted): 16/16 checks pass, 18202 triangles
 Heron Courier (faceted): 16/16 checks pass, 16644 triangles

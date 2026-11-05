@@ -123,7 +123,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   const pieces: Piece[] = [];
   const mvPiece = (pc: Piece): Piece => pc.kind === 'seg' ? { ...pc, a: mv(pc.a), b: mv(pc.b) } : pc.kind === 'ball' ? { ...pc, c: mv(pc.c) } : { ...pc, pts: pc.pts.map(mv) };
   for (const pc of faceSpec.pieces) if (isFacePart(pc.part) && pc.part !== 'Neck') pieces.push(mvPiece(pc));
-  const SIDES = p.style === 'toy' ? 6 : p.style === 'smooth' ? 12 : 8;
+  const SIDES = p.style === 'toy' ? 6 : p.style === 'smooth' ? 10 : 8;
   const seg = (a: V3, c: V3, r1: number, r2: number, part: string) => pieces.push({ kind: 'seg', a, b: c, r1, r2, sides: SIDES, part });
   const ball = (c: V3, r: number, part: string) => pieces.push({ kind: 'ball', c, r, sides: SIDES, part });
   // legs: front legs reuse the arm names (Shoulder → UpperArm → LowerArm → Hand = the paw), hind legs
@@ -153,15 +153,15 @@ export function quadrupedSpec(p: CharParams): CharSpec {
       let at: V3 = [x + sx * fz * 0.03 * wither, pawY, fpaw[2] + 0.01 * wither];
       fingerBones(side, f).forEach((n, i) => { const end = add(at, [0, 0, toeLen * 0.25]); bone(n, i === 0 ? `${side}Hand` : fingerBones(side, f)[i - 1], at, end); at = end; });
     }
-    const t = 0.105 * wither * (0.8 + 0.4 * b);
-    ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.2, t * 0.62, `${side}UpperLeg`);
-    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.58, t * 0.36, `${side}LowerLeg`);
-    ball(hock, t * 0.36, `${side}Foot`); seg(hock, paw, t * 0.34, t * 0.3, `${side}Foot`);
+    const t = 0.105 * wither * (0.8 + 0.4 * b), LK = 0.5; // distal legs thickened by half the delta that still folds cleanly in "lie"
+    ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.2, t * (0.62 + 0.08 * LK), `${side}UpperLeg`);
+    ball(stifle, t * (0.62 + 0.08 * LK), `${side}LowerLeg`); seg(stifle, hock, t * (0.58 + 0.1 * LK), t * (0.36 + 0.1 * LK), `${side}LowerLeg`);
+    ball(hock, t * (0.36 + 0.1 * LK), `${side}Foot`); seg(hock, paw, t * (0.34 + 0.1 * LK), t * (0.3 + 0.1 * LK), `${side}Foot`);
     pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [add(paw, [-t * 0.55, -pawY, -t * 0.4]), add(paw, [t * 0.55, -pawY, -t * 0.4]), add(paw, [-t * 0.6, -pawY, toeLen]), add(paw, [t * 0.6, -pawY, toeLen]), add(paw, [0, t * 0.48, toeLen * 0.4]), add(paw, [-t * 0.33, t * 0.33, 0]), add(paw, [t * 0.33, t * 0.33, 0])] });
     const ft = t * 0.92;
-    ball(sh, ft * 1.0, `${side}UpperArm`); seg(sh, elbow, ft, ft * 0.6, `${side}UpperArm`);
-    ball(elbow, ft * 0.6, `${side}LowerArm`); seg(elbow, wrist, ft * 0.56, ft * 0.44, `${side}LowerArm`);
-    ball(wrist, ft * 0.44, `${side}Hand`); seg(wrist, fpaw, ft * 0.43, ft * 0.4, `${side}Hand`);
+    ball(sh, ft * 1.05, `${side}UpperArm`); seg(sh, elbow, ft * 1.05, ft * (0.6 + 0.1 * LK), `${side}UpperArm`);
+    ball(elbow, ft * (0.6 + 0.1 * LK), `${side}LowerArm`); seg(elbow, wrist, ft * (0.56 + 0.1 * LK), ft * (0.44 + 0.1 * LK), `${side}LowerArm`);
+    ball(wrist, ft * (0.44 + 0.1 * LK), `${side}Hand`); seg(wrist, fpaw, ft * (0.43 + 0.1 * LK), ft * (0.4 + 0.08 * LK), `${side}Hand`);
     pieces.push({ kind: 'hull', part: `${side}Hand`, pts: [add(fpaw, [-ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [-ft * 0.6, -pawY, toeLen]), add(fpaw, [ft * 0.6, -pawY, toeLen]), add(fpaw, [0, ft * 0.48, toeLen * 0.4]), add(fpaw, [-ft * 0.33, ft * 0.33, 0]), add(fpaw, [ft * 0.33, ft * 0.33, 0])] });
   }
   // the barrel: elliptical rings along the spine (rump, loin, belly, deep chest, shoulders)
@@ -178,7 +178,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   const dims: QuadDims = { wither, hipY, chestY, zRump, zChest, bodyR, legX, legLen: hipY - pawY };
   const spec: CharSpec = {
     params: p, s, bones, pieces,
-    head: { pts: faceSpec.head.pts.map(mv), ...(faceSpec.head.extra ? { extra: faceSpec.head.extra.map((h) => h.map(mv)) } : {}), refine: faceSpec.head.refine, part: 'Head' },
+    head: { pts: faceSpec.head.pts.map(mv), ...(faceSpec.head.extra ? { extra: faceSpec.head.extra.map((h) => h.map(mv)) } : {}), refine: faceSpec.head.refine * (p.style === 'smooth' ? 1.2 : 1), part: 'Head' },
     cuts: faceSpec.cuts.map((c) => (c.kind === 'hull' ? { ...c, pts: c.pts.map(mv) } : { ...c, c: mv(c.c) })) as CharSpec['cuts'],
     mouth: faceSpec.mouth.map(mvPiece), eyes: faceSpec.eyes.map(mvPiece),
     lids: faceSpec.lids.map((l) => ({ ...l, c: mv(l.c) })),

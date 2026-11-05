@@ -1,9 +1,9 @@
 Blacksmith (smooth): 20/20 checks pass, 19074 triangles
-Apprentice (smooth): 15/16 checks pass, 15482 triangles — FAIL: Teeth and tongue stay behind the lips: in "oh" the teeth or tongue poke through the lips (-5.7 mm; need ≥ 1.6 mm)
+Apprentice (smooth): 16/16 checks pass, 15482 triangles
 Goblin Shopkeeper (smooth): 20/20 checks pass, 19114 triangles
 Robot Porter (smooth): 16/16 checks pass, 18722 triangles
 Marsh Bird (smooth): 16/16 checks pass, 19870 triangles
 Kid (smooth): 16/16 checks pass, 19056 triangles
 Elder (smooth): 16/16 checks pass, 15776 triangles
-Dog (smooth): 16/16 checks pass, 20776 triangles
-Heron Courier (smooth): 12/16 checks pass, 18310 triangles — FAIL: Motion "idle": bends cleanly: frame 45: LeftUpperArm keeps 84% of its volume, edges stretch ≤ 2.71× | Motion "walk": bends cleanly: frame 0: RightUpperArm keeps 83% of its volume, edges stretch ≤ 2.77×; frame 8: LeftUpperArm keeps 84% of its volume, edges stretch ≤ 2.70× | Motion "start": bends cleanly: frame 12: LeftUpperArm keeps 83% of its volume, edges stretch ≤ 2.74× | Motion "stop": bends cleanly: frame 14: RightUpperArm keeps 84% of its volume, edges stretch ≤ 2.73×
+Dog (smooth): 16/16 checks pass, 19448 triangles
+Heron Courier (smooth): 16/16 checks pass, 18166 triangles
