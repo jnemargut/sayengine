@@ -56,3 +56,6 @@ checkpoint*/**/*.stl
 checkpoint*/**/*.zip
 checkpoint*/**/*.bin
 checkpoint*/**/*.cube
+
+# worktree temp (benches set TMPDIR here)
+.tmp/
