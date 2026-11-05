@@ -73,16 +73,21 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     def: {
       name: 'Spider',
       parts: [
-        { kind: 'body', shape: 'ball', size: [0.15, 0.09, 0.17], height: 0.17, color: '#3d302a', style: { bob: 0.006 },
+        { kind: 'body', shape: 'ball', size: [0.15, 0.09, 0.17], height: 0.17, color: '#3a2b22', style: { bob: 0.006 },
           extras: [
-            { shape: { kind: 'ball', c: [0, 0.205, -0.175], r: 0.115, scale: [0.82, 0.72, 1], sides: 24 }, color: '#4a3a30' },
-            { shape: { kind: 'ball', c: [0, 0.26, -0.185], r: 0.052, scale: [0.6, 0.35, 1.3], sides: 16 }, color: '#a8794a' },
+            { shape: { kind: 'ball', c: [0, 0.205, -0.175], r: 0.115, scale: [0.82, 0.72, 1], sides: 24 }, color: '#4a3528' },
+            // the abdomen's pattern: a pale leaf-shaped band down the back, chevrons either side
+            { shape: { kind: 'ball', c: [0, 0.26, -0.185], r: 0.052, scale: [0.6, 0.35, 1.3], sides: 16 }, color: '#c89a62' },
+            ...[0, 1, 2].flatMap((k) => [1, -1].map((sd) => ({ shape: { kind: 'seg' as const, a: [sd * 0.03, 0.272 - 0.004 * k, -0.14 - 0.035 * k] as V3, b: [sd * 0.062, 0.25 - 0.006 * k, -0.155 - 0.035 * k] as V3, r1: 0.008, r2: 0.005, sides: 8, round: true }, color: '#d9b685' }))),
+            // the cephalothorax: a darker radiating groove pattern and a pale rim
+            { shape: { kind: 'ball', c: [0, 0.207, 0.01], r: 0.06, scale: [1, 0.32, 1.1], sides: 18 }, color: '#5b4331' },
             { shape: { kind: 'seg', a: [0, 0.18, -0.06], b: [0, 0.19, -0.1], r1: 0.03, r2: 0.035, sides: 10 }, color: '#2e2420' },
             ...[[0.025, 0.215, 0.08, 0.014], [-0.025, 0.215, 0.08, 0.014], [0.052, 0.207, 0.068, 0.009], [-0.052, 0.207, 0.068, 0.009]].map(([x, y, z, r]) => ({ shape: { kind: 'ball' as const, c: [x, y, z] as V3, r, sides: 10 }, color: '#0d0a09' })),
           ] },
-        { kind: 'legs', id: 'legs', count: 8, upper: 0.2, lower: 0.27, spread: 0.22, span: 1.1, fan: 2.1, kneeUp: 0.15, radius: 0.0125, taper: 0.35, color: '#3d302a', footColor: '#1c1512', hipX: 0.75, lift: 0.3 },
-        { kind: 'chain', id: 'palp.L', at: [0.025, 0.15, 0.085], dir: [0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1 },
-        { kind: 'chain', id: 'palp.R', at: [-0.025, 0.15, 0.085], dir: [-0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, phase: 0.5 },
+        // legs: banded brown (lighter than the body, darker than the floor), knees high above the body
+        { kind: 'legs', id: 'legs', count: 8, upper: 0.21, lower: 0.29, spread: 0.24, span: 1.1, fan: 2.1, kneeUp: 0.19, radius: 0.0135, taper: 0.4, color: '#7a5537', footColor: '#2b1d15', bands: '#d6b483', hair: '#2a1d16', arch: 0.13, pole: [0.45, 1.7, 0], hipX: 0.75, lift: 0.3 },
+        { kind: 'chain', id: 'palp.L', at: [0.025, 0.15, 0.085], dir: [0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.011, r1: 0.008, color: '#7a5537', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, tip: [{ shape: { kind: 'ball', c: [0.046, 0.115, 0.154], r: 0.011, sides: 10 }, color: '#2b1d15' }] },
+        { kind: 'chain', id: 'palp.R', at: [-0.025, 0.15, 0.085], dir: [-0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.011, r1: 0.008, color: '#7a5537', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, phase: 0.5, tip: [{ shape: { kind: 'ball', c: [-0.046, 0.115, 0.154], r: 0.011, sides: 10 }, color: '#2b1d15' }] },
       ],
     },
     motions: { walk: { kind: 'walk', speed: 0.3 }, idle: { kind: 'idle', duration: 3 } },

@@ -85,6 +85,10 @@ export interface LegsPartSpec {
   pole?: V3;                                           // which way the knee bends (body space, left leg; default out and up). A bird's: [0, 0, -1]
   toes?: string;                                       // three toes at each foot, this colour (birds)
   foot?: number;                                       // feet's forward offset from the hip (m, birds stand with their feet under the body)
+  // arthropod legs (a spider's, an insect's): the lower bone draws as two segments (tibia, then a
+  // metatarsus down to the foot) bowed up and out by `arch` × lower, with knuckles at every joint,
+  // bands of `bands` colour at the joints and short bristles of `hair` colour
+  arch?: number; bands?: string; hair?: string;
 }
 export interface ChainPartSpec {
   kind: 'chain'; id: string; parent?: string;          // attach bone (default Body)
@@ -267,12 +271,14 @@ export function buildCreature(def: CreatureDef): Creature {
             const tp = spec.taper ?? 0.45, sq = spec.squash;
             pieces.push({ bone: upper, shape: { kind: 'seg', a: hip, b: knee, r1: spec.radius * 1.1, r2: spec.radius * 0.85, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
             const tipAt: V3 = [foot[0], foot[1] + spec.radius * 0.6, foot[2]];
-            if (spec.footColor) {
+            if (spec.arch !== undefined || spec.bands || spec.hair) {
+              pieces.push(...arthropodLeg(spec, upper, lower, hip, knee, tipAt, side));
+            } else if (spec.footColor) {
               const mid = lerp3(knee, tipAt, 0.72);
               pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: mid, r1: spec.radius * 0.85, r2: spec.radius * lerp(0.85, tp, 0.72), sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
               pieces.push({ bone: lower, shape: { kind: 'seg', a: mid, b: tipAt, r1: spec.radius * lerp(0.85, tp, 0.72) * 0.97, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.footColor, part: spec.id });
             } else pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: tipAt, r1: spec.radius * 0.85, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
-            if (spec.joints !== false) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
+            if (spec.joints !== false && spec.arch === undefined) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
             if (spec.toes) for (const a of [-32, 0, 32]) {
               const d: V3 = [Math.sin((a * Math.PI) / 180) * side, 0, Math.cos((a * Math.PI) / 180)];
               const tl = (spec.upper + spec.lower) * (a ? 0.16 : 0.2);
@@ -567,6 +573,50 @@ export function chainLocals(c: Creature, names: string[], joints: V3[], parentWo
     out.push(local);
     pw = world;
   });
+  return out;
+}
+
+/** An arthropod leg's pieces: femur up to the knee, then a bowed tibia and metatarsus down to the
+ *  foot, each tapering, with knuckles, pale joint bands and bristles. */
+function arthropodLeg(spec: LegsPartSpec, upper: string, lower: string, hip: V3, knee: V3, tip: V3, side: 1 | -1): PartPiece[] {
+  const out: PartPiece[] = [];
+  const r = spec.radius, tp = spec.taper ?? 0.45, band = spec.bands ?? spec.color, dark = spec.footColor ?? spec.color;
+  const along = norm(sub(tip, knee));
+  // bow the lower leg up and outward (the tibia rises a little past the knee, then the metatarsus drops)
+  const outw = norm([side, 0, 0]);
+  const upish = norm(sub(add([0, 1, 0], mul(outw, 0.6)), mul(along, dot(add([0, 1, 0], mul(outw, 0.6)), along))));
+  const bend = add(lerp3(knee, tip, 0.42), mul(upish, (spec.arch ?? 0.12) * spec.lower));
+  const segs: Array<{ bone: string; a: V3; b: V3; r1: number; r2: number; color: string }> = [
+    { bone: upper, a: hip, b: knee, r1: r * 1.05, r2: r * 0.95, color: spec.color },
+    { bone: lower, a: knee, b: bend, r1: r * 0.88, r2: r * 0.72, color: spec.color },
+    { bone: lower, a: bend, b: tip, r1: r * 0.6, r2: r * tp, color: spec.color },
+  ];
+  let seed = Math.abs(Math.round(hip[0] * 9173 + hip[2] * 7919)) + 1;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (const [i, sg] of segs.entries()) {
+    const d = sub(sg.b, sg.a), L = len(d), z = norm(d);
+    // each segment swells a little in its middle (a muscle in a tube), and darkens toward the foot
+    const mid = lerp3(sg.a, sg.b, i === 2 ? 0.62 : 0.45), rm = Math.max(sg.r1, sg.r2) * 1.12;
+    out.push({ bone: sg.bone, shape: { kind: 'seg', a: sg.a, b: mid, r1: sg.r1, r2: rm, sides: 10 }, color: sg.color, part: spec.id });
+    out.push({ bone: sg.bone, shape: { kind: 'seg', a: mid, b: sg.b, r1: rm, r2: sg.r2, sides: 10, round: i === 2 }, color: i === 2 ? dark : sg.color, part: spec.id });
+    // the knuckle at its root, and a pale band just past it
+    out.push({ bone: sg.bone, shape: { kind: 'ball', c: sg.a, r: sg.r1 * (i === 0 ? 1.25 : 1.2), sides: 12 }, color: i === 0 ? spec.color : band, part: spec.id });
+    if (spec.bands) out.push({ bone: sg.bone, shape: { kind: 'seg', a: add(sg.a, mul(z, sg.r1 * 0.9)), b: add(sg.a, mul(z, sg.r1 * 0.9 + L * 0.12)), r1: sg.r1 * 1.07, r2: lerp(sg.r1, rm, 0.3) * 1.06, sides: 10 }, color: band, part: spec.id });
+    if (spec.bands && i < 2) out.push({ bone: sg.bone, shape: { kind: 'seg', a: add(sg.b, mul(z, -L * 0.1)), b: sg.b, r1: lerp(rm, sg.r2, 0.85) * 1.06, r2: sg.r2 * 1.07, sides: 10 }, color: band, part: spec.id });
+    // bristles: short hairs that lean toward the foot
+    if (spec.hair) {
+      const xx = norm(cross(Math.abs(z[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], z)), yy = cross(z, xx);
+      const n = i === 0 ? 7 : 6;
+      for (let k = 0; k < n; k++) {
+        const u = 0.12 + 0.8 * ((k + rnd() * 0.6) / n), ang = rnd() * Math.PI * 2;
+        const rr = lerp(sg.r1, sg.r2, u) * 1.05;
+        const radial = add(mul(xx, Math.cos(ang)), mul(yy, Math.sin(ang)));
+        const root = add(lerp3(sg.a, sg.b, u), mul(radial, rr * 0.8));
+        const hl = r * (0.8 + 0.5 * rnd());
+        out.push({ bone: sg.bone, shape: { kind: 'seg', a: root, b: add(root, add(mul(radial, hl * 0.75), mul(z, hl * 0.66))), r1: r * 0.1, r2: r * 0.03, sides: 4 }, color: spec.hair, part: spec.id });
+      }
+    }
+  }
   return out;
 }
 
