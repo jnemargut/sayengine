@@ -804,6 +804,40 @@ Weak or not done:
 - [ ] Self penetration still uses bounding spheres per piece, so thin feathers and the trip's foot against the bucket aren't judged precisely (the bucket isn't part of the character's checks at all).
 - [ ] Action keys are hand-placed numbers. The octopus took several rounds of checks to find a layout where idle-curling arms don't brush the table, which is the D53 tripwire territory for complex scenes.
 
+### Godot live IK (2026-11-05, branch `godot/parity-live-ik`, not merged)
+Built:
+- [x] **Skinned creature export** (`core/src/creatureskin.ts`, `creatureSkinnedGLB`):
+  - One skin over the bones, so Godot imports a `Skeleton3D`.
+  - One skinned mesh, each piece at full weight on its bone, so it moves exactly like the node-per-bone export.
+  - The same clips.
+  - A weightless `.tip` joint at the end of every leg and chain.
+  - `extras.ik` (legs, chains, gait numbers), which Godot imports as node metadata.
+  - It validates for crab, spider, octopus and snake.
+  - `creatureGLB` (node per bone) is unchanged and stays the fallback.
+- [x] **`studio/creature_ik.gd`:** a `SkeletonModifier3D` that runs before Godot 4.7's own IK nodes. It is the Godot half of `CreatureRuntime`, with the same numbers:
+  - reach-triggered stepping, one gait group at a time, onto raycast ground (or a ground function)
+  - the body on a spring over the planted feet
+  - one `TwoBoneIK3D` per creature with a knee pole per leg
+  - `reach(chain, goal)` through a `FABRIK3D`, with a critically damped follow
+- [x] **`studio/foot_ik.gd`** for kit humanoids (already skinned):
+  - the baked walk plays
+  - feet are lifted onto the ground under heel and toe, and a swinging foot looks ahead over step edges
+  - the hips drop so the lower foot reaches
+  - a `TwoBoneIK3D` per leg; feet keep the clip's orientation
+- [x] **Proof** (`node bench/godot-ik.ts`, `checkpoint-godot-live-ik/`):
+  - **Stairs:** the Apprentice climbs five 15 cm steps. Soles within 0.4 cm of the step, plants drift ≤ 0.4 cm, toes never enter a step.
+  - **Crab, live over ±15 cm bumps:** the universal motion checks on the Godot capture pass 9/9. Feet within 1 cm of the ground. The baked fallback on the same ground floats by up to 7.6 cm and fails "feet on the ground".
+  - **Spider, walking and turning:** 9/9 pass.
+  - **Octopus arm following a moving goal:** the tip is on the followed point (mean 0.3 cm). It trails the goal by 4.4 cm, which is the designed damped follow.
+- [x] **Headless test** (`game/test/godotik.test.ts` with `studio/creature_ik_check.gd`): a Skeleton3D, the IK attached, footfalls, feet on targets (< 1 cm) and on the ground (< 2 cm), and the arm on its goal.
+
+Weak or not done:
+- [ ] The humanoid on stairs is a flat-ground walk with its feet moved onto the steps: no shorter stride and no lean into the climb.
+- [ ] The live crab stands taller, with straighter legs, than its baked crouch: the body height comes from the planted feet alone.
+- [ ] FABRIK3D kinks the reaching arm at a few joints. Cone joint limits made the tip miss by 11–14 cm, so they are off. A smoothing pass of our own is next.
+- [ ] Live springs and wheels in Godot: not done (baked).
+- [ ] Nothing in `/game` exports creatures into game projects yet. The bench and the test write the skinned GLBs themselves.
+
 
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
