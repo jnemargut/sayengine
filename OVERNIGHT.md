@@ -36,3 +36,13 @@ What got built while you slept, what I checked myself, and anything that went wr
     - The creatures look blocky; the crab reads more like a robot spider.
     - Godot gets pre-recorded clips; feet and wheels adapting live only works on the web so far.
     - The new checks found a small hip snap in the bird-person's walk, which I noted to fix later.
+
+- **Fire's Dying v1** (merged; 122 tests pass, including the game's own rules tests).
+  - **Play it:** run `cd games/fires-dying && npm run play`, then open http://127.0.0.1:8123/. Move with WASD or the arrow keys, or tap where to go. E, Space or a tap uses things. R restarts.
+  - **The game:** you're the apprentice. The smith calls out for tools, in his own voice, while the forge fire drains. You win by finishing the blade and lose if the fire goes out. There's a short cutscene at the start.
+  - **Playtest by the bot:** it won in 195 s (16 tools) and lost in 51 s when it never fed the fire. Videos are in `games/fires-dying/playtest/` (`intro.mp4`, `win.mp4`, `lose.mp4`). I checked the stills: it reads as a real little game.
+  - **Honest verdict:** a charming 3-minute toy, not yet a game you'd replay.
+    - The tension between fetching tools and feeding the fire works, and the voiced calls make it feel alive.
+    - It's too easy and repetitive, with only 5 items.
+    - The fire is placeholder cones and the HUD is plain HTML.
+  - **Problem log:** `games/fires-dying/PAIN.md` lists 14 places where the tools fell short. That's exactly what the effects and UI kit build is fixing now. The biggest was that three.js quietly renamed "Big hammer" to "Big_hammer", so the stations didn't exist.
