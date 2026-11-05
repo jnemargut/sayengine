@@ -7,7 +7,7 @@ import path from 'node:path';
 import { PKG, STUDIO_ROOT, workDir } from './project.ts';
 import { withPage } from './chrome.ts';
 
-const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.wasm': 'application/wasm', '.bin': 'application/octet-stream' };
+const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.png': 'image/png', '.jpg': 'image/jpeg', '.wasm': 'application/wasm', '.bin': 'application/octet-stream', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.wav': 'audio/wav' };
 
 /** Bundle the game. Third-party imports (three, Rapier) resolve from the studio's node_modules. */
 export async function bundle(dir: string, entry = 'src/main.ts', outfile = 'dist/game.js'): Promise<{ ok: boolean; errors: string[]; warnings: string[] }> {
@@ -47,7 +47,16 @@ export async function webCommand(dir: string, cmd: Record<string, any>, opts: { 
   return serve(dir, (url) => withPage(url + 'index.html', { width: w, height: h }, async (page) => {
     const ready = await page.eval(`Promise.race([window.__studio?.ready ?? Promise.reject(new Error('no harness: src/main.ts must call installHarness(start())')), new Promise((_, j) => setTimeout(() => j(new Error('game did not become ready in 60 s')), 60000))]).then(() => true, (e) => String(e && e.message || e))`, 90000);
     if (ready !== true) return { ok: false, error: String(ready), errors: page.logs.filter((l) => l.level === 'error').map((l) => l.text), warnings: page.logs.filter((l) => l.level === 'warning').map((l) => l.text) };
-    const raw = await page.eval(`window.__studio.run(${JSON.stringify(cmd)})`, 180000);
+    if (cmd.cmd === 'page') {
+      // the whole page as the player sees it: stage the game (camera, UI, effects), let it draw, capture
+      const st = await page.eval(`window.__studio.run(${JSON.stringify({ ...cmd, cmd: 'stage' })})`, 180000);
+      await page.eval('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => r(true), 150))))', 20000);
+      const file = path.join(workDir(dir, 'shots'), `${cmd.prefix ?? new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-page.png`);
+      fs.writeFileSync(file, await page.screenshot());
+      const errors = page.logs.filter((l) => l.level === 'error').map((l) => l.text);
+      return { ok: st?.ok !== false && !st?.error, error: st?.error, result: { images: [{ view: 'page', file, ok: true }] }, warnings: [...b.warnings, ...page.logs.filter((l) => l.level === 'warning').map((l) => l.text)], errors };
+    }
+    const raw = await page.eval(`window.__studio.run(${JSON.stringify(cmd)})`, 300000);
     const { ok, error, ...result } = raw ?? { ok: false, error: 'no result' };
     if (Array.isArray(result.images)) result.images = writeImages(dir, cmd.prefix ?? `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${cmd.cmd}`, result.images);
     if (Array.isArray(result.frames) && typeof cmd.frames === 'string') {

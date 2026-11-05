@@ -1,10 +1,12 @@
 extends Node
 ## Managed by the studio — overwritten by `studio game init/import`. Loads the game's main scene,
 ## runs ONE command passed as a JSON file (`-- --studio-cmd=<file>`), prints
-## `STUDIO_RESULT {json}` and quits. Commands: info, run, screenshot, walk, test.
+## `STUDIO_RESULT {json}` and quits. Commands: info, run, screenshot, walk, cutscene, effect, page, test.
 
 const PLAYER := preload("res://studio/player.gd")
 const CHARS := preload("res://studio/characters.gd")
+const EFFECTS := preload("res://studio/effects.gd")
+const UI := preload("res://studio/ui.gd")
 var main: Node
 
 func _ready() -> void:
@@ -325,6 +327,104 @@ func _record(rec: Dictionary, player: Node3D) -> void:
 	var img := get_viewport().get_texture().get_image()
 	img.save_png("%s/%05d.png" % [rec.dir, rec.n])
 	rec.n += 1
+
+func _frame_camera(cam: Camera3D, f: Dictionary) -> void:
+	var center := _arr3(f["center"])
+	var d := _arr3(f["dir"]).normalized()
+	var dist: float = float(f["radius"]) / tan(deg_to_rad(cam.fov * 0.5))
+	cam.look_at_from_position(center + d * dist, center, Vector3.UP)
+	cam.near = 0.02
+	cam.far = dist + 50.0
+
+## Play one studio effect from the studio's review camera (the web harness uses the same numbers):
+## "value" [from, to] ramps its game value, "events" [{at, name|burst}] fire, "play" loops character
+## clips so motion triggers fire. Saves a background frame (effect hidden) and every 2nd frame (30 fps).
+func _cmd_effect(c: Dictionary) -> Dictionary:
+	var fx = EFFECTS.start(main, c.get("cpu", false))
+	await get_tree().process_frame
+	var id := String(c.get("id", ""))
+	if not fx.live.has(id):
+		return {"ok": false, "error": "no effect %s in the game (have: %s)" % [id, ", ".join(fx.live.keys())]}
+	fx.show_only(id)
+	var cam := Camera3D.new()
+	cam.fov = 40.0
+	add_child(cam)
+	cam.current = true
+	_frame_camera(cam, c["frame"])
+	for p in c.get("play", []):
+		EFFECTS.play_clip(main, String(p["character"]), String(p["clip"]), true)
+	var dir = c.get("frames")
+	var me: Node3D = fx.live[id]["root"]
+	me.visible = false
+	for i in 3:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	if c.get("background") is String:
+		get_viewport().get_texture().get_image().save_png(String(c["background"]))
+	me.visible = true
+	var seconds := float(c.get("seconds", 4.0))
+	var n := int(ceil(seconds * 60.0))
+	var events: Array = c.get("events", []).duplicate()
+	events.sort_custom(func(a, b): return float(a["at"]) < float(b["at"]))
+	var val = fx.live[id]["meta"].get("value")
+	var saved := 0
+	for f in n:
+		var t := float(f) / 60.0
+		if val is Dictionary and c.get("value") is Array:
+			fx.set_value(val["name"], lerpf(float(c["value"][0]), float(c["value"][1]), minf(1.0, t / maxf(0.01, seconds))))
+		elif val is Dictionary and (c.get("value") is float or c.get("value") is int):
+			fx.set_value(val["name"], float(c["value"]))
+		while events.size() > 0 and float(events[0]["at"]) <= t:
+			var e: Dictionary = events.pop_front()
+			if e.get("burst") is String:
+				fx.burst(id, e["burst"])
+			else:
+				fx.event(String(e.get("name", "")))
+		await RenderingServer.frame_post_draw
+		if dir is String and f % 2 == 0:
+			get_viewport().get_texture().get_image().save_png("%s/%05d.png" % [dir, saved])
+			saved += 1
+	return {"ok": true, "effect": id, "framesRecorded": saved, "fired": fx.fired, "seconds": seconds, "cpu": fx.use_cpu}
+
+## The game as the player sees it — 3D and the UI kit's HUD (a CanvasLayer) in one capture: the game
+## camera at a view, UI and effects started, values set, a few seconds played.
+func _cmd_page(c: Dictionary) -> Dictionary:
+	var fx = EFFECTS.start(main)
+	for k in c.get("values", {}):
+		fx.set_value(k, float(c["values"][k]))
+	var cam := get_viewport().get_camera_3d()
+	if cam == null and not (c.get("frame") is Dictionary):
+		# no game camera: the web template's starting view, so both engines show the same shot
+		cam = Camera3D.new()
+		cam.fov = 45.0
+		add_child(cam)
+		cam.current = true
+		cam.look_at_from_position(Vector3(2.2, 1.8, 2.6), Vector3(0, 0.4, 0), Vector3.UP)
+	if c.get("frame") is Dictionary:
+		cam = Camera3D.new()
+		cam.fov = 40.0
+		add_child(cam)
+		cam.current = true
+		_frame_camera(cam, c["frame"])
+	if c.get("ui", true):
+		var ui = UI.start(main)
+		for k in c.get("bars", {}):
+			ui.set_bar(k, float(c["bars"][k]))
+		if c.get("card") is Dictionary:
+			ui.card(String(c["card"].get("title", "")), String(c["card"].get("sub", "")))
+		for b in c.get("bubbles", []):
+			var who := _find(String(b["character"]))
+			if who:
+				ui.bubble(who, String(b["text"]), 60.0)
+	for p in c.get("play", []):
+		EFFECTS.play_clip(main, String(p["character"]), String(p["clip"]), true)
+	var frames := int(float(c.get("seconds", 1.0)) * 60.0) + 3
+	for i in frames:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var f := "%s/%s-page.png" % [c.get("outDir", "user://shots"), c.get("prefix", "page")]
+	var err := get_viewport().get_texture().get_image().save_png(f)
+	return {"ok": err == OK, "images": [{"view": "page", "file": ProjectSettings.globalize_path(f), "ok": err == OK}]}
 
 ## Play a studio cutscene (res://assets/studio/cutscenes/<id>.tscn) in the game scene, in real time at
 ## the fixed frame rate; with "frames" (a folder) save every `every`-th rendered frame as PNG.

@@ -14,7 +14,8 @@ import { paintGroups } from './facepaint.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
 import { GlbBuilder } from './glb.ts';
-import { autoGrip } from './grip.ts';
+import { autoGrip, heldPlacement } from './grip.ts';
+import { qMul, qRot } from './rig.ts';
 import { addCharacterNodes, addSkin, attachHeldProps, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
 
 type V3 = [number, number, number];
@@ -410,6 +411,26 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
         const g = obj.grip && !obj.grip.auto ? obj.grip : autoGrip(local, res.indices);
         extras.grip = { kind: g.kind, center: g.center.map((v) => +v.toFixed(5)), axis: g.axis.map((v) => +v.toFixed(5)), side: g.side.map((v) => +v.toFixed(5)), radius: +g.radius.toFixed(5) };
       } catch { /* no grip found: hold() falls back to the bounding box */ }
+      // and, per character and hand, where the prop sits relative to the hand bone: hold() parents it
+      // there and sets this transform, so it follows the hand through every clip
+      if (extras.grip) {
+        const hold: Record<string, any> = {};
+        for (const it of items) {
+          const cr = it.res.rig;
+          if (!cr || it.obj.id === obj.id) continue;
+          for (const hand of ['right', 'left'] as const) {
+            const bi = cr.rig.bones.findIndex((b) => b.name === `${hand === 'left' ? 'Left' : 'Right'}Hand`);
+            if (bi < 0) continue;
+            try {
+              const h = heldPlacement(cr, hand, extras.grip);
+              const hq = cr.posed.worldQ[bi], hp = cr.posed.worldP[bi];
+              const inv: [number, number, number, number] = [-hq[0], -hq[1], -hq[2], hq[3]];
+              (hold[it.obj.name] ??= {})[hand] = { t: qRot(inv, [h.p[0] - hp[0], h.p[1] - hp[1], h.p[2] - hp[2]]).map((v) => +v.toFixed(5)), r: qMul(inv, h.q).map((v) => +v.toFixed(6)) };
+            } catch { /* this hand can't take it */ }
+          }
+        }
+        if (Object.keys(hold).length) extras.hold = hold;
+      }
     }
     let node: any;
     if (skin) {

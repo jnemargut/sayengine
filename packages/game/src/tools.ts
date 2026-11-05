@@ -28,8 +28,8 @@ export const GAME_TOOLS: GameTool[] = [
   },
   {
     name: 'game-screenshot',
-    description: 'Render the running game (not the studio view) and return PNG paths you can Read: --views iso,front,side,back,top,low. --object frames one object; --player [x,z] stands a play-test capsule there for scale.',
-    flags: { type: 'object', properties: { project, views: { anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string', enum: ['iso', 'front', 'side', 'back', 'top', 'low'] } }], default: 'iso,front' }, object: { type: 'string' }, player: vec, size: { type: 'number', default: 960, description: 'image width in px' } } },
+    description: 'Render the running game (not the studio view) and return PNG paths you can Read: --views iso,front,side,back,top,low. --object frames one object; --player [x,z] stands a play-test capsule there for scale. --page true captures the whole screen instead — the 3D plus the HUD and any HTML/Control UI over it (the web canvas alone misses HTML UI).',
+    flags: { type: 'object', properties: { project, views: { anyOf: [{ type: 'string' }, { type: 'array', items: { type: 'string', enum: ['iso', 'front', 'side', 'back', 'top', 'low'] } }], default: 'iso,front' }, object: { type: 'string' }, player: vec, size: { type: 'number', default: 960, description: 'image width in px' }, page: { type: 'boolean', default: false, description: 'the whole screen as the player sees it: the game camera plus the HTML / Control UI over it (the UI kit\'s HUD is started); with --object the camera frames it' }, ui: { type: 'boolean', default: true }, seconds: { type: 'number', default: 1 }, values: { type: 'object', description: 'game values for effects, e.g. {"fire":0.6}' }, bubbles: { type: 'array', items: { type: 'object' }, description: '[{character, text}] speech bubbles to show' }, card: { type: 'object', description: '{title, sub}: a title/end card' } } },
     example: 'studio game screenshot --project forge --views iso,front',
   },
   {
@@ -43,6 +43,18 @@ export const GAME_TOOLS: GameTool[] = [
     description: 'Play a studio cutscene in the game (Decision 24): Godot plays the generated scene (res://assets/studio/cutscenes/<id>.tscn: an AnimationPlayer with the camera, voices and cues driving the characters\' clips); the web plays it with studio/cutscene.ts. Reports what played and any missing clip; --video true records it frame by frame and muxes the voices into an MP4 (plus stills, one per shot). `game import` writes the cutscenes first.',
     flags: { type: 'object', properties: { project, id: { type: 'string', description: 'cutscene id (studio cutscene lists them)' }, video: { type: 'boolean', default: false } }, required: ['id'] },
     example: 'studio game cutscene --project forge --id forge-lesson --video true',
+  },
+  {
+    name: 'game-effect',
+    description: 'Review a studio effect in the game (Decisions 56–57): plays it from the studio\'s review camera (it fills ~60% of the screen) and records an MP4 plus stills. --value 0.8 or [0, 1] (a ramp over the run) drives the game value it follows; --events [{at, name}] fires game events ([{at, burst: layer}] a burst directly); --play [{character, clip}] loops a character clip so motion triggers fire (sparks on "hammer-strike@impact"); --cpu true uses the CPU fallback (Godot). --against <project> plays it in that other game (the other engine) too and returns a side-by-side card and video and the Godot-vs-web parity, saved to the studio effect (its fx-parity check).',
+    flags: { type: 'object', properties: { project, id: { type: 'string' }, seconds: { type: 'number', default: 4 }, value: { anyOf: [{ type: 'number' }, { type: 'array', items: { type: 'number' } }] }, events: { type: 'array', items: { type: 'object' } }, play: { type: 'array', items: { type: 'object' } }, cpu: { type: 'boolean', default: false }, against: { type: 'string', description: 'the other engine\'s game project, for the side-by-side card and parity' } }, required: ['id'] },
+    example: 'studio game effect --project forge-godot --id forge-fire --value \'[0.2,1]\' --against forge-web',
+  },
+  {
+    name: 'game-ui-sheet',
+    description: 'Review the studio UI kit (Decision 58): renders a sheet of every part in the kit\'s CSS, the HUD on a 844×390 phone with pseudolocalised text and the safe area drawn, and the icons at 48 and 24 px on dark and light; then scores the icons at 24 px (legible, centred, distinct from each other) and saves the scores to the studio kit. Returns the PNG to Read. For the UI over the game in each engine: game screenshot --page true.',
+    flags: { type: 'object', properties: { out: { type: 'string', description: 'folder (default .studio/ui-sheet)' } } },
+    example: 'studio game ui-sheet',
   },
   {
     name: 'game-test',

@@ -4,7 +4,9 @@
 // twisting flame meshes, rings and arcs with scrolling noise suit low-poly and cost little to draw.
 // Checks (D57): peak particles and overdraw against the game profile's budget, a fallback for every
 // emitter, colours inside the palette, warm-up at load, and Godot-vs-web parity from the last review.
+import { z } from 'zod';
 import type { CheckResult } from './checks.ts';
+import type { ToolDef, ToolCtx } from './tools.ts';
 
 type V3 = [number, number, number];
 
@@ -63,12 +65,12 @@ export const EFFECT_BUDGETS: Record<string, { particles: number; overdraw: numbe
 };
 
 export const DEFAULT_FIRE_PALETTE: Record<string, string> = {
-  ember: '#ffcf6a', flame: '#ff8a2a', deep: '#d4421c', smoke: '#7d746b', ash: '#3b3632', spark: '#ffe2a0', rain: '#a9c3d8',
+  ember: '#ffcf6a', flame: '#ff8a2a', deep: '#d4421c', smoke: '#5f5852', haze: '#a39c95', ash: '#3b3632', spark: '#ffe2a0', rain: '#a9c3d8',
 };
 
 /** Named moments inside library actions, as a fraction of the action: impact = the first accelerating key. */
 export const ACTION_EVENTS: Record<string, Record<string, number>> = {
-  'hammer-strike': { impact: 0.54, windup: 0.38, end: 1 },
+  'hammer-strike': { impact: 0.6, windup: 0.38, end: 1 },
   'pick-up': { reach: 0.45, end: 1 },
   wave: { peak: 0.35, end: 1 },
 };
@@ -87,24 +89,24 @@ export const EFFECT_PRESETS: Record<string, { label: string; make(): Omit<Effect
     }),
   },
   sparks: {
-    label: 'Spark burst off an anvil strike: 40 fast stretched sparks with gravity, triggered by an event',
+    label: 'Spark burst off an anvil strike: 60 fast stretched sparks with gravity, triggered by an event',
     make: () => ({
       loop: false,
-      layers: [P({ id: 'burst', shape: { type: 'cone', radius: 0.02, angle: 70 }, rate: 0, bursts: [{ at: 0, count: 40 }], life: [0.25, 0.6], speed: [1.6, 3.4], size: [0.012, 0.018], sizeEnd: 0.4, colour: ['spark', 'flame'], alpha: [1, 0], direction: [0, 1, 0], spread: 70, gravity: 6, drag: 0.4, stretch: 0.035 })],
+      layers: [P({ id: 'burst', shape: { type: 'cone', radius: 0.02, angle: 70 }, rate: 0, bursts: [{ at: 0, count: 60 }], life: [0.3, 0.7], speed: [1.6, 3.4], size: [0.022, 0.032], sizeEnd: 0.4, colour: ['spark', 'flame'], alpha: [1, 0], direction: [0, 1, 0], spread: 70, gravity: 6, drag: 0.4, stretch: 0.05 })],
     }),
   },
   'chimney-smoke': {
     label: 'Slow grey smoke puffs rising and spreading from a chimney',
     make: () => ({
       loop: true,
-      layers: [P({ id: 'puffs', shape: { type: 'disc', radius: 0.08 }, rate: 2.5, life: [3, 4.5], speed: [0.25, 0.4], size: [0.18, 0.26], sizeEnd: 3, colour: ['smoke', 'ash'], alpha: [0.55, 0], direction: [0, 1, 0], spread: 12, gravity: -0.05, turbulence: 0.35, blend: 'alpha' })],
+      layers: [P({ id: 'puffs', shape: { type: 'disc', radius: 0.08 }, rate: 3, life: [3, 4.5], speed: [0.3, 0.45], size: [0.22, 0.3], sizeEnd: 3.2, colour: ['smoke', 'haze'], alpha: [0.8, 0], direction: [0, 1, 0], spread: 12, gravity: -0.05, turbulence: 0.35, blend: 'alpha' })],
     }),
   },
   embers: {
     label: 'A puff of embers when charcoal is tipped in: a short upward burst that drifts and fades',
     make: () => ({
       loop: false,
-      layers: [P({ id: 'puff', shape: { type: 'disc', radius: 0.12 }, rate: 0, bursts: [{ at: 0, count: 24 }], life: [0.7, 1.4], speed: [0.6, 1.2], size: [0.02, 0.035], sizeEnd: 0.3, colour: ['ember', 'deep'], alpha: [1, 0], direction: [0, 1, 0], spread: 35, gravity: 0.6, turbulence: 0.6 })],
+      layers: [P({ id: 'puff', shape: { type: 'disc', radius: 0.12 }, rate: 0, bursts: [{ at: 0, count: 30 }], life: [0.8, 1.5], speed: [0.6, 1.2], size: [0.03, 0.05], sizeEnd: 0.3, colour: ['ember', 'deep'], alpha: [1, 0], direction: [0, 1, 0], spread: 35, gravity: 0.6, turbulence: 0.6 })],
     }),
   },
   rain: {
@@ -152,6 +154,23 @@ export function effectExtent(def: EffectDef): { w: number; h: number } {
   }
   return { w, h };
 }
+/** The review camera for an effect (both engines use it): what it looks at, how much it shows (half the
+ *  view height at the effect, m) so the effect fills ~60% of the screen, and where it looks from. */
+export function effectFrame(def: EffectDef, at: V3, dir: V3 = [0.35, 0.3, 1]): { center: V3; radius: number; dir: V3 } {
+  let lo = Infinity, hi = -Infinity, w = 0.3;
+  for (const l of def.layers) {
+    const oy = l.offset?.[1] ?? 0;
+    if (l.kind === 'shape') { lo = Math.min(lo, oy); hi = Math.max(hi, oy + l.size[1] * (1 + (l.flicker ?? 0) / 2)); w = Math.max(w, l.size[0] * ((l.count ?? 1) > 1 ? 1.6 : 1)); continue; }
+    const t = l.life[1] * 0.8, dy = (l.direction?.[1] ?? 1) * avg(l.speed) * t - ((l.gravity ?? 0) * t * t) / 2;
+    lo = Math.min(lo, oy, oy + dy); hi = Math.max(hi, oy, oy + dy);
+    const base = l.shape.size ? Math.max(l.shape.size[0], l.shape.size[2]) : 2 * (l.shape.radius ?? 0.05);
+    w = Math.max(w, base + 2 * avg(l.speed) * t * Math.sin((Math.min(80, l.spread ?? 0) * Math.PI) / 180));
+  }
+  if (!Number.isFinite(lo)) { lo = 0; hi = 0.5; }
+  const h = Math.max(0.3, hi - lo);
+  return { center: [at[0], at[1] + (lo + hi) / 2, at[2]], radius: +Math.max(h / 1.2, w / 1.92, 0.3).toFixed(3), dir };
+}
+
 /** Overdraw: see-through area drawn per frame ÷ screen area, at a review camera that frames the effect at
  *  ~60% of a 16:10 screen. The cost on phones and the web is coverage, not particle count (D57 research). */
 export function overdraw(def: EffectDef): { screens: number; perLayer: Record<string, number> } {
@@ -237,7 +256,7 @@ uniform float alpha_mul = 1.0;
 uniform float seed = 0.0;
 uniform float value = 1.0;
 uniform int form = 0; // 0 flame, 1 ring, 2 arc, 3 puff
-${NOISE_GLSL.replace(/vec2\(/g, 'vec2(')}
+${NOISE_GLSL}
 void vertex() {
   float h = 1.0 + flicker * (fxNoise(vec2(TIME * 3.0 + seed, seed)) - 0.5);
   VERTEX.y *= h * mix(0.35, 1.0, value);
@@ -251,9 +270,31 @@ void fragment() {
   float n = fxFbm(vec2(uv.x * 3.0 + seed, y * 2.5 - TIME * scroll));
   float a = clamp(body - noise_amt * (1.0 - n) * (0.3 + y), 0.0, 1.0) * alpha_mul;
   ALBEDO = mix(col_a.rgb, col_b.rgb, clamp(y * 1.3 + n * 0.3, 0.0, 1.0));
-  ALPHA = a;
+  ALPHA = a * smoothstep(0.0, 0.12, value);
 }
 `;
+}
+
+/** The same shape shader for three.js (ShaderMaterial): identical noise, body and colour ramp. */
+export function webShapeShader(): { vertex: string; fragment: string } {
+  return {
+    vertex: `uniform float time; uniform float flicker; uniform float seed; uniform float value; varying vec2 vUv;
+${NOISE_GLSL}
+void main() { vUv = uv; vec3 p = position; float h = 1.0 + flicker * (fxNoise(vec2(time * 3.0 + seed, seed)) - 0.5); p.y *= h * mix(0.35, 1.0, value);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+    fragment: `uniform vec3 col_a; uniform vec3 col_b; uniform float time; uniform float scroll; uniform float noise_amt; uniform float alpha_mul; uniform float seed; uniform float value; uniform int form; varying vec2 vUv;
+${NOISE_GLSL}
+void main() { vec2 uv = vec2(vUv.x, 1.0 - vUv.y); float y = 1.0 - uv.y; float x = abs(uv.x - 0.5) * 2.0; float body;
+  if (form == 1) { float r = length(uv - 0.5) * 2.0; body = smoothstep(0.55, 0.75, r) * (1.0 - smoothstep(0.85, 1.0, r)); }
+  else if (form == 3) { body = 1.0 - smoothstep(0.4, 1.0, length(uv - 0.5) * 2.0); }
+  else { float width = (1.0 - y) * 0.9 + 0.1; body = 1.0 - smoothstep(width * 0.55, width, x); body *= smoothstep(0.0, 0.08, y) * (1.0 - smoothstep(0.7, 1.0, y)); }
+  float n = fxFbm(vec2(uv.x * 3.0 + seed, y * 2.5 - time * scroll));
+  float a = clamp(body - noise_amt * (1.0 - n) * (0.3 + y), 0.0, 1.0) * alpha_mul * smoothstep(0.0, 0.12, value);
+  gl_FragColor = vec4(mix(col_a, col_b, clamp(y * 1.3 + n * 0.3, 0.0, 1.0)), a);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`,
+  };
 }
 
 // ── Godot scene (.tscn): GPU particles + a hidden CPU twin per layer, shape layers as crossed cards ───
@@ -296,7 +337,9 @@ export function godotEffectScene(def: EffectDef, palette?: Record<string, string
     const shapeType = { point: 0, sphere: 1, cone: 0, box: 3, disc: 6 }[l.shape.type];
     const shapeProps = l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'disc' ? `\nemission_ring_axis = Vector3(0, 1, 0)\nemission_ring_height = 0.0\nemission_ring_radius = ${l.shape.radius ?? 0.1}\nemission_ring_inner_radius = 0.0` : '';
     const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = ${(l.turbulence! * 2).toFixed(2)}\nturbulence_noise_scale = 4.0` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
-    const mat = add('StandardMaterial3D', `transparency = 1\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nbillboard_mode = ${l.stretch ? 2 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);
+    const dotGrad = add('Gradient', `colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)`);
+    const dot = add('GradientTexture2D', `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 1\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)`);
+    const mat = add('StandardMaterial3D', `transparency = 1\nalbedo_texture = SubResource("${dot}")\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nbillboard_mode = ${l.stretch ? 2 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);
     const len = l.stretch ? Math.max(l.size[0], avg(l.speed) * l.stretch) : l.size[0];
     const quad = add('QuadMesh', `material = SubResource("${mat}")\nsize = Vector2(${l.size[0]}, ${+len.toFixed(4)})`);
     const amount = Math.max(1, Math.ceil(l.rate * l.life[1] + (l.bursts ?? []).reduce((s, b) => s + b.count, 0)));
@@ -312,12 +355,138 @@ const safe = (s: string) => s.replace(/[^A-Za-z0-9 _-]/g, '').trim() || 'Effect'
 
 /** Resolve a trigger spec: "Blacksmith:hammer-strike@impact" → a clip and the fraction where it fires;
  *  anything else is a game event the code raises (effects.event("fed")). */
-export function parseTrigger(on: string, layer: string): EffectTrigger {
+export function parseTrigger(on: string, layer: string, actionOf?: (character: string, clip: string) => string | undefined): EffectTrigger {
   const m = /^([^:@]+):([^@]+)@([\w.]+)$/.exec(on.trim());
   if (!m) return { on, layer };
   const [, character, clip, moment] = m;
-  const action = clip.replace(/^.*:/, '');
+  const action = actionOf?.(character, clip) ?? clip.replace(/^.*:/, '');
   const frac = /^[\d.]+$/.test(moment) ? Number(moment) : ACTION_EVENTS[action]?.[moment];
   if (frac === undefined || !(frac >= 0 && frac <= 1)) throw new Error(`no moment "${moment}" in ${action} (known: ${Object.entries(ACTION_EVENTS).map(([k, v]) => `${k}@${Object.keys(v).join('|')}`).join(', ')}; or a fraction 0..1)`);
   return { on, layer, character, clip, fraction: frac };
 }
+
+// ── tools ──────────────────────────────────────────────────────────────────────────────────────────
+const Id = z.string().regex(/^[a-z0-9][a-z0-9-]*$/);
+const V = z.tuple([z.number(), z.number(), z.number()]);
+const getFx = (ctx: ToolCtx, id: string): EffectDef => {
+  const fx = (ctx.doc as any).effects?.[id];
+  if (!fx) throw new Error(`no effect "${id}" (effects: ${Object.keys((ctx.doc as any).effects ?? {}).join(', ') || 'none'}; studio add-effect)`);
+  return fx;
+};
+/** A character's motion id → the library action it plays ("strike" → "hammer-strike"). */
+const actionOf = (ctx: ToolCtx) => (character: string, clip: string): string | undefined => {
+  const o = Object.values(ctx.doc.objects).find((x) => x.name.toLowerCase() === character.toLowerCase() || x.id === character);
+  if (!o?.character) throw new Error(`no character "${character}"`);
+  const m: any = o.character.motions?.[clip];
+  if (!m) throw new Error(`${o.name} has no motion "${clip}" (have: ${Object.keys(o.character.motions ?? {}).join(', ')})`);
+  return m.action ?? clip;
+};
+const objByName = (ctx: ToolCtx, name: string) => {
+  const o = Object.values(ctx.doc.objects).find((x) => x.id === name || x.name.toLowerCase() === name.toLowerCase());
+  if (!o) throw new Error(`no object "${name}"`);
+  return o;
+};
+export function describeFx(fx: EffectDef): string {
+  const parts = fx.layers.map((l) => (l.kind === 'shape' ? `${l.count ?? 1} ${l.mesh}${(l.count ?? 1) > 1 ? 's' : ''}` : `${l.id} (${l.rate ? `${l.rate}/s` : `burst ${(l.bursts ?? []).reduce((s, b) => s + b.count, 0)}`})`));
+  return `${fx.name}: ${parts.join(' + ')}${fx.value ? `, size follows "${fx.value.name}"` : ''}${fx.triggers?.length ? `, fires on ${fx.triggers.map((t) => t.on).join(', ')}` : ''}`;
+}
+const Profile = z.enum(['godot-desktop', 'web', 'web-mobile']);
+const Trig = z.array(z.object({ on: z.string(), layer: z.string() }));
+
+export const EFFECT_TOOLS: ToolDef[] = [
+  {
+    name: 'add-effect', mode: 'create', mutates: true,
+    description: `Add an effect (Decisions 56–57): particles and shape effects (twisting flame meshes, rings, puffs with scrolling noise) compiled to Godot (GPU particles + a CPU fallback) and three.js (three.quarks). Presets: ${Object.entries(EFFECT_PRESETS).map(([k, v]) => `${k} — ${v.label}`).join('; ')}. --at [x,y,z] or --on <object> (sits on its largest flat top). --value <name> makes rates and flame height follow a 0–1 game value; --triggers [{on, layer}] fires a burst layer on a motion moment ("Blacksmith:hammer-strike@impact") or a game event ("fed"). --palette {name: hex} (the look palette when there is one).`,
+    input: z.object({
+      id: Id, preset: z.enum(Object.keys(EFFECT_PRESETS) as [string, ...string[]]).optional(), name: z.string().optional(),
+      at: V.optional(), on: z.string().optional(),
+      layers: z.array(z.any()).optional(), value: z.string().optional(), triggers: Trig.optional(),
+      palette: z.record(z.string(), z.string()).optional(), profile: Profile.optional(), warmup: z.boolean().optional(),
+    }),
+    example: `studio add-effect --id forge-fire --preset forge-fire --on hearth --value fire`,
+    run(ctx, a) {
+      if ((ctx.doc as any).effects?.[a.id]) throw new Error(`effect "${a.id}" exists (studio set-effect changes it)`);
+      if (!a.preset && !a.layers) throw new Error(`pass --preset (${Object.keys(EFFECT_PRESETS).join(', ')}) or --layers`);
+      const base = a.preset ? EFFECT_PRESETS[a.preset].make() : { loop: true, layers: [] as EffectLayer[] };
+      const fx: EffectDef = { id: a.id, name: a.name ?? a.id.replace(/-/g, ' ').replace(/^./, (c: string) => c.toUpperCase()), ...(a.preset ? { preset: a.preset } : {}), ...base };
+      if (a.layers) fx.layers = a.layers as EffectLayer[];
+      if (a.at) fx.at = a.at as V3;
+      if (a.on) fx.object = objByName(ctx, a.on).id;
+      if (a.value) fx.value = { name: a.value, default: fx.value?.default ?? 1 };
+      if (a.triggers) fx.triggers = a.triggers.map((t: any) => parseTrigger(t.on, t.layer, actionOf(ctx)));
+      if (a.palette) fx.palette = a.palette;
+      if (a.profile) fx.profile = a.profile;
+      if (a.warmup !== undefined) fx.warmup = a.warmup;
+      for (const c of fx.layers.flatMap((l) => l.colour)) resolveColour(c, { ...(fx.palette ?? {}) });
+      ctx.set(['effects'], { ...((ctx.doc as any).effects ?? {}), [a.id]: fx });
+      ctx.summary(`New effect — ${describeFx(fx)}`);
+      return { id: a.id, peak: peakParticles(fx), overdraw: overdraw(fx).screens, checks: effectChecks(fx) };
+    },
+  },
+  {
+    name: 'set-effect', mode: 'modify', mutates: true,
+    description: 'Change an effect: --layer <id> --set {field: value} edits one layer (rate, life, speed, size, colour, spread, gravity, turbulence, scroll, noise, flicker…); --value, --valueDefault, --triggers, --at/--on, --palette, --profile, --warmup as in add-effect. Any change clears the last parity review.',
+    input: z.object({
+      id: z.string(), layer: z.string().optional(), set: z.record(z.string(), z.any()).optional(),
+      at: V.optional(), on: z.string().optional(), value: z.string().optional(), valueDefault: z.number().min(0).max(1).optional(),
+      triggers: Trig.optional(), palette: z.record(z.string(), z.string()).optional(), profile: Profile.optional(), warmup: z.boolean().optional(),
+    }),
+    run(ctx, a) {
+      const fx: EffectDef = structuredClone(getFx(ctx, a.id));
+      const changed: string[] = [];
+      if (a.layer || a.set) {
+        const l = fx.layers.find((x) => x.id === a.layer);
+        if (!l) throw new Error(`no layer "${a.layer}" (layers: ${fx.layers.map((x) => x.id).join(', ')})`);
+        Object.assign(l, a.set ?? {});
+        changed.push(`${l.id} ${Object.keys(a.set ?? {}).join(', ')}`);
+      }
+      if (a.at) { fx.at = a.at as V3; delete fx.object; changed.push('position'); }
+      if (a.on) { fx.object = objByName(ctx, a.on).id; delete fx.at; changed.push(`on ${a.on}`); }
+      if (a.value) { fx.value = { name: a.value, default: fx.value?.default ?? 1 }; changed.push(`follows ${a.value}`); }
+      if (a.valueDefault !== undefined && fx.value) { fx.value.default = a.valueDefault; changed.push(`default ${a.valueDefault}`); }
+      if (a.triggers) { fx.triggers = a.triggers.map((t: any) => parseTrigger(t.on, t.layer, actionOf(ctx))); changed.push('triggers'); }
+      if (a.palette) { fx.palette = a.palette; changed.push('palette'); }
+      if (a.profile) { fx.profile = a.profile; changed.push(`profile ${a.profile}`); }
+      if (a.warmup !== undefined) { fx.warmup = a.warmup; changed.push(`warm-up ${a.warmup ? 'on' : 'off'}`); }
+      delete fx.review;
+      ctx.set(['effects', fx.id], fx);
+      ctx.summary(`${fx.name}: ${changed.join('; ') || 'no change'}`);
+      return { id: fx.id, peak: peakParticles(fx), overdraw: overdraw(fx).screens, checks: effectChecks(fx) };
+    },
+  },
+  {
+    name: 'remove-effect', mode: 'modify', mutates: true,
+    description: 'Remove an effect.',
+    input: z.object({ id: z.string() }),
+    run(ctx, a) {
+      const fx = getFx(ctx, a.id);
+      const rest = { ...((ctx.doc as any).effects ?? {}) }; delete rest[a.id];
+      ctx.set(['effects'], rest);
+      ctx.summary(`Removed effect ${fx.name}`);
+      return { removed: a.id };
+    },
+  },
+  {
+    name: 'effect-review', mode: 'review', mutates: true,
+    description: 'Store the Godot-vs-web parity of an effect (`studio game effect --against` measures it and calls this): score 0 = the same, ≤ 0.25 passes the fx-parity check.',
+    input: z.object({ id: z.string(), score: z.number().min(0), detail: z.string() }),
+    run(ctx, a) {
+      const fx: EffectDef = structuredClone(getFx(ctx, a.id));
+      fx.review = { parity: { score: a.score, detail: a.detail }, at: new Date().toISOString() };
+      ctx.set(['effects', fx.id], fx);
+      ctx.summary(`${fx.name}: Godot vs web ${a.score <= 0.25 ? 'match' : 'differ'} (${a.score})`);
+      return { id: fx.id, parity: fx.review.parity };
+    },
+  },
+  {
+    name: 'effect-info', mode: 'inspect', mutates: false,
+    description: 'Describe an effect (or list effects and presets): layers, the value it follows, triggers, peak particles, overdraw by layer, what the CPU fallback loses, and checks.',
+    input: z.object({ id: z.string().optional() }),
+    run(ctx, a) {
+      const all = Object.values((ctx.doc as any).effects ?? {}) as EffectDef[];
+      if (!a.id) return { effects: all.map((fx) => ({ id: fx.id, describe: describeFx(fx) })), presets: Object.fromEntries(Object.entries(EFFECT_PRESETS).map(([k, v]) => [k, v.label])) };
+      const fx = getFx(ctx, a.id);
+      return { ...fx, describe: describeFx(fx), peak: peakParticles(fx), overdraw: overdraw(fx), fallbackLoses: fallbackGaps(fx), checks: effectChecks(fx) };
+    },
+  },
+];

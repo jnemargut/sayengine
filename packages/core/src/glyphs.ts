@@ -37,6 +37,11 @@ function getFont(): Font {
   return font;
 }
 
+/** Width of `text` set at `px` (em size) in the studio font, with kerning — the UI kit's overflow check. */
+export function textAdvance(text: string, px: number): number {
+  return getFont().getAdvanceWidth(text, px, { kerning: true });
+}
+
 /** Cap height of the font as a share of its em size (H's height), for sizing text by cap height. */
 function capRatio(f: Font): number {
   const h = f.charToGlyph('H');

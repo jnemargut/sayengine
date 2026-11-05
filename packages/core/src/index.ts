@@ -28,6 +28,8 @@ export * from './print.ts';
 export * from './glyphs.ts';
 export * from './printtools.ts';
 export * from './cutscene.ts';
+export * from './effects.ts';
+export * from './uikit.ts';
 export * from './performance.ts';
 export * from './rigparts.ts';
 export * from './creatures.ts';
