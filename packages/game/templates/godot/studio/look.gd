@@ -104,10 +104,20 @@ static func apply(root: Node3D, rec: Dictionary = {}) -> bool:
 	sun.directional_shadow_max_distance = 260.0
 	root.add_child(sun)
 	_tweak_materials(root, L.get("materials", {}))
+	_flat_no_shadow(root)
 	var ol: Dictionary = L.get("outline", {})
 	if bool(ol.get("enabled", false)) and _graded_renderer():
 		root.add_child(_outline(ol))
 	return true
+
+## Flat town layers (ground, streets, parks, water) never cast shadows: at shadow-map resolution they
+## shadow the road just above them (acne). Same rule as the web.
+static func _flat_no_shadow(root: Node) -> void:
+	var flat := RegEx.create_from_string("(Ground|Streets|Parks[ _]and[ _]plazas|Water)$")
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if flat.search(String(mi.name)) or (mi.get_parent() and flat.search(String(mi.get_parent().name))):
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 ## Lambert diffuse everywhere, then material tweaks by shading class ("studio:world lit" → lit) or by material name.
 static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:

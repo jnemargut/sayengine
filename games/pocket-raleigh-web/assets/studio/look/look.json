@@ -13,9 +13,9 @@
     "saturation": 1.12,
     "vibrance": 0.15,
     "lift": [
-      0.012,
-      0.014,
-      0.03
+      0.01,
+      0.01,
+      0.018
     ],
     "gamma": [
       1,
@@ -28,8 +28,8 @@
       0.97
     ],
     "shadows": {
-      "color": "#3d5a80",
-      "amount": 0.12
+      "color": "#4a6688",
+      "amount": 0.05
     },
     "highlights": {
       "color": "#ffe8c2",
@@ -70,14 +70,14 @@
   "light": {
     "sun": {
       "color": "#fff3df",
-      "energy": 1.15,
-      "elevation": 52,
-      "azimuth": 38,
+      "energy": 1.1,
+      "elevation": 63,
+      "azimuth": 28,
       "shadows": true
     },
     "ambient": {
-      "color": "#c8d4e6",
-      "energy": 0.62
+      "color": "#d2d8e2",
+      "energy": 0.85
     }
   },
   "materials": {
@@ -97,17 +97,17 @@
   },
   "derived": {
     "toSun": [
-      0.3790390522001661,
-      0.788010753606722,
-      0.4851478631379983
+      0.2131356294026726,
+      0.8910065241883678,
+      0.4008498189258542
     ],
     "godotRotationDegrees": [
-      -52,
-      38,
+      -63,
+      28,
       0
     ],
-    "threeSunIntensity": 3.6128315516282616,
-    "threeAmbientIntensity": 1.9477874452256718,
+    "threeSunIntensity": 3.455751918948773,
+    "threeAmbientIntensity": 2.670353755551324,
     "lut": {
       "size": 33,
       "strip": "lut.png",

@@ -106,6 +106,8 @@ export async function applyLook(game: { renderer: THREE.WebGLRenderer; scene: TH
   Object.assign(sun.shadow.camera, { left: -420, right: 420, top: 420, bottom: -420, near: 10, far: 900 });
   sun.shadow.bias = -0.0004;
   scene.add(ambient, sun, sun.target);
+  // flat town layers never cast shadows (shadow acne on the road just above them); same rule as Godot
+  (game.studio ?? scene).traverse((o: any) => { if (o.isMesh && (/(Ground|Streets|Parks[ _]and[ _]plazas|Water)$/.test(o.name) || /(Ground|Streets|Parks[ _]and[ _]plazas|Water)$/.test(o.parent?.name ?? ''))) o.castShadow = false; });
   // material tweaks: by shading class ("world lit" → lit) or by material name
   const tweaks: Record<string, any> = L.materials ?? {};
   const root = game.studio ?? scene;
