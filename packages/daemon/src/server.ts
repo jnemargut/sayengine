@@ -10,7 +10,7 @@ import { runSandboxed } from './sandbox.ts';
 import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence, EMOTION_SCALE } from '../../core/src/lipsync.ts';
 import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../../core/src/phonemes.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
-import { setWorldCacheDir, worldNodes, addTownsToGlb, landmarkObjects, landmarkMeshes } from '../../core/src/world/index.ts';
+import { setWorldCacheDir, worldNodes, addTownsToGlb, landmarkObjects, landmarkMeshes, townView } from '../../core/src/world/index.ts';
 import { FsIO, RenderCache, renderKey, stamp } from '../../core/src/collab/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
@@ -437,6 +437,25 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         return json(200, d ?? studio.call(tool, args, author, why ? { why } : {}));
       }
       if (url.pathname === '/api/state') return json(200, studio.snapshot());
+      if (url.pathname === '/api/town') {
+        // one chunk of a town for the live view (Phase 10 step 3): never the whole town on an 8 GB Mac
+        const doc: any = url.searchParams.get('branch') === 'main' ? studio.mainDoc() : studio.doc();
+        const name = url.searchParams.get('name') ?? Object.keys(doc.world?.towns ?? {})[0];
+        const spec = name ? doc.world?.towns?.[name] : null;
+        if (!spec) return json(404, { ok: false, error: `no town "${name ?? ''}"` });
+        const num = (k: string) => (url.searchParams.has(k) ? Number(url.searchParams.get(k)) : undefined);
+        const cx = num('cx'), cz = num('cz');
+        const tv = townView(spec, doc.world, landmarkMeshes(studio, doc), { ...(cx !== undefined && cz !== undefined ? { center: [cx, cz] } : {}), ...(num('radius') ? { radius: num('radius') } : {}), ...(num('max') ? { maxBuildings: num('max') } : {}) });
+        return json(200, { ok: true, ...tv });
+      }
+      if (url.pathname === '/font/ui.woff') {
+        // the UI kit's OFL font, so the view measures text the way the checks do
+        try {
+          const f = fileURLToPath(import.meta.resolve('@fontsource/roboto/files/roboto-latin-700-normal.woff'));
+          res.writeHead(200, { 'content-type': 'font/woff', 'cache-control': 'max-age=86400' });
+          return res.end(fs.readFileSync(f));
+        } catch { res.writeHead(404); return res.end('no font'); }
+      }
       if (url.pathname.startsWith('/assets/')) {
         const id = url.pathname.slice(8);
         let bytes: Uint8Array;

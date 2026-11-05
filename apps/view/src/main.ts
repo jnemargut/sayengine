@@ -11,6 +11,7 @@ import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } 
 import { installGradePass, lutTexture, type GradePass } from '../../../packages/game/templates/web/studio/look.ts';
 import { buildLut, parseLook } from '../../../packages/core/src/look/look.ts';
 import { notesPanelHtml, cardHtml, statsHtml, pointingWords, type ViewNote, type Card, type ReviewStats } from './collab.ts';
+import { Panels } from './panels/index.ts';
 
 type V3 = [number, number, number];
 interface BBox { min: V3; max: V3 }
@@ -31,6 +32,8 @@ interface Prop { id: string; title: string; status: string; author: string; acti
 interface State {
   active: string; mainHead: string | null; commitCount: number; main: PackedObj[]; proposals: Prop[];
   history: { id: string; author: string; tool: string; summary: string; time: string }[];
+  /** Phase 10 step 3: towns (meshes from /api/town) and the UI kit with its checks */
+  towns?: any[]; ui?: any; takes?: any[];
   /** the scene's active look (Decision 29): its grade and outline drive the viewport, thumbnails and presentation renders */
   look?: any;
   activity: { time: string; author: string; tool: string; args: string; ok: boolean; summary?: string; error?: string }[];
@@ -63,6 +66,7 @@ let preview: { objects: PackedObj[]; obj: string } | null = null; // live slider
 let previewPending = false, previewQueued: { object: string; params: Record<string, number> } | null = null;
 let noteDraft = '';                 // the note being typed (kept across state updates)
 let compareStep: string | null = null; // the step whose before/after is open (viewport shows before)
+let panels!: Panels;                   // looks, towns, the UI kit (Phase 10 step 3), made once the scene exists
 
 // ── three.js ──────────────────────────────────────────────────────────
 const vpEl = $('#viewport');
@@ -119,7 +123,7 @@ function resize() {
 }
 new ResizeObserver(resize).observe(vpEl);
 resize();
-(function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+(function loop() { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); renderer.render(scene, camera); requestAnimationFrame(loop); })();
 
 // ── decoding & meshes ─────────────────────────────────────────────────
 function b64(s: string): ArrayBuffer {
@@ -258,7 +262,9 @@ function rebuildScene() {
   holders.clear();
   partHolder = null;
   const edgeStyle = { color: cssVar('--color-900', '#1c1917'), opacity: 0.14 };
-  const objs = shownObjects();
+  // landmarks a town swapped in are drawn inside the town, not again at the origin
+  const inTown = new Set<string>((state?.towns ?? []).flatMap((t: any) => t.landmarks ?? []));
+  const objs = shownObjects().filter((o) => !inTown.has(o.id));
   const sel = objs.find((o) => o.id === selectedObj);
   const selPart = sel && selectedPart ? sel.parts.find((p) => p.name === selectedPart) : null;
   const splitPart = selPart?.drag === 'op' && gizmoMode === 'translate' && !wire ? selPart.name : undefined;
@@ -295,8 +301,8 @@ function rebuildScene() {
   }
   const box = unionBox(objs.filter((o) => o.role !== 'reference'));
   fitShadow(keyLight, box);
-  $('#empty').classList.toggle('hidden', objs.length > 0);
-  const key = objs.map((o) => o.id).join('|');
+  $('#empty').classList.toggle('hidden', objs.length > 0 || !!panels?.town.view || !!state?.ui);
+  const key = panels?.town.view ? lastFrameKey : objs.map((o) => o.id).join('|');
   if (key && key !== lastFrameKey) { frame(objs, 'iso', camera, controls); lastFrameKey = key; }
   attachGizmo();
   const badge = $('#vpBadge');
@@ -308,7 +314,7 @@ function rebuildScene() {
 
 function attachGizmo() {
   gizmo.detach();
-  if (!editable() || !selectedObj || preview) return;
+  if (!editable() || !selectedObj || preview || panels?.noteTarget()) return;   // a building or UI element is selected: no gizmo on a model
   const o = shownObjects().find((x) => x.id === selectedObj);
   if (!o || o.reference?.kind === 'image') return;
   gizmo.setMode(gizmoMode);
@@ -452,7 +458,7 @@ function render() {
   }).join('') + '<div class="muted">Floor · y = 0</div>' : '<div class="muted">Empty scene</div>';
 
   // notes inbox (Decision 63): pin a note on what's selected
-  const pointing = pointingWords(obj?.name ?? null, selectedPart);
+  const pointing = panels.pointing() ?? pointingWords(obj?.name ?? null, selectedPart);
   if (document.activeElement?.id !== 'noteDraft') $('#notes').innerHTML = notesPanelHtml(state.notes ?? [], pointing, noteDraft);
 
   // checks
@@ -481,6 +487,12 @@ function render() {
       <input type="range" data-param="${esc(k)}" data-unit="${esc(p.unit ?? '')}" min="${lo}" max="${hi}" step="${step}" value="${v}"></div>`;
     }).join('') : '<div class="noparams">No parameters yet.</div>';
   $('#code').textContent = obj?.code ?? '';
+  // Phase 10 step 3: looks, towns and the UI kit (their own panel; a building or UI element takes the inspector)
+  const mp = document.getElementById('modePanel');
+  if (mp && !(document.activeElement as HTMLElement | null)?.closest?.('#modePanel input[type=range]')) { const h = panels.html(); mp.innerHTML = h; mp.classList.toggle('hidden', !h); }
+  const pi = panels.inspector();
+  if (pi) $('#checks').innerHTML = '';
+  if (pi && !(document.activeElement as HTMLElement | null)?.closest?.('.inspector input')) { $('#inspLabel').textContent = pi.label; $('#partInfo').innerHTML = pi.html; $('#params').innerHTML = ''; $('#code').textContent = ''; }
 
   // activity feed
   const acts = state.activity.filter((a) => !['scene', 'inspect', 'check', 'log', 'proposals', 'ops', 'status', 'materials'].includes(a.tool)).slice(state.proposals.length ? -4 : -9);
@@ -561,6 +573,12 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   downAt = null;
   if ((gizmo as any).axis) return; // clicked a gizmo handle
   const p = pickAt(e.clientX, e.clientY);
+  {
+    // buildings in a town, and pointing at a spot of the picture (looks), go to the panels
+    const r = renderer.domElement.getBoundingClientRect();
+    const objHit = p ? (() => { const h = ray.intersectObjects(objGroup.children, true)[0]; return h ? { obj: p.obj, part: p.part, distance: h.distance, point: h.point } : null; })() : null;
+    if (panels.onClick(ray, objHit, [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height])) return;
+  }
   if (!p) { if (selectedPart) select(selectedObj, null); return; }
   select(p.obj, p.part && p.part === selectedPart && p.obj === selectedObj ? null : p.part);
 });
@@ -589,9 +607,9 @@ function toast(msg: string) {
   setTimeout(() => t!.classList.remove('on'), 2600);
 }
 
-function call(tool: string, args: object) {
+function call(tool: string, args: object, why?: string) {
   if (!ws || ws.readyState !== 1) { toast('Not connected to the engine'); return; }
-  ws.send(JSON.stringify({ type: 'call', id: ++callSeq, tool, args }));
+  ws.send(JSON.stringify({ type: 'call', id: ++callSeq, tool, args, ...(why ? { why } : {}) }));
 }
 
 function setGizmoMode(m: 'translate' | 'rotate') {
@@ -607,6 +625,8 @@ document.addEventListener('click', (e) => {
     themePref = THEMES[(THEMES.indexOf(themePref as any) + 1) % THEMES.length];
     setTheme(themePref);
     rebuildScene();
+  } else if (t.dataset.act && panels.onAct(t)) {
+    // handled (look sliders' buttons, town fixes, UI kit tokens)
   } else if (t.dataset.act && collabAct(t)) {
     // handled (notes, card, before/after)
   } else if (t.dataset.act) {
@@ -708,9 +728,14 @@ let lookKey = '';
 let lookLut: THREE.Data3DTexture | null = null;
 let lookRec: any = null;
 const passes = new Map<THREE.WebGLRenderer, GradePass>();
+let bloomKey = '';
 function gradeOn(r: THREE.WebGLRenderer, on: boolean) {
-  const p = passes.get(r);
-  if (on && lookLut && !p) passes.set(r, installGradePass(r, lookLut, { outline: lookRec?.outline }));
+  let p = passes.get(r);
+  // glow is built into the pass: a new glow setting (the look's glow slider) re-installs it (the viewport only)
+  const bk = r === renderer ? JSON.stringify(lookRec?.bloom ?? null) : '';
+  if (p && r === renderer && bk !== bloomKey) { p.dispose(); passes.delete(r); p = undefined; }
+  if (r === renderer) bloomKey = bk;
+  if (on && lookLut && !p) passes.set(r, installGradePass(r, lookLut, { outline: lookRec?.outline, ...(r === renderer ? { bloom: lookRec?.bloom } : {}) }));
   else if (on && p) { p.setLut(lookLut); p.setOutline(lookRec?.outline); p.enabled = true; }
   else if (!on && p) p.enabled = false;
 }
@@ -902,8 +927,9 @@ function decodeF32(b64: string): Float32Array {
 document.addEventListener('input', (e) => { const t = e.target as HTMLInputElement; if (t.id === 'noteDraft') noteDraft = t.value; });
 function addNote() {
   const text = noteDraft.trim();
-  if (!text || !selectedObj) return;
-  call('notes', { action: 'add', text, at: selectedPart ? `${selectedObj}/${selectedPart}` : selectedObj });
+  const target = panels.noteTarget();
+  if (!text || (!selectedObj && !target)) return;
+  call('notes', { action: 'add', text, at: target?.at ?? { thing: selectedPart ? `${selectedObj}/${selectedPart}` : selectedObj, clock: 'none' } });
   noteDraft = '';
   ($('#noteDraft') as HTMLInputElement | null)?.blur();
 }
@@ -945,7 +971,13 @@ function placePins() {
   const live = (state.notes ?? []).filter((n) => n.status !== 'done' && n.address.clock === 'none');
   const html: string[] = [];
   const r = renderer.domElement.getBoundingClientRect(), vr = vpEl.getBoundingClientRect();
+  const project = (v: THREE.Vector3): [number, number] | null => { v.project(camera); if (v.z > 1) return null; return [r.left - vr.left + (v.x * 0.5 + 0.5) * r.width, r.top - vr.top + (-v.y * 0.5 + 0.5) * r.height]; };
   for (const n of live) {
+    const mine = panels.pinXY(n as any, project);
+    if (mine !== undefined) {
+      if (mine) html.push(`<div class="vp-pin ${n.status}" style="left:${mine[0].toFixed(1)}px;top:${mine[1].toFixed(1)}px" title="${esc(n.text)}"><b>${esc(n.id.slice(1))}</b><span>${esc(n.text.length > 34 ? n.text.slice(0, 33) + '…' : n.text)}</span></div>`);
+      continue;
+    }
     const [oid, part] = n.address.thing.split('/');
     const o = objs.find((x) => x.id === oid);
     if (!o) continue;
@@ -978,6 +1010,7 @@ function connect() {
       state = m.state;
       syncLook(state!.look ?? null);
       preview = null;
+      panels.onState(state);
       for (const o of [...state!.main, ...state!.proposals.flatMap((p) => p.objects)]) if (o.reference?.kind === 'image') void textureFor(o.reference.asset);
       render();
     } else if (m.type === 'preview') {
@@ -990,6 +1023,33 @@ function connect() {
     else if (m.type === 'call-result' && !m.result.ok) toast(m.result.error ?? 'error');
   };
 }
+// the step-3 panels: looks with sliders, towns you click to fix, the UI kit over the scene
+panels = new Panels({
+  scene, camera, renderer, vpEl,
+  call, toast,
+  sendSelect: (object, part) => { ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object, part })); },
+  setLookPreview: (look) => { syncLook(look ? { ...look, lutSize: 17 } : state?.look ?? null); },
+  rerender: () => render(),
+  frameBox: (box, dir = [1, 0.75, 1.15]) => {
+    const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+    const dist = (size * 0.5) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    camera.position.copy(c).addScaledVector(new THREE.Vector3(...dir).normalize(), dist);
+    camera.near = dist / 200; camera.far = dist * 20; camera.updateProjectionMatrix();
+    controls.target.copy(c); controls.update();
+    lastFrameKey = 'town';
+  },
+  shootUnder: (look, w, h) => {
+    syncLook(look);
+    renderer.render(scene, camera);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const src = renderer.domElement, sa = src.width / src.height, ta = w / h;
+    const sw = sa > ta ? src.height * ta : src.width, sh = sa > ta ? src.height : src.width / ta;
+    c.getContext('2d')!.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, w, h);
+    syncLook(state?.look ?? null);
+    return c.toDataURL('image/png');
+  },
+  thingWords: (thing) => { const [h, ...rest] = thing.split('/'); const o = state?.main.find((x) => x.id === h); return [o?.name ?? (h.startsWith('town:') ? h.slice(5) : h === 'ui' ? 'UI kit' : h.startsWith('look:') ? `look ${h.slice(5)}` : h), ...rest.map((x) => panels.town.building(x)?.label ?? x)].join(' / '); },
+});
 connect();
 
 // Automation hook (headless tests drive real pointer events; this only reports where things are).
@@ -1004,4 +1064,14 @@ connect();
   gizmoAxis: () => (gizmo as any).axis ?? null,
   attached: () => (gizmo.object ? { id: gizmo.object.userData.id, part: gizmo.object.userData.part ?? null, pivot: gizmo.object.userData.pivot } : null),
   selection: () => ({ object: selectedObj, part: selectedPart }),
+  /** Phase 10 step 3: the town's buildings (ids, for tests only — people click) and where one's roof is on screen. */
+  townIds: () => panels.town.view?.buildings.filter((b) => !b.hidden).map((b) => b.id) ?? [],
+  townScreen(id: string) {
+    const p = panels.town.pinPoint(id);
+    if (!p) return null;
+    p.y -= 0.5; p.project(camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    return [r.left + (p.x * 0.5 + 0.5) * r.width, r.top + (-p.y * 0.5 + 0.5) * r.height];
+  },
+  panelSelection: () => ({ building: panels.town.selected, ui: panels.ui.selected }),
 };

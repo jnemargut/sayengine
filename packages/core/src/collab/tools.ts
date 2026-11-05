@@ -34,7 +34,8 @@ export const COLLAB_TOOLS: ToolDef[] = [
   {
     name: 'notes', mode: 'review', mutates: false,
     description: 'The notes inbox (Decision 63): notes pinned on things and moments, each open / on-it / done / stale. --action list (default; --status all|open|on-it|done|stale), add (--text, --at; default the selection in the view), on-it|done|reopen (--id), stale (--id, --why), repin (--id, --at: re-point a stale note), refresh (re-resolve every note now). Stale = its moment is gone; notes are never moved silently.',
-    input: z.object({ action: z.enum(['list', 'add', 'on-it', 'done', 'reopen', 'stale', 'repin', 'refresh']).optional(), text: z.string().optional(), at: AtZ, id: z.string().optional(), status: z.string().optional(), why: z.string().optional() }),
+    input: z.object({ action: z.enum(['list', 'add', 'on-it', 'done', 'reopen', 'stale', 'repin', 'refresh']).optional(), text: z.string().optional(), at: AtZ, id: z.string().optional(), status: z.string().optional(), why: z.string().optional(),
+      region: z.object({ look: z.string().optional(), point: z.tuple([z.number(), z.number(), z.number()]).optional(), screen: z.tuple([z.number(), z.number()]).optional(), radius: z.number().optional() }).optional().describe('a spot on the picture (the view sends it when you point at a region: "too dark here")') }),
     example: 'studio notes add --text "the legs look too thin" --at selection',
     run(ctx, a) {
       const c = ctx.studio.collab;
@@ -49,7 +50,7 @@ export const COLLAB_TOOLS: ToolDef[] = [
         }
         case 'add': {
           if (!a.text) throw new Error('notes add needs --text');
-          const n = c.addNote(a.text, a.at ?? 'selection', { author: ctx.author, from: ctx.author === 'human' ? 'view' : 'cli' });
+          const n = c.addNote(a.text, a.at ?? 'selection', { author: ctx.author, from: ctx.author === 'human' ? 'view' : 'cli', ...(a.region ? { region: a.region } : {}) });
           ctx.summary(`${n.id}: "${n.text}" on ${c.describe(n.address)}`);
           out = { note: n, where: c.describe(n.address) };
           break;

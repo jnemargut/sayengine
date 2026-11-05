@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { Studio } from '../studio.ts';
 import type { Proposal } from '../history.ts';
 import { describeAddress, formatAddress, parseAddress, type MomentAddress, type Timeline } from './address.ts';
-import { addressFor, timelineFor } from './timelines.ts';
+import { addressFor, timelineFor, partWords } from './timelines.ts';
 import { Notes, emptyNotes, type Note, type NotesData, type NoteStatus } from './notes.ts';
 import { SEED_TASTE, addRule, formatTaste, parseTaste, rulesFromPicks, type Pick, type TasteRule } from './taste.ts';
 import { answerAsk, makeCard, skipAsk, skipRate, type Ask, type AskInput, type Card } from './card.ts';
@@ -57,6 +57,15 @@ export class FsIO implements CollabIO {
   where() { return { notes: this.file('notes.json'), picks: this.file('picks.json'), projectTaste: this.taste('project'), studioTaste: this.taste('studio') }; }
 }
 
+/** A thing's name in words: objects by name, "town:Pocket Raleigh" → "Pocket Raleigh", "ui" → "UI kit", "look:dusk" → "look dusk". */
+export function thingName(doc: any, id: string): string {
+  if (doc.objects?.[id]) return doc.objects[id].name;
+  if (id === 'ui') return 'UI kit';
+  if (id.startsWith('town:')) return id.slice(5);
+  if (id.startsWith('look:')) return `look ${id.slice(5)}`;
+  return id;
+}
+
 // ── the facade ────────────────────────────────────────────────────────────────────────────────────
 
 export class Collab {
@@ -89,10 +98,12 @@ export class Collab {
   }
 
   describe(a: MomentAddress, doc = this.studio.doc()): string {
-    return describeAddress(a, this.timelineOf(a, doc), (id) => doc.objects[id]?.name ?? id);
+    const head = a.thing.split('/')[0], part = a.thing.slice(head.length + 1);
+    const words = part && head.startsWith('town:') ? partWords.town?.(doc, head.slice(5), part) : null;
+    return describeAddress(words ? { ...a, thing: `${head}/${words}` } : a, this.timelineOf(a, doc), (id) => thingName(doc, id));
   }
 
-  addNote(text: string, at: unknown, opts: { author?: string; from?: Note['from']; proposal?: string; ask?: string } = {}): Note {
+  addNote(text: string, at: unknown, opts: { author?: string; from?: Note['from']; proposal?: string; ask?: string; region?: Note['region'] } = {}): Note {
     const a = this.address(at);
     const n = this.notes.add(text, a, { ...opts, basis: a.clock === 'none' ? null : this.timelineOf(a, this.studio.doc()) });
     this.saveNotes();
@@ -121,7 +132,7 @@ export class Collab {
     const doc = this.studio.doc();
     return this.notes.list({ status: 'all' }).slice(-60).map((n) => ({
       id: n.id, text: n.text, status: n.status, author: n.author, from: n.from, proposal: n.proposal,
-      address: n.address, where: this.describe(n.address, doc), compact: formatAddress(n.address),
+      address: n.address, where: this.describe(n.address, doc), compact: formatAddress(n.address), ...(n.region ? { region: n.region } : {}),
       why: [...n.log].reverse().find((l) => l.why)?.why,
     }));
   }

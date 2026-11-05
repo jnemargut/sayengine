@@ -21,6 +21,8 @@ import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
 import { bakeCreature, buildCreature, creatureChecks } from './rigparts.ts';
 import { Collab, stamp, stepAssets, type Clock } from './collab/index.ts';
+import { townsForState } from './world/view.ts';
+import { uiChecks, type UiKit } from './uikit.ts';
 
 export interface CallResult {
   ok: boolean;
@@ -415,7 +417,9 @@ export class Studio {
         return { ok: true, tool: name, branch, result, summary: 'no change' };
       }
       const c = this.history.record(author, name, summary || name, changes, args);
-      if (opts.why) c.note = String(opts.why);
+      // the word note: --why, or the words a tool read its change from (world-fix --words "flat roof")
+      const why = opts.why ?? (typeof (args as any).words === 'string' ? (args as any).words : undefined);
+      if (why) c.note = String(why);
       const touched = new Set(changes.filter((x) => x.path[0] === 'objects' && x.path[1]).map((x) => x.path[1]));
       const doc = this.doc();
       // objects placed on / linked to a touched object move with it: report their checks too
@@ -619,6 +623,8 @@ export class Studio {
       proposals: this.proposalsInfo(false).map((info) => ({
         ...info,
         objects: this.pack(this.proposalDoc(open.find((p) => p.id === info.id)!)),
+        // the proposal's look (a "show me three" take of a look is compared side by side in the view)
+        look: activeLook(this.proposalDoc(open.find((p) => p.id === info.id)!)),
       })),
       history: this.log('main', 12),
       activity: this.activity.slice(-40),
@@ -627,6 +633,14 @@ export class Studio {
       review: this.collab.stats(),
       takes: Object.values(h.data.takes ?? {}).filter((g) => g.status === 'open'),
       selection: this.selection,
+      // Phase 10 step 3: towns (meshes come from /api/town, by stamp) and the UI kit with its checks per profile
+      towns: townsForState((main as any).world),
+      ui: (main as any).ui ? uiForView((main as any).ui) : null,
     };
   }
+}
+
+/** The UI kit for the view: the kit and its checks on both screens (mobile and desktop). */
+export function uiForView(ui: UiKit) {
+  return { kit: ui, checks: { mobile: uiChecks({ ...ui, profile: 'mobile' }), desktop: uiChecks({ ...ui, profile: 'desktop' }) }, profile: ui.profile ?? 'mobile' };
 }

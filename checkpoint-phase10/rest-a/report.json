@@ -1,0 +1,155 @@
+{
+  "made": "2026-11-05T21:48:53.279Z",
+  "shots": [
+    "checkpoint-phase10/rest-a/look-sliders.png",
+    "checkpoint-phase10/rest-a/look-point-bubble.png",
+    "checkpoint-phase10/rest-a/look-point-pinned.png",
+    "checkpoint-phase10/rest-a/look-three.png",
+    "checkpoint-phase10/rest-a/town-selected.png",
+    "checkpoint-phase10/rest-a/town-fixed.png",
+    "checkpoint-phase10/rest-a/town-landmark.png",
+    "checkpoint-phase10/rest-a/ui-mobile-selected.png",
+    "checkpoint-phase10/rest-a/ui-mobile-overflow.png",
+    "checkpoint-phase10/rest-a/ui-mobile-tap.png",
+    "checkpoint-phase10/rest-a/ui-desktop.png"
+  ],
+  "scenes": {
+    "look": {
+      "whiteBalanceRelease": {
+        "steps": 1,
+        "note": "warmer: white balance 6200 K → 5600 K"
+      },
+      "fogNote": "thicker fog: fog density 15% → 30%",
+      "sunNote": "sun lower: sun height 63° → 30°",
+      "regionNote": {
+        "text": "too dark here",
+        "thing": "town:Pocket Raleigh/ov:643bc1cd-24b5-44dd-97e3-84a55385836b",
+        "region": {
+          "look": "day-toy",
+          "point": [
+            -44.042,
+            13.613,
+            42.255
+          ],
+          "screen": [
+            0.326,
+            0.695
+          ]
+        }
+      },
+      "three": {
+        "takes": [
+          "warm and soft",
+          "cool and crisp",
+          "rich and punchy"
+        ],
+        "distinct": [
+          {
+            "a": "warm and soft",
+            "b": "cool and crisp",
+            "distance": 0.59
+          },
+          {
+            "a": "warm and soft",
+            "b": "rich and punchy",
+            "distance": 0.47
+          },
+          {
+            "a": "cool and crisp",
+            "b": "rich and punchy",
+            "distance": 0.509
+          }
+        ]
+      },
+      "viewErrors": []
+    },
+    "town": {
+      "clickedFirstTry": true,
+      "tried": 1,
+      "picked": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a",
+      "selection": {
+        "object": "town:Pocket Raleigh",
+        "part": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a"
+      },
+      "wordsStep": {
+        "steps": 1,
+        "note": "flat roof, two storeys taller",
+        "fix": {
+          "id": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a",
+          "set": {
+            "roof": "flat",
+            "floors": 16
+          },
+          "note": "flat roof, two storeys taller",
+          "at": [
+            -71.74,
+            69.81
+          ]
+        }
+      },
+      "brickNote": "brick",
+      "swapNote": "swap in the Lantern tower",
+      "fixLayer": [
+        {
+          "id": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a",
+          "set": {
+            "roof": "flat",
+            "floors": 16
+          },
+          "note": "flat roof, two storeys taller"
+        },
+        {
+          "id": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a",
+          "set": {
+            "wall": "#9c4f3e"
+          },
+          "note": "brick"
+        },
+        {
+          "id": "ov:ba057827-26dc-4a3f-8b4d-561f5ffe876a",
+          "model": "lantern-tower"
+        }
+      ],
+      "viewErrors": []
+    },
+    "ui": {
+      "address": {
+        "thing": "ui/pump",
+        "clock": "none",
+        "of": "538cdcf0da"
+      },
+      "sizeStep": {
+        "steps": 1,
+        "note": "bigger text: pump text size 24 → 44 px"
+      },
+      "overflowAtSize44": {
+        "id": "ui-overflow",
+        "label": "Text fits when translated (pseudolocalised +40%)",
+        "pass": false,
+        "detail": "pump \"Pump\" needs 194 px of 144 when translated"
+      },
+      "tap": {
+        "mobile": {
+          "id": "ui-tap",
+          "label": "Tap targets ≥ 44 px",
+          "pass": false,
+          "detail": "pump is 38 px on a 844×390 screen"
+        },
+        "desktop": {
+          "id": "ui-tap",
+          "label": "Tap targets ≥ 44 px",
+          "pass": true,
+          "detail": "buttons and slots are ≥ 44 px on a 1280×720 screen (desktop)"
+        }
+      },
+      "notes": [
+        "bigger text: pump text size 24 → 44 px",
+        "smaller text: pump text size 44 → 24 px",
+        "narrower: pump width 180 → 70 px",
+        "shorter: pump height 88 → 70 px",
+        "fill: pump accent → good"
+      ],
+      "viewErrors": []
+    }
+  }
+}

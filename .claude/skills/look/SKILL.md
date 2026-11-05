@@ -25,6 +25,13 @@ Neither engine picks its own tonemapper. Both output the **transport** — Reinh
 - Material classes: towns carry `matte`, `glossy`, `metal`, `water`, plus `lit` (some windows), `lamp` (sodium street lamps), `led` (white LED lamps), `neon` (blade signs), `sign` (sign bands), `shop` (shop windows), `flood` (floodlit landmark stone) and `pool` (light pools under lamps and masts, shop spill on the sidewalk: additive, unlit, drawn only when the look gives `pool` an `emissionEnergy`; its vertex colours carry the falloff and hue). A studio model's part joins a class when its material name ends in that word (`set-material --name "lantern lamp"`) — only when the model rides in a town (landmark or placed prop); stand-alone studio objects are baked to one texture.
 - **toon is in the record but not drawn yet** (say so if asked).
 
+## In the live view: sliders, pointing, three takes (Phase 10)
+
+- With a look active, the view's Look panel has sliders for exposure, white balance (Kelvin; lower = warmer), contrast, saturation, fog density (0–100 %), sun height, direction, colour (Kelvin) and strength, and — on looks with lamps or glow — lamp strength and glow. Dragging previews in the viewport only; **releasing is one `look-set` step** with its word note, e.g. "warmer: white balance 6200 K → 5600 K". When you change a look yourself, give the same kind of note: `look-set … --why "thicker fog: fog density 15% → 40%"` (`knobStep` in `packages/core/src/look/knobs.ts` writes it).
+- "Sky, fog, sun and lamps too" (on by default) shows the whole look in the viewport, not only the grade.
+- **Point**: the user clicks a spot ("too dark here"). The note is pinned on the thing under it (a model part, a town building, or `look:<name>` on empty sky) with a `region` (the look, the 3D point, the screen spot). `./studio notes` shows it; read the region before changing anything, and fix it locally if you can (a lamp, a material class) before re-grading the whole look.
+- **Show me three** (the panel's button, or `show-three` with `lookTakes(look)`): warm and soft / cool and crisp / rich and punchy, rendered side by side under the same view with a per-section compare and a pick card. Picks feed the taste file like any other.
+
 ## Into the games
 
 `./studio game import --project <game>` writes `assets/studio/look/` (`look.json`, `lut.png` strip, `look.cube`). The game's `main.gd` / `main.ts` call `LOOK.apply(self)` / `applyLook(game)`. Godot's Compatibility renderer (or `fallback: "bake"`) gets the grade **baked into the GLB's colours** instead (exact under the look's reference light; textures keep only a graded factor).

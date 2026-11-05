@@ -9,4 +9,6 @@ export { applyFixes, findTarget, validateFix, type Fix, type FixReport } from '.
 export { realPlan, inventedPlan, remixPlan, sketchFromDescription, lotsAlongStreets, type RawArea, type Sketch } from './sources.ts';
 export { townNodes, nodeTriangles, type TownNode, type ModelMesh } from './mesh.ts';
 export { buildTown, worldNodes, addTownsToGlb, landmarkObjects, creditsText, setWorldCacheDir, worldCacheDir, loadArea, listAreas, type TownSpec, type WorldState } from './town.ts';
+export { fixFromWords, WALL_WORDS, type WordsFix } from './words.ts';
 export { WORLD_TOOLS, worldChecks, landmarkMesh, landmarkMeshes } from './tools.ts';
+export { townView, townsForState, buildingSource, buildingLabel, CHUNK_DEFAULT, type TownView, type TownChunk, type ViewBuilding } from './view.ts';

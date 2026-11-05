@@ -23,6 +23,11 @@ Decisions 61–64. The same few habits for any asset: models, looks, actions, so
   Clocks: `none` (a part), `clip:<motion>`, `shot:<cutscene>`, `beats:<track>`, `sound:<file>`, `game` (+ seed, build).
 - When you mention a time to the user, use the view's words ("1.4 s", "bar 9", "10:32", "shot 3"), never ticks.
 
+## Pointing at towns, looks and the UI kit (Phase 10 step 3)
+
+- A clicked building is `town:<town>/<stable id>`; a HUD element is `ui/<id>`; a spot on the picture under a look is a note with a `region` (look, 3D point, screen spot) on whatever was under it. Describe them in words, never ids.
+- Sliders in the view (look knobs, UI element tokens) make **one step per release** with a note like "warmer: white balance 6200 K → 5600 K" or "bigger text: pump text size 24 → 44 px". Match that style when you change the same things.
+
 ## Steps: one word note, one step
 
 - Each step answers about one word note: "slower", "warmer", "swap the clink". Pass the note with

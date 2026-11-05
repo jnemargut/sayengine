@@ -1,0 +1,69 @@
+/* Phase 10 step 3 panels: looks with sliders, towns you click to fix, the UI kit over the scene. */
+.panel.modes.hidden { display:none; }
+.rightcol:has(#modePanel:not(.hidden)) { grid-template-rows:minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.7fr); }
+.modes { padding:var(--space-3) var(--space-4); }
+.pn-sep { height:1px; background:var(--color-200); margin:var(--space-3) 0; }
+.lk-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+.lk-head .label { margin:0; } .lk-head .label b { color:var(--color-900); font-weight:600; }
+.lk-btns { display:flex; gap:4px; }
+.lk-btns button, .tw-chips button, .lk-chips button, .lk-take button, .tw-say button, .tw-swap button, .modes .ghost, .uk-insp .ghost, .lk-bubble .ghost, .tw .ghost, .tw-step {
+  font-size:var(--text-xs); border:1px solid var(--color-200); background:var(--color-50); color:var(--color-700); border-radius:999px; padding:3px 10px; }
+.lk-btns button.on { background:var(--accent-sage-soft); border-color:var(--accent-sage); color:var(--accent-sage-ink); }
+.lk-full { display:flex; gap:6px; align-items:center; font-size:var(--text-xs); color:var(--color-500); margin-bottom:6px; }
+.lk-hint { font-size:var(--text-xs); color:var(--accent-sage-ink); background:var(--accent-sage-soft); border-radius:8px; padding:6px 8px; margin-bottom:6px; }
+.lk-group { margin-top:6px; }
+.lk-g { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--color-400); margin:8px 0 2px; }
+.lk-g em { text-transform:none; font-style:normal; color:var(--color-600); letter-spacing:0; }
+.lk-row { margin:2px 0 4px; }
+.lk-top { display:flex; justify-content:space-between; font-size:var(--text-xs); color:var(--color-700); }
+.lk-top b { font-family:var(--font-mono); font-weight:500; color:var(--color-900); }
+.lk-top em { font-style:normal; color:var(--color-400); }
+.lk-row input[type=range] { width:100%; accent-color:var(--accent-sage); height:16px; }
+/* Kelvin sliders run from warm (low K, left) to cool (high K, right): the track says which way is which */
+.lk-row input.kelvin { background:linear-gradient(90deg, #ffb46b, #cfe0ff); border-radius:8px; height:6px; appearance:none; }
+.lk-row input.kelvin::-webkit-slider-thumb { appearance:none; width:14px; height:14px; border-radius:50%; background:var(--color-50); border:2px solid var(--accent-sage); }
+.lk-foot { font-size:11px; color:var(--color-400); margin-top:6px; }
+.lk-three { margin-top:10px; border:1px solid var(--color-200); border-radius:var(--radius-md); padding:8px; }
+.lk-takes { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+.lk-take img { width:100%; aspect-ratio:8/5; object-fit:cover; border-radius:6px; background:var(--color-200); display:block; }
+.lk-tl { font-size:var(--text-xs); font-weight:600; margin-top:3px; } .lk-tr { font-size:10px; color:var(--color-500); margin-bottom:3px; }
+.lk-cmp { width:100%; font-size:10px; border-collapse:collapse; margin-top:6px; color:var(--color-600); }
+.lk-cmp th { text-align:left; font-weight:500; color:var(--color-500); padding:2px 4px 2px 0; vertical-align:top; width:22%; }
+.lk-cmp td { padding:2px 3px; vertical-align:top; font-family:var(--font-mono); }
+.lk-bubble-layer { position:absolute; inset:0; pointer-events:none; z-index:6; }
+.lk-bubble { position:absolute; transform:translate(-50%, 14px); pointer-events:auto; background:var(--color-50); border-radius:var(--radius-md); box-shadow:var(--shadow-3); padding:10px; width:250px; font-size:var(--text-xs); }
+.lk-bubble::before { content:''; position:absolute; left:50%; top:-14px; margin-left:-6px; width:12px; height:12px; border-radius:50%; border:2px solid var(--accent-danger); background:transparent; }
+.lk-bq { font-weight:600; margin-bottom:6px; } .lk-bq span { font-weight:400; color:var(--color-500); }
+.lk-chips, .tw-chips { display:flex; flex-wrap:wrap; gap:4px; margin:4px 0; }
+.lk-bubble input, .tw-say input { width:100%; border:1px solid var(--color-200); border-radius:8px; padding:5px 8px; font:inherit; font-size:var(--text-xs); background:var(--color-50); color:var(--color-900); margin:4px 0; }
+.tw-chunk { font-size:var(--text-xs); color:var(--color-600); }
+.tw-err { font-size:var(--text-xs); color:var(--accent-danger); }
+.tw-title { font-weight:600; font-size:var(--text-sm); margin-bottom:6px; } .tw-title span { font-weight:400; color:var(--color-500); }
+.tw-row { display:flex; justify-content:space-between; align-items:center; font-size:var(--text-xs); color:var(--color-600); padding:2px 0; }
+.tw-row b { font-weight:500; color:var(--color-900); display:flex; align-items:center; gap:6px; } .tw-row em { font-style:normal; color:var(--color-400); }
+.tw-row select, .tw-swap select { font:inherit; font-size:var(--text-xs); border:1px solid var(--color-200); border-radius:6px; background:var(--color-50); color:var(--color-900); padding:1px 4px; }
+.tw-step { padding:0 7px; }
+.tw-sw { width:12px; height:12px; border-radius:3px; display:inline-block; border:1px solid var(--color-300); }
+.tw-src { font-size:11px; color:var(--color-500); margin:6px 0; word-break:break-word; }
+.tw-fixes { font-size:11px; color:var(--accent-sage-ink); background:var(--accent-sage-soft); border-radius:6px; padding:4px 6px; margin:4px 0; }
+.tw-rules { font-size:11px; color:var(--color-400); }
+.tw-say { display:flex; gap:4px; align-items:center; margin-top:6px; } .tw-say input { margin:0; }
+.tw-swap { display:flex; gap:4px; align-items:center; margin:4px 0; } .tw-swap select { flex:1; }
+.tw-addr { font-size:11px; color:var(--color-400); margin-top:8px; }
+/* the UI kit over the scene */
+.uk-overlay { position:absolute; inset:0; pointer-events:none; z-index:4; }
+.uk-frame { position:absolute; border:2px solid var(--color-400); border-radius:14px; pointer-events:none; overflow:hidden; }
+.uk-frame.mobile { border-radius:26px; border-width:3px; }
+.uk-frame .ui-root > * { pointer-events:auto; cursor:pointer; }
+.uk-frame .ui-root > .uk-sel { outline:2px dashed #5b8c7a; outline-offset:3px; }
+.uk-safe { position:absolute; border:1px dashed rgba(212,85,58,.45); border-radius:8px; pointer-events:none; }
+.uk-cap { position:absolute; left:10px; bottom:-1px; font:500 10px var(--font-body); color:#fff; background:rgba(28,25,23,.55); padding:1px 8px; border-radius:6px 6px 0 0; }
+.uk-noicon { font-size:10px; opacity:.6; }
+.uk-checks { width:100%; font-size:var(--text-xs); border-collapse:collapse; margin-top:4px; }
+.uk-checks th { text-align:left; font-weight:500; color:var(--color-600); padding:1px 0; } .uk-checks td { text-align:center; width:56px; }
+.uk-checks tr:first-child th { font-size:10px; color:var(--color-400); text-align:center; }
+.uk-ck.ok { color:var(--accent-sage); } .uk-ck.bad { color:var(--accent-danger); font-weight:600; }
+.uk-fails { font-size:11px; color:var(--accent-danger); margin-top:4px; }
+.uk-chips { display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 4px; align-items:center; }
+.uk-chip { width:20px; height:20px; border-radius:6px; border:1px solid var(--color-300); }
+.uk-chip.on { outline:2px solid var(--accent-sage); outline-offset:1px; }

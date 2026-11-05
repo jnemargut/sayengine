@@ -15,7 +15,11 @@ export interface UiTokens {
   icon: { stroke: number; ink: string };
 }
 export type UiPart = 'panel' | 'button' | 'bar' | 'slot' | 'tooltip' | 'card' | 'bubble' | 'label';
-export interface UiElement { id: string; part: UiPart; x: number; y: number; w: number; h: number; text?: string; icon?: string; value?: number; anchor?: 'tl' | 'tr' | 'bl' | 'br' | 'center' }
+export type PaletteKey = keyof UiTokens['palette'];
+/** One element's own tokens (Phase 10 step 3: picked in the live view): text size (px at 1280×720),
+ *  fill and text colours from the kit's palette, padding (px). Unset = the part's defaults. */
+export interface UiElementStyle { size?: number; fill?: PaletteKey; ink?: PaletteKey; pad?: number }
+export interface UiElement { id: string; part: UiPart; x: number; y: number; w: number; h: number; text?: string; icon?: string; value?: number; anchor?: 'tl' | 'tr' | 'bl' | 'br' | 'center'; style?: UiElementStyle }
 export interface UiIcon { svg: string; score?: IconScore }
 export interface IconScore { coverage: number; centre: number; extent: number; maxOverlap: { with: string; iou: number }; pass: boolean; notes: string[] }
 export interface UiKit {
@@ -131,18 +135,27 @@ export function pseudo(s: string): string {
   const pad = Math.ceil(s.length * 0.4);
   return `[${acc}${' ~·'.repeat(Math.ceil(pad / 3)).slice(0, pad)}]`;
 }
-const PAD: Record<UiPart, number> = { panel: 16, button: 18, bar: 10, slot: 6, tooltip: 12, card: 32, bubble: 16, label: 10 };
-const fontPx = (e: UiElement, t: UiTokens) => (e.part === 'card' ? t.font.title : e.part === 'bar' || e.part === 'tooltip' ? t.font.size * 0.85 : t.font.size);
+export const PAD: Record<UiPart, number> = { panel: 16, button: 18, bar: 10, slot: 6, tooltip: 12, card: 32, bubble: 16, label: 10 };
+/** Each part's colours from the palette (what the CSS and the Godot theme use), unless the element picks its own. */
+export const PART_COLOURS: Record<UiPart, { fill: PaletteKey; ink: PaletteKey }> = {
+  panel: { fill: 'panel', ink: 'ink' }, button: { fill: 'accent', ink: 'accentInk' }, bar: { fill: 'bg', ink: 'ink' }, slot: { fill: 'bubble', ink: 'ink' },
+  tooltip: { fill: 'bg', ink: 'ink' }, card: { fill: 'panel', ink: 'accent' }, bubble: { fill: 'bubble', ink: 'bubbleInk' }, label: { fill: 'panel', ink: 'ink' },
+};
+export const fontPx = (e: UiElement, t: UiTokens) => e.style?.size ?? (e.part === 'card' ? t.font.title : e.part === 'bar' || e.part === 'tooltip' ? t.font.size * 0.85 : t.font.size);
+export const padPx = (e: UiElement) => e.style?.pad ?? PAD[e.part];
+export const elementColours = (e: UiElement) => ({ fill: e.style?.fill ?? PART_COLOURS[e.part].fill, ink: e.style?.ink ?? PART_COLOURS[e.part].ink });
 
 export function uiChecks(ui: UiKit): CheckResult[] {
   const t = ui.tokens, p = t.palette, out: CheckResult[] = [];
   const pairs: Array<[string, string, string]> = [['text on panels', p.ink, p.panel], ['muted text on panels', p.muted, p.panel], ['button text', p.accentInk, p.accent], ['speech bubble text', p.bubbleInk, p.bubble], ['tooltip text', p.ink, p.bg]];
+  // elements that picked their own colours are checked as themselves
+  for (const e of ui.layout) if (e.style?.fill || e.style?.ink) { const c = elementColours(e); if (p[c.ink] && p[c.fill]) pairs.push([`${e.id} text`, p[c.ink], p[c.fill]]); }
   const low = pairs.map(([k, a, b]) => [k, contrast(a, b)] as const).filter(([, r]) => r < 4.5);
   out.push({ id: 'ui-contrast', label: 'Text contrast (WCAG AA 4.5:1)', pass: !low.length, detail: low.length ? low.map(([k, r]) => `${k} ${r.toFixed(1)}:1`).join('; ') : pairs.map(([k, a, b]) => `${k} ${contrast(a, b).toFixed(1)}:1`).join(', ') });
   const over: string[] = [];
   for (const e of ui.layout) {
     if (!e.text) continue;
-    const px = fontPx(e, t), room = e.w - 2 * PAD[e.part];
+    const px = fontPx(e, t), room = e.w - 2 * padPx(e);
     let w: number;
     try { w = textAdvance(pseudo(e.text), px); } catch { w = pseudo(e.text).length * px * 0.55; }
     if (w > room) over.push(`${e.id} "${e.text}" needs ${Math.ceil(w)} px of ${room} when translated`);
@@ -264,6 +277,33 @@ export const UI_TOOLS: ToolDef[] = [
       const checks = uiChecks(base);
       ctx.summary(`UI kit: ${base.tokens.font.family}, ${base.tokens.border.style} ${base.tokens.border.width} px borders, ${base.layout.length} HUD parts — ${checks.filter((c) => !c.pass && !c.pending).length} failing checks`);
       return { tokens: base.tokens, layout: base.layout.length, checks };
+    },
+  },
+  {
+    name: 'ui-style', mode: 'modify', mutates: true,
+    description: 'Change one HUD element\'s own tokens (the live view\'s sliders call this; each release is one step): --element <id> --set {size (text px at 1280×720), fill, ink (palette names: bg, panel, edge, ink, muted, accent, accentInk, good, bad, bubble, bubbleInk), pad (px), w, h (px at 1280×720)}; null puts a token back to the part\'s default. The checks (contrast, overflow when translated, tap size) re-run on it.',
+    input: z.object({ element: z.string(), set: z.record(z.string(), z.any()) }),
+    example: `studio ui-style --element pump --set '{"size":30,"fill":"good"}'`,
+    run(ctx, a) {
+      const ui = structuredClone(getUi(ctx));
+      const i = ui.layout.findIndex((e) => e.id === a.element);
+      if (i < 0) throw new Error(`no HUD element "${a.element}" (have: ${ui.layout.map((e) => e.id).join(', ')})`);
+      const e = { ...ui.layout[i] }, st: UiElementStyle = { ...(e.style ?? {}) };
+      const keys = Object.keys(ui.tokens.palette);
+      for (const [k, v] of Object.entries(a.set)) {
+        if (k === 'w' || k === 'h') { if (!(Number(v) > 0)) throw new Error(`${k} must be > 0`); e[k] = Math.round(Number(v)); continue; }
+        if (!['size', 'fill', 'ink', 'pad'].includes(k)) throw new Error(`"${k}" is not an element token (size, fill, ink, pad, w, h)`);
+        if (v === null) { delete (st as any)[k]; continue; }
+        if ((k === 'fill' || k === 'ink') && !keys.includes(String(v))) throw new Error(`${k} must be a palette colour: ${keys.join(', ')}`);
+        if ((k === 'size' || k === 'pad') && !(Number(v) >= 0)) throw new Error(`${k} must be a number of px`);
+        (st as any)[k] = k === 'size' || k === 'pad' ? +Number(v).toFixed(1) : v;
+      }
+      if (Object.keys(st).length) e.style = st; else delete e.style;
+      ui.layout[i] = e;
+      ctx.set(['ui', 'layout', String(i)], e);
+      const checks = uiChecks(ui);
+      ctx.summary(`UI ${e.id}: ${Object.entries(a.set).map(([k, v]) => `${k} ${v ?? 'default'}`).join(', ')} — ${checks.filter((c) => !c.pass && !c.pending).length} failing checks`);
+      return { element: e, checks };
     },
   },
   {
