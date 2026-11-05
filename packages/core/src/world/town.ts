@@ -6,7 +6,7 @@ import { applyRules } from './rules.ts';
 import { applyFixes, type Fix, type FixReport } from './fixes.ts';
 import { inventedPlan, realPlan, remixPlan, type RawArea, type Sketch } from './sources.ts';
 import { townNodes, nodeTriangles, type ModelMesh, type TownNode, type V3 } from './mesh.ts';
-import type { TownPlan } from './plan.ts';
+import { groundAt, type TownPlan } from './plan.ts';
 
 export interface TownSpec {
   name: string;
@@ -18,6 +18,9 @@ export interface TownSpec {
   sketch?: Sketch;
   blocks?: number;
   offset?: [number, number, number];   // where the town sits in the scene (metres)
+  /** meet a neighbouring town's ground along the shared edge: this town's ground is feathered over
+   *  `feather` metres toward the neighbour's built ground (two DEM grids never sample alike) */
+  seam?: { town: string; feather?: number };
   fixes: Fix[];
 }
 export interface WorldState { towns: Record<string, TownSpec> }
@@ -47,18 +50,48 @@ export function listAreas(): Array<{ area: string; bbox: any; fetchedAt: string 
 
 export interface BuiltTown { spec: TownSpec; plan: TownPlan; fixes: FixReport; key: string }
 const built = new Map<string, BuiltTown>();
+const knownSpecs = new Map<string, TownSpec>();
+
+/** Feather a plan's ground toward a neighbour's ground along the neighbour's outline (before the rules). */
+function applySeam(plan: TownPlan, spec: TownSpec, other: BuiltTown): void {
+  const g = plan.ground, og = other.plan.ground;
+  const off = spec.offset ?? [0, 0, 0], oo = other.spec.offset ?? [0, 0, 0];
+  const at: [number, number, number] = [off[0] - oo[0], off[1] - oo[1], off[2] - oo[2]];   // this local + at = other local
+  const feather = spec.seam?.feather ?? 60;
+  const ox0 = og.x0, ox1 = og.x0 + og.dx * (og.nx - 1), oz0 = og.z0, oz1 = og.z0 + og.dz * (og.nz - 1);
+  const before = g.heights.slice();
+  const tg = { ...g, heights: before };
+  for (let j = 0; j < g.nz; j++) for (let i = 0; i < g.nx; i++) {
+    const x = g.x0 + i * g.dx, z = g.z0 + j * g.dz;
+    // nearest point of the neighbour's ground rectangle (in its local frame)
+    const px = Math.min(ox1, Math.max(ox0, x + at[0])), pz = Math.min(oz1, Math.max(oz0, z + at[2]));
+    const d = Math.hypot(px - (x + at[0]), pz - (z + at[2]));
+    if (d >= feather) continue;
+    const target = groundAt(og, px, pz) - at[1];
+    const mine = groundAt(tg, px - at[0], pz - at[2]);
+    const w = 1 - d / feather, s = w * w * (3 - 2 * w);
+    g.heights[j * g.nx + i] = +(before[j * g.nx + i] + (target - mine) * s).toFixed(3);
+  }
+}
 
 /** Build (or reuse) a town's plan: source, rules, then the fix layer. */
-export function buildTown(spec: TownSpec): BuiltTown {
+export function buildTown(spec: TownSpec, world?: WorldState): BuiltTown {
+  knownSpecs.set(spec.name, spec);
+  let seamWith: BuiltTown | null = null;
+  if (spec.seam) {
+    const os = world?.towns?.[spec.seam.town] ?? knownSpecs.get(spec.seam.town);
+    if (os && os.name !== spec.name) seamWith = buildTown(os, world);
+  }
   let stamp = '';
   if (spec.area) { try { stamp = String(nodeFs().statSync(nodePath().join(worldCacheDir(), spec.area, 'meta.json')).mtimeMs); } catch { /* reported by loadArea */ } }
-  const key = JSON.stringify([spec.source, spec.area, spec.style, spec.seed, spec.description, spec.sketch, spec.blocks, spec.fixes, stamp]);
+  const key = JSON.stringify([spec.source, spec.area, spec.style, spec.seed, spec.description, spec.sketch, spec.blocks, spec.fixes, stamp, spec.seam, spec.offset, seamWith?.key ?? '', seamWith?.spec.offset ?? '']);
   const hit = built.get(spec.name);
   if (hit && hit.key === key) return { ...hit, spec };
   let plan: TownPlan;
   if (spec.source === 'real') plan = realPlan(spec.name, loadArea(spec.area!), spec.style);
   else if (spec.source === 'remix') plan = remixPlan(spec.name, loadArea(spec.area!), { style: spec.style, seed: spec.seed });
   else plan = inventedPlan(spec.name, { style: spec.style, seed: spec.seed, description: spec.description, sketch: spec.sketch, blocks: spec.blocks });
+  if (seamWith) applySeam(plan, spec, seamWith);
   applyRules(plan);
   const fixes = applyFixes(plan, spec.fixes ?? []);
   const b = { spec, plan, fixes, key };
@@ -70,7 +103,7 @@ export function buildTown(spec: TownSpec): BuiltTown {
 export function worldNodes(world: WorldState | undefined, models: Record<string, ModelMesh> = {}, detail: 'full' | 'low' = 'full'): Array<{ town: string; offset: V3; nodes: TownNode[]; plan: TownPlan }> {
   if (!world) return [];
   return Object.values(world.towns).map((spec) => {
-    const t = buildTown(spec);
+    const t = buildTown(spec, world);
     return { town: spec.name, offset: (spec.offset ?? [0, 0, 0]) as V3, nodes: townNodes(t.plan, { models, detail }), plan: t.plan };
   });
 }
@@ -180,7 +213,7 @@ export function creditsText(world: WorldState | undefined): string {
   if (!world) return '';
   const lines: string[] = [];
   for (const spec of Object.values(world.towns)) {
-    const t = buildTown(spec);
+    const t = buildTown(spec, world);
     if (!t.plan.credits.length) { lines.push(`${spec.name}: invented (${spec.style}, seed ${spec.seed ?? 1}); no outside data.`); continue; }
     lines.push(`${spec.name}: ${t.plan.source === 'remix' ? 'real streets with invented buildings' : 'built from open data'}${t.plan.bbox ? ` for ${[t.plan.bbox.west, t.plan.bbox.south, t.plan.bbox.east, t.plan.bbox.north].join(', ')}` : ''}.`);
     for (const c of t.plan.credits) lines.push(`  - ${c.text} ${c.url}`);

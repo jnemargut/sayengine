@@ -137,7 +137,12 @@ arr('pcols', 'pcolA', 6, [5, 0, 0], 'columns');
 box('pEnt', [31, 2.3, 8], [ax, 13.35, -54], 'columns');
 box('pAttic', [29, 2.8, 6.5], [ax, 15.9, -53.3], 'stucco');
 box('outerLobby', [27, 11, 3], [ax, 6.7, -51.5], 'lobby');
-finish(['aud', 'fly', 'rear', 'meymandi', 'fletcher', 'mLobby', 'fLobby', 'mCanopy', 'fCanopy', 'mCap', 'fCap', 'stylobate', 'pcols', 'pEnt', 'pAttic', 'outerLobby']);
+// the wing fronts are glass curtain walls: dark mullions every 3 m and two spandrel bands
+box('mMul', [0.35, 14, 0.5], [-57.5, 7, -52.6], 'metal'); arr('mMuls', 'mMul', 12, [3, 0, 0], 'metal');
+box('fMul', [0.35, 12, 0.5], [29.5, 6, -52.6], 'metal'); arr('fMuls', 'fMul', 10, [3, 0, 0], 'metal');
+box('mSpan', [36.2, 0.9, 0.5], [-40, 9.8, -52.6], 'metal'); arr('mSpans', 'mSpan', 2, [0, 3.2, 0], 'metal');
+box('fSpan', [30.2, 0.9, 0.5], [44, 8.8, -52.6], 'metal');
+finish(['aud', 'fly', 'rear', 'meymandi', 'fletcher', 'mLobby', 'fLobby', 'mCanopy', 'fCanopy', 'mCap', 'fCap', 'stylobate', 'pcols', 'pEnt', 'pAttic', 'outerLobby', 'mMuls', 'fMuls', 'mSpans', 'fSpan']);
 mat('stucco', 'limestone flood', '#ddd3bf', 0.85);
 mat('masonry', 'buff masonry', '#c4ab86', 0.85);
 mat('trim', 'precast trim', '#e4ddcf', 0.8);

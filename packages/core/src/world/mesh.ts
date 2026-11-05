@@ -310,14 +310,43 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
     if (b.storefront && isFront && b.height > 4) {
       const bays = Math.max(1, Math.round(len / 4.2));
       const awn = M('awning', pal.accent ?? style.colors.awning[Math.floor(stable(b.id, 'awning') * style.colors.awning.length)], 0.8);
+      // shopfront habits, stable per facade: plain plate glass; a painted frame with a kick plate and a
+      // transom; mullioned panes; a recessed door bay. Awnings are fabric, a flat metal canopy, or none.
+      const kind = stable(b.id, 'shopkind' + i);
+      const shopKind = kind < 0.3 ? 'plate' : kind < 0.6 ? 'framed' : kind < 0.82 ? 'mullion' : 'recessed';
+      const frameCols = ['#24221f', '#5a2620', '#23443a', '#d9d0bd', '#2b3a4f', '#6b4a2e'];
+      const frameM = M('shop frame', frameCols[Math.floor(stable(b.id, 'frame' + i) * frameCols.length)], 0.6);
+      const canopy = stable(b.id, 'canopy' + i);
+      const canopyKind = b.use === 'shop' || b.use === 'hotel' ? (canopy < 0.6 ? 'fabric' : 'metal') : canopy < 0.3 ? 'fabric' : canopy < 0.55 ? 'metal' : 'none';
+      const door = Math.floor(stable(b.id, 'door' + i) * bays);
+      const yTop = floor0 + gf * 0.68, yBot = floor0 + 0.45;
       for (let k = 0; k < bays; k++) {
         const t0 = (k + 0.12) / bays, t1 = (k + 0.88) / bays;
-        pane(t0, t1, floor0 + 0.45, floor0 + gf * 0.68, shopM);
-        if (b.use === 'shop' || b.use === 'hotel' || stable(b.id + k, 'awn') < 0.35) {
-          const yA = floor0 + gf * 0.74, depth = 1.25;
+        if (shopKind === 'plate') pane(t0, t1, yBot, yTop, shopM);
+        else if (shopKind === 'framed') {
+          pane(t0 - 0.02 / bays, t1 + 0.02 / bays, floor0 + 0.05, yTop + 0.55, frameM, 0.05);   // painted surround
+          pane(t0, t1, floor0 + 0.75, yTop - 0.05, shopM);                                     // over a kick plate
+          pane(t0, t1, yTop + 0.1, yTop + 0.45, shopM, 0.065);                                 // transom
+        } else if (shopKind === 'mullion') {
+          pane(t0, t1, yBot, yTop, shopM);
+          for (const f of [1 / 3, 2 / 3]) { const tm = t0 + (t1 - t0) * f; pane(tm - 0.012, tm + 0.012, yBot, yTop, frameM, 0.075); }
+          pane(t0, t1, yTop - 0.75, yTop - 0.68, frameM, 0.075);
+        } else {
+          // a recessed entrance: the door bay sits back in a dark reveal, the others are plate glass
+          if (k === door) { pane(t0, t1, floor0, yTop, darkM, 0.03); pane(t0 + 0.08 / bays, t1 - 0.08 / bays, floor0 + 0.02, yTop - 0.3, shopM, 0.035); }
+          else pane(t0, t1, yBot, yTop, shopM);
+        }
+        const yA = floor0 + gf * 0.74;
+        if (canopyKind === 'fabric' && (b.use === 'shop' || b.use === 'hotel' || stable(b.id + k, 'awn') < 0.6)) {
+          const depth = 1.25;
           sb.quad(awn, off(t0, 0.08, yA + 0.5), off(t1, 0.08, yA + 0.5), off(t1, depth, yA), off(t0, depth, yA), [out[0], 1, out[1]]);
           sb.quad(awn, off(t0, depth, yA), off(t1, depth, yA), off(t1, depth, yA - 0.3), off(t0, depth, yA - 0.3), [out[0], 0, out[1]]);
         }
+      }
+      if (canopyKind === 'metal') {
+        // one flat metal canopy along the whole front, hung on two rods
+        const d = 1.6, cy = floor0 + gf * 0.76, mid = off(0.5, d / 2 + 0.05, cy);
+        sb.box(M('canopy', '#3b3f44', 0.5, 0.4), mid, [len * 0.96, 0.16, d], Math.atan2(c[1] - a[1], c[0] - a[0]));
       }
       const signs = style.life?.signs;
       if (signs && b.use !== 'civic' && stable(b.id, 'signband' + i) < 0.55) {

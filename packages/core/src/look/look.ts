@@ -76,7 +76,7 @@ export const PRESETS: Record<string, Look> = {
     sky: { color: '#bcd6ea' },
     fog: { enabled: true, color: '#c9dcea', begin: 380, end: 2200 },
     light: { sun: { color: '#fff3df', energy: 1.1, elevation: 63, azimuth: 28, shadows: true }, ambient: { color: '#d2d8e2', energy: 0.85 } },
-    materials: { lamp: { emission: '#fff2cc', emissionEnergy: 0.3 } },
+    materials: { lamp: { emission: '#fff2cc', emissionEnergy: 0.3 }, led: { emission: '#f6f7f8', emissionEnergy: 0.3 } },
     board: { references: [], colourfulness: [30, 55], paletteMatch: 0.55 },
   }),
   'neon-night': parseLook({

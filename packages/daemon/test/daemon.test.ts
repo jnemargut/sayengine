@@ -32,7 +32,7 @@ test('sandbox: no host access, time and memory limits', async () => {
 
 const cli = (args: string[], input?: string) => spawnSync(process.execPath, [CLI, ...args], {
   input, encoding: 'utf8', cwd: fs.mkdtempSync(path.join(os.tmpdir(), 'studio-test-')),
-  env: { ...process.env, STUDIO_PORT: '4591' }, timeout: 30000,
+  env: { ...process.env, STUDIO_PORT: process.env.TEST_DAEMON_PORT ?? '4591' }, timeout: 30000,
 });
 
 test('CLI: unknown commands and flags get suggestions, without starting a daemon', () => {
