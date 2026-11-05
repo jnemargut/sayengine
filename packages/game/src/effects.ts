@@ -56,7 +56,7 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
       emissionBursts: (L.bursts ?? []).map((x) => ({ time: x.at, count: new Q.ConstantValue(x.count), cycle: 1, interval: 0.01, probability: 1 })),
       shape, material: mat,
       renderMode: L.stretch ? Q.RenderMode.StretchedBillBoard : Q.RenderMode.BillBoard,
-      ...(L.stretch ? { rendererEmitterSettings: { speedFactor: L.stretch, lengthFactor: 1 } } : {}),
+      ...(L.stretch ? { rendererEmitterSettings: { speedFactor: 0, lengthFactor: Math.max(0, ((L.speed[0] + L.speed[1]) / 2) * L.stretch / ((L.size[0] + L.size[1]) / 2) - (L.speed[0] + L.speed[1]) / 2) } } : {}),
       behaviors,
     } as any);
     const e = ps.emitter;
@@ -88,6 +88,13 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
   const put = (rel: string, body: string | Buffer) => { const f = path.join(dir, 'assets', 'studio', rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, body); files.push(f); };
   const fxDir = path.join(dir, 'assets', 'studio', 'effects'), uiDir = path.join(dir, 'assets', 'studio', 'ui'), lnDir = path.join(dir, 'assets', 'studio', 'lines');
   for (const d of [fxDir, uiDir, lnDir]) resetDir(d);
+  // the manifests always exist (empty when the studio has none), so the runtimes never fetch a 404
+  const empties = () => {
+    fs.writeFileSync(path.join(fxDir, 'effects.json'), '[]\n');
+    fs.writeFileSync(path.join(uiDir, 'ui.json'), 'null\n');
+    fs.writeFileSync(path.join(lnDir, 'lines.json'), '{}\n');
+  };
+  empties();
   if (!data) return files;
   // effects
   const manifest = data.effects.map((b) => ({ id: b.def.id, name: b.def.name, at: b.at, loop: b.def.loop, value: b.def.value ?? null, triggers: b.def.triggers ?? [], warmup: b.def.warmup !== false, frame: effectFrame(b.def, b.at), file: engine === 'godot' ? `${b.def.id}.tscn` : `${b.def.id}.json` }));
@@ -99,8 +106,8 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
       const shader = webShapeShader();
       for (const b of data.effects) put(`effects/${b.def.id}.json`, JSON.stringify({ def: b.def, at: b.at, colours: b.colours, quarks: quarksJSON(b), quarksVersion: QUARKS_VERSION, shader }));
     }
-    put('effects/effects.json', JSON.stringify(manifest, null, 2) + '\n');
   }
+  put('effects/effects.json', JSON.stringify(manifest, null, 2) + '\n');
   // UI kit
   if (data.ui) {
     const ui = data.ui;
@@ -118,6 +125,6 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
     if (l.audio) put(`lines/${file}`, Buffer.from(l.audio, 'base64'));
     (lines[l.character] ??= {})[l.line] = { text: l.text, clip: l.clip, duration: l.duration, sync: l.sync, file: l.audio ? file : null };
   }
-  if (data.lines.length) put('lines/lines.json', JSON.stringify(lines, null, 2) + '\n');
+  put('lines/lines.json', JSON.stringify(lines, null, 2) + '\n');
   return files;
 }

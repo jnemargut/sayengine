@@ -113,7 +113,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         // cutscenes: the timelines, voices and (Godot) generated scenes
         const cutscenes = !args.file && ctx.cutscenes ? writeCutscenes(dir, config.engine, await ctx.cutscenes()) : [];
         // effects, the UI kit, every line's audio (Godot imports them in the same pass below)
-        const extra = !args.file && ctx.gameData ? await writeGameData(dir, config.engine, await ctx.gameData()) : [];
+        const extra = await writeGameData(dir, config.engine, !args.file && ctx.gameData ? await ctx.gameData() : null);
         const rep: any = config.engine === 'godot' ? await godot.importProject(dir) : await web.webCommand(dir, { cmd: 'info' });
         const report = config.engine === 'godot' ? rep : { ...rep.result, warnings: rep.warnings ?? [], errors: [...(rep.errors ?? []), ...(rep.error ? [rep.error] : [])] };
         const strict = args.strict !== false;
@@ -122,7 +122,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(extra.length ? { assets: summariseAssets(dir, extra) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
+          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }

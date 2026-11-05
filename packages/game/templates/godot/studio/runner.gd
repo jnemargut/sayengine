@@ -341,6 +341,12 @@ func _frame_camera(cam: Camera3D, f: Dictionary) -> void:
 ## clips so motion triggers fire. Saves a background frame (effect hidden) and every 2nd frame (30 fps).
 func _cmd_effect(c: Dictionary) -> Dictionary:
 	var fx = EFFECTS.start(main, c.get("cpu", false))
+	if c.get("cpu", false) and not fx.use_cpu:
+		fx.set_cpu(true)
+	# the review shows the effect, not the HUD
+	var hud := main.get_node_or_null("StudioUI") as CanvasLayer
+	if hud:
+		hud.visible = false
 	await get_tree().process_frame
 	var id := String(c.get("id", ""))
 	if not fx.live.has(id):
@@ -351,6 +357,9 @@ func _cmd_effect(c: Dictionary) -> Dictionary:
 	add_child(cam)
 	cam.current = true
 	_frame_camera(cam, c["frame"])
+	# only the characters asked to play move: the rest hold still, so the frame diff sees the effect alone
+	for ap in main.find_children("*", "AnimationPlayer", true, false):
+		ap.pause()
 	for p in c.get("play", []):
 		EFFECTS.play_clip(main, String(p["character"]), String(p["clip"]), true)
 	var dir = c.get("frames")

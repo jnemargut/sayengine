@@ -452,6 +452,7 @@ const commands = {
     const cam = new THREE.PerspectiveCamera(40, sz.x / sz.y, 0.02, 200);
     frameCamera(cam, c.frame);
     for (const p of c.play ?? []) g.characters?.actors[p.character]?.play(p.clip, { fade: 0 });
+    g.characters?.update(0);   // everyone in their current pose (the others then hold it)
     fx.show(c.id, false);
     g.renderer.render(g.scene, cam);
     const bg = g.renderer.domElement.toDataURL('image/jpeg', 0.92);
@@ -464,8 +465,9 @@ const commands = {
       if (Array.isArray(c.value) && me.file.def.value) fx.setValue(me.file.def.value.name, c.value[0] + (c.value[1] - c.value[0]) * Math.min(1, t / Math.max(0.01, c.seconds ?? 4)));
       else if (typeof c.value === 'number' && me.file.def.value) fx.setValue(me.file.def.value.name, c.value);
       while (ev.length && ev[0].at <= t) { const e = ev.shift(); if (e.burst) fx.burst(c.id, e.burst); else fx.event(e.name); }
-      g.characters?.update(dt);
-      if (!g.characters) fx.update(dt);
+      // only the characters asked to play move: the rest hold still, so the frame diff sees the effect alone
+      for (const p of c.play ?? []) g.characters?.actors[p.character]?.mixer.update(dt);
+      fx.update(dt);
       g.renderer.render(g.scene, cam);
       if (c.frames !== false) frames.push(g.renderer.domElement.toDataURL('image/jpeg', 0.9));
     }

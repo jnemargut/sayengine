@@ -62,6 +62,25 @@ func _particles(root: Node) -> Array:
 			out.append(c)
 	return out
 
+## Switch every effect to its CPU twins (or back to GPU particles).
+func set_cpu(on: bool) -> void:
+	if on == use_cpu:
+		return
+	use_cpu = on
+	for id in live:
+		var root: Node = live[id]["root"]
+		if on:
+			_swap_to_cpu(root)
+		else:
+			for c in root.get_children():
+				if c is CPUParticles3D:
+					var gpu := root.get_node_or_null(String(c.name).trim_suffix("_cpu")) as GPUParticles3D
+					if gpu:
+						gpu.visible = true
+						gpu.emitting = c.emitting
+					c.emitting = false
+					c.visible = false
+
 func _swap_to_cpu(root: Node) -> void:
 	for c in root.get_children():
 		if c is GPUParticles3D:

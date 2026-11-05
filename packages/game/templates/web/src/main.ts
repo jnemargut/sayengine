@@ -7,6 +7,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { addStaticColliders, installHarness, startCharacters, type StudioGame } from '../studio/harness.ts';
+import { startEffects } from '../studio/effects.ts';
+import { startUI } from '../studio/ui.ts';
 
 const STUDIO_SCENE = 'assets/studio/scene.glb';
 
@@ -73,6 +75,10 @@ async function start(): Promise<StudioGame> {
   });
   // studio characters play their idle; the studio's player (game import --player) walks with WASD / arrows
   await startCharacters(game, { controls: true });
+  // studio effects (game.effects.setValue / .event) and the UI kit's HUD (game.ui.setBar / say()) — both
+  // are empty until the studio has some
+  await startEffects(game);
+  await startUI(game);
   renderer.setAnimationLoop(() => {
     if (game.paused) return;
     game.step(1 / 60);

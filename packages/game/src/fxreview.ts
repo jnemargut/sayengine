@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const W = 160, H = 100;
+const W = 320, H = 200;   // fine enough that a rain streak survives the downscale
 export interface FxStats { frames: number; coverage: number; peakCoverage: number; peakFrame: string; colour: [number, number, number]; centroid: [number, number]; top: number }
 
 function raw(input: string[], glob = false): Buffer | null {
@@ -29,7 +29,7 @@ export function frameStats(frameDir: string, background: string): FxStats | null
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = (y * W + x) * 3;
       const d = Math.max(Math.abs(all[o + i] - bg[i]), Math.abs(all[o + i + 1] - bg[i + 1]), Math.abs(all[o + i + 2] - bg[i + 2]));
-      if (d < 24) continue;
+      if (d < 16) continue;
       c++; cr += all[o + i]; cg += all[o + i + 1]; cb += all[o + i + 2]; cx += x; cy += y; tot++;
       top = Math.min(top, y / H);
     }

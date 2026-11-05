@@ -65,7 +65,7 @@ export const EFFECT_BUDGETS: Record<string, { particles: number; overdraw: numbe
 };
 
 export const DEFAULT_FIRE_PALETTE: Record<string, string> = {
-  ember: '#ffcf6a', flame: '#ff8a2a', deep: '#d4421c', smoke: '#5f5852', haze: '#a39c95', ash: '#3b3632', spark: '#ffe2a0', rain: '#a9c3d8',
+  ember: '#ffcf6a', flame: '#ff8a2a', deep: '#d4421c', smoke: '#5f5852', haze: '#a39c95', ash: '#3b3632', spark: '#ffe2a0', rain: '#8fb0cc',
 };
 
 /** Named moments inside library actions, as a fraction of the action: impact = the first accelerating key. */
@@ -113,7 +113,7 @@ export const EFFECT_PRESETS: Record<string, { label: string; make(): Omit<Effect
     label: 'Light rain over a 6 m square: thin stretched drops falling fast',
     make: () => ({
       loop: true,
-      layers: [P({ id: 'drops', shape: { type: 'box', size: [6, 0.1, 6] }, rate: 260, life: [0.7, 0.9], speed: [6, 7], size: [0.008, 0.01], colour: ['rain', 'rain'], alpha: [0.55, 0.4], direction: [0, -1, 0], spread: 3, gravity: 0, stretch: 0.05, blend: 'alpha', offset: [0, 4.5, 0] })],
+      layers: [P({ id: 'drops', shape: { type: 'box', size: [6, 0.1, 6] }, rate: 260, life: [0.7, 0.9], speed: [6, 7], size: [0.012, 0.016], colour: ['rain', 'rain'], alpha: [0.7, 0.5], direction: [0, -1, 0], spread: 3, gravity: 0, stretch: 0.05, blend: 'alpha', offset: [0, 4.5, 0] })],
     }),
   },
 };
@@ -331,12 +331,13 @@ export function godotEffectScene(def: EffectDef, palette?: Record<string, string
     const a = l.alpha ?? [1, 1];
     const grad = add('Gradient', `colors = PackedColorArray(${[...hex(c0), a[0], ...hex(c1), a[1]].map((n) => +n.toFixed(4)).join(', ')})`);
     const gradTex = add('GradientTexture1D', `gradient = SubResource("${grad}")`);
-    const curve = add('Curve', `_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, ${l.sizeEnd ?? 1}), 0.0, 0.0, 0, 0]\npoint_count = 2`);
+    const curveBody = `max_value = ${Math.max(1, l.sizeEnd ?? 1)}\n_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, ${l.sizeEnd ?? 1}), 0.0, 0.0, 0, 0]\npoint_count = 2`;
+    const curve = add('Curve', curveBody);
     const curveTex = add('CurveTexture', `curve = SubResource("${curve}")`);
     const dir = l.direction ?? [0, 1, 0];
     const shapeType = { point: 0, sphere: 1, cone: 0, box: 3, disc: 6 }[l.shape.type];
     const shapeProps = l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'disc' ? `\nemission_ring_axis = Vector3(0, 1, 0)\nemission_ring_height = 0.0\nemission_ring_radius = ${l.shape.radius ?? 0.1}\nemission_ring_inner_radius = 0.0` : '';
-    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = ${(l.turbulence! * 2).toFixed(2)}\nturbulence_noise_scale = 4.0` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
+    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = 1.0\nturbulence_noise_scale = 4.0\nturbulence_influence_min = ${(l.turbulence! * 0.04).toFixed(3)}\nturbulence_influence_max = ${(l.turbulence! * 0.06).toFixed(3)}` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
     const dotGrad = add('Gradient', `colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)`);
     const dot = add('GradientTexture2D', `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 1\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)`);
     const mat = add('StandardMaterial3D', `transparency = 1\nalbedo_texture = SubResource("${dot}")\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nbillboard_mode = ${l.stretch ? 2 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);
@@ -346,7 +347,7 @@ export function godotEffectScene(def: EffectDef, palette?: Record<string, string
     const oneShot = l.rate === 0;
     nodes.push(`[node name="${l.id}" type="GPUParticles3D" parent="."]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, ${off.join(', ')})\namount = ${amount}\nlifetime = ${l.life[1]}\none_shot = ${oneShot}\nemitting = ${!oneShot}\nexplosiveness = ${oneShot ? 1 : 0}\nrandomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\nprocess_material = SubResource("${pm}")\ndraw_pass_1 = SubResource("${quad}")\ncast_shadow = 0\nmetadata/layer = "${l.id}"\nmetadata/rate = ${l.rate}`);
     // the CPU twin: the same emitter for renderers without GPU particles; studio/effects.gd swaps it in
-    const cpuCurve = add('Curve', `_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, ${l.sizeEnd ?? 1}), 0.0, 0.0, 0, 0]\npoint_count = 2`);
+    const cpuCurve = add('Curve', curveBody);
     nodes.push(`[node name="${l.id}_cpu" type="CPUParticles3D" parent="."]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, ${off.join(', ')})\nvisible = false\nemitting = false\namount = ${amount}\nlifetime = ${l.life[1]}\none_shot = ${oneShot}\nexplosiveness = ${oneShot ? 1 : 0}\nmesh = SubResource("${quad}")\nemission_shape = ${l.shape.type === 'box' ? 3 : l.shape.type === 'sphere' ? 1 : 0}${l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : ''}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\nscale_amount_min = 1.0\nscale_amount_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_amount_curve = SubResource("${cpuCurve}")\ncolor_ramp = SubResource("${grad}")\nmetadata/layer = "${l.id}"\nmetadata/fallback = true`);
   }
   return `[gd_scene load_steps=${sub.length + 2} format=3]\n\n${ext}\n\n${sub.join('\n\n')}\n\n${nodes.join('\n\n')}\n`;
