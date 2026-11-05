@@ -283,7 +283,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const mp = await import('./motionplayer/make.ts');
         const motions = picked.map(([id, spec]) => {
           const c = bakeMotion(id, spec, res.rig!.rig, obj.character);
-          const what = spec.kind === 'action' ? spec.action! : spec.kind;
+          const what = spec.kind === 'action' ? (spec.label ?? spec.action!) : spec.kind;
           return { id, kind: spec.kind, label: `${obj.name}: ${id}${id === what ? '' : ` (${what})`}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: mp.showTime(c) };
         });
         const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-motions`);

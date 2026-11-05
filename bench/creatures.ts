@@ -61,7 +61,8 @@ try {
       // checks on the result, and the motion preview with the bucket beside him
       const made = studio('new-character', '--preset', 'blacksmith', '--name', 'Tom');
       const id = made.result.id;
-      studio('new-object', '--kind', 'cylinder', '--name', 'Bucket', '--params', JSON.stringify({ r: 0.13, h: 0.26 }));
+      studio('new-object', '--name', 'Bucket', '--type', 'bucket', '--color', '#7d8a8f', '--position', '[2,0,0]');
+      studio('add-op', '--object', 'bucket', '--id', 'body', '--op', 'revolve', '--args', JSON.stringify({ profile: [[0, 0.004], [0.095, 0.004], [0.11, 0.2], [0.104, 0.2], [0.09, 0.012], [0, 0.012]] }), '--output', 'true');
       const a = action('humanoid-trips');
       const r = studio('perform-action', '--object', id, '--action', a.action, '--id', a.id, '--keys', JSON.stringify(a.keys), '--duration', String(a.duration));
       report({ [a.id]: r.result.checks });

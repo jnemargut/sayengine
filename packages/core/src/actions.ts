@@ -298,18 +298,8 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       if (!Tf || wf < 1e-3) { followers.delete(tKey); lastJoints.delete(ch.id); continue; }
       const P = lerp3(idleTip, Tf, clamp(wf, 0, 1));
       const parentRot = c.parents[first] >= 0 ? fk.rot[c.parents[first]] : qIdentity();
-      const lim = c.limits[names[0]];
-      // FABRIK from the chain's own pose, then relax the kinks (a few smoothing rounds, re-reaching each
-      // time) so slack in a long tentacle spreads along it instead of folding one joint
-      const segL = joints.slice(1).map((q, k) => len(sub(q, joints[k])));
-      let solved = fabrik(joints, P, 24);
-      for (let r = 0; r < 3; r++) {
-        const sm = solved.map((q, k) => (k === 0 || k === solved.length - 1 ? q : lerp3(q, lerp3(solved[k - 1], solved[k + 1], 0.5), 0.6)));
-        // back to the true segment lengths (smoothing shortens them), then reach again
-        for (let k = 1; k < sm.length; k++) sm[k] = add(sm[k - 1], mul(norm(sub(sm[k], sm[k - 1])), segL[k - 1]));
-        solved = fabrik(sm, P, 30);
-      }
-      void lim; void lastJoints;
+      const solved = reachJoints(joints, P);
+      void lastJoints;
       const locals = chainLocals(c, names, solved, parentRot);
       names.forEach((nm, k) => { R[bi(nm)] = locals[k]; });
     }
@@ -350,6 +340,20 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     id, kind: 'action', fps, frames, duration, loop: false, speed: 0, dir: [0, 0, 1], rot, off, contacts, notes, reachMiss, endPose, held, grip,
     keys: states.map((s) => ({ t: r3(s.t), label: s.label })),
   };
+}
+
+/** Reach a chain's tip for P from its current joints: FABRIK, then relax the kinks (smoothing rounds,
+ *  restoring the segment lengths and reaching again) so slack spreads along the chain instead of folding
+ *  one joint. Shared by actions and the live runtime. */
+export function reachJoints(joints: V3[], P: V3): V3[] {
+  const segL = joints.slice(1).map((q, k) => len(sub(q, joints[k])));
+  let solved = fabrik(joints, P, 24);
+  for (let r = 0; r < 3; r++) {
+    const sm = solved.map((q, k) => (k === 0 || k === solved.length - 1 ? q : lerp3(q, lerp3(solved[k - 1], solved[k + 1], 0.5), 0.6)));
+    for (let k = 1; k < sm.length; k++) sm[k] = add(sm[k - 1], mul(norm(sub(sm[k], sm[k - 1])), segL[k - 1]));
+    solved = fabrik(sm, P, 30);
+  }
+  return solved;
 }
 
 // ── prop checks ──────────────────────────────────────────────────────────────────────────────────
