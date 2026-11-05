@@ -44,6 +44,19 @@ export const wingFreq = (w: WingPartSpec) => w.flapHz ?? clamp(3.9 / Math.pow(wi
 /** Stroke amplitude (deg each way): shorter wings sweep wider. */
 export const wingAmp = (w: WingPartSpec) => w.stroke ?? clamp(52 - 9 * wingSpan(w), 30, 55);
 
+/** Two colours mixed (t = 0: a, 1: b). */
+export function mixHex(a: string, b: string, t: number): string {
+  const h = (x: string) => [0, 2, 4].map((i) => parseInt(x.replace('#', '').slice(i, i + 2), 16));
+  const A = h(a), B = h(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * clamp(t)).toString(16).padStart(2, '0')).join('');
+}
+
+/** A feather as pieces: three bands from a lighter root to a darker tip (a gradient in bands). */
+export function featherPieces(bone: string, part: string, f: { a: V3; b: V3; w: number; normal: V3; curve?: number; camber?: number; asym?: number; point?: boolean }, root: string, tip: string): PartPiece[] {
+  const cuts = [0, 0.45, 0.78, 1];
+  return [0, 1, 2].map((i) => ({ bone, part, color: mixHex(root, tip, i / 2), shape: { kind: 'feather' as const, ...f, from: cuts[i], to: cuts[i + 1] } }));
+}
+
 export function wingBuild(spec: WingPartSpec) {
   const bones: Array<{ name: string; parent: string; head: V3; tail: V3 }> = [];
   const pieces: PartPiece[] = [];
@@ -52,6 +65,7 @@ export function wingBuild(spec: WingPartSpec) {
   const sides: Creature['wings'] = [];
   const L = spec.length, c = spec.chord;
   const peak = TAU * wingFreq(spec) * wingAmp(spec);        // peak shoulder speed in a flap (°/s)
+  const dark = spec.tipColor ?? spec.color, light = mixHex(spec.color, '#ffffff', 0.12), edge = spec.edgeColor ?? spec.color;
   for (const side of [1, -1] as const) {
     const tag = side > 0 ? 'L' : 'R';
     const sx = side;
@@ -66,48 +80,96 @@ export function wingBuild(spec: WingPartSpec) {
       head = tail;
     });
     const up: V3 = [0, 1, 0];
-    const edge = spec.edgeColor ?? spec.color;
-    // the leading edge: a tapered, rounded bone line
-    const er = [c * 0.085, c * 0.07, c * 0.055, c * 0.025];
-    for (let i = 0; i < 3; i++) pieces.push({ bone: names[i], shape: { kind: 'seg', a: heads[i], b: tails[i], r1: er[i], r2: er[i + 1], sides: 10, round: true, squash: [1, 0.7] }, color: edge, part: spec.id });
-    // coverts and secondaries: feathered planes trailing each bone (centred behind it)
-    const chordAt = [c, c * 0.9, c * 0.62];
-    for (let i = 0; i < 2; i++) {
-      pieces.push({ bone: names[i], shape: { kind: 'blade', a: add(heads[i], [0, 0.001 * i, -chordAt[i] * 0.47]), b: add(tails[i], [sx * L * 0.01, 0.001 * i, -chordAt[i + 1] * 0.47]), w: chordAt[i] * 0.94, normal: up, taper: chordAt[i + 1] / chordAt[i] }, color: spec.color, part: spec.id });
+    const feathers: Array<{ bone: string; fold: number }> = [];
+    // a direction in the wing's plane: deg from straight back (−z) toward the tip (+x on the left)
+    const dirAt = (deg: number): V3 => [sx * Math.sin((deg * Math.PI) / 180), 0, -Math.cos((deg * Math.PI) / 180)];
+    // a feather on its own bone, so it can pivot at its root as the wing folds (the fan closes)
+    const own = (name: string, parent: string, root: V3, dir: V3, fold: number) => {
+      bones.push({ name, parent, head: root, tail: add(root, mul(dir, 0.02)) });
+      limits[name] = { kind: 'cone', maxDeg: 179 };
+      fast[name] = Math.max(900, peak * 1.9 + 300);
+      feathers.push({ bone: name, fold });
+      return name;
+    };
+    // the leading edge: a tapered, rounded bone line, a little thicker at the wrist
+    const er = [c * 0.04, c * 0.034, c * 0.032, c * 0.014];
+    for (let i = 0; i < 3; i++) pieces.push({ bone: names[i], shape: { kind: 'seg', a: heads[i], b: tails[i], r1: er[i], r2: er[i + 1], sides: 12, round: true, squash: [1, 0.55] }, color: edge, part: spec.id });
+    const la = L * WING_SPLIT[0], lf = L * WING_SPLIT[1], lh = L * WING_SPLIT[2];
+    // secondaries: long flight feathers along the arm and forearm, each on its own bone (they pivot
+    // back along the body when the wing folds); their coverts ride with them
+    const nArm = 3, nFore = 4;
+    for (let k = 0; k < nArm + nFore; k++) {
+      const onFore = k >= nArm;
+      const i = onFore ? 1 : 0;
+      const u = onFore ? (k - nArm + 0.5) / nFore : (k + 0.5) / nArm;
+      const span = onFore ? lf : la;
+      const root = add(heads[i], [sx * span * u, -0.004, -c * 0.06]);
+      const g = (onFore ? nArm : 0) + u * (onFore ? nFore : nArm);         // 0 at the shoulder … 7 at the wrist
+      const lenF = c * (0.9 + 0.05 * Math.sin((g / 7) * Math.PI)) * (onFore ? 1 : 0.92 + 0.08 * u);
+      const dir = dirAt(4 + 2.2 * g);
+      const fold = onFore ? 4 + 2.2 * g - 184 : -38 - 2 * u;     // fore: undo the forearm's fold (152°), then lie back along the body
+      const b = own(`${spec.id}.${tag}.s${k + 1}`, names[i], root, dir, fold);
+      const w = (span / (onFore ? nFore : nArm)) * 1.9;
+      pieces.push(...featherPieces(b, spec.id, { a: root, b: add(root, mul(dir, lenF)), w, normal: up, curve: 0.06, camber: 0.1, asym: 0.25 }, spec.color, mixHex(spec.color, dark, 0.65)));
+      // greater coverts over the roots (half length), then lesser coverts nearer the edge
+      const gr = add(root, [0, 0.0045, c * 0.035]);
+      pieces.push(...featherPieces(b, spec.id, { a: gr, b: add(gr, mul(dirAt(2 + 2 * g), lenF * 0.5)), w: w * 0.95, normal: up, curve: 0.05, camber: 0.14, asym: 0.15 }, light, spec.color));
+      const lr = add(root, [0, 0.008, c * 0.07]);
+      pieces.push(...featherPieces(b, spec.id, { a: lr, b: add(lr, mul(dirAt(2 * g), lenF * 0.27)), w: w * 0.85, normal: up, curve: 0.04, camber: 0.18 }, light, light));
     }
-    // primaries: a fan of long feathers from the hand, outer ones darker
-    const lh = L * WING_SPLIT[2];
-    for (let k = 0; k < 5; k++) {
-      const ang = (60 - k * 13) * (Math.PI / 180);
-      const root = add(heads[2], [sx * lh * (0.04 + 0.2 * k), 0.002 + 0.0015 * k, -c * 0.12]);
-      const dir: V3 = [sx * Math.cos(ang), 0, -Math.sin(ang)];
-      const fl = lh * (0.62 + 0.11 * k) + c * 0.25;
-      pieces.push({ bone: names[2], shape: { kind: 'blade', a: root, b: add(root, mul(dir, fl)), w: c * 0.3, normal: up, taper: 0.5 }, color: k >= 3 ? (spec.tipColor ?? spec.color) : spec.color, part: spec.id });
+    // primaries: a fan of long feathers from the hand, the outer ones longer and darker, each on its
+    // own bone: folded, the fan closes into a stack along the hand
+    const nP = 6;
+    for (let k = 0; k < nP; k++) {
+      const u = (k + 0.5) / nP;
+      const root = add(heads[2], [sx * lh * (0.08 + 0.6 * u), -0.004 - 0.0012 * k, -c * 0.05]);
+      const ang = 30 + 62 * Math.pow(u, 1.15);                             // from back-and-out to along the wing
+      const dir = dirAt(ang);
+      const lenF = c * (0.95 + 0.55 * u) + lh * 0.15;
+      const b = own(`${spec.id}.${tag}.p${k + 1}`, names[2], root, dir, ang - 2 - (86 - 1.5 * k));
+      pieces.push(...featherPieces(b, spec.id, { a: root, b: add(root, mul(dir, lenF)), w: c * (0.3 - 0.06 * u), normal: up, curve: 0.07, camber: 0.1, asym: 0.35 }, mixHex(spec.color, dark, 0.2 + 0.4 * u), dark));
+      // primary coverts
+      const cr = add(root, [0, 0.005, c * 0.03]);
+      pieces.push(...featherPieces(b, spec.id, { a: cr, b: add(cr, mul(dir, lenF * 0.38)), w: c * 0.24, normal: up, curve: 0.04, camber: 0.15 }, light, spec.color));
     }
+    // the alula: a small feather at the wrist
+    const al = add(heads[2], [sx * c * 0.08, -0.003, c * 0.02]);
+    pieces.push(...featherPieces(names[2], spec.id, { a: al, b: add(al, mul(dirAt(70), c * 0.32)), w: c * 0.12, normal: up, curve: 0.05, point: true }, spec.color, dark));
     limits[names[0]] = { kind: 'cone', maxDeg: 150 };
     limits[names[1]] = { kind: 'cone', maxDeg: 172 };
     limits[names[2]] = { kind: 'cone', maxDeg: 172 };
     for (const n of names) fast[n] = Math.max(900, peak * 1.9 + 300);
-    sides.push({ part: spec.id, side, arm: names[0], fore: names[1], hand: names[2] });
+    sides.push({ part: spec.id, side, arm: names[0], fore: names[1], hand: names[2], feathers });
   }
   return { bones, pieces, limits, fast, sides };
 }
 
+/** Set a wing pose on every wing's bones (the right mirrors the left); feathers pivot by how folded
+ *  the wing is (1 − spread). */
+export function poseWings(c: Creature, R: Q[], pose: WingPoseOut) {
+  for (const w of c.wings) {
+    const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
+    R[c.index.get(w.arm)!] = mq(pose.arm); R[c.index.get(w.fore)!] = mq(pose.fore); R[c.index.get(w.hand)!] = mq(pose.hand);
+    const k = 1 - clamp(pose.spread);
+    for (const f of w.feathers ?? []) R[c.index.get(f.bone)!] = mq(Y(f.fold * k));
+  }
+}
+
 export type WingMode = 'spread' | 'flap' | 'glide' | 'hover' | 'fold';
-export interface WingPoseOut { arm: Q; fore: Q; hand: Q; bob: number }
+export interface WingPoseOut { arm: Q; fore: Q; hand: Q; bob: number; spread: number }   // spread: 1 open … 0 folded (feathers stacked)
 
 /** The left wing's local rotations for a mode at a beat phase (cycles) and time; `bob` is the body's
  *  rise from the stroke (-1..1: the downstroke lifts it). The right wing is `mirrorQ` of these. */
 export function wingPose(spec: WingPartSpec, mode: WingMode, phase: number, t: number): WingPoseOut {
   const amp = wingAmp(spec);
-  if (mode === 'spread') return { arm: qIdentity(), fore: qIdentity(), hand: qIdentity(), bob: 0 };
+  if (mode === 'spread') return { arm: qIdentity(), fore: qIdentity(), hand: qIdentity(), bob: 0, spread: 1 };
   if (mode === 'fold') {
     const f = spec.fold ?? {};
-    return { arm: qMul(Y(f.sweep ?? 80), qMul(Z(f.drop ?? -6), X(f.twist ?? -95))), fore: Y(152), hand: Y(-150), bob: 0 };
+    return { arm: qMul(Y(f.sweep ?? 80), qMul(Z(f.drop ?? -3), X(f.twist ?? -95))), fore: Y(152), hand: Y(-150), bob: 0, spread: 0 };
   }
   if (mode === 'glide') {
     const g = Math.sin((TAU * t) / 2.3);
-    return { arm: qMul(Y(-3), qMul(Z(6 + 1.5 * g), X(2))), fore: Z(-5), hand: qMul(Y(9), Z(7 + 1.5 * Math.sin((TAU * t) / 2.3 - 0.6))), bob: 0 };
+    return { arm: qMul(Y(-3), qMul(Z(6 + 1.5 * g), X(2))), fore: Z(-5), hand: qMul(Y(9), Z(7 + 1.5 * Math.sin((TAU * t) / 2.3 - 0.6))), bob: 0, spread: 1 };
   }
   // flap / hover: a downstroke that takes 55 % of the beat; the outer wing lags the arm (a wave out
   // along the wing); the leading edge dips on the way down (pronation) and the wing flexes on the way up
@@ -127,6 +189,7 @@ export function wingPose(spec: WingPartSpec, mode: WingMode, phase: number, t: n
     fore: qMul(Y(-0.8 * fold), Z(0.2 * A * dn - 0.25 * A * upS)),
     hand: qMul(Y(1.5 * fold), qMul(Z(0.3 * A * dn - 0.35 * A * upS), X(twist * 0.6))),
     bob: -e,
+    spread: 1 - 0.35 * upS,        // the fan half closes on the upstroke
   };
 }
 
@@ -163,7 +226,19 @@ export function finBuild(spec: FinPartSpec) {
     const at = m(spec.at), dir = norm(m(spec.dir));
     const tail = add(at, mul(dir, spec.length));
     bones.push({ name, parent: spec.parent ?? 'Body', head: at, tail });
-    pieces.push({ bone: name, shape: { kind: 'blade', a: at, b: tail, w: spec.width, normal: norm(m(spec.normal ?? [0, 1, 0])), taper: spec.taper ?? 0.45 }, color: spec.color, part: spec.id });
+    const nrm = norm(m(spec.normal ?? [0, 1, 0]));
+    if (spec.feathers) {
+      // a fan of feathers (a bird's tail): roots across the base, tips spread to the tip width, the
+      // middle ones on top and longest
+      const n = spec.feathers, across = norm(cross(nrm, dir)), w0 = spec.width, w1 = spec.width * (spec.taper ?? 1);
+      const order = Array.from({ length: n }, (_, k) => k).sort((p, q) => Math.abs(q - (n - 1) / 2) - Math.abs(p - (n - 1) / 2));
+      for (const k of order) {
+        const v = n === 1 ? 0 : -1 + (2 * k) / (n - 1), mid = 1 - Math.abs(v);
+        const root = add(add(at, mul(across, v * w0 * 0.3)), mul(nrm, 0.002 * mid * n));
+        const tip = add(add(tail, mul(across, v * w1 * 0.42)), mul(dir, -spec.length * 0.08 * (1 - mid)));
+        pieces.push(...featherPieces(name, spec.id, { a: root, b: tip, w: (w1 * 1.6) / n + w0 * 0.12, normal: nrm, curve: 0.05, camber: 0.1, asym: v * 0.2 }, spec.color, spec.tipColor ?? mixHex(spec.color, '#000000', 0.35)));
+      }
+    } else pieces.push({ bone: name, shape: { kind: 'blade', a: at, b: tail, w: spec.width, normal: nrm, taper: spec.taper ?? 0.45 }, color: spec.color, part: spec.id });
     limits[name] = { kind: 'cone', maxDeg: 70 };
   }
   return { bones, pieces, limits };
@@ -238,6 +313,11 @@ const mk = (name: string, bad: boolean[], worst: number, limit: number, unit: st
   ({ name, ...(part ? { part } : {}), pass: !bad.some(Boolean), worst: r3(worst), limit: r3(limit), unit, frames: ranges(bad), detail });
 
 function bladePoints(s: PartPiece['shape']): V3[] {
+  if (s.kind === 'feather') {
+    const d = sub(s.b, s.a), n = norm(s.normal ?? [0, 1, 0]), x = norm(cross(n, d)), u0 = s.from ?? 0, u1 = s.to ?? 1;
+    const at = (u: number) => add(s.a, mul(d, u));
+    return [at(u1), add(at(u0), mul(x, s.w * 0.3)), add(at(u0), mul(x, -s.w * 0.3)), at((u0 + u1) / 2)];
+  }
   if (s.kind !== 'blade') return s.kind === 'seg' ? [s.b] : [];
   const d = sub(s.b, s.a);
   const x = s.normal ? norm(cross(s.normal, d)) : norm(cross([0, 1, 0], d));
@@ -259,7 +339,7 @@ export function wingChecks(c: Creature, clip: CreatureClip, fks: FK[]): MotionCh
   for (const spec of c.def.parts) {
     if (spec.kind !== 'wing') continue;
     const sides = c.wings.filter((w) => w.part === spec.id);
-    const boneSet = new Set(sides.flatMap((s) => [s.arm, s.fore, s.hand]));
+    const boneSet = new Set(sides.flatMap((s) => [s.arm, s.fore, s.hand, ...(s.feathers ?? []).map((f) => f.bone)]));
     // sample points: blade corners and bone tips; points already inside the body at rest are how it's built
     const samples = c.pieces.filter((pc) => boneSet.has(pc.bone)).flatMap((pc) => bladePoints(pc.shape).map((p) => ({ b: c.index.get(pc.bone)!, p })))
       .filter((s) => !inside(sub(s.p, bodyHead)));

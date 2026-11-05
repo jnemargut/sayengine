@@ -10,7 +10,7 @@
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qAngle, qInv, qSlerp, keyEase } from './motion.ts';
 import { bakeCreature, bonePoint, chainLocals, legPole, creatureFK, fabrik, sampleClip, terrainHeight, twoBoneKnee, type ChainPartSpec, type Creature, type CreatureClip, type CreatureMotion, type FK, type HingePartSpec, type LegsPartSpec, type MotionCheck, type PartShape, type PropPartSpec, type WingPartSpec } from './rigparts.ts';
-import { flightPlan, legTuck, mirrorQ, wingPose, type WingMode } from './wings.ts';
+import { flightPlan, legTuck, poseWings, wingPose, type WingMode } from './wings.ts';
 
 const TAU = Math.PI * 2;
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -228,10 +228,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       // folding and unfolding lift the wing clear of the body on the way (birds raise them to unfold)
       const lift = (a.wings === 'fold') !== (b.wings === 'fold') ? 36 * Math.sqrt(Math.sin(Math.PI * k)) : 0;
       const arm = qMul(qAxisAngle([0, 0, 1], lift), qSlerp(pa.arm, pb.arm, k)), fore = qSlerp(pa.fore, pb.fore, k), hand = qSlerp(pa.hand, pb.hand, k);
-      for (const w of c.wings) {
-        const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
-        R[bi(w.arm)] = mq(arm); R[bi(w.fore)] = mq(fore); R[bi(w.hand)] = mq(hand);
-      }
+      poseWings(c, R, { arm, fore, hand, bob: 0, spread: lerp(pa.spread, pb.spread, k) });
       O[B][1] += 0.02 * (wingSpec.length * 2) * lerp(pa.bob, pb.bob, k);
     }
     const bHead = add(bodyRest, O[B]);
@@ -369,7 +366,7 @@ function shapeBottom(s: PartShape): number {
       return Math.min(s.a[1] - s.r1 * k, s.b[1] - s.r2 * k);
     }
     case 'wheel': return s.c[1] - s.r;
-    case 'blade': return Math.min(s.a[1], s.b[1]);
+    case 'blade': case 'feather': return Math.min(s.a[1], s.b[1]);
   }
 }
 

@@ -10,7 +10,7 @@ import { qAxisAngle, qIdentity, qMul, qRot, type BoneDef, type Q, type V3 } from
 import { qAngle, qArc, qInv, qSlerp } from './motion.ts';
 import type { ActionSpec } from './actions.ts';
 import { bakeAction, propChecks } from './actions.ts';
-import { finAxis, finBuild, flightPlan, propBuild, swimChecks, swimJoints, swimPlan, wingBuild, wingChecks, wingPose, mirrorQ, legTuck, type WingPoseOut } from './wings.ts';
+import { finAxis, finBuild, flightPlan, propBuild, swimChecks, swimJoints, swimPlan, wingBuild, wingChecks, wingPose, mirrorQ, poseWings, legTuck, type WingPoseOut } from './wings.ts';
 
 const D2R = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -36,7 +36,12 @@ export type PartShape =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides?: number; squash?: [number, number]; round?: boolean; flat?: boolean }   // squash: cross-section scale (side, up); round: domed ends; flat: faceted (robots)
   | { kind: 'ball'; c: V3; r: number; sides?: number; scale?: V3; flat?: boolean }
   | { kind: 'wheel'; c: V3; r: number; w: number; spokes?: number }        // axle along X
-  | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number };   // a thin slab (grass, sails); taper = tip width ÷ base width
+  | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number }   // a thin slab (grass, sails); taper = tip width ÷ base width
+  // a feather: a thin vane from root a to tip b, widest a third of the way, a rounded (or pointed) tip,
+  // a raised shaft (camber) and a tip that curves toward −normal (curve × length); asym > 0 widens the
+  // trailing vane (+x side of normal × (b − a)). from/to cut out a band along it (0..1), so one feather
+  // can be two or three colours (a gradient in bands).
+  | { kind: 'feather'; a: V3; b: V3; w: number; normal?: V3; curve?: number; camber?: number; asym?: number; point?: boolean; from?: number; to?: number };
 
 /** One rigid piece of the body, riding one bone. */
 export interface PartPiece { bone: string; shape: PartShape; color: string; part: string }
@@ -121,6 +126,8 @@ export interface FinPartSpec {
   motion?: 'flutter' | 'still';
   amp?: number; freq?: number;                         // degrees; cycles per second (default: the swim's beat)
   axis?: V3;                                           // the axis it flutters about (default: along its root)
+  feathers?: number;                                   // a fan of this many feathers instead of a slab (a bird's tail)
+  tipColor?: string;                                   // feathers: the colour they darken to at the tip
 }
 /** A prop a creature can pick up (a teapot, a cup) or that stays put (a table). It has its own bone with
  *  no parent (it stays where it is in the world), unless a part holds it during an action. */
@@ -195,7 +202,7 @@ export interface Creature {
   size: number;                    // the body's longest dimension (checks scale with it)
   legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number; pole: V3 }>;
   fast: Record<string, number>;    // bones allowed to turn faster than the pop limit (wings beat): °/s
-  wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string }>;
+  wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string; feathers?: Array<{ bone: string; fold: number }> }>;
   props: Set<string>;              // prop bones (no parent unless held)
   fx: Set<string>;                 // effect bones (a tea stream): left out of collision checks
 }
@@ -647,7 +654,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
     const top = wingPose(w, 'flap', 0, t), gl = wingPose(w, 'glide', 0, t);
     const into = smooth((tc - flapT) / 0.3), back = smooth((tc - (cycle - 0.28)) / 0.28);
     const k = into * (1 - back);
-    return { arm: qSlerp(top.arm, gl.arm, k), fore: qSlerp(top.fore, gl.fore, k), hand: qSlerp(top.hand, gl.hand, k), bob: top.bob * (1 - k) };
+    return { arm: qSlerp(top.arm, gl.arm, k), fore: qSlerp(top.fore, gl.fore, k), hand: qSlerp(top.hand, gl.hand, k), bob: top.bob * (1 - k), spread: lerp(top.spread, gl.spread, k) };
   };
   const swimP = m.kind === 'swim' ? swimPlan(c, swimmer!, speed) : null;
   if (swimP) swimP.freq = Math.max(1, Math.round(swimP.freq * duration)) / duration;
@@ -896,10 +903,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
         }
       }
       // ── wings (right mirrors left), fins, props ──
-      if (wq) for (const w of c.wings) {
-        const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
-        R[bi(w.arm)] = mq(wq.arm); R[bi(w.fore)] = mq(wq.fore); R[bi(w.hand)] = mq(wq.hand);
-      }
+      if (wq) poseWings(c, R, wq);
       for (const p of c.def.parts) {
         if (p.kind === 'fin' && p.motion === 'flutter') {
           const fz = p.freq ?? (swimP ? swimP.freq : 0.7 * (0.6 + energy));
@@ -1073,7 +1077,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
   if (c.legs.length) out.push(mk('leg reach', new Array(F).fill(clip.reachMiss > size * 0.01), clip.reachMiss, size * 0.01, 'm', 'every foot target is within its leg\'s reach'));
   // ── penetration: world (pieces below the ground) and self (pieces of non-neighbouring bones) ──
   {
-    const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
+    const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade' && pc.shape.kind !== 'feather').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
     const near = (a: number, b: number) => a === b || c.parents[a] === b || c.parents[b] === a || (c.parents[a] >= 0 && c.parents[a] === c.parents[b]) || (c.parents[a] >= 0 && c.parents[c.parents[a]] === b) || (c.parents[b] >= 0 && c.parents[c.parents[b]] === a);
     const wbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
     let ww = 0, sw = 0, pair = '';
@@ -1209,7 +1213,7 @@ export function pieceSphere(s: PartShape): { c: V3; r: number } {
     case 'ball': return { c: s.c, r: s.r * Math.min(...(s.scale ?? [1, 1, 1])) };
     case 'seg': return { c: lerp3(s.a, s.b, 0.5), r: Math.max(s.r1, s.r2) };
     case 'wheel': return { c: s.c, r: s.r };
-    case 'blade': return { c: lerp3(s.a, s.b, 0.5), r: s.w / 2 };
+    case 'blade': case 'feather': return { c: lerp3(s.a, s.b, 0.5), r: s.w / 2 };
   }
 }
 
@@ -1219,7 +1223,7 @@ function pieceVolume(s: PartShape): number {
     case 'ball': { const k = s.scale ?? [1, 1, 1]; return (4 / 3) * Math.PI * s.r ** 3 * k[0] * k[1] * k[2]; }
     case 'seg': return Math.PI * ((s.r1 + s.r2) / 2) ** 2 * len(sub(s.b, s.a));
     case 'wheel': return Math.PI * s.r * s.r * s.w;
-    case 'blade': return 0;
+    case 'blade': case 'feather': return 0;
   }
 }
 
