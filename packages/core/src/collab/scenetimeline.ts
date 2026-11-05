@@ -108,7 +108,11 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
         const t = clipTimeline(doc, id, mid);
         for (const [name, m] of Object.entries(t?.markers ?? {})) tr.markers.push({ name, at: m.at, kind: /^key \d+$/.test(name) ? 'cue' : 'moment' });
         tr.version = t?.version ?? stamp(motions[mid]);
-        const items = selectForExport(studio, doc, { object: id });
+        // exported at the origin (held props ride the hand bones correctly there), placed in the scene by the view
+        // held props stay scene objects: the view carries them on the hand bone as it moves
+        const items = selectForExport(studio, doc, { object: id, atOrigin: true }).filter((i) => i.obj.id === id);
+        tr.held = doc.objectOrder.filter((k) => (doc.objects[k]?.place as any)?.kind === 'held' && (doc.objects[k].place as any).target === id).map((k) => ({ object: k, bone: (doc.objects[k].place as any).hand === 'left' ? 'LeftHand' : 'RightHand' }));
+        tr.place = { position: [o.position[0], 0, o.position[2]], rotation: o.rotation ?? 0 };
         const key = `character-${stamp(items.map((i) => i.obj))}`;
         tr.glb = key;
         tr.covers = items.map((i) => i.obj.id);

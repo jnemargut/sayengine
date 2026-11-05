@@ -493,6 +493,7 @@ function render() {
   renderReview();
   renderHistory();
   rebuildScene();
+  timeline?.onState(); // the shown branch may have changed: the timeline follows it
 }
 
 function fmtParam(v: number, unit?: string) {
@@ -986,7 +987,6 @@ function connect() {
       preview = null;
       for (const o of [...state!.main, ...state!.proposals.flatMap((p) => p.objects)]) if (o.reference?.kind === 'image') void textureFor(o.reference.asset);
       render();
-      timeline?.onState();
     } else if (m.type === 'preview') {
       previewPending = false;
       if (!m.error && Object.keys(scrubValues).length) { preview = { objects: m.objects, obj: selectedObj! }; rebuildScene(); }

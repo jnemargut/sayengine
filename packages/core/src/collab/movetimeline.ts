@@ -35,6 +35,7 @@ export interface TlTrack {
   object?: string; motion?: string; motions?: string[]; line?: string; effect?: string; sound?: string; cutscene?: string;
   fps?: number;
   glb?: string;                  // asset key: the animated object (character: placed in the scene; creature: at the origin, see place)
+  held?: Array<{ object: string; bone: string }>;   // props held in a hand: the view moves them with that bone
   covers?: string[];             // the scene objects the GLB stands in for while it plays (the character and what it holds)
   place?: { position: [number, number, number]; rotation: number };
   audio?: string;                // asset key: a WAV

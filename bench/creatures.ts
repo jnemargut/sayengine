@@ -11,6 +11,8 @@
 //   snake     slithering;  car  a bumpy road
 //   trip      "make him trip over the bucket": a kit humanoid's one-off action, next to a bucket
 //   node bench/creatures.ts [names …] [--out dir]   (default: all, checkpoint-phase8/)
+// Phase 10: the previews are captured from the live view (the creature player is retired): each
+// creature plays in the scene on the view's timeline, its failed checks red on the track.
 // STUDIO_PORT default 4630, STUDIO_CHROME_PORT default 9510.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -46,7 +48,7 @@ const report = (checks: Record<string, Array<{ name: string; pass: boolean; wors
 };
 const preview = (id: string, dir: string, extra: string[] = []) => {
   const r = studio('creature-preview', '--object', id, '--video', 'true', '--out', dir, ...extra);
-  console.log(`  video:  ${r.result.video}\n  stills: ${r.result.stills.length} in ${path.dirname(r.result.stills[0])}\n  glb:    ${r.result.glb}`);
+  console.log(`  video:  ${r.result.video}\n  stills: ${r.result.stills.length} in ${path.dirname(r.result.stills[0])}\n  view:   ${r.result.view}`);
 };
 const perform = (id: string, file: string, extra: string[] = []) => {
   const a = action(file);
@@ -66,7 +68,10 @@ try {
       const a = action('humanoid-trips');
       const r = studio('perform-action', '--object', id, '--action', a.action, '--id', a.id, '--keys', JSON.stringify(a.keys), '--duration', String(a.duration));
       report({ [a.id]: r.result.checks });
-      const p = studio('motion-preview', '--object', id, '--motions', a.id, '--video', 'true', '--out', path.join(out, 'trip'), '--with', 'Bucket', '--at', JSON.stringify(a.bucket));
+      // the bucket where the trip needs it, relative to Tom (the view plays him in the scene, beside it)
+      const at = studio('inspect', '--object', id).result.position as number[];
+      studio('move-object', '--object', 'bucket', '--position', JSON.stringify([at[0] + a.bucket[0], 0, at[2] + a.bucket[2]]));
+      const p = studio('motion-preview', '--object', id, '--motions', a.id, '--video', 'true', '--out', path.join(out, 'trip'), '--with', 'Bucket');
       console.log(`  video:  ${p.result.video}`);
       continue;
     }

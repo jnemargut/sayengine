@@ -2,6 +2,7 @@
 export const TIMELINE_CSS = `
 .vp-col { display:flex; flex-direction:column; gap:var(--space-3); min-height:0; min-width:0; }
 .vp-col > .viewport { flex:1 1 auto; }
+.vp-col .checks { max-height:58px; overflow:hidden; }
 .tl-dock { flex:0 0 auto; background:var(--color-50); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); display:grid; grid-template-columns:minmax(0,1fr) 290px; min-height:0; overflow:hidden; font-size:var(--text-xs); color:var(--color-700); }
 .tl-dock.empty { display:none; }
 .tl-main { display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--color-200); }

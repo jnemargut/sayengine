@@ -12,8 +12,7 @@ import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence } from 
 import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../packages/core/src/phonemes.ts';
 import * as voice from '../packages/daemon/src/voice.ts';
 import { runGame, findGodot, findChrome, type GameContext } from '../packages/game/src/index.ts';
-import { buildCutscenePreview, captureCutscene, writeStoryboard } from '../packages/daemon/src/cutsceneplayer/make.ts';
-import { buildMotionPreview, captureMotionVideo, showTime } from '../packages/daemon/src/motionplayer/make.ts';
+import { openView } from './viewbench.ts';
 import { buildForge } from './forge.ts';
 
 const OUT = process.env.FORGE_OUT ? path.resolve(process.env.FORGE_OUT) : path.resolve(import.meta.dirname, '..', 'checkpoint-week8');   // Phase 7 recast: FORGE_OUT=checkpoint-phase7/forge-lesson
@@ -70,21 +69,17 @@ fs.writeFileSync(path.join(OUT, 'checks.json'), JSON.stringify(checks, null, 2))
 
 // 1. the studio's preview (three.js player, the same one web games use): storyboard + MP4 with the voices
 if (want('preview')) {
+  // the cutscene on the live view's timeline (shot clock, shot markers, voice waveforms), captured headless
   const dir = path.join(os.tmpdir(), 'forge-lesson-preview');
   fs.rmSync(dir, { recursive: true, force: true });
-  const items = selectForExport(studio, doc, {}).filter((i) => i.obj.role !== 'reference' && i.res.ok);
-  const glb = toGLB(items, {});
-  const v = await validateGlb(glb);
-  if (!v.ok) throw new Error(`scene GLB: ${v.errors} validator errors`);
-  const audio = Object.fromEntries(tl.cues.filter((c) => c.audio).map((c) => [c.audio!, studio.assets.get(c.audio!)]));
-  await buildCutscenePreview(dir, glb, tl, audio);
-  const cap = await captureCutscene(dir, tl, { video: true });
-  writeStoryboard(dir, tl, cap.boards, checks, { video: cap.video ? path.basename(cap.video) : undefined });
-  fs.copyFileSync(cap.video!, path.join(OUT, 'forge-lesson-preview.mp4'));
+  const view = await openView(studio);
+  const r = (await view.call('cutscene-preview', { id: 'forge-lesson', video: true, out: dir })).result;
+  view.close();
+  if (r.video) fs.copyFileSync(r.video, path.join(OUT, 'forge-lesson-preview.mp4'));
   fs.mkdirSync(path.join(OUT, 'storyboard'), { recursive: true });
-  for (const [id, f] of Object.entries(cap.boards)) fs.copyFileSync(path.join(dir, f), path.join(OUT, 'storyboard', `${id}.png`));
-  writeStoryboard(OUT, tl, Object.fromEntries(Object.keys(cap.boards).map((id) => [id, `storyboard/${id}.png`])), checks, { video: 'forge-lesson-preview.mp4' });
-  log(`preview: ${tl.shots.length} shots, ${tl.duration} s → forge-lesson-preview.mp4, storyboard.html`);
+  for (const st of r.stills ?? []) fs.copyFileSync(st, path.join(OUT, 'storyboard', path.basename(st)));
+  fs.copyFileSync(r.storyboard, path.join(OUT, 'storyboard.html'));
+  log(`preview: ${tl.shots.length} shots, ${tl.duration} s → forge-lesson-preview.mp4, storyboard.html (from the live view)`);
 }
 
 // 2. both engines: game import writes the cutscene (Godot: a generated AnimationPlayer scene), then play it
@@ -136,28 +131,16 @@ if (want('games')) {
 
 // 3. the motion fixes: apron (walk), the run, the hammer strike, start/stop steps
 if (want('motions')) {
+  const view = await openView(studio);
   for (const [id, extra] of [['blacksmith', { walk: { kind: 'walk' }, strike: undefined }], ['apprentice', { run: { kind: 'run' }, sprint: { kind: 'run', speed: 6 }, start: undefined, stop: undefined }]] as const) {
-    const o = doc.objects[id];
-    const motions0: Record<string, any> = { ...o.character!.motions };
-    for (const [k, v] of Object.entries(extra)) if (v) motions0[k] = v;
-    const keep = Object.keys(extra);
-    const solo = { ...o, character: { ...o.character, lines: {}, motions: Object.fromEntries(Object.entries(motions0).filter(([k]) => keep.includes(k) || k === 'walk' || k === 'idle')) } };
-    const sdoc = { ...doc, objects: { ...doc.objects, [id]: solo as any } };
-    const items = selectForExport(studio, sdoc, { object: id, atOrigin: true });
-    const glb = toGLB(items, {});
-    const rig = items[0].res.rig!.rig;
-    const motions = keep.map((mid) => {
-      const spec = solo.character!.motions![mid];
-      const c = bakeMotion(mid, spec, rig, solo.character);
-      return { id: mid, kind: spec.kind, label: `${o.name}: ${mid}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: showTime(c) };
-    });
+    for (const [k, v] of Object.entries(extra)) if (v) ok('set-motion', { object: id, id: k, ...v });
     const dir = path.join(os.tmpdir(), `week8-${id}-motions`);
     fs.rmSync(dir, { recursive: true, force: true });
-    await buildMotionPreview(dir, o.name, glb, motions);
-    const r = await captureMotionVideo(dir, motions);
+    const r = (await view.call('motion-preview', { object: id, motions: Object.keys(extra).join(','), video: true, out: dir })).result;
     if (r.video) fs.copyFileSync(r.video, path.join(OUT, `motions-${id}.mp4`));
     for (const st of r.stills ?? []) fs.copyFileSync(st, path.join(OUT, 'stills', `${id}-${path.basename(st)}`));
-    log(`motions: ${o.name} — ${motions.map((m) => m.id).join(', ')}`);
+    log(`motions: ${doc.objects[id].name} — ${r.segments.join(', ')}`);
   }
+  view.close();
 }
 log(`artefacts in ${OUT}`);

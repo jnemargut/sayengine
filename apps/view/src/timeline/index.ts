@@ -29,7 +29,7 @@ export interface TimelineDeps {
   toast(msg: string): void;
 }
 
-interface Anim { key: string; root: THREE.Object3D; gltf: any; mixer: THREE.AnimationMixer; actions: Map<string, THREE.AnimationAction>; player?: CutscenePlayer }
+interface Anim { rest?: Map<string, THREE.Matrix4>; key: string; root: THREE.Object3D; gltf: any; mixer: THREE.AnimationMixer; actions: Map<string, THREE.AnimationAction>; player?: CutscenePlayer }
 
 const COLOR: Record<string, string> = { motion: '#5b8c7a', voice: '#7d93ab', cutscene: '#8b6fae', effect: '#d9822b', sound: '#b58b3c', music: '#6f8f3f' };
 const RED = '#c8392b';
@@ -95,10 +95,12 @@ export function initTimeline(d: TimelineDeps) {
 
   async function apply(next: SceneTimeline) {
     const want = new Map(next.tracks.filter((x) => x.system === 'motion' && x.glb && !x.error).map((x) => [x.id, x]));
+    // load what's new first, so the old pose stays on screen until the new one is ready
+    const fresh = [...want.values()].filter((tr) => anims.get(tr.id)?.key !== tr.glb);
+    const loaded = await Promise.all(fresh.map((tr) => loadGlb(tr.glb!)));
     for (const [id, a] of anims) if (!want.has(id) || want.get(id)!.glb !== a.key) { anim.remove(a.root); anims.delete(id); }
-    await Promise.all([...want.values()].map(async (tr) => {
-      if (anims.has(tr.id)) return;
-      const gltf = await loadGlb(tr.glb!);
+    fresh.forEach((tr, i) => {
+      const gltf = loaded[i];
       const root = new THREE.Group();
       root.name = tr.id; root.userData.object = tr.object;
       // creatures come at the origin: place them where they stand in the scene
@@ -113,7 +115,15 @@ export function initTimeline(d: TimelineDeps) {
       for (const c of gltf.animations as THREE.AnimationClip[]) { const a = mixer.clipAction(c); a.setLoop(THREE.LoopRepeat, Infinity); actions.set(c.name, a); }
       anims.set(tr.id, { key: tr.glb!, root, gltf, mixer, actions });
       anim.add(root);
-    }));
+      // the hand bones in the rest pose: held props follow each bone's motion from there
+      const poseAct = actions.get('pose');
+      if (poseAct) { poseAct.play(); poseAct.paused = true; poseAct.time = 0; mixer.update(0); }
+      root.updateMatrixWorld(true);
+      if (poseAct) poseAct.stop();
+      const rest = new Map<string, THREE.Matrix4>();
+      for (const h of tr.held ?? []) { const b = model.getObjectByName(h.bone); if (b) rest.set(h.bone, b.matrixWorld.clone()); }
+      anims.get(tr.id)!.rest = rest;
+    });
     tl = next;
     // cutscene mode: one cutscene player per character GLB (the same player web games use)
     for (const [id, a] of anims) {
@@ -160,7 +170,28 @@ export function initTimeline(d: TimelineDeps) {
     perf.particles = fx.setTime(t, d.renderer.domElement.height * 0.9);
     applyVisibility();
   }
+  const tmpM = new THREE.Matrix4();
+  /** Held props (scene objects) ride their hand bone: bone now × bone at rest⁻¹ × where the prop rests. */
+  function carryHeld() {
+    if (!tl) return;
+    const hs = d.holders();
+    for (const tr of tl.tracks) {
+      const a = anims.get(tr.id);
+      if (!a?.rest || !tr.held?.length) continue;
+      a.root.updateMatrixWorld(true);
+      for (const h of tr.held) {
+        const holder = hs.get(h.object), b = a.root.getObjectByName(h.bone), r0 = a.rest.get(h.bone);
+        if (!holder || !b || !r0) continue;
+        if (!holder.userData.tlBase) { holder.updateMatrix(); holder.userData.tlBase = holder.matrix.clone(); }
+        tmpM.copy(r0).invert().premultiply(b.matrixWorld).multiply(holder.userData.tlBase);
+        holder.matrixAutoUpdate = false;
+        holder.matrix.copy(tmpM);
+        holder.matrixWorldNeedsUpdate = true;
+      }
+    }
+  }
   function applyVisibility() {
+    carryHeld();
     const solo = seg?.solo ? new Set<string>([seg.focus, ...(seg.show ?? [])]) : null;
     for (const [id, h] of d.holders()) h.visible = !covered.has(id) && (!solo || solo.has(id));
     for (const [id, a] of anims) {
@@ -190,7 +221,7 @@ export function initTimeline(d: TimelineDeps) {
   }
   setInterval(() => {
     const s = stats();
-    if (!s.frames) return;
+    if (!s.frames || capture) { perfEl.textContent = ''; return; }
     perfEl.textContent = `frame ${s.cpuMean.toFixed(1)} ms · ${s.fps.toFixed(0)} fps${perf.particles ? ` · ${perf.particles} particles` : ''}`;
     perfEl.classList.toggle('bad', s.gapP95 > 30);
   }, 1000);
@@ -247,9 +278,10 @@ export function initTimeline(d: TimelineDeps) {
   labelsEl.addEventListener('click', (e) => {
     const row = (e.target as HTMLElement).closest('[data-track-row]') as HTMLElement | null;
     if (!row || (e.target as HTMLElement).tagName === 'SELECT') return;
-    selTrack = row.dataset.trackRow!;
-    const tr = tl?.tracks.find((x) => x.id === selTrack);
-    if (tr?.object) d.select(tr.object, null);
+    const id = row.dataset.trackRow!;
+    const tr = tl?.tracks.find((x) => x.id === id);
+    d.select(tr?.object ?? null, null);
+    selTrack = id;
     buildLabels(); maybeSide(true); draw();
   });
   labelsEl.addEventListener('change', (e) => {
@@ -317,7 +349,8 @@ export function initTimeline(d: TimelineDeps) {
         else if (m.kind === 'word') { g.fillStyle = mid; g.fillRect(X(tr.start + m.at), y + ROW - 5, 1, 3); }
       }
       g.fillStyle = ink; g.font = '600 9.5px system-ui, sans-serif';
-      for (const m of named) for (const p of tr.loop ? passes : [tr.start]) { const x = X(p + m.at); g.fillRect(x, y + 2, 1.5, 6); if (p === passes[0] || X(tr.length) > 90) g.fillText(m.name, x + 3, y + 9); }
+      let lastLabel = -1e9;
+      for (const p of tr.loop ? passes : [tr.start]) for (const m of named) { const x = X(p + m.at); g.fillRect(x, y + 2, 1.5, 6); const wl = g.measureText(m.name).width; if (x > lastLabel + 4) { g.fillText(m.name, x + 3, y + 9); lastLabel = x + 3 + wl; } }
       g.font = '10px system-ui, sans-serif';
       // notes pinned at a moment on this track's clock
       for (const n of notes) {
@@ -348,7 +381,9 @@ export function initTimeline(d: TimelineDeps) {
   function moment(): TlAddress | null {
     if (!tl) return null;
     const v = d.view();
-    return momentAt(tl, Math.round(t * TL_TICKS), { object: v.selectedObj, part: v.selectedPart, track: selTrack && !v.selectedObj ? selTrack : selTrack && tl.tracks.find((x) => x.id === selTrack)?.object === v.selectedObj ? selTrack : null });
+    const st = selTrack ? tl.tracks.find((x) => x.id === selTrack) : undefined;
+    if (st && !st.object) return momentAt(tl, Math.round(t * TL_TICKS), { track: st.id });
+    return momentAt(tl, Math.round(t * TL_TICKS), { object: v.selectedObj, part: v.selectedPart, track: st && st.object === v.selectedObj ? st.id : null });
   }
   /** Extra fields for the view's select message: the clock, the seconds on it and the named moment. */
   function selectExtra(obj: string | null, part: string | null): Record<string, unknown> {
@@ -360,7 +395,7 @@ export function initTimeline(d: TimelineDeps) {
   let momentTimer: any = null;
   function momentChanged() {
     clearTimeout(momentTimer);
-    momentTimer = setTimeout(() => { const v = d.view(); if (v.selectedObj) d.select(v.selectedObj, v.selectedPart); }, 200);
+    momentTimer = setTimeout(() => { const v = d.view(), own = selTrack ? tl?.tracks.find((x) => x.id === selTrack)?.object : v.selectedObj; if (v.selectedObj && own === v.selectedObj) d.select(v.selectedObj, v.selectedPart); }, 200);
   }
 
   // ── the side panel: word notes, sliders, three takes, pins ────────────────────────────────────────
@@ -551,7 +586,8 @@ export function initTimeline(d: TimelineDeps) {
     setup, frame, stats,
     seek(at: number) { t = at; pose(); draw(); maybeSide(true); momentChanged(); },
     play: (on = true) => setPlaying(on),
-    select(track: string | null) { selTrack = track; buildLabels(); maybeSide(true); draw(); },
+    select(track: string | null) { selTrack = track; const o = tl?.tracks.find((x) => x.id === track)?.object; d.select(o ?? null, null); selTrack = track; buildLabels(); maybeSide(true); draw(); },
+    frameOn(object: string, opts: any = {}) { frameFocus({ focus: object, ...opts }); d.renderNow(); },
     moment, timeline: () => tl, time: () => t,
     stretches: () => (tl ? checkStretches(tl) : []),
     resetStats() { perf.cpu = []; perf.gap = []; },
@@ -561,7 +597,7 @@ export function initTimeline(d: TimelineDeps) {
   return {
     /** the view got a new state (a change on the shown branch, focus or before/after) */
     onState() { void refresh(); maybeSide(); draw(); },
-    begin, end, pick, selectExtra, onSelect() { if (selTrack && tl?.tracks.find((x) => x.id === selTrack)?.object !== d.view().selectedObj) selTrack = null; buildLabels(); maybeSide(); draw(); },
+    begin, end, pick, selectExtra, onSelect() { const o = selTrack ? tl?.tracks.find((x) => x.id === selTrack)?.object : undefined; if (selTrack && ((o && o !== d.view().selectedObj) || (!o && d.view().selectedPart))) selTrack = null; buildLabels(); maybeSide(); draw(); },
     get cutsceneCamera() { return tl?.mode === 'cutscene'; },
     api,
   };
