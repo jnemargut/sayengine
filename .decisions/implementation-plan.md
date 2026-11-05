@@ -555,6 +555,40 @@ You chose this before Pocket Raleigh because the cast "no longer look alike, but
 - **Checks:** 101 tests; `run`, `game`, `diorama` and `lesson` benches all green; `build:view` green; every cast member passes all its checks.
 - **Artefacts:** `checkpoint-craft/before|after/` (`lineup.png`, `faces.png`, `bodies.png` at the same cameras: the "before" set is the Phase 7 GLBs re-rendered), `checkpoint-craft/forge-lesson/` (before/after strike stills, both engines' MP4s), `checkpoint-craft/motions/`.
 
+### Face appeal round (branch `phase7/faces`)
+- **Painted face layer** (`facepaint.ts`): one procedural 1024² atlas per character, painted in Node from the face spec and encoded as PNG.
+  - Three regions, each with UVs projected from bind-pose corners:
+    - head: a cylinder around the head axis, with a back-seam fix
+    - body: a cylinder along the torso
+    - iris: planar per eye
+  - A part opts in with `Material.paint` (`head`, `body` or `iris`). The look carries a `FacePaint`:
+    - lashes, smile lines, blush, freckles, stubble and wrinkles
+    - markings: dog (muzzle, blaze, eye patch, saddle), feathers or heron (scallops, eye stripe, cap), robot (seams, rivets, LED cheeks)
+  - Iris painting: radial gradient, streaks, limbal ring and top shadow. Catch-lights are bigger, plus a second small glint.
+  - The texture rides on the skinned mesh, so it follows speech and expression shapes.
+  - It goes out in the plain GLB (three.js and the look lab) and in the game export. In the game export, painted groups skip the bake; Godot and the web both show it, see the Forge Lesson stills.
+- **Rest expression per personality:** a new `mood` (warm, cheerful, gentle, proud, nervous, grumpy, neutral) is set on every preset.
+  - It is applied to the rest positions after `buildRig`, so speech shapes add on top: a scaled smile or frown shape, plus a mouth-corner curve that moves teeth and tongue with the lips.
+  - Mouths are wider: 0.44·hw cartoon, 0.35·hw lips, 0.26·hw muzzle.
+  - The teeth-behind-lips check reads max skin z over ±2 cells instead of ±1. **Tripwire:** at ±1 a smiling smooth-style apprentice shows a 1.5–4 mm corner poke in "oh"/"ou". If corners visibly poke, curve the teeth less than the lips.
+- **Dog:**
+  - The skull "stop" comes from two shapes: the muzzle is a separate hull rooted inside the skull (`head.extra`), unioned before refinement.
+  - Lower legs and forelegs are 15–28% thicker (`LK = 0.5`). The full delta (`LK = 1`) collapsed the folded lower leg in "lie" to 63%, and wider weight smoothing made it worse.
+  - The heavy (build 1) and light (build 0) variants already failed "lie" before this round; that is unchanged.
+- **Smooth style family:** 58° creased normals in both exporters; 12 limb sides, or 10 for winged characters and quadrupeds, where 12 failed the arm-volume and lie checks; smooth quadrupeds refine the head 1.2× coarser, to stay under 20k.
+  - The cast player toggles faceted ↔ smooth (`?style=alt`, with a button). `bench/faces.ts` writes `after/player/`.
+  - Faceted stays the default: smooth softens bodies, but the heads still show their hull facets.
+- **Proof:** `checkpoint-faces/`:
+  - `before|after/{faceted,smooth}/` (`faces.png`, `bodies.png`, lineups at the same cameras)
+  - `after/player/` (style toggle; GLBs are git-ignored)
+  - `talking-face/` (week 4 lines rerecorded)
+  - `forge-lesson/` (Godot and web stills and MP4s)
+- **Still weak:**
+  - The kid's wide cartoon mouth reads as a thin pink line or stitched grin in close-up.
+  - Lashes are faint at gameplay distance.
+  - Smooth heads aren't truly smooth: no subdivision of head or hands, only normals.
+  - The grumpy smith's rest reads flat rather than characterful.
+
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
 |---|---|---|

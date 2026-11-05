@@ -40,7 +40,7 @@ export function presetName(name: string | undefined): string | null {
   return MATERIAL_PRESETS[dashed] ? dashed : null;
 }
 
-const FIELDS = ['color', 'roughness', 'metalness', 'clearcoat', 'clearcoatRoughness', 'transmission', 'ior', 'thickness', 'opacity', 'grain'] as const;
+const FIELDS = ['color', 'roughness', 'metalness', 'clearcoat', 'clearcoatRoughness', 'transmission', 'ior', 'thickness', 'opacity', 'grain', 'paint'] as const;
 
 /** Preset values with the material's own fields layered on top. */
 export function resolveMaterial(m: Partial<Material> | undefined): Material {

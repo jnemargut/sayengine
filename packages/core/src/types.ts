@@ -54,6 +54,7 @@ export interface Material {
   thickness?: number;            // m, for transmission
   opacity?: number;
   grain?: WoodGrain | null;      // procedural wood grain (no UVs needed)
+  paint?: 'head' | 'body' | 'iris'; // a character's painted detail (facepaint.ts): which region of its paint atlas this part samples
 }
 export interface WoodGrain { color2: string; scale: number; contrast: number }
 
@@ -177,6 +178,20 @@ export interface CharacterState {
   holds?: { left?: string; right?: string };        // object ids held in each hand
   lines?: Record<string, LineClip>;
   motions?: Record<string, MotionSpec>;              // parametric motion (Decision 16): baked to clips on export
+  paint?: FacePaint;                                 // painted face detail (blush, freckles, lashes, markings), baked into a texture on export
+}
+
+/** Painted detail on a character (face appeal round): baked into one small texture per character on
+ *  export (eyes, lashes, smile lines, blush, freckles, stubble, wrinkles, fur and feather markings). */
+export interface FacePaint {
+  lashes?: string | null;     // lash and upper-lid line colour (null: none, e.g. dot eyes)
+  smile?: number;             // mouth-corner lines: > 0 smile lines, < 0 frown lines (0..1)
+  blush?: string; blushAmt?: number;
+  freckles?: string; frecklesAmt?: number;
+  stubble?: string;
+  wrinkles?: number;          // 0..1
+  markings?: 'dog' | 'feathers' | 'heron' | 'robot';
+  mark?: string; mark2?: string;
 }
 
 /**

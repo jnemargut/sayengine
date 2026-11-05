@@ -4,6 +4,8 @@ import type { EvalResult } from './kernel.ts';
 import type { Material, SceneObject } from './types.ts';
 import { materialForPart } from './materials.ts';
 import { GlbBuilder } from './glb.ts';
+import { paintGroups } from './facepaint.ts';
+import { creasedNormals } from './gameexport.ts';
 import { addCharacterNodes, addSkin, attachHeldProps, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
 
 type Item = { obj: SceneObject; res: EvalResult };
@@ -77,11 +79,27 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
       groups.set(key, g);
     }
     const primitives: any[] = [];
+    // painted characters: one small texture (eyes, lashes, smile lines, blush, markings) on the parts that ask for it
+    const painted = rigged ? paintGroups(obj, res, [...groups.values()], (part) => materialForPart(obj, part)) : null;
+    let texture = -1;
+    // smooth-style characters export with smooth normals (faceted ones keep their flat facets)
+    const smoothNormals = rigged && posedRes.rig!.rig.spec.params.style === 'smooth';
     for (const [key, g] of groups) {
       if (!g.tris.length) continue;
-      const { pos, nor } = flatten(res, g.tris);
-      if (!matIndex.has(key)) { B.gltf.materials.push(gltfMaterial(g.mat, B.used)); matIndex.set(key, B.gltf.materials.length - 1); }
-      const prim: any = { attributes: { POSITION: B.accessor(pos, 'VEC3', true), NORMAL: B.accessor(nor, 'VEC3') }, material: matIndex.get(key) };
+      const { pos, nor: flatNor } = flatten(res, g.tris);
+      const nor = smoothNormals ? creasedNormals(res, g.tris, 58) : flatNor;
+      const matKey = g.mat.paint && painted ? `${obj.id}|${key}` : key;   // a painted material carries this character's own texture
+      if (!matIndex.has(matKey)) {
+        const m = gltfMaterial(g.mat, B.used);
+        if (g.mat.paint && painted) {
+          if (texture < 0) texture = B.image(painted.png, `${obj.name} paint`);
+          m.pbrMetallicRoughness.baseColorTexture = { index: texture };
+          m.pbrMetallicRoughness.baseColorFactor = [1, 1, 1, m.pbrMetallicRoughness.baseColorFactor[3]];
+        }
+        B.gltf.materials.push(m); matIndex.set(matKey, B.gltf.materials.length - 1);
+      }
+      const prim: any = { attributes: { POSITION: B.accessor(pos, 'VEC3', true), NORMAL: B.accessor(nor, 'VEC3') }, material: matIndex.get(matKey) };
+      if (g.mat.paint && painted) prim.attributes.TEXCOORD_0 = B.accessor(painted.uvOf(g, pos), 'VEC2');
       if (skin) { const rg = rigAttributes(B, posedRes, cornerVerts(posedRes, g.tris), skin); Object.assign(prim.attributes, rg.attributes); prim.targets = rg.targets; }
       primitives.push(prim);
     }

@@ -1,0 +1,104 @@
+{
+  "title": "The cast (faceted)",
+  "cast": [
+    {
+      "id": "blacksmith",
+      "name": "Blacksmith",
+      "label": "stocky · human mouth",
+      "glb": "blacksmith.glb",
+      "height": 1.42,
+      "idle": "idle",
+      "headH": 0.284,
+      "headY": 1.136,
+      "headZ": 0
+    },
+    {
+      "id": "apprentice",
+      "name": "Apprentice",
+      "label": "lanky · human mouth",
+      "glb": "apprentice.glb",
+      "height": 1.9,
+      "idle": "idle",
+      "headH": 0.27075,
+      "headY": 1.62925,
+      "headZ": 0
+    },
+    {
+      "id": "goblin-shopkeeper",
+      "name": "Goblin Shopkeeper",
+      "label": "stocky · cartoon mouth",
+      "glb": "goblin-shopkeeper.glb",
+      "height": 1.05,
+      "idle": "idle",
+      "headH": 0.273,
+      "headY": 0.777,
+      "headZ": 0
+    },
+    {
+      "id": "robot-porter",
+      "name": "Robot Porter",
+      "label": "human · grille mouth",
+      "glb": "robot-porter.glb",
+      "height": 1.95,
+      "idle": "idle",
+      "headH": 0.38609999999999994,
+      "headY": 1.5639,
+      "headZ": 0
+    },
+    {
+      "id": "marsh-bird",
+      "name": "Marsh Bird",
+      "label": "beaked · beak mouth",
+      "glb": "marsh-bird.glb",
+      "height": 1.22,
+      "idle": "idle",
+      "headH": 0.305,
+      "headY": 0.915,
+      "headZ": 0
+    },
+    {
+      "id": "kid",
+      "name": "Kid",
+      "label": "chibi · cartoon mouth",
+      "glb": "kid.glb",
+      "height": 1,
+      "idle": "idle",
+      "headH": 0.34,
+      "headY": 0.6599999999999999,
+      "headZ": 0
+    },
+    {
+      "id": "elder",
+      "name": "Elder",
+      "label": "human · human mouth",
+      "glb": "elder.glb",
+      "height": 1.66,
+      "idle": "idle",
+      "headH": 0.295812,
+      "headY": 1.364188,
+      "headZ": 0
+    },
+    {
+      "id": "dog",
+      "name": "Dog",
+      "label": "quadruped · muzzle mouth",
+      "glb": "dog.glb",
+      "height": 0.95,
+      "idle": "idle",
+      "headH": 0.19863359999999997,
+      "headY": 0.7524,
+      "headZ": 0.4549512
+    },
+    {
+      "id": "heron-courier",
+      "name": "Heron Courier",
+      "label": "lanky · beak mouth",
+      "glb": "heron-courier.glb",
+      "height": 1.72,
+      "idle": "idle",
+      "headH": 0.258,
+      "headY": 1.462,
+      "headZ": 0
+    }
+  ]
+}

@@ -4,13 +4,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-interface Member { id: string; name: string; label: string; glb: string; height: number; idle: string | null; headH?: number; headY?: number; headZ?: number }
-interface Config { title: string; cast: Member[] }
+interface Member { id: string; name: string; label: string; glb: string; height: number; idle: string | null; headH?: number; headY?: number; headZ?: number; alt?: string }
+interface Config { title: string; cast: Member[]; styles?: [string, string] }
 
 const params = new URLSearchParams(location.search);
 const capture = params.has('capture');
 const W = Number(params.get('w') ?? 1600), H = Number(params.get('h') ?? 800);
 const cfg: Config = await (await fetch('cast.json')).json();
+// style family toggle: ?style=alt loads each member's other-style GLB (a button flips it when not capturing)
+const useAlt = params.get('style') === 'alt';
+if (cfg.styles && !capture) {
+  const b = document.createElement('button');
+  b.textContent = `Style: ${cfg.styles[useAlt ? 1 : 0]} → ${cfg.styles[useAlt ? 0 : 1]}`;
+  b.style.cssText = 'position:fixed;top:12px;right:12px;font:14px system-ui;padding:8px 12px;border-radius:8px;border:1px solid #8a7a68;background:#fffaf2;cursor:pointer';
+  b.onclick = () => { const q = new URLSearchParams(location.search); if (useAlt) q.delete('style'); else q.set('style', 'alt'); location.search = q.toString(); };
+  document.body.appendChild(b);
+}
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(capture ? 1 : Math.min(2, devicePixelRatio));
@@ -36,7 +45,7 @@ const loader = new GLTFLoader();
 const members: Array<{ m: Member; root: THREE.Object3D; mixer: THREE.AnimationMixer; action?: THREE.AnimationAction; x: number; width: number }> = [];
 let x = 0;
 for (const m of cfg.cast) {
-  const g = await loader.loadAsync(m.glb);
+  const g = await loader.loadAsync(useAlt && m.alt ? m.alt : m.glb);
   g.scene.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
   const box = new THREE.Box3().setFromObject(g.scene);
   const width = Math.max(0.5, Math.min(box.max.x - box.min.x, 1.2)) + 0.35;

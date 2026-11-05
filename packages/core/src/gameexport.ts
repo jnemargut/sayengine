@@ -10,6 +10,7 @@ import { createRequire } from 'node:module';
 import type { EvalResult, CollisionInfo } from './kernel.ts';
 import type { Material, SceneObject } from './types.ts';
 import { materialForPart } from './materials.ts';
+import { paintGroups } from './facepaint.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
 import { GlbBuilder } from './glb.ts';
@@ -346,11 +347,23 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
 
     // 3–4: primitives per material group, for the main mesh and each distance version
     const matIndex = new Map<string, number>();
+    // painted characters: the face/markings texture rides along on the parts that ask for it; smooth-style
+    // characters keep soft normals
+    const paintedGroups = res.rig ? groups.filter((g) => g.material.paint).map((g) => ({ mat: g.material, tris: trisOf(res, g.parts) })) : [];
+    const painted = paintedGroups.length ? paintGroups(obj, res, paintedGroups, (part) => materialForPart(obj, part)) : null;
+    const crease = res.rig?.rig.spec.params.style === 'smooth' ? 58 : undefined;
+    let paintTex = -1;
     const materialFor = (g: MaterialGroup) => {
       let i = matIndex.get(g.key);
       if (i !== undefined) return i;
       let m: any;
-      if (g.textured && tex) {
+      if (g.material.paint && painted) {
+        m = gltfMaterial(g.material, B.used);
+        if (paintTex < 0) paintTex = B.image(painted.png, `${obj.name} paint`);
+        m.pbrMetallicRoughness.baseColorTexture = { index: paintTex };
+        m.pbrMetallicRoughness.baseColorFactor = [1, 1, 1, m.pbrMetallicRoughness.baseColorFactor?.[3] ?? 1];
+        m.extras = { ...(m.extras ?? {}), painted: g.material.paint };
+      } else if (g.textured && tex) {
         m = { name: `${obj.name}${textured.length > 1 ? ` ${g.material.clearcoat ? 'glazed' : 'baked'}` : ''}`, pbrMetallicRoughness: { baseColorTexture: { index: tex.base }, metallicRoughnessTexture: { index: tex.mr }, metallicFactor: 1, roughnessFactor: 1 }, extras: { baked: true, parts: g.parts } };
         if (g.material.clearcoat) { m.extensions = { KHR_materials_clearcoat: { clearcoatFactor: g.material.clearcoat, clearcoatRoughnessFactor: g.material.clearcoatRoughness ?? 0.1 } }; B.used.add('KHR_materials_clearcoat'); }
       } else m = gltfMaterial(g.material, B.used);
@@ -374,7 +387,9 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
         } else {
           const tris = trisOf(r, parts);
           if (!tris.length) continue;
-          const prim: any = { attributes: { POSITION: B.accessor(sub(flatCorners(r, tris), origin), 'VEC3', true), NORMAL: B.accessor(creasedNormals(r, tris), 'VEC3') }, material: materialFor(g) };
+          const local = sub(flatCorners(r, tris), origin);
+          const prim: any = { attributes: { POSITION: B.accessor(local, 'VEC3', true), NORMAL: B.accessor(creasedNormals(r, tris, crease), 'VEC3') }, material: materialFor(g) };
+          if (g.material.paint && painted && !lod) prim.attributes.TEXCOORD_0 = B.accessor(painted.uvOf({ mat: g.material, tris }, local), 'VEC2');
           if (skin && !lod) { const rg = rigAttributes(B, r, cornerVerts(r, tris), skin, opts.target === 'web'); Object.assign(prim.attributes, rg.attributes); prim.targets = rg.targets; }
           prims.push(prim);
         }

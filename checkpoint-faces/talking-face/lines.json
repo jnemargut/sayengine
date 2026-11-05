@@ -1,0 +1,27 @@
+{
+  "name": "Blacksmith",
+  "glb": "character.glb",
+  "lines": [
+    {
+      "id": "hold-still-this-will",
+      "text": "Hold still. This will only take a second.",
+      "audio": "audio/hold-still-this-will.wav",
+      "duration": 3.4,
+      "emotion": "firm"
+    },
+    {
+      "id": "bring-me-the-big",
+      "text": "Bring me the big hammer, and mind the embers.",
+      "audio": "audio/bring-me-the-big.wav",
+      "duration": 3.35,
+      "emotion": "firm"
+    },
+    {
+      "id": "perfect-now-we-wait",
+      "text": "Perfect. Now we wait for the metal to cool.",
+      "audio": "audio/perfect-now-we-wait.wav",
+      "duration": 3.35,
+      "emotion": "calm"
+    }
+  ]
+}

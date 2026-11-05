@@ -7,7 +7,7 @@ import { num, vec3, type ParamValues } from './expr.ts';
 import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
 import { textOp, holeOp, chamferOp, splitOp, type OpEnv } from './print.ts';
-import { buildRig, charParams, characterSpec, forward, localRotations, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
+import { buildRig, charParams, characterSpec, curveMouth, forward, localRotations, moodCurve, moodMix, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
 
 type V3 = [number, number, number];
 export interface BBox { min: V3; max: V3 }
@@ -404,7 +404,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           // The humanoid kit (Decision 14 A): proportions are params; the skeleton, skin weights and
           // face shapes come with it (attached to the final mesh below). Faces +Z, feet on y = 0.
           const keys = ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize'] as const;
-          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears, tail: A.tail, wings: A.wings, tailLength: A.tailLength, shape: A.shape, legs: A.legs, sleeves: A.sleeves }));
+          const spec = characterSpec(charParams({ ...Object.fromEntries(keys.filter((k) => A[k] !== undefined).map((k) => [k, P(k)])), hair: A.hair, apron: A.apron, plan: A.plan, style: A.style, mouth: A.mouth, eyes: A.eyes, brows: A.brows, nose: A.nose, ears: A.ears, tail: A.tail, wings: A.wings, tailLength: A.tailLength, shape: A.shape, legs: A.legs, sleeves: A.sleeves, mood: A.mood }));
           charSpec = spec;
           const parts = new Map<number, Part>();
           const mk = (m: any, name: string) => { const o = keep(m.asOriginal()); parts.set(o.originalID(), { name, ops: new Set([id]) }); return o; };
@@ -423,7 +423,9 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
             const y: RV3 = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
             return keep(keep(Manifold.cylinder(len, pc.r1, pc.r2, pc.sides)).transform([...x, 0, ...y, 0, ...z, 0, ...pc.a, 1]));
           };
-          const head = mk(keep(keep(Manifold.hull(spec.head.pts)).refineToLength(spec.head.refine)), spec.head.part);
+          // the head hull, plus any extra hulls joined to it (a muzzle: the join makes the dog's stop)
+          const headShape = spec.head.extra?.length ? keep(Manifold.union([keep(Manifold.hull(spec.head.pts)), ...spec.head.extra.map((pts) => keep(Manifold.hull(pts)))])) : keep(Manifold.hull(spec.head.pts));
+          const head = mk(keep(headShape.refineToLength(spec.head.refine)), spec.head.part);
           const cutters = spec.cuts.map((c) => mk(c.kind === 'box' ? keep(Manifold.cube(c.size, true)).translate(c.c) : c.kind === 'hull' ? keep(Manifold.hull(c.pts)) : keep(Manifold.sphere(c.r, c.sides)).translate(c.c), c.part));
           const face = keep(Manifold.difference([head, ...cutters]));
           // limbs and torso get edge loops along their length (still flat facets) so joints can bend
@@ -595,6 +597,16 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
     if (charSpec) {
       const vertPart = Array.from(vertLabel, (l) => (l >= 0 ? infos[l].name : '~cut'));
       const rig = buildRig(charSpec, positions, vertPart);
+      // the resting face (mood) is built into the bind pose: speech and expressions add on top of it
+      for (const [k, w] of Object.entries(moodMix(charSpec.params.mood, charSpec.face.kind))) {
+        const sd = rig.shapes[k];
+        if (!sd || !w) continue;
+        // a resting smile lifts the corners without pulling them back into the cheeks (speech from a
+        // smiled rest would otherwise bare the teeth at the corners)
+        const flat = k.startsWith('mouthSmile') ? 2 : 3;
+        for (let i = 0; i < sd.idx.length; i++) { const v = sd.idx[i]; for (let c = 0; c < flat; c++) positions[v * 3 + c] += sd.d[i * 3 + c] * w; }
+      }
+      curveMouth(charSpec, positions, vertPart, moodCurve(charSpec.params.mood));
       const posed = forward(rig.bones, rig.parents, localRotations(rig, obj.character));
       finalPositions = poseVertices(rig, positions, posed, obj.character?.expression);
       characterRig = { rig, rest: positions, vertPart, posed };

@@ -132,6 +132,51 @@ export interface CharParams {
   shape?: Shape;       // shape language (defaults to the plan's)
   legs?: 'bird';       // bird legs: feathered drumsticks, thin scaled shanks, splayed toes
   sleeves?: 'short' | 'long'; // where the sleeve hem sits (from the look)
+  mood?: Mood;         // the face at rest (built into the bind pose): warm, cheerful, gentle, proud, nervous, grumpy
+}
+/** Rest expressions: a character's resting face carries its personality (face appeal round). */
+export const MOODS = ['neutral', 'warm', 'cheerful', 'gentle', 'proud', 'nervous', 'grumpy'] as const;
+export type Mood = typeof MOODS[number];
+/** A mood as a mix of expression shapes. Lips smile; beaks, muzzles and grilles can't, so their mood
+ *  lives in the eyes, cheeks and brows (a smiling beak just bends). */
+export function moodMix(mood: Mood | undefined, kind: typeof MOUTHS[number] | undefined): Record<string, number> {
+  if (!mood || mood === 'neutral') return {};
+  const lips = kind !== 'beak' && kind !== 'grille' && kind !== 'muzzle';
+  // a mouth with teeth smiles more gently at rest (a wide resting grin would bare the teeth at the
+  // corners in every speech shape); cartoon mouths have no teeth and can smile fully
+  const sm = kind === 'cartoon' ? 1 : 0.55;
+  const both = (k: string, l: number, r = l) => ({ [`${k}Left`]: k === 'mouthSmile' ? l * sm : l, [`${k}Right`]: k === 'mouthSmile' ? r * sm : r });
+  switch (mood) {
+    case 'warm': return lips ? { ...both('mouthSmile', 0.55), ...both('cheekSquint', kind === 'cartoon' ? 0.3 : 0), browInnerUp: 0.08 } : { ...both('cheekSquint', 0.45), ...both('browOuterUp', 0.18) };
+    case 'cheerful': return lips ? { ...both('mouthSmile', 0.8), ...both('cheekSquint', 0.45), ...both('browOuterUp', 0.25) } : { ...both('cheekSquint', 0.55), ...both('browOuterUp', 0.32) };
+    case 'gentle': return lips ? { ...both('mouthSmile', 0.38), ...both('cheekSquint', 0.22), browInnerUp: 0.28 } : { ...both('cheekSquint', 0.3), browInnerUp: 0.3 };
+    case 'proud': return lips ? { ...both('mouthSmile', 0.5, 0.22), ...both('browOuterUp', 0.16), ...both('cheekSquint', 0.15) } : { ...both('browOuterUp', 0.22), ...both('cheekSquint', 0.2) };
+    case 'nervous': return lips ? { browInnerUp: 0.6, ...both('mouthSmile', 0.25), mouthPucker: 0.08 } : { browInnerUp: 0.65 };
+    case 'grumpy': return lips ? { ...both('browDown', 0.5), ...both('mouthFrown', 0.12), mouthSmileLeft: 0.18 } : { ...both('browDown', 0.5) };
+  }
+}
+/** How much a mood curves the resting mouth line (× head height at the corners; < 0 turns them down). */
+export const moodCurve = (mood: Mood | undefined) => ({ warm: 0.022, cheerful: 0.032, gentle: 0.018, proud: 0.016, nervous: 0.008, grumpy: -0.012, neutral: 0 } as Record<string, number>)[mood ?? 'neutral'] ?? 0;
+/**
+ * Bend the mouth into a curve at rest: the lips, the opening and the skin around them rise towards the
+ * corners (∝ (x / mouth half width)²), so a smile reads as a curve rather than a straight bar with
+ * lifted ends. Teeth and tongue rise with them. Lips only (beaks and grilles keep
+ * their shape). Moves `pos` in place.
+ */
+export function curveMouth(spec: CharSpec, pos: Float32Array, vertPart: string[], k: number) {
+  const F = spec.face;
+  if (!k || (F.kind !== 'human' && F.kind !== 'cartoon')) return;
+  const m = F.mouth, mw = F.mouthW, H = F.headH, amt = k * H * (F.kind === 'cartoon' ? 1 : 0.6);
+  for (let v = 0; v < vertPart.length; v++) {
+    const part = vertPart[v];
+    if (!isFacePart(part) || part === 'hair' || part.startsWith('brow') || part.startsWith('lid') || part.startsWith('ear')) continue;
+    const x = pos[v * 3] - m[0], y = pos[v * 3 + 1] - m[1], z = pos[v * 3 + 2];
+    // teeth and tongue follow the curve too (they stay behind the lips as the corners rise)
+    if (z < m[2] - 0.25 * H && !isMouthPart(part)) continue;
+    const t = Math.min(1.25, Math.abs(x) / mw);
+    const lift = amt * t * t * Math.exp(-((y / (0.07 * H)) ** 2)) * (1 - smooth(1.2 * mw, 1.7 * mw, Math.abs(x)));
+    pos[v * 3 + 1] += lift;
+  }
 }
 export const CHAR_DEFAULTS: CharParams = { height: 1.75, build: 0.55, headSize: 1, armLength: 1, legLength: 1, handSize: 1, hair: 'short' };
 /** Where an apron hangs (its back face, object space z) for a build: the kit's apron op and the apron bones share it. */
@@ -162,7 +207,7 @@ export interface CharSpec {
   s: number;                                              // height / 1.75
   bones: BoneDef[];
   pieces: Piece[];                                        // body + face attachments (unioned)
-  head: { pts: V3[]; refine: number; part: string };      // faceted head hull, refined for the face shapes
+  head: { pts: V3[]; extra?: V3[][]; refine: number; part: string }; // faceted head hull (plus extra hulls joined to it, e.g. a muzzle), refined for the face shapes
   cuts: Array<{ kind: 'box'; c: V3; size: V3; part: string } | { kind: 'ball'; c: V3; r: number; sides: number; part: string } | { kind: 'hull'; pts: V3[]; part: string }>;
   mouth: Piece[];                                         // teeth rows and tongue: separate shells inside the mouth (upper teeth on the head, lower teeth and tongue on the jaw)
   eyes: Piece[];                                          // eyeballs (kept separate: they turn with the eye bones)
@@ -204,6 +249,7 @@ export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharP
     ...(a.tailLength !== undefined ? { tailLength: n('tailLength', 0.3, 2) } : {}),
     ...(a.legs === 'bird' ? { legs: 'bird' as const } : {}),
     ...(a.sleeves === 'short' || a.sleeves === 'long' ? { sleeves: a.sleeves as 'short' | 'long' } : {}),
+    ...(pick(MOODS, a.mood, 'mood') && a.mood !== 'neutral' ? { mood: a.mood as Mood } : {}),
     ...opt,
   };
 }
@@ -218,7 +264,7 @@ export function characterSpec(p: CharParams): CharSpec {
   const style = p.style ?? 'faceted';
   const shape: Shape = p.shape ?? PD.shape;
   const birdLegs = p.legs === 'bird';
-  const SIDES = style === 'toy' ? 6 : style === 'smooth' ? 12 : 8, HEAD_N = style === 'toy' ? 8 : style === 'smooth' ? 18 : 12;
+  const SIDES = style === 'toy' ? 6 : style === 'smooth' ? (p.wings ? 10 : 12) : 8, HEAD_N = style === 'toy' ? 8 : style === 'smooth' ? 18 : 12;
   const s = p.height / 1.75, H = p.height, b = p.build;
   const L = PD.limb, T = PD.torso;
   const headH = PD.head * H * p.headSize, neckLen = 0.028 * H * PD.neck;
@@ -485,15 +531,19 @@ export function characterSpec(p: CharParams): CharSpec {
   // ── head: a faceted hull, refined so the face can deform ──────────────
   const hb = headBaseY;
   const headPts: V3[] = headRings.flatMap(([y, rx, rf, rbk]) => ring(hb + y * headH, rx * hw, rf * hd, rbk * hd, HEAD_N));
+  // a muzzle is its own shape joined to the skull (face appeal round): where the two meet, the forehead
+  // steps down to the top of the muzzle (a dog's "stop"), which one convex hull can't make
+  const muzzlePts: V3[] = [];
   if (mouthKind === 'muzzle') {
-    // a snout: the head hull reaches forward to a blunt front where the mouth sits
+    // a snout: a blunt front where the mouth sits, rooted inside the skull below the eyes
     const my0 = headBaseY + mouthY01 * headH;
-    for (const sx of [1, -1]) headPts.push(
-      [sx * 0.5 * hw, my0 + 0.17 * headH, surfZ(0.42) - 0.03 * headH], [sx * 0.62 * hw, my0 - 0.12 * headH, surfZ(0.12)],
+    for (const sx of [1, -1]) muzzlePts.push([sx * 0.42 * hw, my0 + 0.1 * headH, surfZ(0.3) - 0.22 * hd], [sx * 0.5 * hw, my0 - 0.1 * headH, surfZ(0.12) - 0.22 * hd]);
+    for (const sx of [1, -1]) muzzlePts.push(
+      [sx * 0.48 * hw, my0 + 0.13 * headH, surfZ(0.36) - 0.04 * headH], [sx * 0.62 * hw, my0 - 0.12 * headH, surfZ(0.12)],
       [sx * 0.36 * hw, my0 + 0.12 * headH, snoutZ - 0.035 * headH], [sx * 0.4 * hw, my0 - 0.1 * headH, snoutZ - 0.045 * headH],
       [sx * 0.3 * hw, my0 + 0.02 * headH, snoutZ], [sx * 0.22 * hw, my0 + 0.14 * headH, snoutZ - 0.01 * headH],
     );
-    headPts.push([0, my0 + 0.15 * headH, snoutZ - 0.004 * headH], [0, my0 - 0.11 * headH, snoutZ - 0.03 * headH], [0, my0 + 0.02 * headH, snoutZ + 0.004 * headH]);
+    muzzlePts.push([0, my0 + 0.15 * headH, snoutZ - 0.004 * headH], [0, my0 - 0.11 * headH, snoutZ - 0.03 * headH], [0, my0 + 0.02 * headH, snoutZ + 0.004 * headH]);
   }
   // designed planes (craft pass): a brow ridge over the eyes, cheekbones, and a jaw that follows the
   // shape language (square corners, a pointed chin) — none of them on the mouth's centre line, so the
@@ -511,7 +561,7 @@ export function characterSpec(p: CharParams): CharSpec {
     if (shape === 'triangle') headPts.push([0, hb - 0.03 * headH, surfZ(0.0) * 0.98]);
   }
   const slotH = (mouthKind === 'cartoon' ? 0.024 : 0.018) * headH;
-  const mouthW = (mouthKind === 'cartoon' ? 0.4 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.3) * hw;
+  const mouthW = (mouthKind === 'cartoon' ? 0.44 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.35) * hw;
   // ── mouth: chamber, teeth and tongue (all relative to the lip surface a = mouthZ, in head heights) ──
   const a = mouthZ, Hh = headH, my = mouthY;
   const chamberPts: V3[] = [];
@@ -706,8 +756,11 @@ export function characterSpec(p: CharParams): CharSpec {
     eyes.push({ kind: 'ball', c, r: eyeR * 1.01, sides: 48, cap: Math.cos((irisDeg * Math.PI) / 180), part: `${side}Eye.iris` });
     eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: pupilDeg > 30 ? 48 : 72, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
     // a catch-light: a small bright bead up and to the outer side of the pupil (eyes read as alive)
-    const gd = norm([(side === 'Left' ? 1 : -1) * 0.28, 0.32, 0.9]);
-    eyes.push({ kind: 'ball', c: add(c, mul(gd, eyeR * 0.98)), r: eyeR * (eyeStyle === 'dot' ? 0.2 : 0.17), sides: 12, part: `${side}Eye.glint` });
+    // (face appeal round: big enough to read at cutscene distance, plus a small second one low on the other side)
+    const gd = norm([(side === 'Left' ? 1 : -1) * 0.26, 0.3, 0.9]);
+    eyes.push({ kind: 'ball', c: add(c, mul(gd, eyeR * 0.97)), r: eyeR * (eyeStyle === 'dot' ? 0.27 : 0.24), sides: 16, part: `${side}Eye.glint` });
+    const gd2 = norm([(side === 'Left' ? -1 : 1) * 0.2, -0.24, 0.95]);
+    eyes.push({ kind: 'ball', c: add(c, mul(gd2, eyeR * 0.99)), r: eyeR * 0.1, sides: 10, part: `${side}Eye.glint` });
   }
   // eyelids: thin shells in the gap between eyeball and socket; at rest the edge sits just under the
   // socket's upper rim (a calm, slightly hooded eye); a blink turns the shell down over the eyeball
@@ -719,7 +772,7 @@ export function characterSpec(p: CharParams): CharSpec {
   if (p.tail) addTail(bones, pieces, [0, B.Hips.head[1] - 0.02 * s, addOnZ * 0.9], [0, -0.35, -1], 0.5 * H * (p.tailLength ?? 1), 0.035 * s * L, SIDES);
   if (p.wings) addWings(bones, pieces, [0, B.UpperChest.head[1], addOnZ * 1.05], 0.42 * H, 0.17 * H, 'UpperChest');
   return {
-    params: p, s, bones, pieces, head: { pts: headPts, refine: 0.012 * s * Math.sqrt(Math.max(1, headH / (0.165 * H * 1.1))), part: 'Head' }, cuts, mouth: mouthPieces, eyes, lids, palm,
+    params: p, s, bones, pieces, head: { pts: headPts, ...(muzzlePts.length ? { extra: [muzzlePts] } : {}), refine: 0.012 * s * Math.sqrt(Math.max(1, headH / (0.165 * H * 1.1))), part: 'Head' }, cuts, mouth: mouthPieces, eyes, lids, palm,
     face: {
       headBase: [0, hb, 0], headH, hw, hd,
       mouth: [0, mouthY, mouthZ], mouthW, slotH, jawPivot,
@@ -1454,7 +1507,7 @@ export function mouthCheck(rig: Rig, rest: Float32Array, vertPart: string[]): { 
     for (const v of inner) {
       const i = Math.floor((P[v * 3] - x0) / xs), j = Math.floor((P[v * 3 + 1] - y0) / ys);
       let f = -Infinity;
-      for (let jj = j - 3; jj <= j + 3; jj++) for (let ii = i - 1; ii <= i + 1; ii++) if (ii >= 0 && ii < XB && jj >= 0 && jj < YB) f = Math.max(f, grid[jj * XB + ii]);
+      for (let jj = j - 3; jj <= j + 3; jj++) for (let ii = i - 2; ii <= i + 2; ii++) if (ii >= 0 && ii < XB && jj >= 0 && jj < YB) f = Math.max(f, grid[jj * XB + ii]);
       if (!Number.isFinite(f)) continue;
       const margin = f - P[v * 3 + 2];
       if (margin < worst) { worst = margin; worstShape = shape; }
