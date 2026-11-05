@@ -878,7 +878,25 @@ Weak or not done:
 - [ ] The live crab stands taller, with straighter legs, than its baked crouch: the body height comes from the planted feet alone.
 - [ ] FABRIK3D kinks the reaching arm at a few joints. Cone joint limits made the tip miss by 11–14 cm, so they are off. A smoothing pass of our own is next.
 - [ ] Live springs and wheels in Godot: not done (baked).
-- [ ] Nothing in `/game` exports creatures into game projects yet. The bench and the test write the skinned GLBs themselves.
+- [x] ~~Nothing in `/game` exports creatures into game projects yet.~~ Done 2026-11-05 on `godot/live-ik-in-games`: see below.
+
+### Live IK in Godot games by default (2026-11-05, branch `godot/live-ik-in-games`, not merged)
+Built:
+- [x] **`game import` (Godot) exports every creature on its own** (`core/src/gamecreatures.ts`, daemon tool `game-creatures`): `assets/studio/creatures/<id>.glb` plus `creatures.json`. Skinned with `extras.ik` when the live runtime has legs or chains to drive; baked (node per bone) for wheels, shader grass, or a skinned file that fails the validator (`creatureGamePath()`); `--baked true` forces it. The import result lists each creature's path and reason, and Godot's own report (Skeleton3D, IK data).
+- [x] **Kit humanoids carry their leg bones** (`extras.character.footIk`).
+- [x] **Managed scripts attach everything** (no hand wiring): `characters.gd` places the creatures (idle, `creature_ik.gd` on skinned ones) and gives a single-character skeleton `foot_ik.gd`; `player.gd` gives the player `foot_ik.gd` and climbs ledges up to 0.32 m (the model eases up after the body). `CHARS.creature(root, name)` returns a creature's live legs; `wander(center, radius)` roams a circle.
+- [x] Ground is the game's own colliders (rays, skipping the character's own body; creatures cast from just above themselves, not the sky). Creatures get no static collider of their own.
+- [x] **Feet check** (`game feet`, `game test` kind `feet`, runner `_cmd_feet`): every live foot's planted gap to the ground under it, per subject. Fails at the 95th percentile past 2.5 cm up / 2 cm down (humanoids) or 4 % / 2 % of size (creatures, the motion checks' limits). `--ik false` runs the baked clips on the same ground. foot_ik and creature_ik read the pose as drawn (a modifier's pose is gone once drawn).
+- [x] **`games/ik-yard`** (built only through the studio tools and `runGame`: `build.ts`, `proof.ts`): five 15 cm steps, a landing, a 14° slope, bumpy ground with rocks; the Apprentice as player; the crab and spider wandering.
+  - Live: player p95 float 1.8 cm / sink 0.1 cm (passes), crab and spider 0 / 0. Baked: player 14.8 / 3.3, crab 4.8 / 14.8, spider 4.0 / 9.1: all three fail.
+  - `games/ik-yard/test/feet.test.ts` runs both in `npm test`. Videos in `checkpoint-godot-live-ik/games/`.
+
+Weak or not done:
+- [ ] The player's worst frames still float 15 cm / sink 9 cm (step-ups: the rear foot as the body rises); only the p95 passes.
+- [ ] The creature check is close to tautological for planted feet (the IK puts the tip on the same ray it is measured against); it catches unreachable ground, not subtle errors. Baked crab feet rarely count as planted (they slide), so its baked numbers come from few samples.
+- [ ] Creatures walk through each other and through walls (no avoidance, no collider).
+- [ ] Pocket Raleigh not touched (the life module is being polished elsewhere). Its player gets `foot_ik` on the next command (managed `player.gd`); its folk come from `life.gd`, which doesn't use foot_ik.
+- [ ] Web games don't get creatures yet.
 
 
 ## Assumptions & Tripwires

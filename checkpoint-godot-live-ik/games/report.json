@@ -1,0 +1,246 @@
+{
+  "walk": {
+    "pass": true,
+    "summary": "Crab ok (float p95 0 cm, sink p95 0 cm, limit 4.43/2.22); Spider ok (float p95 0 cm, sink p95 0 cm, limit 2.52/1.26); player ok (float p95 1.83 cm, sink p95 0.14 cm, limit 2.5/2)",
+    "walk": {
+      "distanceToTarget": 0.43,
+      "final": [
+        0,
+        0,
+        5.07
+      ],
+      "framesRecorded": 280,
+      "reached": true,
+      "seconds": 8.48
+    },
+    "subjects": [
+      {
+        "detail": "planted feet within 0.0 cm up / 0.0 cm down (p95)",
+        "feet": 6,
+        "floatMaxCm": 0,
+        "floatP95Cm": 0,
+        "kind": "creature",
+        "limitCm": [
+          4.43,
+          2.22
+        ],
+        "name": "Crab",
+        "pass": true,
+        "plantedSamples": 1827,
+        "sinkMaxCm": 0,
+        "sinkP95Cm": 0
+      },
+      {
+        "detail": "planted feet within 0.0 cm up / 0.0 cm down (p95)",
+        "feet": 8,
+        "floatMaxCm": 0,
+        "floatP95Cm": 0,
+        "kind": "creature",
+        "limitCm": [
+          2.52,
+          1.26
+        ],
+        "name": "Spider",
+        "pass": true,
+        "plantedSamples": 2730,
+        "sinkMaxCm": 0,
+        "sinkP95Cm": 0
+      },
+      {
+        "detail": "planted feet within 1.8 cm up / 0.1 cm down (p95)",
+        "feet": 2,
+        "floatMaxCm": 14.8,
+        "floatP95Cm": 1.83,
+        "kind": "humanoid",
+        "limitCm": [
+          2.5,
+          2
+        ],
+        "name": "player",
+        "pass": true,
+        "plantedSamples": 413,
+        "sinkMaxCm": 9.14,
+        "sinkP95Cm": 0.14
+      }
+    ],
+    "video": "checkpoint-godot-live-ik/games/walk.mp4",
+    "stills": [
+      "checkpoint-godot-live-ik/games/stills/walk-1.png",
+      "checkpoint-godot-live-ik/games/stills/walk-2.png",
+      "checkpoint-godot-live-ik/games/stills/walk-3.png",
+      "checkpoint-godot-live-ik/games/stills/walk-4.png",
+      "checkpoint-godot-live-ik/games/stills/walk-5.png",
+      "checkpoint-godot-live-ik/games/stills/walk-6.png"
+    ]
+  },
+  "walk-baked": {
+    "pass": false,
+    "summary": "Crab FAILS (float p95 4.81 cm, sink p95 14.83 cm, limit 4.43/2.22); Spider FAILS (float p95 4.04 cm, sink p95 9.06 cm, limit 2.52/1.26); player FAILS (float p95 14.82 cm, sink p95 3.3 cm, limit 2.5/2)",
+    "walk": {
+      "distanceToTarget": 0.43,
+      "final": [
+        0,
+        0,
+        5.07
+      ],
+      "framesRecorded": 280,
+      "reached": true,
+      "seconds": 8.48
+    },
+    "subjects": [
+      {
+        "detail": "planted feet within 4.8 cm up / 14.8 cm down (p95)",
+        "feet": 6,
+        "floatMaxCm": 4.81,
+        "floatP95Cm": 4.81,
+        "kind": "creature",
+        "limitCm": [
+          4.43,
+          2.22
+        ],
+        "name": "Crab",
+        "pass": false,
+        "plantedSamples": 6,
+        "sinkMaxCm": 14.83,
+        "sinkP95Cm": 14.83
+      },
+      {
+        "detail": "planted feet within 4.0 cm up / 9.1 cm down (p95)",
+        "feet": 8,
+        "floatMaxCm": 5.51,
+        "floatP95Cm": 4.04,
+        "kind": "creature",
+        "limitCm": [
+          2.52,
+          1.26
+        ],
+        "name": "Spider",
+        "pass": false,
+        "plantedSamples": 223,
+        "sinkMaxCm": 9.88,
+        "sinkP95Cm": 9.06
+      },
+      {
+        "detail": "planted feet within 14.8 cm up / 3.3 cm down (p95)",
+        "feet": 2,
+        "floatMaxCm": 79.73,
+        "floatP95Cm": 14.82,
+        "kind": "humanoid",
+        "limitCm": [
+          2.5,
+          2
+        ],
+        "name": "player",
+        "pass": false,
+        "plantedSamples": 411,
+        "sinkMaxCm": 7.87,
+        "sinkP95Cm": 3.3
+      }
+    ],
+    "video": "checkpoint-godot-live-ik/games/walk-baked.mp4",
+    "stills": [
+      "checkpoint-godot-live-ik/games/stills/walk-baked-1.png",
+      "checkpoint-godot-live-ik/games/stills/walk-baked-2.png",
+      "checkpoint-godot-live-ik/games/stills/walk-baked-3.png",
+      "checkpoint-godot-live-ik/games/stills/walk-baked-4.png",
+      "checkpoint-godot-live-ik/games/stills/walk-baked-5.png",
+      "checkpoint-godot-live-ik/games/stills/walk-baked-6.png"
+    ]
+  },
+  "creatures": {
+    "pass": true,
+    "summary": "Crab ok (float p95 0 cm, sink p95 0 cm, limit 4.43/2.22); Spider ok (float p95 0 cm, sink p95 0 cm, limit 2.52/1.26)",
+    "walk": null,
+    "subjects": [
+      {
+        "detail": "planted feet within 0.0 cm up / 0.0 cm down (p95)",
+        "feet": 6,
+        "floatMaxCm": 0,
+        "floatP95Cm": 0,
+        "kind": "creature",
+        "limitCm": [
+          4.43,
+          2.22
+        ],
+        "name": "Crab",
+        "pass": true,
+        "plantedSamples": 1959,
+        "sinkMaxCm": 0,
+        "sinkP95Cm": 0
+      },
+      {
+        "detail": "planted feet within 0.0 cm up / 0.0 cm down (p95)",
+        "feet": 8,
+        "floatMaxCm": 0,
+        "floatP95Cm": 0,
+        "kind": "creature",
+        "limitCm": [
+          2.52,
+          1.26
+        ],
+        "name": "Spider",
+        "pass": true,
+        "plantedSamples": 2906,
+        "sinkMaxCm": 0,
+        "sinkP95Cm": 0
+      }
+    ],
+    "video": "checkpoint-godot-live-ik/games/creatures.mp4",
+    "stills": [
+      "checkpoint-godot-live-ik/games/stills/creatures-1.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-2.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-3.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-4.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-5.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-6.png"
+    ]
+  },
+  "creatures-baked": {
+    "pass": false,
+    "summary": "Crab FAILS (float p95 4.81 cm, sink p95 14.83 cm, limit 4.43/2.22); Spider FAILS (float p95 4.04 cm, sink p95 9.06 cm, limit 2.52/1.26)",
+    "walk": null,
+    "subjects": [
+      {
+        "detail": "planted feet within 4.8 cm up / 14.8 cm down (p95)",
+        "feet": 6,
+        "floatMaxCm": 4.81,
+        "floatP95Cm": 4.81,
+        "kind": "creature",
+        "limitCm": [
+          4.43,
+          2.22
+        ],
+        "name": "Crab",
+        "pass": false,
+        "plantedSamples": 6,
+        "sinkMaxCm": 14.83,
+        "sinkP95Cm": 14.83
+      },
+      {
+        "detail": "planted feet within 4.0 cm up / 9.1 cm down (p95)",
+        "feet": 8,
+        "floatMaxCm": 5.51,
+        "floatP95Cm": 4.04,
+        "kind": "creature",
+        "limitCm": [
+          2.52,
+          1.26
+        ],
+        "name": "Spider",
+        "pass": false,
+        "plantedSamples": 237,
+        "sinkMaxCm": 9.88,
+        "sinkP95Cm": 9.06
+      }
+    ],
+    "video": "checkpoint-godot-live-ik/games/creatures-baked.mp4",
+    "stills": [
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-1.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-2.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-3.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-4.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-5.png",
+      "checkpoint-godot-live-ik/games/stills/creatures-baked-6.png"
+    ]
+  }
+}
