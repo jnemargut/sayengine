@@ -19,7 +19,9 @@ impact, the slider step, the word-note step, the three takes and the measured fr
 Frame time is measured separately in Chrome on the GPU (Metal) with the forge playing the clip, sparks, the fire and
 both sounds together (`report.json` → `frameTime`): on the M2 (ANGLE Metal), 1.9 ms of work per frame on average
 (2.7 ms at the 95th percentile), frames every 16.7 ms (60 fps, p95 16.7 ms), well under the ~30 ms budget. The screenshots and video come from headless Chrome with
-SwiftShader (software GL), which is why the dock there reads "software GL" instead of a frame time.
+SwiftShader (software GL): the "frame ~900 ms · 0 fps" in the screenshots' dock is the software renderer, not the
+Mac (the dock now says "software GL" there instead). The Metal number is the JS + draw-submit time per frame and the
+frame interval, which is capped at the 60 Hz refresh; GPU time itself isn't measured separately.
 
 Known gaps: captured videos have no audio; the clips play in place (a walk doesn't travel over the ground); the
 forge checkpoint has no recorded voice line, so lip sync in the view is covered by the code path and tests, not seen here.
