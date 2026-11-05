@@ -11,7 +11,7 @@ export interface ViewHost {
   call(tool: string, args: object, why?: string): void;
   toast(msg: string): void;
   /** tell the engine what is selected (it becomes `studio selection` and an address) */
-  sendSelect(object: string | null, part: string | null): void;
+  sendSelect(object: string | null, part: string | null, extra?: Record<string, unknown>): void;
   /** grade the viewport with this look while a slider is held (null: back to the engine's) */
   setLookPreview(look: any | null): void;
   /** re-draw the panels and inspector */

@@ -13,6 +13,7 @@ import {
   TL_TICKS, localTicks, masterTimes, checkStretches, momentAt, momentWords, trackFor, effectKnobs, knobChange,
   type SceneTimeline, type TlTrack, type TlAddress, type Knob,
 } from '../../../../packages/core/src/collab/movetimeline.ts';
+import { cameraAt } from '../../../../packages/reel/src/camera.ts';
 import { TimelineFx } from './fx.ts';
 import { TimelineAudio } from './audio.ts';
 import { TIMELINE_CSS } from './style.ts';
@@ -31,7 +32,7 @@ export interface TimelineDeps {
 
 interface Anim { rest?: Map<string, THREE.Matrix4>; key: string; root: THREE.Object3D; gltf: any; mixer: THREE.AnimationMixer; actions: Map<string, THREE.AnimationAction>; player?: CutscenePlayer }
 
-const COLOR: Record<string, string> = { motion: '#5b8c7a', voice: '#7d93ab', cutscene: '#8b6fae', effect: '#d9822b', sound: '#b58b3c', music: '#6f8f3f' };
+const COLOR: Record<string, string> = { motion: '#5b8c7a', voice: '#7d93ab', cutscene: '#8b6fae', effect: '#d9822b', sound: '#b58b3c', music: '#6f8f3f', shots: '#c0587a' };
 const RED = '#c8392b';
 const ROW = 22, RULER = 18;
 const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -49,7 +50,7 @@ export function initTimeline(d: TimelineDeps) {
   d.vpEl.parentElement!.insertBefore(col, d.vpEl); col.appendChild(d.vpEl);
   const dock = document.createElement('div'); dock.className = 'tl-dock empty'; col.appendChild(dock);
   dock.innerHTML = `<div class="tl-main"><div class="tl-bar">
-      <button data-tl="play" title="Play / pause (K)">▶ Play</button><button data-tl="loop" class="on" title="Loop">Loop</button><button data-tl="start" title="Back to the start">⏮</button>
+      <button data-tl="play" title="Play / pause (K)">▶ Play</button><button data-tl="loop" class="on" title="Loop">Loop</button><button data-tl="start" title="Back to the start">⏮</button><button data-tl="shotcam" class="tl-shotcam" title="Look through the trailer's shot camera">Shot camera</button>
       <span class="tl-time">0.00 s</span><span class="tl-moment"></span><span class="tl-perf"></span></div>
       <div class="tl-body"><div class="tl-labels"></div><div class="tl-lanes"><canvas></canvas></div></div></div>
     <div class="tl-side"></div>`;
@@ -138,7 +139,11 @@ export function initTimeline(d: TimelineDeps) {
     fx.sync(tl.tracks.filter((x) => x.system === 'effect') as any);
     for (const k of Object.keys(tl.play)) play[k] ??= tl.play[k];
     t = Math.min(t, toS(tl.length));
-    dock.classList.toggle('empty', !tl.tracks.length);
+    dock.classList.toggle('empty', !tl.tracks.length && !dock.querySelector('.tl-day'));
+    shotTrack = tl.tracks.find((x) => x.system === 'shots') ?? null;
+    dock.classList.toggle('has-shots', !!shotTrack);
+    dock.classList.toggle('no-tracks', !tl.tracks.length);
+    if (!shotTrack && shotCam) setShotCam(false);
     buildLabels();
     pose();
     draw();
@@ -174,7 +179,95 @@ export function initTimeline(d: TimelineDeps) {
     }
     perf.particles = fx.setTime(t, d.renderer.domElement.height * 0.9);
     applyVisibility();
+    if (shotCam && shotTrack?.reel) shotCamera(t);
   }
+
+  // ── trailers: the shots track runs each shot's camera over the scene ───────────────────────────────
+  let shotTrack: TlTrack | null = null, shotCam = false;
+  const thumbs = new Map<string, string>();        // proposal → its thumbnail
+  let three: HTMLDivElement | null = null;
+  function shotAt(tr: TlTrack, sec: number) { const sh = tr.reel!.shots; return sh.find((x) => sec >= x.start && sec < x.end) ?? (sec >= (sh.at(-1)?.end ?? 0) ? null : sh[0]); }
+  /** A camera for the viewport that sees what the square frame's 16:9 crop sees (its width matches the take's fov). */
+  function placeCam(cam: THREE.PerspectiveCamera, c: { position: number[]; target: number[]; fov: number }, aspect: number) {
+    // the 16:9 crop of the square capture sees the take's fov across: a narrower viewport fits that width, a wider one its height
+    const crop = Math.min(aspect, 16 / 9);
+    cam.fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(c.fov / 2)) / crop));
+    cam.position.set(c.position[0], c.position[1], c.position[2]);
+    cam.near = 0.3; cam.far = 4000; cam.updateProjectionMatrix();
+    cam.lookAt(c.target[0], c.target[1], c.target[2]);
+  }
+  function shotCamera(sec: number) {
+    const tr = shotTrack!, s = shotAt(tr, sec);
+    if (!s) return;
+    const take = tr.reel!.takes[s.take];
+    if (!take) return;
+    const c = cameraAt(take, Math.max(0, Math.min(1, (s.in + (sec - s.start)) / take.seconds)));
+    placeCam(d.camera, c, d.camera.aspect);
+    d.controls.target.set(c.target[0], c.target[1], c.target[2]);
+  }
+  let frameEl: HTMLDivElement | null = null;
+  function setShotCam(on: boolean) {
+    shotCam = on;
+    d.controls.enabled = !on;
+    dock.querySelector('.tl-shotcam')?.classList.toggle('on', on);
+    // the 16:9 frame the export crops, over the viewport
+    if (on && !frameEl) { frameEl = document.createElement('div'); frameEl.className = 'tl-frame'; d.vpEl.appendChild(frameEl); }
+    if (frameEl) frameEl.style.display = on ? '' : 'none';
+    if (on && shotTrack) { shotCamera(t); d.renderNow(); }
+  }
+  /** The scene from a camera, as a small 16:9 PNG: drawn into a corner of the main canvas (textures don't
+   *  cross GL contexts; a small viewport keeps software GL quick), copied out, then the frame is redrawn. */
+  function shoot(c: { position: number[]; target: number[]; fov: number }, w = 288, h = 162): string {
+    const src = d.renderer.domElement, pr = d.renderer.getPixelRatio();
+    const cam = new THREE.PerspectiveCamera(50, w / h, 0.3, 4000);
+    placeCam(cam, c, w / h);
+    const vp = new THREE.Vector4(); d.renderer.getViewport(vp);
+    d.renderer.setViewport(0, 0, w / pr, h / pr);
+    d.renderer.render(d.scene, cam);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    cv.getContext('2d')!.drawImage(src, 0, src.height - h, w, h, 0, 0, w, h);
+    const url = cv.toDataURL('image/png');
+    d.renderer.setViewport(vp.x, vp.y, vp.z, vp.w);
+    d.renderNow();
+    return url;
+  }
+  /** "Show me three" for a shot: the three takes' cameras side by side over the viewport, with Pick. */
+  async function drawThree() {
+    const v = d.view();
+    const g = (v.state?.takes ?? []).find((x: any) => x.reel && x.status === 'open' && x.reel.id === shotTrack?.reel?.id);
+    if (!g) { three?.remove(); three = null; return; }
+    if (!three) { three = document.createElement('div'); three.className = 'tl-three'; d.vpEl.appendChild(three); }
+    const key = `${g.id}:${g.takes.map((x: any) => x.proposal).join(',')}`;
+    if (three.dataset.key === key) return;
+    three.dataset.key = key;
+    three.innerHTML = `<div class="q">Your call: shot ${g.reel.shot}, three ways <span>(the other two are discarded, never merged)</span></div><div class="row">${g.takes.map((x: any) => `<div class="tk" data-p="${esc(x.proposal)}"><div class="img">…</div><div class="se"><span>start</span><span>end</span></div><b>${esc(x.label)}</b><button data-tl3="pick" data-group="${esc(g.id)}" data-take="${esc(x.label)}">Pick</button></div>`).join('')}</div><div class="foot"><button data-tl3="drop" data-group="${esc(g.id)}">None of these</button><span>camera moves ${Math.round(Math.min(...(g.cameraDistinct ?? [{ distance: 0 }]).map((p: any) => p.distance)) * 100)}%+ apart</span></div>`;
+    for (const x of g.takes) {
+      let url = thumbs.get(x.proposal);
+      if (!url) {
+        try {
+          const o = await (await fetch(`/api/timeline?branch=${encodeURIComponent(x.proposal)}`)).json();
+          const st: TlTrack | undefined = o.tracks?.find((q: TlTrack) => q.system === 'shots' && q.reel?.id === g.reel.id);
+          const s = st?.reel?.shots.find((q) => q.index === g.reel.shot), take = s ? st!.reel!.takes[s.take] : null;
+          if (s && take) {
+            // the move: its first and last frame in the cut, side by side
+            const u0 = s.in / take.seconds, u1 = Math.min(1, (s.in + s.end - s.start) / take.seconds);
+            url = `<img src="${shoot(cameraAt(take, u0), 192, 108)}" alt="start"><img src="${shoot(cameraAt(take, u1), 192, 108)}" alt="end">`;
+            thumbs.set(x.proposal, url);
+          }
+        } catch { /* shown as … */ }
+      }
+      const el = three?.querySelector(`[data-p="${x.proposal}"] .img`);
+      if (el && url) el.innerHTML = url;
+    }
+    if (!g.opened) d.call('pick-take', { group: g.id, opened: true });
+  }
+  d.vpEl.addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('[data-tl3]') as HTMLElement | null;
+    if (!b) return;
+    if (b.dataset.tl3 === 'pick') d.call('pick-take', { group: b.dataset.group, take: b.dataset.take });
+    else d.call('pick-take', { group: b.dataset.group, drop: true });
+    three?.remove(); three = null;
+  });
   const tmpM = new THREE.Matrix4();
   /** Held props (scene objects) ride their hand bone: bone now × bone at rest⁻¹ × where the prop rests. */
   function carryHeld() {
@@ -250,6 +343,7 @@ export function initTimeline(d: TimelineDeps) {
     if (act === 'play') setPlaying(!playing);
     else if (act === 'loop') { loop = !loop; updateTransport(); }
     else if (act === 'start') { t = 0; if (playing) setPlaying(true); pose(); draw(); momentChanged(); }
+    else if (act === 'shotcam') { setShotCam(!shotCam); d.renderNow(); }
     else sideAct(b);
   });
   document.addEventListener('keydown', (e) => {
@@ -267,9 +361,9 @@ export function initTimeline(d: TimelineDeps) {
     pose(); draw(); maybeSide(true);
   };
   lanesEl.addEventListener('pointerdown', (e) => {
-    scrubbing = true; lanesEl.setPointerCapture(e.pointerId); if (playing) { playing = false; audio.stop(); updateTransport(); }
+    scrubbing = true; try { lanesEl.setPointerCapture(e.pointerId); } catch { /* a synthetic pointer */ } if (playing) { playing = false; audio.stop(); updateTransport(); }
     const r = canvas.getBoundingClientRect(), row = Math.floor((e.clientY - r.top - RULER) / ROW);
-    if (tl && row >= 0 && row < tl.tracks.length) selTrack = tl.tracks[row].id;
+    if (tl && row >= 0 && row < tl.tracks.length) { selTrack = tl.tracks[row].id; if (tl.tracks[row].system === 'shots' && !shotCam) setShotCam(true); }
     scrubTo(e.clientX); buildLabels();
   });
   lanesEl.addEventListener('pointermove', (e) => { if (scrubbing) scrubTo(e.clientX); });
@@ -287,6 +381,7 @@ export function initTimeline(d: TimelineDeps) {
     const tr = tl?.tracks.find((x) => x.id === id);
     d.select(tr?.object ?? null, null);
     selTrack = id;
+    if (tr?.system === 'shots' && !shotCam) setShotCam(true);
     buildLabels(); maybeSide(true); draw();
   });
   labelsEl.addEventListener('change', (e) => {
@@ -407,7 +502,7 @@ export function initTimeline(d: TimelineDeps) {
   function maybeSide(force = false) {
     const tr = currentTrack();
     const v = d.view();
-    const key = `${tr?.id}|${tr?.version}|${v.focus}|${v.before}|${JSON.stringify((v.state?.takes ?? []).map((g: any) => [g.id, g.status]))}|${(v.state?.proposals ?? []).length}`;
+    const key = `${tr?.id}|${tr?.version}|${v.focus}|${v.before}|${JSON.stringify((v.state?.takes ?? []).map((g: any) => [g.id, g.status]))}|${(v.state?.proposals ?? []).length}|${tr?.reel ? shotAt(tr, t)?.index : ''}`;
     if (!force && key === sideKey) { updateAddr(); return; }
     sideKey = key;
     const active = document.activeElement as HTMLInputElement | null;
@@ -445,6 +540,14 @@ export function initTimeline(d: TimelineDeps) {
       const g = (v.state?.takes ?? []).find((x: any) => x.ask?.sound === tr.sound && x.status === 'open');
       if (g) out.push(`<div class="ask"><div class="q">Your call: ${esc(g.ask.question)}</div>${g.ask.options.map((o: any) => `<div class="take"><span>${esc(o.label)}</span><button data-tl="listen" data-proposal="${esc(o.proposal)}" data-group="${esc(g.id)}">▶ Listen</button><button data-tl="pick" data-group="${esc(g.id)}" data-take="${esc(o.label)}">Pick</button></div>`).join('')}<div class="muted">The other two are discarded, never merged.</div></div>`);
       else out.push(`<div class="row"><button data-tl="listen-track">▶ Listen</button><button data-tl="three" data-sound="${esc(tr.sound ?? '')}">Show me three</button></div>`);
+    }
+    if (tr.system === 'shots' && tr.reel) {
+      const s = shotAt(tr, t) ?? tr.reel.shots[0], n = tr.reel.shots.length;
+      const g = (v.state?.takes ?? []).find((x: any) => x.reel && x.status === 'open' && x.reel.id === tr.reel!.id);
+      out.push(`<div><b>Shot ${s.index} of ${n}</b> · ${esc(s.take)} · ${s.beats} beats · ${(s.end - s.start).toFixed(2)} s${s.caption ? ` · “${esc(s.caption)}”` : ''}${s.made ? ' <span class="muted">(a new take)</span>' : ''}</div>`);
+      out.push(`<div class="row"><button data-tl="shot-keep" data-shot="${s.index}" class="${s.kept ? 'primary' : ''}">${s.kept ? '✓ Kept' : 'Keep'}</button><button data-tl="shot-redo" data-shot="${s.index}">Redo</button><button data-tl="shot-three" data-shot="${s.index}">Show me three</button></div>`);
+      out.push(g ? `<div class="ask"><div class="q">Your call: shot ${g.reel.shot}, three ways</div><div class="muted">Side by side over the scene: Pick one.</div></div>` : `<div class="muted">${tr.reel.shots.filter((x) => x.kept).length} of ${n} kept. Redo makes a new take of this shot only. Export: <code>studio reel-export</code>, then <code>reel capture</code> + <code>reel cut</code> (the ffmpeg recipe).</div>`);
+      if (tr.reel.warnings.length) out.push(`<div class="bad">${tr.reel.warnings.map(esc).join('<br>')}</div>`);
     }
     if (tr.system === 'voice') out.push(`<div class="row"><button data-tl="listen-track">▶ Listen</button></div><div class="muted">Lip sync plays on the character's line clip.</div>`);
     out.push(pin);
@@ -508,6 +611,9 @@ export function initTimeline(d: TimelineDeps) {
         if (key) await audio.listen(key);
       })();
     } else if (act === 'pick') d.call('pick-take', { group: b.dataset.group, take: b.dataset.take });
+    else if (act === 'shot-keep' && tr?.reel) { const n = Number(b.dataset.shot), kept = tr.reel.shots.find((x) => x.index === n)?.kept; d.call('reel-keep', { reel: tr.reel.id, shot: n, ...(kept ? { keep: false } : {}) }, `${kept ? 'un-keep' : 'keep'} shot ${n}`); }
+    else if (act === 'shot-redo' && tr?.reel) { const n = Number(b.dataset.shot); d.call('reel-redo', { reel: tr.reel.id, shot: n }, `redo shot ${n}`); d.toast(`Shot ${n}: a new take`); }
+    else if (act === 'shot-three' && tr?.reel) { const n = Number(b.dataset.shot); d.call('reel-three', { reel: tr.reel.id, shot: n }); d.toast(`Shot ${n}: three takes coming…`); }
   }
 
   // ── picking a bone or part on the moving GLBs ─────────────────────────────────────────────────────
@@ -596,12 +702,14 @@ export function initTimeline(d: TimelineDeps) {
     moment, timeline: () => tl, time: () => t,
     stretches: () => (tl ? checkStretches(tl) : []),
     resetStats() { perf.cpu = []; perf.gap = []; },
+    shotCam: (on = true) => setShotCam(on),
+    shots: () => shotTrack?.reel ?? null,
   };
   (window as any).__timeline = api;
 
   return {
     /** the view got a new state (a change on the shown branch, focus or before/after) */
-    onState() { void refresh(); maybeSide(); draw(); },
+    onState() { void refresh().then(() => drawThree()); maybeSide(); draw(); },
     begin, end, pick, selectExtra, onSelect() { const o = selTrack ? tl?.tracks.find((x) => x.id === selTrack)?.object : undefined; if (selTrack && ((o && o !== d.view().selectedObj) || (!o && d.view().selectedPart))) selTrack = null; buildLabels(); maybeSide(); draw(); },
     get cutsceneCamera() { return tl?.mode === 'cutscene'; },
     api,

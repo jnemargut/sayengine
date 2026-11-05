@@ -64,6 +64,8 @@ export function thingName(doc: any, id: string): string {
   if (id === 'ui') return 'UI kit';
   if (id.startsWith('town:')) return id.slice(5);
   if (id.startsWith('look:')) return `look ${id.slice(5)}`;
+  if (id.startsWith('person:')) return partWords.person?.(doc, id.slice(7)) ?? id.slice(7);
+  if (id.startsWith('reel:')) return partWords.reel?.(doc, id.slice(5)) ?? `trailer ${id.slice(5)}`;
   return id;
 }
 

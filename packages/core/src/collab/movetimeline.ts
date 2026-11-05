@@ -15,7 +15,7 @@ export const TL_TICKS = 24000;
 export const toTicks = (s: number) => Math.round(s * TL_TICKS);
 export const toSeconds = (t: number) => t / TL_TICKS;
 
-export type TlSystem = 'motion' | 'voice' | 'cutscene' | 'effect' | 'sound' | 'music';
+export type TlSystem = 'motion' | 'voice' | 'cutscene' | 'effect' | 'sound' | 'music' | 'shots';
 export type MarkerKind = 'moment' | 'shot' | 'burst' | 'beat' | 'bar' | 'event' | 'word' | 'cue';
 export interface TlMarker { name: string; at: number; len?: number; kind: MarkerKind }
 /** One motion check on a track: failing ranges as [at, len] ticks on the track's own clock. */
@@ -44,6 +44,8 @@ export interface TlTrack {
   fx?: { def: EffectDef; at: [number, number, number]; colours: Record<string, string> };
   error?: string;
   gain?: number;
+  /** a trailer's shots (the shots track): per shot its take, times, kept; the takes' camera keys; the mid-shot camera */
+  reel?: { id: string; title: string; shots: Array<{ index: number; take: string; start: number; end: number; in: number; beats: number; caption?: string; kept: boolean; made: string | null }>; endCard: any; takes: Record<string, any>; mid: Record<number, { position: number[]; target: number[]; fov: number }>; warnings: string[] };
 }
 export interface SceneTimeline {
   stamp: string;
@@ -130,7 +132,7 @@ export function trackFor(tl: Pick<SceneTimeline, 'tracks'>, master: number, sel:
     const speaking = mine.find((t) => t.system === 'voice' && localTicks(t, master) !== null);
     return speaking ?? mine.find((t) => t.system === 'motion') ?? mine.find((t) => localTicks(t, master) !== null) ?? mine[0];
   }
-  return tl.tracks.find((t) => t.system === 'cutscene');
+  return tl.tracks.find((t) => t.system === 'cutscene') ?? tl.tracks.find((t) => t.system === 'shots');
 }
 
 /**

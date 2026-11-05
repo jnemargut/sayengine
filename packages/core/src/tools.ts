@@ -20,6 +20,7 @@ import { LIFE_TOOLS } from './life/tools.ts';
 import { COLLAB_TOOLS } from './collab/tools.ts';
 import { SOUND_TOOLS } from './sounds.ts';
 import { TIMELINE_TOOLS } from './collab/timelinetools.ts';
+import { REEL_TOOLS } from './reels.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -781,6 +782,7 @@ TOOLS.push(...LIFE_TOOLS);
 TOOLS.push(...COLLAB_TOOLS);
 TOOLS.push(...SOUND_TOOLS);
 TOOLS.push(...TIMELINE_TOOLS);
+TOOLS.push(...REEL_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

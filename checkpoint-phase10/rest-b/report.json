@@ -1,0 +1,211 @@
+{
+  "made": "2026-11-05T23:08:25.008Z",
+  "shots": [
+    "checkpoint-phase10/rest-b/life-day-overview.png",
+    "checkpoint-phase10/rest-b/life-person.png",
+    "checkpoint-phase10/rest-b/life-redirected.png",
+    "checkpoint-phase10/rest-b/life-walking-to-cafe.png",
+    "checkpoint-phase10/rest-b/reel-shot1.png",
+    "checkpoint-phase10/rest-b/reel-redo.png",
+    "checkpoint-phase10/rest-b/reel-three.png",
+    "checkpoint-phase10/rest-b/reel-playing.png"
+  ],
+  "scenes": {
+    "life": {
+      "loaded": true,
+      "people": 32,
+      "startedAt": 30600,
+      "played": {
+        "from": 30600,
+        "to": 30900,
+        "seconds": 5,
+        "speed": 600
+      },
+      "scrubbedTo": 31199.999999999993,
+      "clickedFirstTry": true,
+      "tries": 1,
+      "picked": 6,
+      "selection": {
+        "object": "person:raleigh-5",
+        "clock": "day",
+        "seconds": 31200,
+        "near": "bench 15 (2)"
+      },
+      "address": {
+        "thing": "person:raleigh-5",
+        "clock": "day",
+        "of": "cc0cec6981",
+        "at": 748800000,
+        "near": "bench 15 (2)"
+      },
+      "person": {
+        "name": "June",
+        "role": "out and about",
+        "looksLike": "Faro",
+        "home": "Home ff0b5b",
+        "plan": [
+          "08:18 leaves home",
+          "08:21–08:27 sits on bench 15",
+          "08:38–08:54 sits on bench 15",
+          "09:00–09:09 sits on bench 12",
+          "09:11 home again",
+          "15:37 leaves home",
+          "15:38–15:51 sits on bench 10",
+          "16:12–16:30 sits on bench 5",
+          "16:32 home for the day"
+        ]
+      },
+      "redirect": {
+        "steps": 1,
+        "note": "go to the café at 9 instead",
+        "tool": "life-redirect",
+        "changes": [
+          "life.redirects"
+        ],
+        "done": true,
+        "planAfter": [
+          "09:00 leaves home",
+          "09:01–09:41 goes into Shop b0524a",
+          "09:42 home again",
+          "15:37 leaves home",
+          "15:38–15:51 sits on bench 10",
+          "16:12–16:30 sits on bench 5",
+          "16:32 home for the day"
+        ]
+      },
+      "checks": {
+        "pass": 13,
+        "of": 13
+      },
+      "viewErrors": []
+    },
+    "reel": {
+      "keep": {
+        "steps": 1,
+        "note": "keep shot 1",
+        "kept": [
+          1
+        ]
+      },
+      "redo": {
+        "steps": 1,
+        "note": "redo shot 2",
+        "summary": "shot 2: a new take, a slow orbit round it (day-plaza-orbit)",
+        "changes": [
+          "reels.trailer.reel.takes.3",
+          "reels.trailer.reel.edit.1.take",
+          "reels.trailer.made.day-plaza-orbit"
+        ],
+        "otherShotsSame": true,
+        "oldTakesSame": true,
+        "newTake": "day-plaza-orbit"
+      },
+      "three": {
+        "thumbnails": true,
+        "takes": [
+          "a slow orbit round it",
+          "a push in",
+          "a crane up"
+        ],
+        "distinct": [
+          {
+            "a": "a slow orbit round it",
+            "b": "a push in",
+            "distance": 0.8
+          },
+          {
+            "a": "a slow orbit round it",
+            "b": "a crane up",
+            "distance": 0.8
+          },
+          {
+            "a": "a push in",
+            "b": "a crane up",
+            "distance": 0.8
+          }
+        ],
+        "cameraDistinct": [
+          {
+            "a": "orbit",
+            "b": "push",
+            "distance": 0.366
+          },
+          {
+            "a": "orbit",
+            "b": "crane",
+            "distance": 0.436
+          },
+          {
+            "a": "push",
+            "b": "crane",
+            "distance": 0.464
+          }
+        ],
+        "picked": "a push in",
+        "status": "picked",
+        "opened": true
+      },
+      "pickLogged": {
+        "time": "2026-11-05T23:12:33.707Z",
+        "topic": "reel-shot",
+        "chosen": {
+          "label": "a push in",
+          "traits": [
+            "push"
+          ]
+        },
+        "rejected": [
+          {
+            "label": "a slow orbit round it",
+            "traits": [
+              "orbit"
+            ]
+          },
+          {
+            "label": "a crane up",
+            "traits": [
+              "crane"
+            ]
+          }
+        ],
+        "from": "three",
+        "group": "t1"
+      },
+      "export": {
+        "capture": "studio reel capture --takes day-plaza-orbit,day-aerial-push",
+        "cut": "studio reel cut"
+      },
+      "shots": [
+        {
+          "shot": 1,
+          "take": "day-street",
+          "from": 0,
+          "to": 3.75,
+          "beats": 8,
+          "kept": true
+        },
+        {
+          "shot": 2,
+          "take": "day-plaza-orbit",
+          "from": 3.75,
+          "to": 7.5,
+          "beats": 8,
+          "kept": false,
+          "style": "a slow orbit round it",
+          "caption": "City Plaza, from open map data"
+        },
+        {
+          "shot": 3,
+          "take": "day-aerial-push",
+          "from": 7.5,
+          "to": 11.25,
+          "beats": 8,
+          "kept": false,
+          "style": "a push in",
+          "caption": "Fayetteville Street, block by block"
+        }
+      ],
+      "viewErrors": []
+    }
+  }
+}

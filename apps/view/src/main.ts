@@ -443,7 +443,9 @@ function render() {
   const openIds = state.proposals.map((p) => p.id);
   focus = validFocus(focus, openIds);
   const objs = shownObjects();
-  if (!selectedObj || !objs.find((o) => o.id === selectedObj)) { selectedObj = objs.filter((o) => o.role !== 'reference').slice(-1)[0]?.id ?? objs[objs.length - 1]?.id ?? null; selectedPart = null; }
+  // town life's cast is parked out of town (they play in the town): never picked for you
+  const cast: string[] = (state as any).life?.cast ?? [];
+  if (!selectedObj || !objs.find((o) => o.id === selectedObj)) { const own = objs.filter((o) => !cast.includes(o.id)); selectedObj = own.filter((o) => o.role !== 'reference').slice(-1)[0]?.id ?? own[own.length - 1]?.id ?? null; selectedPart = null; }
   const obj = objs.find((o) => o.id === selectedObj) ?? null;
 
   $('#objTitle').textContent = obj ? obj.name : 'No object yet';
@@ -1034,7 +1036,7 @@ function connect() {
 panels = new Panels({
   scene, camera, renderer, vpEl,
   call, toast,
-  sendSelect: (object, part) => { ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object, part })); },
+  sendSelect: (object, part, extra) => { ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object, part, ...(extra ?? {}) })); },
   setLookPreview: (look) => { syncLook(look ? { ...look, lutSize: 17 } : state?.look ?? null); },
   rerender: () => render(),
   frameBox: (box, dir = [1, 0.75, 1.15]) => {
@@ -1087,4 +1089,16 @@ connect();
     return [r.left + (p.x * 0.5 + 0.5) * r.width, r.top + (-p.y * 0.5 + 0.5) * r.height];
   },
   panelSelection: () => ({ building: panels.town.selected, ui: panels.ui.selected }),
+  /** Phase 10 step 3b: town life (for tests only: people are clicked, the clock is dragged). */
+  life: () => { const L = panels.life; return { on: L.on, t: L.t, playing: L.playing, speed: L.speed, selected: L.selected, people: L.view?.people.length ?? 0, checks: L.checks ? { pass: L.checks.checks.filter((c: any) => c.pass).length, of: L.checks.checks.length } : null, checking: L.checking, key: (L as any).key }; },
+  lifeVisible: () => (panels.life.rt?.agents ?? []).map((a, i) => (a.visible && panels.life.view?.people[i]?.kind === 'person' && panels.life.view?.people[i]?.info.follows === undefined ? i : -1)).filter((i) => i >= 0),
+  lifeScreen(i: number) {
+    const a = panels.life.rt?.agents[i];
+    if (!a) return null;
+    const v = new THREE.Vector3(a.x, a.y + 1.0, a.z).project(camera);
+    const r = renderer.domElement.getBoundingClientRect();
+    return [r.left + (v.x * 0.5 + 0.5) * r.width, r.top + (-v.y * 0.5 + 0.5) * r.height];
+  },
+  lifeFrame(i: number, size = 26) { panels.life.frameOn(i, size); },
+  lifeStrip() { const c = document.querySelector('.tl-day canvas') as HTMLCanvasElement | null; if (!c) return null; const r = c.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; },
 };

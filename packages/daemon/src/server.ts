@@ -11,6 +11,7 @@ import { curvesFromCues, curvesFromVisemeCues, syncOffset, restInSilence, EMOTIO
 import { alignPhonemes, ipaTokens, phonemeVisemeCues } from '../../core/src/phonemes.ts';
 import { initKernel, Studio, DirAssets, toGLB, toOBJ, toSTL, TOOLS, formatOf, exportGame, validateGlb, afterExport, onAfterExport, type RepoData, type BakeRequest, type BakeResult } from '../../core/src/index.ts';
 import { setWorldCacheDir, worldNodes, addTownsToGlb, landmarkObjects, landmarkMeshes, townView } from '../../core/src/world/index.ts';
+import { lifeForView, lifeDay } from '../../core/src/life/view.ts';
 import { FsIO, RenderCache, renderKey, stamp } from '../../core/src/collab/index.ts';
 
 // Game exports (`export --target godot|web`) round-trip through the target engine: any import
@@ -345,6 +346,18 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
         const cx = num('cx'), cz = num('cz');
         const tv = townView(spec, doc.world, landmarkMeshes(studio, doc), { ...(cx !== undefined && cz !== undefined ? { center: [cx, cz] } : {}), ...(num('radius') ? { radius: num('radius') } : {}), ...(num('max') ? { maxBuildings: num('max') } : {}) });
         return json(200, { ok: true, ...tv });
+      }
+      if (url.pathname === '/api/life' || url.pathname === '/api/life/checks') {
+        // town life for the view (Phase 10 step 3b): the first town's baked day (capped cast), and its headless day checks
+        const doc: any = url.searchParams.get('branch') === 'active' ? studio.doc() : studio.mainDoc();
+        try {
+          if (url.pathname === '/api/life/checks') {
+            const day = lifeDay(doc);
+            return json(200, { ok: true, from: day.from, to: day.to, ms: day.ms, checks: day.checks, peak: day.peak, byHour: day.byHour });
+          }
+          const v = lifeForView(doc);
+          return v ? json(200, { ok: true, ...v }) : json(404, { ok: false, error: 'life is not on in this scene (studio life-on)' });
+        } catch (e: any) { return json(500, { ok: false, error: e.message }); }
       }
       if (url.pathname === '/font/ui.woff') {
         // the UI kit's OFL font, so the view measures text the way the checks do

@@ -22,4 +22,18 @@ Craft: gameplay/the place in the first seconds, a hook by 10–15 s (the drop), 
 3. `cut --out <folder>` — all three shapes; `recipe-*.sh` are the ffmpeg recipes. **Read the sheets.** A re-cut (swap shots, lengths, captions, another track) is: edit the reel file, run `cut` again — no capture.
 4. `release --out <folder>` — OCR + word lists (+ the game's `proof/release-lists.json` with `allow`/`required`), sound licences, `CREDITS.md`, `REUSE.toml`. Brand hits on real landmarks are expected in a real town: allow the exact names you mean to show, don't hide the finding.
 
+## On the timeline in the live view (Phase 10)
+`studio reel-import --file games/<game>/reel/trailer.json [--takes a,b]` puts the trailer in the scene: its shots are
+segments on a **shots** track in the timeline dock with beat and bar marks (a steady grid at the reel's bpm; the
+cut itself uses librosa's detected beats). "Shot camera" (on when you select the track) looks through each shot's
+camera over the scene, with the 16:9 frame marked; playing runs the cut. Per shot, in the dock or the CLI:
+- **Keep** (`reel-keep --shot 2`): marks it kept (a ✓ on the segment).
+- **Redo** (`reel-redo --shot 3 [--style orbit|push|crane|drift|low|pull]`): a new take of that shot only, one
+  step; the other shots and their takes don't change.
+- **Show me three** (`reel-three --shot 3`): three camera moves on the same subject, ≥ 15% apart (refused
+  otherwise), shown side by side over the scene (first and last frame of each), Pick or None of these; the pick
+  is logged to taste.
+Export stays the reel module's: `studio reel-export` writes the reel file back, then `reel capture --takes <new>`
+and `reel cut` (the ffmpeg recipe). The view's look is the scene's, not each take's own look.
+
 Never claim a trailer "looks great" from the numbers: say what the stills show, and what you couldn't check (pacing feel, the music's taste).

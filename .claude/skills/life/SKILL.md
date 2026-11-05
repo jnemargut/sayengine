@@ -33,6 +33,23 @@ The user's request: **$ARGUMENTS**
 
 **Parity (D30's tripwire):** `node bench/life.ts` also runs `studio/life_parity.gd` in headless Godot on the same day and compares every agent and vehicle with the TypeScript runtime: they must agree within 0.5 m (they agree to ~1e-12 m: same fixed tick, same order, same formulas, no randomness at run time). If they ever drift past 0.5 m, the plan says: one shared core (WASM + GDExtension).
 
+## 4. In the live view, with a day clock (Phase 10)
+
+`studio life-on --folk 24 --cars 3 [--day saturday --start 8.5]` plays the first town's day in the live view on the
+same runtime (one town, at most 40 folk and 6 cars: an 8 GB Mac; the folk are light stand-ins in their cast
+colours, not the slim GLBs). The timeline dock gets a **day** strip: drag it over 00:00–24:00, play at ×1–×600;
+it shows how many are out through the day and the selected person's stops.
+- Click a person: the inspector says who they are (a name, who they look like, their role, where they live, who
+  they're with) and their plan with times, and draws their walks and stops in the town.
+- `studio life-person --who <id>` reads the same. `studio life-redirect --who <id> --words "go to the café at 9
+  instead"` (or `--place <id> --at 9 --stay 40`) is one step: the overlapping outings are dropped, a new outing to
+  that place is drawn with its own random source (nobody else's day moves), then the headless day checks above
+  re-run (~8 s for the mini town) and come back pass/fail, in the panel too. A café is a shop door; "bench 4",
+  "the market", "the pier", "the bus stop", "the park" and a building's label work too. `--undo true` puts their
+  own day back.
+- A person is `person:<id>` on the `day` clock (see working-together.md). Redirects live in `doc.life.redirects`
+  (recipes, on the shared history); the bake applies them.
+
 ## Rules the runtimes keep (change both together)
 
 - Fixed 0.1 s tick; drawing interpolates. Plain arrays in index order; `sqrt/atan2/sin/cos/floor/fmod` only; no randomness at run time.

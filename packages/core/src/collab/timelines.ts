@@ -44,7 +44,7 @@ function thingTimeline(doc: SceneDoc, id: string, part: string | undefined, stud
 /** Part checks other modules provide (the world module: does this town still have that building?). */
 export const partExists: { town?: (doc: SceneDoc, town: string, building: string) => boolean } = {};
 /** Part names in words other modules provide (a building's "Office 2a17ab" instead of its id). */
-export const partWords: { town?: (doc: SceneDoc, town: string, building: string) => string | null } = {};
+export const partWords: { town?: (doc: SceneDoc, town: string, building: string) => string | null; person?: (doc: SceneDoc, id: string) => string | null; reel?: (doc: SceneDoc, id: string) => string | null } = {};
 
 export function assetRecord(doc: SceneDoc, kind: string, key: string): unknown {
   const d: any = doc;
@@ -56,6 +56,8 @@ export function assetRecord(doc: SceneDoc, kind: string, key: string): unknown {
     case 'look': return d.look?.looks?.[key];
     case 'ui': return d.ui;
     case 'town': return d.world?.towns?.[key];
+    case 'reel': return d.reels?.[key];
+    case 'person': return d.life ? { life: d.life, person: key } : undefined;
     default: return undefined;
   }
 }
@@ -139,6 +141,13 @@ export function addressFor(doc: SceneDoc, sel: { object: string; part?: string |
   const t = timelineFor(doc, thing, clock, ctx);
   if (clock === 'none') return { thing, clock, of: t?.version };
   const a: MomentAddress = { thing, clock, of: t?.version };
+  if (clock === 'day' && sel.seconds !== undefined) {
+    // a time of day keeps its minute; it is anchored to the stop it falls in (a person's plan), so it follows a redirect
+    a.at = secondsToTicks(sel.seconds);
+    const near = sel.near && t?.markers[sel.near] ? sel.near : t ? Object.entries(t.markers).find(([, m]) => a.at! >= m.at && a.at! < m.at + (m.len ?? 0))?.[0] : undefined;
+    if (near) a.near = near;
+    return a;
+  }
   if (sel.near && t?.markers[sel.near]) { a.near = sel.near; a.at = t.markers[sel.near].at; }
   else if (sel.seconds !== undefined) {
     a.at = secondsToTicks(sel.seconds);

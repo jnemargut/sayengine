@@ -5,7 +5,8 @@
 // - thing: what is pointed at. "stool", "stool/leg#2" (an object's part), "cutscene:intro",
 //   "effect:spark", "look:dusk", "ui", "town:raleigh". A bare id is a model object.
 // - clock: whose time `at` is measured on. "clip:<motion>", "game" (tick + seed + build),
-//   "beats:<track>", "sound:<file>", "shot:<reel>", or "none" for timeless model parts.
+//   "beats:<track>", "sound:<file>", "shot:<reel>", "day" (a town's day of life: 00:00–24:00, a
+//   person's plan stops are its named moments), or "none" for timeless model parts.
 // - at / len: whole ticks at 24,000 a second (Unreal's tick rate: no decimal drift, and 24, 25,
 //   30, 48, 50 and 60 fps all land on whole ticks). len is exclusive: [at, at + len).
 // - near: a named moment the address is anchored to (an action key's label, a cutscene beat, a
@@ -17,7 +18,7 @@ import { createHash } from 'node:crypto';
 
 export const TICKS = 24000;
 
-export type Clock = 'none' | 'game' | `clip:${string}` | `beats:${string}` | `sound:${string}` | `shot:${string}`;
+export type Clock = 'none' | 'game' | 'day' | `clip:${string}` | `beats:${string}` | `sound:${string}` | `shot:${string}`;
 
 export interface MomentAddress {
   thing: string;
@@ -48,7 +49,7 @@ export interface Resolution {
   reason?: string;              // why it moved or went stale, in words
 }
 
-const CLOCK_RE = /^(none|game|(clip|beats|sound|shot):.+)$/;
+const CLOCK_RE = /^(none|game|day|(clip|beats|sound|shot):.+)$/;
 
 export function isClock(s: string): s is Clock { return CLOCK_RE.test(s); }
 
@@ -59,7 +60,7 @@ export const ticksToSeconds = (t: number) => t / TICKS;
 export function checkAddress(a: MomentAddress): string[] {
   const out: string[] = [];
   if (!a || typeof a.thing !== 'string' || !a.thing) out.push('thing is required');
-  if (!isClock(String(a?.clock))) out.push(`clock "${a?.clock}" is not one of none, game, clip:<name>, beats:<track>, sound:<file>, shot:<reel>`);
+  if (!isClock(String(a?.clock))) out.push(`clock "${a?.clock}" is not one of none, game, day, clip:<name>, beats:<track>, sound:<file>, shot:<reel>`);
   if (a.at !== undefined && (!Number.isInteger(a.at) || a.at < 0)) out.push(`at must be whole ticks ≥ 0 (24,000 a second), got ${a.at}`);
   if (a.len !== undefined && (!Number.isInteger(a.len) || a.len <= 0)) out.push(`len must be whole ticks > 0, got ${a.len}`);
   if (a.clock === 'none' && (a.at !== undefined || a.len !== undefined)) out.push('a timeless address (clock none) has no at/len');
@@ -158,6 +159,7 @@ export function formatMoment(a: MomentAddress, t?: Timeline | null): string {
       return inBar === 1 ? `bar ${bar}` : `bar ${bar} beat ${inBar}`;
     }
     case 'game': return clockTime(s);
+    case 'day': return dayTime(s);
     case 'shot': {
       const shots = t?.shots ?? [];
       const i = shots.findIndex((x) => a.at! >= x.at && a.at! < x.at + x.len);
@@ -170,6 +172,8 @@ export function formatMoment(a: MomentAddress, t?: Timeline | null): string {
 }
 
 const fmtNum = (s: number) => String(Math.abs(s) < 10 ? +s.toFixed(2) : +s.toFixed(1));
+/** A time of day: "09:05" (seconds since midnight; past 24:00 wraps). */
+export const dayTime = (s: number) => { const m = Math.floor((((s % 86400) + 86400) % 86400) / 60); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
 const clockTime = (s: number) => { const m = Math.floor(s / 60), r = Math.floor(s % 60); return `${m}:${String(r).padStart(2, '0')}`; };
 
 /** The whole address in words: "Octopus · pour · 2.4 s", "Walnut stool / leg#2". */
@@ -198,8 +202,10 @@ export function formatAddress(a: MomentAddress): string {
 
 const TIME_RE = /^(\d+(?:\.\d+)?)(s|t|ms)$/;
 const toTicks = (s: string) => {
+  const hm = s.match(/^(\d{1,2}):(\d{2})$/);          // a time of day (the day clock): 09:30
+  if (hm) return secondsToTicks(Number(hm[1]) * 3600 + Number(hm[2]) * 60);
   const m = s.match(TIME_RE);
-  if (!m) throw new Error(`time "${s}" must be like 1.4s, 350ms or 33600t`);
+  if (!m) throw new Error(`time "${s}" must be like 1.4s, 350ms, 33600t or (on the day clock) 09:30`);
   const v = Number(m[1]);
   return m[2] === 't' ? Math.round(v) : m[2] === 'ms' ? secondsToTicks(v / 1000) : secondsToTicks(v);
 };

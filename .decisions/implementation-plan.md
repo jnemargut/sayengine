@@ -1126,16 +1126,28 @@ Checkpoint: `checkpoint-phase10/timeline/` (`node bench/timeline.ts`).
   and deliberately-broken segments; the cast turntable and faceted/smooth toggle page; a walk travelling over the ground
   in the view (clips play in place).
 
-### 3. The rest (about 1.5–2 weeks)
+### 3. The rest (about 1.5–2 weeks) — built (parts A and B, 2026-11-05)
 Part A built on branch `phase10/rest-a` (2026-11-05): looks, towns, UI kit. Code: `packages/core/src/look/knobs.ts`,
 `packages/core/src/world/{words,view}.ts`, `ui-style` + element tokens in `uikit.ts`, note `region`s, the view's
 `apps/view/src/panels/{look,town,ui,index,host}.ts` (+ `panels.css`, small hooks in `main.ts`), `/api/town` (one chunk).
 Tests: `packages/core/test/phase10rest.test.ts` (9). Checkpoint: `checkpoint-phase10/rest-a/` (`node bench/rest-a.ts`).
 - [x] **Looks:** sliders for exposure, white balance (K), contrast, saturation, fog density, sun height/direction/colour (K)/strength, lamp strength and glow. Drag previews (LUT re-graded in the view); release = one `look-set` step with a note ("warmer: white balance 6200 K → 5600 K"). Point at a region: a note on the thing under it with the look, 3D point and screen spot. "Show me three" for a look: three grades side by side, per-section compare, pick card.
 - [x] **Towns:** a chunk of a town in the view (±140 m, ≤ 90 buildings), one mesh per building; click → stable id → inspector (height, floors, roof, use, walls, source, fixes). Inspector edits and word notes ("flat roof", "two storeys taller", "brick") → fix-layer entries, one step each; landmark swap and "back to the data" from the view. No ids typed.
-- [ ] **Town life:** in the view with a day clock; click a person to see and redirect their plans.
+- [x] **Town life:** in the view with a day clock; click a person to see and redirect their plans. Part B, branch `phase10/rest-b` (2026-11-05):
+  `packages/core/src/life/view.ts` (the scene's life, capped at 40 folk / 6 cars in one town, plans in words, the `day` clock, redirects
+  from words), `bake.ts` redirects (applied after everyone's day with their own random source: nobody else's day moves), `life-on`,
+  `life-person`, `life-redirect` (one step with the words as its note; the headless day checks re-run), `/api/life`, the view's
+  `apps/view/src/panels/life.ts` (light stand-ins, a day strip on the dock: scrub 00:00–24:00, play ×1–×600; the inspector's plan,
+  redirect and day checks). A person is `person:<id>` on the `day` clock, anchored to the stop they are at.
 - [x] **UI kit:** the HUD over the scene in a phone (844×390) or desktop (1280×720) frame with its safe area; click an element → `ui/<id>` address; its tokens (text size, padding, width, height, fill and ink from the palette) as sliders/chips (`ui-style`, one step per release); contrast, overflow, tap, text size and safe area live for both screens. Web games honour all element tokens; Godot only text size and ink so far.
-- [ ] **Trailers:** shots on the timeline, keep or redo per shot, "show me three" per shot.
+- [x] **Trailers:** shots on the timeline, keep or redo per shot, "show me three" per shot. Part B: `packages/core/src/reels.ts`
+  (`reel-import|reel-shots|reel-keep|reel-redo|reel-three|reel-export`, the `shot:<reel>` clock on `reel:<id>`), a `shots` track in the
+  scene timeline (segments, beat and bar marks on a steady grid at the reel's bpm, each shot's camera), the dock's shot camera (a 16:9
+  frame over the viewport) and the three takes side by side (first and last frame of each move) with Pick. `packages/reel/src/camera.ts`
+  holds the camera formula the view shares. Export is still `reel-export` → `reel capture --takes …` → `reel cut` (the ffmpeg recipe).
+  Tests: `packages/core/test/phase10restb.test.ts` (6). Checkpoint: `checkpoint-phase10/rest-b/` (`node bench/rest-b.ts`).
+  Not yet: the view uses the scene's look, not each take's own; the shots track uses a steady beat grid, not librosa's detected beats;
+  new takes still need a Godot capture before the cut; folk in the view are stand-ins, not the cast GLBs.
 
 ### 4. Then your game
 - [ ] `/x-decide-gaming`, with the whole working-together layer on from day one.

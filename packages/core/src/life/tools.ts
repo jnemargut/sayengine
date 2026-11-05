@@ -8,6 +8,8 @@ import { bakeLife, type CastModel, type LifeOptions, type LifeBake } from './bak
 import { runDay, type PlayerScript } from './day.ts';
 import { propsGlb } from './props.ts';
 import { alongLine } from './nav.ts';
+import { sceneLife, lifeDay, lifeSettings, findPerson, personInfo, personPlan, planWords, redirectFromWords, LIFE_CAPS, type LifeSettings } from './view.ts';
+import { dayTime } from '../collab/address.ts';
 
 const nodeFs = () => (process as any).getBuiltinModule('node:fs') as typeof import('node:fs');
 const nodePath = () => (process as any).getBuiltinModule('node:path') as typeof import('node:path');
@@ -115,6 +117,82 @@ export const LIFE_TOOLS: ToolDef[] = [
       const failing = rep.checks.filter((c) => !c.pass);
       ctx.summary(`Headless day ${a.from ?? 5}:00 +${a.hours ?? 24} h: ${rep.checks.length - failing.length}/${rep.checks.length} checks pass (${(rep.ms / 1000).toFixed(0)} s)`);
       return { ...rep, failing: failing.map((c) => c.name) };
+    },
+  },
+  // ── town life in the live view (Phase 10 step 3b) ──────────────────────────────────────────────
+  {
+    name: 'life-on', mode: 'modify', mutates: true,
+    description: `Play town life in the live view (Phase 10): the first town's day with a day clock on the timeline dock (scrub 00:00–24:00, play at speed). Kept light: one town, at most ${LIFE_CAPS.folk} folk and ${LIFE_CAPS.cars} cars (default ${LIFE_CAPS.defaultFolk} and ${LIFE_CAPS.defaultCars}). The cast is the scene's characters (four-legged = a dog) and wheeled creatures. Click a person in the view to see their plan and redirect them. --off true turns it off.`,
+    input: z.object({ folk: z.number().int().min(1).max(LIFE_CAPS.folk).optional(), cars: z.number().int().min(0).max(LIFE_CAPS.cars).optional(), seed: z.number().optional(), day: z.enum(['saturday', 'sunday', 'weekday']).optional(), season: z.enum(['spring', 'summer', 'autumn', 'winter']).optional(), event: z.enum(['market', 'none']).optional(), start: Hours.optional().describe('the hour the view opens on'), off: z.boolean().optional() }),
+    example: 'studio life-on --folk 24 --cars 3 --day saturday',
+    run(ctx, a) {
+      if (a.off) { ctx.set(['life'], undefined); ctx.summary('Town life off'); return { off: true }; }
+      const prev: LifeSettings = (ctx.doc as any).life ?? {};
+      const next: LifeSettings = { ...prev, ...Object.fromEntries(Object.entries(a).filter(([k, v]) => v !== undefined && k !== 'off')), redirects: prev.redirects ?? [] };
+      ctx.set(['life'], next);
+      const L = sceneLife(ctx.doc)!;
+      ctx.summary(`Town life on: ${L.bake.stats.folk} folk, ${L.bake.stats.dogs} dog${L.bake.stats.dogs === 1 ? '' : 's'}, ${L.bake.stats.cars} cars over a ${next.day ?? 'saturday'}`);
+      return { stats: L.bake.stats, next: 'click a person in the view (or studio life-person --who <id>)' };
+    },
+  },
+  {
+    name: 'life-person', mode: 'inspect', mutates: false,
+    description: 'Who a person in town is and their plan for the day (stops with times), as the view\'s inspector shows them. --who is their id (person:raleigh-5) or their name; default: the person selected in the view.',
+    input: z.object({ who: z.string().optional() }),
+    example: 'studio life-person --who raleigh-5',
+    run(ctx, a) {
+      const L = sceneLife(ctx.doc);
+      if (!L) throw new Error('life is not on in this scene (studio life-on)');
+      const who = a.who ?? (ctx.studio.selection?.object?.startsWith('person:') ? ctx.studio.selection.object : null);
+      if (!who) throw new Error('which person? --who <id>, or click one in the view');
+      const i = findPerson(L, who);
+      const stops = personPlan(L, i);
+      return { ...personInfo(L, i), address: `person:${L.bake.data.agents[i].id}@day`, plan: planWords(stops), stops: stops.map((s) => ({ name: s.name, from: dayTime(s.from), to: dayTime(s.to), words: s.words, ...(s.place ? { place: s.place } : {}) })) };
+    },
+  },
+  {
+    name: 'life-redirect', mode: 'modify', mutates: true,
+    description: 'Send one person somewhere else (a plan edit): "go to the café at 9 instead". One step with its word note; their outings that overlap the new one are dropped and the rest of their day is kept; nobody else\'s day moves. Then the headless day checks (life-day\'s) re-run and come back pass/fail. --words in plain words (a café = a shop door; a bench, the market, the pier, the bus stop, the park, or a place by name: "bench 4"), or --place <id> --at <hour> [--stay <min>]. --undo true drops their redirects.',
+    input: z.object({ who: z.string().optional(), words: z.string().optional(), place: z.string().optional(), at: Hours.optional(), stay: z.number().min(1).max(600).optional(), undo: z.boolean().optional(), checkHours: z.number().min(0.5).max(24).optional().describe('hours of the day the checks re-run (default 24, from 5:00)') }),
+    example: 'studio life-redirect --who raleigh-5 --words "go to the café at 9 instead"',
+    run(ctx, a) {
+      const doc: any = ctx.doc;
+      if (!doc.life) throw new Error('life is not on in this scene (studio life-on)');
+      const L0 = sceneLife(ctx.doc)!;
+      const who0 = a.who ?? (ctx.studio.selection?.object?.startsWith('person:') ? ctx.studio.selection.object : null);
+      if (!who0) throw new Error('who? --who <id> (or click a person in the view)');
+      let i = findPerson(L0, who0);
+      // a friend or a dog goes where their leader goes: redirect the leader
+      const lead = L0.bake.data.agents[i].owner ?? i;
+      const id = L0.bake.data.agents[lead].id;
+      const before = planWords(personPlan(L0, lead));
+      const redirects = (doc.life.redirects ?? []).slice();
+      let heard = '';
+      if (a.undo) {
+        ctx.set(['life', 'redirects'], redirects.filter((r: any) => r.who !== id));
+        heard = `back to their own day`;
+      } else {
+        let r: { at: number; place: string; stay: number; heard?: string };
+        if (a.words) r = redirectFromWords(L0, lead, a.words);
+        else {
+          if (!a.place || a.at === undefined) throw new Error('say where and when: --words "go to the café at 9 instead", or --place <id> --at <hour>');
+          if (!L0.places.has(a.place)) throw new Error(`no place ${a.place} (try ${[...L0.places.keys()].slice(0, 5).join(', ')}…)`);
+          r = { at: a.at, place: a.place, stay: a.stay ?? 30 };
+        }
+        if (a.stay) r.stay = a.stay;
+        heard = r.heard ?? `${L0.places.get(r.place)!.words} at ${dayTime(r.at * 3600)}`;
+        // a newer redirect for the same person within the hour replaces the older one
+        const kept = redirects.filter((x: any) => !(x.who === id && Math.abs(x.at - r.at) < 1));
+        ctx.set(['life', 'redirects'], [...kept, { who: id, at: r.at, place: r.place, stay: r.stay, ...(a.words ? { note: a.words } : {}) }]);
+      }
+      const L = sceneLife(ctx.doc)!;
+      const res = L.bake.redirected?.find((x) => x.who === id);
+      if (res && !res.ok) throw new Error(`couldn't send ${L.names[lead]} there: ${res.why}`);
+      const after = planWords(personPlan(L, lead));
+      const day = lifeDay(ctx.doc, { from: 5, hours: a.checkHours ?? 24 });
+      const failing = day.checks.filter((c) => !c.pass);
+      ctx.summary(`${L.names[lead]} (${id}): ${heard}; day checks ${day.checks.length - failing.length}/${day.checks.length} pass`);
+      return { who: id, name: L.names[lead], heard, before, after, checks: day.checks.map((c) => ({ name: c.name, pass: c.pass, count: c.count, limit: c.limit, ...(c.at ? { at: c.at.map((t) => dayTime(t)) } : {}) })), failing: failing.map((c) => c.name), seconds: +(day.ms / 1000).toFixed(1) };
     },
   },
 ];
