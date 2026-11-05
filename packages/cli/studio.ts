@@ -37,7 +37,7 @@ async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   const { TOOLS, toolsHelp, toolByName } = await import('../core/src/tools.ts');
   const { DAEMON_TOOLS } = await import('../daemon/src/daemon-tools.ts');
-  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp'];
+  const allNames = [...TOOLS.map((t) => t.name), ...DAEMON_TOOLS.map((t) => t.name), 'serve', 'stop', 'help', 'mcp', 'install-skills'];
 
   if (!cmd || cmd === 'help' || cmd === '--help') {
     const one = rest[0] && (toolByName(rest[0]) ?? DAEMON_TOOLS.find((t) => t.name === rest[0]));
@@ -53,6 +53,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   serve             Start the engine daemon in the foreground (normally auto-started).
   stop              Stop the daemon.
   mcp               Run the MCP adapter on stdio (same tools, for other agents).
+  install-skills    Link /x-decide-gaming and the game skills into ~/.claude/skills (--copy, --all, --bin <dir>).
 
 [game]  (studio game <command> --help for flags)
   game init         Create a game project (Godot or web/three.js) under games/<name>.
@@ -64,7 +65,7 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   game status       Game projects here and which engines are available.`);
     return;
   }
-  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-')) return printToolHelp(cmd);
+  if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills') return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
     const flags = parseFlags(rest);
@@ -74,6 +75,15 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     return;
   }
   if (cmd === 'mcp') { await import('../mcp/server.ts'); return; }
+  if (cmd === 'install-skills') {
+    const flags = parseFlags(rest);
+    if (flags.help) { console.log(JSON.stringify({ command: 'install-skills', description: 'Link the game planning skills (/x-decide-gaming and its four children) into ~/.claude/skills so they work in any folder.', flags: { '--dest': 'skills folder (default ~/.claude/skills)', '--copy': 'copy instead of link', '--all': 'also /studio and /game', '--force': 'replace existing entries not linked to this repo', '--bin': 'also link the studio launcher into this folder (e.g. ~/bin)' } }, null, 2)); return; }
+    const { installSkills } = await import('./install-skills.ts');
+    const body = installSkills({ dest: flags.dest as string | undefined, copy: !!flags.copy, all: !!flags.all, force: !!flags.force, bin: flags.bin as string | undefined });
+    console.log(JSON.stringify(body, null, 2));
+    if (!body.ok) process.exitCode = 1;
+    return;
+  }
   if (cmd === 'game' || cmd.startsWith('game-')) {
     const { gameCli } = await import('./game.ts');
     const body = await gameCli(cmd, rest, parseFlags, closest);

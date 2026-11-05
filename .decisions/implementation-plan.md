@@ -374,6 +374,19 @@ It's six months later and the suite didn't pay off. Most likely reasons:
 | 41 | Playtests | Question-led; you play then **type** notes (talking aloud optional); bots measure; great-v1 checklist; findings link to decisions | Your change to A | Two-way |
 | 42 | Milestone | Build alongside weeks 9–14; week 15: your own idea to a great v1 | Strong | Two-way |
 
+## Status (2026-11-05)
+Built on `phase5/game-skills` (instruction layer complete; not yet used on a real game):
+- **Skills:** `.claude/skills/x-decide-gaming` (router, the only one Claude can invoke on its own) plus the manual-only `x-game-concept`, `x-game-design`, `x-game-build` and `x-playtest`.
+- **Shared references:** in the router's `references/`: road, conventions, page skeleton, game-spec.
+- **Locating the studio:** `scripts/find-studio.sh` finds it from any folder.
+- **Installing:** `./studio install-skills` links the family into `~/.claude/skills` (`--copy`, `--all`, `--bin`, `--force`; never clobbers foreign folders).
+- **Validation:** decision-kit's validator rules are ported into `packages/cli/test/skills.test.ts` and run in `npm test`. That test also checks that only the router auto-invokes and checks install-skills.
+- **Trigger fixtures:** `bench/skills/triggers.json` (3+ should and should-not per skill). These aren't run against a live model yet.
+- **Dry run:** "a cozy game where you deliver bread at dawn" through concept: two decision pages, index, one-page preview, and a game-spec stub, in `checkpoint-game-skills/bread-at-dawn/.decisions/`.
+
+Not done yet:
+- The playable-preset path (decision 38) and the bots in `x-playtest` are written as instructions but not exercised end to end. The first real use is the tiny game.
+
 ## Implementation Steps (run alongside Phase 4, weeks 9–14)
 
 ### Weeks 9–10: planning half
