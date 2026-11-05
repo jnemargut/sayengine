@@ -1,0 +1,155 @@
+{
+  "out": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik",
+  "godot": "4.7.2.stable.official.ed1daf0bf",
+  "shots": {
+    "stairs": {
+      "video": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stairs.mp4",
+      "stills": [
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/stairs-045.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/stairs-090.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/stairs-134.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/stairs-170.png"
+      ],
+      "frames": 180,
+      "errors": [],
+      "clip": "walk",
+      "feet": {
+        "Left": {
+          "plantedFrames": 67,
+          "soleGapP95Cm": 0.001,
+          "soleGapMaxCm": 0.009,
+          "plantDriftMaxCm": 0.393,
+          "toeIntoStepFrames": 0
+        },
+        "Right": {
+          "plantedFrames": 65,
+          "soleGapP95Cm": 0.006,
+          "soleGapMaxCm": 0.385,
+          "plantDriftMaxCm": 0.393,
+          "toeIntoStepFrames": 0
+        },
+        "climbedM": 0.75
+      }
+    },
+    "crab": {
+      "video": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/crab.mp4",
+      "stills": [
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/crab-060.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/crab-120.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/crab-179.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/crab-227.png"
+      ],
+      "frames": 240,
+      "errors": [],
+      "clip": "idle",
+      "checks": {
+        "footToTargetP95Cm": 0,
+        "footToTargetMaxCm": 0,
+        "fastestJointDegS": 328,
+        "footfalls": 75,
+        "travelledM": 2.389,
+        "summary": "9/9 pass",
+        "checks": [
+          "ok feet planted (no sliding): worst 0.013 m/s (limit 0.033)",
+          "ok feet on the ground: worst 0.01 m (limit 0.044)",
+          "ok leg reach: worst 0 m (limit 0.011)",
+          "ok nothing sinks into the ground: worst 0 × piece radius (limit 0.25)",
+          "ok nothing passes through itself: worst 0 × piece radius (limit 0.5)",
+          "ok balance over the feet: worst 0 m inside (limit -0.089)",
+          "ok joints within their limits: worst 0 ° over (limit 0)",
+          "ok no pops (joint speed): worst 0 °/s (limit 900)",
+          "ok no jolts (body acceleration): worst 1.442 m/s² (limit 60)"
+        ],
+        "notApplicable": [
+          "ends in idle"
+        ]
+      }
+    },
+    "baked": {
+      "video": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/baked.mp4",
+      "stills": [
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/baked-060.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/baked-120.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/baked-179.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/baked-227.png"
+      ],
+      "frames": 240,
+      "errors": [],
+      "clip": "walk",
+      "checks": {
+        "summary": "9/10 pass",
+        "checks": [
+          "ok feet planted (no sliding): worst 0.011 m/s (limit 0.033)",
+          "NO feet on the ground: worst 0.076 m (limit 0.044)",
+          "ok leg reach: worst 0 m (limit 0.011)",
+          "ok nothing sinks into the ground: worst 0 × piece radius (limit 0.25)",
+          "ok nothing passes through itself: worst 0 × piece radius (limit 0.5)",
+          "ok balance over the feet: worst 0 m inside (limit -0.089)",
+          "ok joints within their limits: worst 0 ° over (limit 0)",
+          "ok no pops (joint speed): worst 0 °/s (limit 900)",
+          "ok no jolts (body acceleration): worst 2.548 m/s² (limit 60)",
+          "ok loop closes: worst 0.089 ° (limit 1.5)"
+        ]
+      }
+    },
+    "spider": {
+      "video": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/spider.mp4",
+      "stills": [
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/spider-060.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/spider-120.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/spider-179.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/spider-227.png"
+      ],
+      "frames": 240,
+      "errors": [],
+      "clip": "idle",
+      "checks": {
+        "footToTargetP95Cm": 0,
+        "footToTargetMaxCm": 0.025,
+        "fastestJointDegS": 290,
+        "footfalls": 100,
+        "travelledM": 2.112,
+        "summary": "9/9 pass",
+        "checks": [
+          "ok feet planted (no sliding): worst 0.011 m/s (limit 0.018)",
+          "ok feet on the ground: worst 0.007 m (limit 0.024)",
+          "ok leg reach: worst 0 m (limit 0.006)",
+          "ok nothing sinks into the ground: worst 0 × piece radius (limit 0.25)",
+          "ok nothing passes through itself: worst 0 × piece radius (limit 0.5)",
+          "ok balance over the feet: worst -0.018 m inside (limit -0.047)",
+          "ok joints within their limits: worst 0 ° over (limit 0)",
+          "ok no pops (joint speed): worst 0 °/s (limit 900)",
+          "ok no jolts (body acceleration): worst 5.889 m/s² (limit 60)"
+        ],
+        "notApplicable": [
+          "ends in idle"
+        ]
+      }
+    },
+    "reach": {
+      "video": "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/reach.mp4",
+      "stills": [
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/reach-060.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/reach-120.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/reach-179.png",
+        "~/AI3DModel/.claude/worktrees/agent-a562015aafdcc7a23/checkpoint-godot-live-ik/stills/reach-227.png"
+      ],
+      "frames": 240,
+      "errors": [],
+      "clip": "idle",
+      "reach": {
+        "tipToGoal": {
+          "meanCm": 4.431,
+          "p95Cm": 5.649,
+          "maxCm": 6.949
+        },
+        "tipToFollowed": {
+          "meanCm": 0.307,
+          "p95Cm": 1.838,
+          "maxCm": 4.68
+        },
+        "samples": 176
+      }
+    }
+  }
+}
