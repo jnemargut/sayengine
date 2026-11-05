@@ -160,7 +160,7 @@ async function start(): Promise<StudioGame> {
   let held: THREE.Object3D | null = null, heldKey: Item | null = null;
   let target: { station?: Station; point?: V3 } | null = null;
   let intro: CutscenePlayer | null = null;
-  let seed = 1, stuck = 0, detour = 0, detourSide = 1;
+  let seed = 1, stuck = 0, detour = 0, detourSide = 1, via: [number, number] | null = null;
   const keys = new Set<string>();
   addEventListener('keydown', (e) => { keys.add(e.code); if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); act(); } if (e.code === 'KeyR' && mode === 'end') begin(false); if (mode === 'intro' && (e.code === 'Space' || e.code === 'Escape')) endIntro(); });
   addEventListener('keyup', (e) => keys.delete(e.code));
@@ -210,14 +210,14 @@ async function start(): Promise<StudioGame> {
     const st = () => stations.find((s) => s.node === o || s.node.name === o?.name);
     while (o && !st()) o = o.parent;
     const found = o ? st() : undefined;
-    target = found ? { station: found } : { point: [hit.point.x, 0, hit.point.z] };
+    via = null; target = found ? { station: found } : { point: [hit.point.x, 0, hit.point.z] };
   });
 
   // ── flow: title → intro cutscene → play → end ──
   async function begin(withIntro: boolean) {
     state = newGame(seed++);
     card.style.display = 'none';
-    setHeld(null); target = null;
+    setHeld(null); target = null; via = null;
     player.body.setTranslation({ x: START[0], y: START[1] + player.half + player.radius + 0.02, z: START[2] }, true);
     player.heading = Math.PI;
     if (blade?.material) blade.material.emissiveIntensity = 0;
@@ -255,22 +255,27 @@ async function start(): Promise<StudioGame> {
     if (playing) {
       const x = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
       const z = (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0);
-      if (x || z) { target = null; const l = Math.hypot(x, z); dir = [x / l, z / l]; }
+      if (x || z) { target = null; via = null; const l = Math.hypot(x, z); dir = [x / l, z / l]; }
       else if (target) {
         const f = player.feet() as V3;
         if (target.station && xzDist(f, target.station.box) <= REACH * 0.8) { const to = target.station; target = null; act(to); }
         else {
           const b = target.station?.box, p = target.point;
-          const gx = b ? Math.min(Math.max(f[0], b.min.x), b.max.x) : p![0], gz = b ? Math.min(Math.max(f[2], b.min.z), b.max.z) : p![2];
+          // no pathfinding: if blocked once, go via the open floor where the apprentice starts
+          if (via && Math.hypot(via[0] - f[0], via[1] - f[2]) < 0.3) via = null;
+          const gx = via ? via[0] : b ? Math.min(Math.max(f[0], b.min.x), b.max.x) : p![0];
+          const gz = via ? via[1] : b ? Math.min(Math.max(f[2], b.min.z), b.max.z) : p![2];
           const dx = gx - f[0], dz = gz - f[2], l = Math.hypot(dx, dz);
-          if (!b && l < 0.15) target = null;
+          if (!b && !via && l < 0.15) target = null;
           else {
             dir = [dx / l, dz / l];
             // no pathfinding: when blocked, slide sideways around the obstacle for a moment
             if (detour > 0) { detour -= dt; const a = detourSide * 1.1; dir = [dir[0] * Math.cos(a) - dir[1] * Math.sin(a), dir[0] * Math.sin(a) + dir[1] * Math.cos(a)]; }
             else if (player.hs < player.walkSpeed * 0.25 && player.state === 'walk') {
               if ((stuck += dt) > 0.25) {
-                stuck = 0; detour = 0.7; detourSide = -detourSide;
+                stuck = 0;
+                if (!via && Math.hypot(START[0] - f[0], START[2] - f[2]) > 0.6) via = [START[0], START[2]];
+                else { detour = 0.7; detourSide = -detourSide; }
                 // wedged into a collider (a stop step can carry the body in): back out a little
                 const t = player.body.translation();
                 player.body.setTranslation({ x: t.x - dir[0] * 0.15, y: t.y, z: t.z - dir[1] * 0.15 }, true);
@@ -320,10 +325,10 @@ async function start(): Promise<StudioGame> {
   (window as any).__fires = {
     get state() { return state; }, get mode() { return mode; }, get carrying() { return heldKey; },
     begin: (intro = false) => begin(intro), endIntro, act, stations: () => stations.map((s) => s.key),
-    goTo(key: string) { const s = stations.find((x) => x.key === key); target = s ? { station: s } : null; return !!s; },
+    goTo(key: string) { const s = stations.find((x) => x.key === key); if (target?.station !== s) via = null; target = s ? { station: s } : null; return !!s; },
     get busy() { return !!target; },
     pause() { game.paused = true; },
-    advance(dt: number, n = 1) { for (let i = 0; i < n; i++) game.tick(dt); renderer.render(scene, camera); },
+    advance(dt: number, n = 1, draw = true) { for (let i = 0; i < n; i++) game.tick(dt); if (draw) renderer.render(scene, camera); },
     /** the canvas plus the HUD drawn over it (the HTML HUD isn't in canvas captures) */
     snap(w = 960) {
       const src = renderer.domElement, h = Math.round(w * src.height / src.width), k = w / innerWidth;

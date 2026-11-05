@@ -29,7 +29,8 @@ Every point where a missing or weak studio tool hurt while making this tiny game
    - Tap-to-walk walks in a straight line.
    - The first headless run lost because the apprentice stood stuck behind the charcoal sack holding the tongs for 40 s.
    - Worse: the harness's "stop" step carries the capsule forward a little after you let go. Twice it carried the apprentice into the sack's collider and wedged him there, so even sideways moves came out at zero speed.
-   - Fixed with a crude "slide sideways when blocked, back out 15 cm when wedged" in the game. The harness's stop step should check its own collision. → **Life module (D30)**: a baked walk mesh and paths, usable for the player's tap-to-walk too, not only NPCs.
+   - Sliding sideways wasn't enough: once he'd handed a tool over from behind the anvil, the way to the charcoal sack was blocked by the forge and the smith, and he dithered there until the fire died.
+   - Fixed by hand in the game: back out 15 cm when wedged, then walk via the open floor where he starts, then slide sideways if still blocked. It works for this one room only. The harness's stop step should check its own collision. → **Life module (D30)**: a baked walk mesh and paths, usable for the player's tap-to-walk too, not only NPCs.
 6. **No interaction/"use" system.**
    - Stations, reach distances, "what is near me", the hint text and tap-to-use are all hand-rolled.
    - Every small game will rewrite this.

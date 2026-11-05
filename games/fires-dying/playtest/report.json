@@ -1,0 +1,202 @@
+{
+  "intro": {
+    "frames": 258,
+    "state": null,
+    "log": []
+  },
+  "win": {
+    "frames": 990,
+    "state": {
+      "phase": "won",
+      "t": 195.5,
+      "done": 16,
+      "fed": 8,
+      "wrongs": 0,
+      "fire": 0.43
+    },
+    "log": [
+      {
+        "t": 10,
+        "fire": 0.66,
+        "done": 0,
+        "request": "tongs",
+        "carrying": "tongs"
+      },
+      {
+        "t": 20,
+        "fire": 0.51,
+        "done": 2,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 30,
+        "fire": 0.35,
+        "done": 2,
+        "request": "tongs",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 40,
+        "fire": 0.65,
+        "done": 3,
+        "request": "bucket",
+        "carrying": null
+      },
+      {
+        "t": 50,
+        "fire": 0.48,
+        "done": 4,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 60,
+        "fire": 0.75,
+        "done": 5,
+        "request": "tongs",
+        "carrying": "tongs"
+      },
+      {
+        "t": 70,
+        "fire": 0.56,
+        "done": 7,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 80,
+        "fire": 0.36,
+        "done": 8,
+        "request": null,
+        "carrying": "charcoal"
+      },
+      {
+        "t": 90,
+        "fire": 0.61,
+        "done": 8,
+        "request": "hammer",
+        "carrying": "hammer"
+      },
+      {
+        "t": 100,
+        "fire": 0.4,
+        "done": 9,
+        "request": "tongs",
+        "carrying": null
+      },
+      {
+        "t": 110,
+        "fire": 0.64,
+        "done": 10,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 120,
+        "fire": 0.42,
+        "done": 10,
+        "request": "hammer",
+        "carrying": "hammer"
+      },
+      {
+        "t": 130,
+        "fire": 0.65,
+        "done": 10,
+        "request": "hammer",
+        "carrying": null
+      },
+      {
+        "t": 140,
+        "fire": 0.42,
+        "done": 11,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 150,
+        "fire": 0.2,
+        "done": 11,
+        "request": "file",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 160,
+        "fire": 0.42,
+        "done": 12,
+        "request": "tongs",
+        "carrying": null
+      },
+      {
+        "t": 170,
+        "fire": 0.63,
+        "done": 13,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 180,
+        "fire": 0.38,
+        "done": 14,
+        "request": "tongs",
+        "carrying": null
+      },
+      {
+        "t": 190,
+        "fire": 0.58,
+        "done": 15,
+        "request": null,
+        "carrying": null
+      }
+    ]
+  },
+  "lose": {
+    "frames": 269,
+    "state": {
+      "phase": "lost",
+      "t": 51.2,
+      "done": 5,
+      "fed": 0,
+      "wrongs": 0,
+      "fire": 0
+    },
+    "log": [
+      {
+        "t": 10,
+        "fire": 0.66,
+        "done": 0,
+        "request": "tongs",
+        "carrying": "tongs"
+      },
+      {
+        "t": 20,
+        "fire": 0.51,
+        "done": 2,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 30,
+        "fire": 0.35,
+        "done": 2,
+        "request": "file",
+        "carrying": "file"
+      },
+      {
+        "t": 40,
+        "fire": 0.19,
+        "done": 3,
+        "request": "hammer",
+        "carrying": "hammer"
+      },
+      {
+        "t": 50,
+        "fire": 0.02,
+        "done": 5,
+        "request": null,
+        "carrying": null
+      }
+    ]
+  },
+  "errors": []
+}
