@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creature preview</title>
+<style>
+  :root { --bg: #f4f1ec; --ink: #1c1917; --muted: #6b645c; --line: #ddd6cc; --card: #fffdf9; --accent: #7a4a2c; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1916; --ink: #f2ede6; --muted: #a39a8f; --line: #3a352f; --card: #24211d; --accent: #d8a77c; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "Source Sans 3", system-ui, sans-serif; }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 40px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { margin: 0 0 16px; color: var(--muted); }
+  #stage canvas { width: 100%; height: auto; display: block; border-radius: 10px; border: 1px solid var(--line); }
+  #motions { display: grid; gap: 8px; margin-top: 16px; }
+  button.line { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; text-align: left; padding: 12px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font: inherit; cursor: pointer; }
+  button.line:hover { border-color: var(--accent); }
+  .say { font-weight: 600; }
+  .meta { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .capture main { padding: 0; max-width: none; }
+  .capture h1, .capture p.sub, .capture #motions { display: none; }
+  .capture #stage canvas { border: 0; border-radius: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Creature preview</h1>
+  <p class="sub">Click a motion to play it. Baked clips travel at their own speed over half-metre squares; live runs are steered by the runtime over uneven ground. The strip at the bottom is the check timeline: red where a check fails.</p>
+  <div id="stage"></div>
+  <div id="motions"></div>
+</main>
+<script>
+  if (new URLSearchParams(location.search).has('capture')) document.documentElement.classList.add('capture');
+  fetch('creature.json').then((r) => r.json()).then((c) => { document.getElementById('title').textContent = `${c.name}: motions`; document.title = `${c.name} motions`; });
+</script>
+<script type="module" src="player.js"></script>
+</body>
+</html>

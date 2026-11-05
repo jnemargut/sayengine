@@ -63,6 +63,11 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' } } },
   },
   {
+    name: 'creature-preview',
+    description: 'Review a creature made of rig parts (Decisions 52–54): writes a folder with the exported creature (creature.glb: a node per bone, a clip per motion, the ground) and a three.js player. Baked motions travel at their speed over half-metre squares on the creature\'s own ground; legged and wheeled creatures also get a live segment, steered by the runtime over uneven ground (feet step when out of reach, tyres on springs). Every frame carries the check timeline (red = the frames where a check fails). --video true renders an MP4 plus three stills per segment. --demo-failure true adds a replay with the body moving faster than the feet, to show the timeline catching sliding feet. [--object id] [--motions a,b] [--live false] [--out dir]',
+    flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string' }, live: { type: 'boolean', default: true }, demoFailure: { type: 'boolean', default: false } } },
+  },
+  {
     name: 'cutscene-data',
     description: 'Every cutscene as the timeline the engine players read (shots with camera keys, cues per character, events), with its voices as base64 WAV. `studio game import` uses it.',
     flags: { type: 'object', properties: {} },

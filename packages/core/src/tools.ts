@@ -10,6 +10,7 @@ import { PROFILES, budgetFor, type ProfileName } from './profiles.ts';
 import type { Material, Placement } from './types.ts';
 import { CHARACTER_TOOLS } from './charactertools.ts';
 import { PRINT_TOOLS } from './printtools.ts';
+import { PART_TOOLS } from './parttools.ts';
 import { CUTSCENE_TOOLS, cutsceneChecks } from './cutscene.ts';
 
 export interface ToolCtx {
@@ -754,6 +755,7 @@ function newMaterial(name: string | undefined, color: string | undefined): Mater
 
 TOOLS.push(...CHARACTER_TOOLS);
 TOOLS.push(...PRINT_TOOLS);
+TOOLS.push(...PART_TOOLS);
 TOOLS.push(...CUTSCENE_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {

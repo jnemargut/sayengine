@@ -18,3 +18,10 @@ checkpoint-week6/*
 !checkpoint-week6/stills/
 !checkpoint-week6/README.md
 !checkpoint-week6/gait/
+
+# phase 8 bench proofs: videos, stills, the creature GLBs, sway shaders and README are kept (regenerate: node bench/creatures.ts)
+checkpoint-phase8/*/*
+!checkpoint-phase8/*/*.mp4
+!checkpoint-phase8/*/stills/
+!checkpoint-phase8/*/creature.glb
+!checkpoint-phase8/*/*.gdshader

@@ -7,6 +7,8 @@ import { num, vec3, type ParamValues } from './expr.ts';
 import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
 import { textOp, holeOp, chamferOp, splitOp, type OpEnv } from './print.ts';
+import { buildCreature } from './rigparts.ts';
+import { shapeMesh } from './creatures.ts';
 import { buildRig, charParams, characterSpec, curveMouth, forward, localRotations, moodCurve, moodMix, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
 
 type V3 = [number, number, number];
@@ -451,6 +453,23 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           // teeth and tongue: separate shells inside the mouth chamber (they never touch its walls)
           const mouth = spec.mouth.map((pc) => mk(build(pc), pc.part));
           out = { m: keep(Manifold.union([face, ...body, eyeL, eyeR, ...lids, ...mouth])), parts };
+          break;
+        }
+        case 'creature': {
+          // A creature assembled from rig parts (Decision 52 A), at rest. Each piece rides its bone; the
+          // view shows the rest pose (motion plays in creature-preview and in the engines).
+          if (!obj.creature) throw new Error('creature op needs the object\'s creature definition (studio new-creature)');
+          const cre = buildCreature(obj.creature.def);
+          const parts = new Map<number, Part>();
+          const solids = cre.pieces.map((pc) => {
+            const m = shapeMesh(pc.shape);
+            const pts: Array<[number, number, number]> = [];
+            for (let i = 0; i < m.pos.length; i += 3) pts.push([m.pos[i], m.pos[i + 1], m.pos[i + 2]]);
+            const o = keep(keep(Manifold.hull(pts)).asOriginal());
+            parts.set(o.originalID(), { name: pc.part, ops: new Set([id]) });
+            return o;
+          });
+          out = { m: keep(Manifold.union(solids)), parts };
           break;
         }
         case 'collision': {

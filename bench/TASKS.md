@@ -57,6 +57,11 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | 35 | `/studio make "The Forge Lesson": a wide on the strike, then the three lines` *(after 31, 33)* | `new-cutscene` + four `set-shot`s (wide, medium, over-shoulder, close; lines `to` the listener); cutscene checks green (speakers in frame, cuts between words, 180° rule); `cutscene-preview --video true`; Claude Reads the storyboard frames |
 | 36 | `/game play the cutscene in Godot and on the web` *(after 35)* | `game import` writes the cutscene (Godot: a generated AnimationPlayer scene); `game cutscene --id forge-lesson --video true` plays to the end in both, every clip found |
 | 37 | `/game walk the apprentice to the anvil` *(after 34)* | the walk starts with a step off and ends with a stop step (feet planted), in both engines (`walk-to --video true`, stills Read) |
+| A1 | `/studio make a six-legged robot crab with a whip tail and have it walk` | `new-creature` from parts (body + `legs ×6` + a whip `chain` + springs), or `--preset crab`; walk passes every motion check (feet planted, on the ground, balance, limits, no pops, loop); `creature-preview --video true` (baked walk, live steered walk over bumps) and Claude Reads the stills — `node bench/creatures.ts crab` is the reference |
+| A2 | `/studio make a snake slither across the floor` | a `chain` part with `motion: serpent, ground: true`; "belly slides only along the body" passes; the video shows the body following its own path |
+| A3 | `/studio drive a little car over a bumpy road` | a `wheels` part; wheels roll at ground speed, tyres touch the road, suspension within travel; the body pitches and bounces on its springs; live steering in the preview |
+| A4 | `/studio a windmill turning in a grassy field` | a spinning sails `hinge` (whole turns per loop), a cap hinge within its limits, `sway` grass in shader mode (one mesh; `*.sway.gdshader` for Godot) |
+| A5 | `/studio the crab's walk looks like it's skating` | `motion-checks` names the failing check and its frames (the timeline in `creature-preview` shows them red); Claude fixes the motion (speed vs stride) rather than the check |
 
 ## What to record (from `node bench/score.ts`)
 
