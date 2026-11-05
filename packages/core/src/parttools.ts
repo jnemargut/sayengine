@@ -75,6 +75,7 @@ export function characterMotionChecks(rig: Rig, clip: MotionClip): MotionCheck[]
     if (!r.pass) bad.fill(true);
     worst = r.slip;
   }
+  out.push({ name: 'leg reach', part: 'legs', pass: clip.reachMiss <= 0.01 * rig.spec.s, worst: +clip.reachMiss.toFixed(4), limit: +(0.01 * rig.spec.s).toFixed(4), unit: 'm', frames: clip.reachMiss <= 0.01 * rig.spec.s ? [] : [[0, F - 1]], detail: 'planted feet are within the legs\' reach' });
   out.push({ name: 'feet planted (no sliding)', part: 'legs', pass: !bad.some(Boolean), worst: +worst.toFixed(4), limit: +(height * CHECK_LIMITS.slide).toFixed(4), unit: 'm/s', frames: ranges(bad), detail: 'planted feet stay where they landed' });
   // pops
   const pb = new Array(F).fill(false);

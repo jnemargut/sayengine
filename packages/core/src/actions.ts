@@ -337,7 +337,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     // effects ride their parent, stay upright, and show or hide
     for (const p of props) {
       if (!p.parent || !p.fx) continue;
-      const vis = lerp(a.fx[p.id] ? 1 : 0, b.fx[p.id] ? 1 : 0, b.ease === 'linear' ? u : clamp(u * 1.6));
+      const vis = (u >= 1 ? b.fx[p.id] : a.fx[p.id]) ? 1 : 0;      // on from its key until the key that turns it off
       const pi = bi(p.id), par = bi(p.parent);
       O[pi] = mul(p.fx.hide, 1 - vis);
       R[pi] = qInv(R[par]);

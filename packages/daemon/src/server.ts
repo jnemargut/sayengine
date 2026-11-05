@@ -268,7 +268,15 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         if (!res.ok || !res.rig) return { ok: false, tool: name, error: `${obj.name} does not build` };
         // the character alone, at the origin and facing +Z, so the page can walk it along its own axis
         const solo = { ...obj, position: [0, 0, 0] as [number, number, number], rotation: 0 };
-        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }], {});
+        // --with: other scene objects to stand beside it (a bucket to trip over), placed relative to the
+        // character (--at [x,y,z] for the first, else where they are relative to it)
+        const extras = (args.with ? String(args.with).split(',').map((x) => x.trim()).filter(Boolean) : []).map((ref, i) => {
+          const o = studio.findObject(doc, ref);
+          const at = i === 0 && args.at ? (typeof args.at === 'string' ? JSON.parse(args.at) : args.at) : [o.position[0] - obj.position[0], o.position[1] - obj.position[1], o.position[2] - obj.position[2]];
+          const moved = { ...o, position: at as [number, number, number] };
+          return { obj: moved, res: studio.evaluate(moved) };
+        });
+        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }, ...extras], {});
         const validation = await validateGlb(glb);
         if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
         const { bakeMotion } = await import('../../core/src/motion.ts');
