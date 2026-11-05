@@ -97,7 +97,7 @@ export class TownPanel {
         // the selected building gets its own copy of the material, lit up in sage
         const base = matFor(p.mat);
         const mat = n.worldId && n.worldId === this.selected && p.mat.name !== 'pool' ? (base as THREE.MeshStandardMaterial).clone() : base;
-        if (mat !== base) { (mat as THREE.MeshStandardMaterial).emissive.set('#5b8c7a'); (mat as THREE.MeshStandardMaterial).emissiveIntensity = 0.55; mat.userData = { ...base.userData, picked: true }; }
+        if (mat !== base) { (mat as THREE.MeshStandardMaterial).emissive.set('#5b8c7a'); (mat as THREE.MeshStandardMaterial).emissiveIntensity = 0.9; mat.userData = { ...base.userData, picked: true }; }
         const m = new THREE.Mesh(geo, mat);
         m.userData = { town: v.town, worldId: n.worldId ?? null, kind: n.kind };
         const flat = /ground|roads|parks|water/.test(n.kind) || p.mat.name === 'pool';

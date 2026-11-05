@@ -33,6 +33,13 @@ The user's request: **$ARGUMENTS**
 - Each fix is keyed by id **and** position: after a data refresh (`world-fetch --force true`) a fix whose id vanished lands by position, and one with no building left is flagged by `studio check`. Undo / `world-unfix --index n` remove fixes.
 - Styles: `raleigh-downtown`, `river-town-1920s`, `generic`. If a town reads as tidy boxes, fix the **style rules** (`packages/core/src/world/styles.ts`, `mesh.ts`) before adding more fixes.
 
+## Click to fix in the live view (Phase 10)
+
+- The view loads **one chunk** of a town (default ±140 m around the middle, at most 90 buildings: `/api/town?cx=&cz=&radius=&max=`), never the whole town — an 8 GB Mac shares memory with Chrome and the engine. One mesh per building, so a click selects the building by its stable id.
+- The inspector shows height, floors, roof, use, walls, the source ("Overture Maps buildings (GERS …), ODbL; named … in the data") and the fixes already on it. Edits there (floors ±, roof, use, swap in a landmark, back to the data building) and **word notes** ("flat roof", "two storeys taller", "brick", "a shop", "no shopfronts", "hide it") become fix-layer entries, one step each. Nobody types an id.
+- You can use words too: `./studio world-fix --town "Pocket Raleigh" --id <from the selection> --words "flat roof, two storeys taller"` (the words become the step's note; `heard` says what was understood, `notUnderstood` what wasn't — ask, don't guess).
+- `./studio selection` gives the clicked building as an address, `town:Pocket Raleigh/ov:…`, described in words ("Pocket Raleigh / Civic ba0578"). Notes pinned on a building go stale if it leaves the data.
+
 ## Into the game
 
 `./studio game import --project <game>` carries every town in the scene GLB (one node per town, buildings merged into chunks with vertex colours: a few dozen draw calls). Players spawn on the ground under their start. Walk it: `./studio game walk-to --project <game> --from [x,z] --target [x,z] --video true`. Prove it with `/proof`-style checks: `./studio proof views` and `./studio proof phone` (see `../studio/SKILL.md` for the studio basics).

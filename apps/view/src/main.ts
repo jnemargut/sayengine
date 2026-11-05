@@ -314,7 +314,7 @@ function rebuildScene() {
 
 function attachGizmo() {
   gizmo.detach();
-  if (!editable() || !selectedObj || preview) return;
+  if (!editable() || !selectedObj || preview || panels?.noteTarget()) return;   // a building or UI element is selected: no gizmo on a model
   const o = shownObjects().find((x) => x.id === selectedObj);
   if (!o || o.reference?.kind === 'image') return;
   gizmo.setMode(gizmoMode);
@@ -491,6 +491,7 @@ function render() {
   const mp = document.getElementById('modePanel');
   if (mp && !(document.activeElement as HTMLElement | null)?.closest?.('#modePanel input[type=range]')) { const h = panels.html(); mp.innerHTML = h; mp.classList.toggle('hidden', !h); }
   const pi = panels.inspector();
+  if (pi) $('#checks').innerHTML = '';
   if (pi && !(document.activeElement as HTMLElement | null)?.closest?.('.inspector input')) { $('#inspLabel').textContent = pi.label; $('#partInfo').innerHTML = pi.html; $('#params').innerHTML = ''; $('#code').textContent = ''; }
 
   // activity feed

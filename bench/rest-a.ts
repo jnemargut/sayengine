@@ -99,7 +99,7 @@ await scene('town', PORT0 + 1, (ok) => {
   ok('new-object', { name: 'Lantern tower', type: 'tower', color: '#d8cdb8' });
   ok('add-op', { id: 'base', op: 'box', args: { size: [22, 30, 22], at: [0, 15, 0] } });
   ok('add-op', { id: 'mid', op: 'box', args: { size: [16, 22, 16], at: [0, 41, 0] } });
-  ok('add-op', { id: 'crown', op: 'cylinder', args: { r: 5, h: 10, at: [0, 57, 0] } });
+  ok('add-op', { id: 'crown', op: 'cylinder', args: { r: 5, h: 10, at: [0, 56, 0] } });
   ok('add-op', { id: 'tower', op: 'union', inputs: ['base', 'mid', 'crown'], output: true });
 }, async (page, studio, shot) => {
   await page.eval(`new Promise((r) => { const t = setInterval(() => { if (window.__studioView.townIds().length) { clearInterval(t); r(true); } }, 200); })`, 60000);

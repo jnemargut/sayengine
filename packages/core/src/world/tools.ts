@@ -200,7 +200,7 @@ export const WORLD_TOOLS: ToolDef[] = [
         f.model = (o as any).id;
       }
       ctx.set(['world', 'towns', spec.name, 'fixes'], [...spec.fixes, f]);
-      ctx.summary(`${spec.name}: fix #${spec.fixes.length} on ${target.b.id}${target.b.name ? ` (${target.b.name})` : ''}: ${[a.set ? Object.entries(a.set).map(([k, v]) => `${k} ${v}`).join(', ') : '', a.hide ? 'hidden' : '', a.model ? `landmark ${f.model}` : ''].filter(Boolean).join('; ')}`);
+      ctx.summary(`${spec.name}: fix #${spec.fixes.length} on ${buildingLabel(target.b)}${target.b.name ? ` (${target.b.name})` : ''}: ${[f.set ? Object.entries(f.set).map(([k, v]) => `${k} ${v}`).join(', ') : '', f.hide ? 'hidden' : '', a.model ? `landmark ${f.model}` : ''].filter(Boolean).join('; ')}`);
       return { index: spec.fixes.length, fix: f, building: { id: target.b.id, by: target.by }, ...(heard ? { heard: heard.understood, ...(heard.unknown.length ? { notUnderstood: heard.unknown } : {}) } : {}) };
     },
   },

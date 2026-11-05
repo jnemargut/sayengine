@@ -1105,10 +1105,14 @@ Checkpoint: `checkpoint-phase10/core/` (`node bench/collab.ts`).
 - [ ] Retire the five separate players: motion, creature, cast, cutscene and line.
 
 ### 3. The rest (about 1.5–2 weeks)
-- [ ] **Looks:** sliders for grade, fog and light; point at a region.
-- [ ] **Towns:** click a building to fix it; no IDs.
+Part A built on branch `phase10/rest-a` (2026-11-05): looks, towns, UI kit. Code: `packages/core/src/look/knobs.ts`,
+`packages/core/src/world/{words,view}.ts`, `ui-style` + element tokens in `uikit.ts`, note `region`s, the view's
+`apps/view/src/panels/{look,town,ui,index,host}.ts` (+ `panels.css`, small hooks in `main.ts`), `/api/town` (one chunk).
+Tests: `packages/core/test/phase10rest.test.ts` (9). Checkpoint: `checkpoint-phase10/rest-a/` (`node bench/rest-a.ts`).
+- [x] **Looks:** sliders for exposure, white balance (K), contrast, saturation, fog density, sun height/direction/colour (K)/strength, lamp strength and glow. Drag previews (LUT re-graded in the view); release = one `look-set` step with a note ("warmer: white balance 6200 K → 5600 K"). Point at a region: a note on the thing under it with the look, 3D point and screen spot. "Show me three" for a look: three grades side by side, per-section compare, pick card.
+- [x] **Towns:** a chunk of a town in the view (±140 m, ≤ 90 buildings), one mesh per building; click → stable id → inspector (height, floors, roof, use, walls, source, fixes). Inspector edits and word notes ("flat roof", "two storeys taller", "brick") → fix-layer entries, one step each; landmark swap and "back to the data" from the view. No ids typed.
 - [ ] **Town life:** in the view with a day clock; click a person to see and redirect their plans.
-- [ ] **UI kit:** live in the view over the scene; point at an element.
+- [x] **UI kit:** the HUD over the scene in a phone (844×390) or desktop (1280×720) frame with its safe area; click an element → `ui/<id>` address; its tokens (text size, padding, width, height, fill and ink from the palette) as sliders/chips (`ui-style`, one step per release); contrast, overflow, tap, text size and safe area live for both screens. Web games honour all element tokens; Godot only text size and ink so far.
 - [ ] **Trailers:** shots on the timeline, keep or redo per shot, "show me three" per shot.
 
 ### 4. Then your game
