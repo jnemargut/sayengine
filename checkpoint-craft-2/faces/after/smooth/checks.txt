@@ -1,0 +1,9 @@
+Blacksmith (smooth): 20/20 checks pass, 19074 triangles
+Apprentice (smooth): 16/16 checks pass, 15482 triangles
+Goblin Shopkeeper (smooth): 20/20 checks pass, 19432 triangles
+Robot Porter (smooth): 16/16 checks pass, 18722 triangles
+Marsh Bird (smooth): 16/16 checks pass, 19870 triangles
+Kid (smooth): 16/16 checks pass, 19390 triangles
+Elder (smooth): 16/16 checks pass, 15776 triangles
+Dog (smooth): 16/16 checks pass, 18222 triangles
+Heron Courier (smooth): 16/16 checks pass, 18166 triangles
