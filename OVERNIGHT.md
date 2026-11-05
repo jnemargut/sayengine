@@ -88,3 +88,35 @@ What got built while you slept, what I checked myself, and anything that went wr
 ## Where things stand
 - **Tool freeze (your decision 59):** no new tool modules until you've shared Fire's Dying. So I stopped here rather than starting Pocket Raleigh.
 - **Your move:** play it, share it with someone, and tell me what felt off. Next up after that: Pocket Raleigh, wings and fins, and one-off actions.
+
+## 5 November, daytime (you lifted the freeze)
+- **Pocket Raleigh: built and merged.**
+  - World (real downtown plus an invented river town), proof, looks (day and night, with glow), people and traffic, sound and trailers.
+  - The State Capitol and the four landmarks were modelled from reference sources.
+- **Animate anything: built and merged.**
+  - Wings, swimming, the octopus, spider, bird and fish, and one-off actions with word notes.
+  - Live feet in Godot, now on by default in `/game`.
+- **Craft pass on the creatures.**
+  - Feathers, spider legs, the octopus wrapping round the teapot, the fish's seams, and the dog's legs.
+  - The kid's smile and the PAC are "good enough" (your call).
+- **Effects now match between Godot and the web.**
+  - Smoke went from 0.31 to 0.11, and rain from 0.42 to 0.07.
+  - Fixing that also fixed a real web bug.
+- **Stable Audio Open Small runs locally.**
+  - Your verdict was that it's about equal to the CC0 recordings, so it fills gaps only.
+  - Fire's Dying uses it for the quench and the bellows.
+- **Backed up to your private GitHub.**
+  - The history was slimmed: a clone is about 8 MB, the game files are on LFS, and the demo media is on a release.
+  - The licence is Apache-2.0.
+
+## Phase 10: Working together (decisions 60–65)
+- **Step 1, the shared core: merged.** 227 tests pass.
+  - **Moment addresses:** a note on "pour" follows the moment when it's retimed. If the moment is gone, the note is marked stale and never moved silently.
+  - **Steps:** every step carries its word note, and "kept" only counts once you've opened its before/after.
+  - **Show me three:** three takes, each at least 15% different from the others.
+  - **Notes inbox and taste file:** `~/.studio/taste.md` has your two verdicts in it.
+  - **"Your call" cards:** the sound question gets skipped because of your taste file.
+  - Screenshot: `checkpoint-phase10/core/view-card-and-notes.png`.
+  - **Still weak:**
+    - There's no timeline yet, so you can't point at a moment in the view.
+    - "Show me three" only compares in the CLI.
