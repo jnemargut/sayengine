@@ -976,6 +976,11 @@ Built in main's codebase for Fire's Dying to adopt in its v1.1 pass (the game br
   - In both engines: stretched particles are streaks. Godot streaks align to their velocity; every spark used to stand upright.
   - Web review frames are PNG (JPEG had washed out 1 px rain).
   - Smoke and rain are still over 0.25. The web renders the review yard about 23 % darker (wall 0.65 vs 0.84), and the score compares absolute colours and a fixed diff threshold. Next: match the yard's lighting (a look on the forge bench), or score against each engine's own backdrop. Effekseer is not needed for these.
+- **Parity v1.3 (2026-11-05, branch `godot/live-ik-in-games`; `checkpoint-effects-ui/v1.3/`).** All five pass; the score is unchanged.
+  - Fire **0.025**, sparks **0.139**, embers **0.080**, smoke **0.107** (was 0.313), rain **0.067** (was 0.419).
+  - The bench yard gets the `day-toy` look (outline off) in both engines. The backdrops now match within about 1–2 % (wall 0.79 vs 0.78).
+  - The look exposed a web bug: a graded look renders into a linear target, but web effects were compiled for the sRGB canvas, so the compensation was applied twice. Web effects under a graded look are now compiled for linear light.
+  - Still visible: soft web shadows vs hard Godot ones, and web sparks cover 28 % less.
 
 ### Effects (weeks 15–16)
 - [x] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.

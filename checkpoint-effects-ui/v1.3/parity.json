@@ -1,0 +1,182 @@
+{
+  "forge-fire": {
+    "score": 0.025,
+    "detail": "coverage 1.3% vs 1.2% of the screen (3% apart), colour 1% apart, centre 0.4% of the screen apart → match (0.025)",
+    "godot": {
+      "frames": 150,
+      "coverage": 0.0126,
+      "peakCoverage": 0.0157,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-godot/.studio-game/video/2026-11-05T17-49-11-forge-fire-peak.png",
+      "colour": [
+        0.918,
+        0.592,
+        0.305
+      ],
+      "centroid": [
+        0.498,
+        0.716
+      ],
+      "top": 0.41
+    },
+    "web": {
+      "frames": 150,
+      "coverage": 0.0122,
+      "peakCoverage": 0.015,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-web/.studio-game/video/2026-11-05T17-49-20-forge-fire-peak.png",
+      "colour": [
+        0.933,
+        0.6,
+        0.318
+      ],
+      "centroid": [
+        0.501,
+        0.714
+      ],
+      "top": 0.27
+    }
+  },
+  "sparks": {
+    "score": 0.139,
+    "detail": "coverage 0.5% vs 0.4% of the screen (28% apart), colour 3% apart, centre 1.2% of the screen apart → match (0.139)",
+    "godot": {
+      "frames": 90,
+      "coverage": 0.0054,
+      "peakCoverage": 0.0157,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-godot/.studio-game/video/2026-11-05T17-50-50-sparks-peak.png",
+      "colour": [
+        0.754,
+        0.561,
+        0.35
+      ],
+      "centroid": [
+        0.496,
+        0.542
+      ],
+      "top": 0.37
+    },
+    "web": {
+      "frames": 90,
+      "coverage": 0.0039,
+      "peakCoverage": 0.0105,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-web/.studio-game/video/2026-11-05T17-50-58-sparks-peak.png",
+      "colour": [
+        0.71,
+        0.529,
+        0.338
+      ],
+      "centroid": [
+        0.494,
+        0.53
+      ],
+      "top": 0.305
+    }
+  },
+  "chimney-smoke": {
+    "score": 0.107,
+    "detail": "coverage 2.2% vs 2.8% of the screen (21% apart), colour 1% apart, centre 1.1% of the screen apart → match (0.107)",
+    "godot": {
+      "frames": 180,
+      "coverage": 0.0217,
+      "peakCoverage": 0.0336,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-godot/.studio-game/video/2026-11-05T17-52-06-chimney-smoke-peak.png",
+      "colour": [
+        0.683,
+        0.615,
+        0.546
+      ],
+      "centroid": [
+        0.498,
+        0.554
+      ],
+      "top": 0.195
+    },
+    "web": {
+      "frames": 180,
+      "coverage": 0.0276,
+      "peakCoverage": 0.0407,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-web/.studio-game/video/2026-11-05T17-52-16-chimney-smoke-peak.png",
+      "colour": [
+        0.676,
+        0.606,
+        0.536
+      ],
+      "centroid": [
+        0.492,
+        0.563
+      ],
+      "top": 0.155
+    }
+  },
+  "embers": {
+    "score": 0.08,
+    "detail": "coverage 0.2% vs 0.2% of the screen (0% apart), colour 3% apart, centre 4.0% of the screen apart → match (0.08)",
+    "godot": {
+      "frames": 120,
+      "coverage": 0.0021,
+      "peakCoverage": 0.007,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-godot/.studio-game/video/2026-11-05T17-53-13-embers-peak.png",
+      "colour": [
+        0.731,
+        0.421,
+        0.174
+      ],
+      "centroid": [
+        0.504,
+        0.571
+      ],
+      "top": 0.145
+    },
+    "web": {
+      "frames": 120,
+      "coverage": 0.0021,
+      "peakCoverage": 0.0079,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-web/.studio-game/video/2026-11-05T17-53-21-embers-peak.png",
+      "colour": [
+        0.701,
+        0.442,
+        0.217
+      ],
+      "centroid": [
+        0.479,
+        0.54
+      ],
+      "top": 0.045
+    }
+  },
+  "rain": {
+    "score": 0.067,
+    "detail": "coverage 0.9% vs 0.8% of the screen (9% apart), colour 0% apart, centre 3.4% of the screen apart → match (0.067)",
+    "godot": {
+      "frames": 90,
+      "coverage": 0.0085,
+      "peakCoverage": 0.0108,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-godot/.studio-game/video/2026-11-05T17-54-25-rain-peak.png",
+      "colour": [
+        0.577,
+        0.486,
+        0.423
+      ],
+      "centroid": [
+        0.494,
+        0.619
+      ],
+      "top": 0.18
+    },
+    "web": {
+      "frames": 90,
+      "coverage": 0.0077,
+      "peakCoverage": 0.0094,
+      "peakFrame": "~/AI3DModel/.claude/worktrees/agent-ae79f562878d9f843/.scratch/tmp/bench-effects-b3Plh4/games/fx-web/.studio-game/video/2026-11-05T17-54-31-rain-peak.png",
+      "colour": [
+        0.576,
+        0.484,
+        0.418
+      ],
+      "centroid": [
+        0.514,
+        0.646
+      ],
+      "top": 0.185
+    }
+  }
+}
