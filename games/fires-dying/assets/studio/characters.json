@@ -84,19 +84,31 @@
           "line": true,
           "loop": false
         },
-        "line:call-charcoal": {
-          "line": true,
-          "loop": false
-        },
         "line:call-hammer": {
           "line": true,
           "loop": false
         },
-        "line:call-bucket": {
+        "line:call-file": {
           "line": true,
           "loop": false
         },
-        "line:call-file": {
+        "line:call-chisel": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-whetstone": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-bellows": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-quench": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-charcoal": {
           "line": true,
           "loop": false
         },
@@ -108,7 +120,15 @@
           "line": true,
           "loop": false
         },
+        "line:hiss": {
+          "line": true,
+          "loop": false
+        },
         "line:wrong": {
+          "line": true,
+          "loop": false
+        },
+        "line:late": {
           "line": true,
           "loop": false
         },

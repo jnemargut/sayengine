@@ -122,7 +122,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
+          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(!ctx.gameData && !args.file ? { note: 'no studio game data reached the import (the caller passed no gameData()): effects, the UI kit and line audio were written empty' } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }

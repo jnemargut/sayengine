@@ -1,202 +1,359 @@
 {
   "intro": {
-    "frames": 258,
-    "state": null,
-    "log": []
+    "frames": 131
   },
   "win": {
-    "frames": 990,
     "state": {
       "phase": "won",
-      "t": 195.5,
-      "done": 16,
+      "t": 241.5,
+      "done": 20,
       "fed": 8,
+      "pumped": 3,
       "wrongs": 0,
-      "fire": 0.43
+      "late": 5,
+      "fire": 0.5
+    },
+    "card": "The blade is done",
+    "playAgain": {
+      "mode": "play",
+      "t": 1.5,
+      "phase": "play",
+      "card": null
     },
     "log": [
       {
-        "t": 10,
-        "fire": 0.66,
+        "t": 0.2,
+        "fire": 0.8,
         "done": 0,
-        "request": "tongs",
-        "carrying": "tongs"
-      },
-      {
-        "t": 20,
-        "fire": 0.51,
-        "done": 2,
         "request": null,
         "carrying": null
       },
       {
-        "t": 30,
-        "fire": 0.35,
-        "done": 2,
-        "request": "tongs",
-        "carrying": "charcoal"
+        "t": 10.2,
+        "fire": 0.7,
+        "done": 1,
+        "request": null,
+        "carrying": null
       },
       {
-        "t": 40,
-        "fire": 0.65,
+        "t": 20.2,
+        "fire": 0.6,
+        "done": 2,
+        "request": "hammer",
+        "carrying": null
+      },
+      {
+        "t": 30.2,
+        "fire": 0.49,
         "done": 3,
-        "request": "bucket",
-        "carrying": null
-      },
-      {
-        "t": 50,
-        "fire": 0.48,
-        "done": 4,
-        "request": "file",
-        "carrying": null
-      },
-      {
-        "t": 60,
-        "fire": 0.75,
-        "done": 5,
-        "request": "tongs",
-        "carrying": "tongs"
-      },
-      {
-        "t": 70,
-        "fire": 0.56,
-        "done": 7,
         "request": null,
         "carrying": null
       },
       {
-        "t": 80,
-        "fire": 0.36,
-        "done": 8,
-        "request": null,
-        "carrying": "charcoal"
-      },
-      {
-        "t": 90,
-        "fire": 0.61,
-        "done": 8,
-        "request": "hammer",
-        "carrying": "hammer"
-      },
-      {
-        "t": 100,
-        "fire": 0.4,
-        "done": 9,
-        "request": "tongs",
-        "carrying": null
-      },
-      {
-        "t": 110,
-        "fire": 0.64,
-        "done": 10,
-        "request": null,
-        "carrying": null
-      },
-      {
-        "t": 120,
-        "fire": 0.42,
-        "done": 10,
-        "request": "hammer",
-        "carrying": "hammer"
-      },
-      {
-        "t": 130,
-        "fire": 0.65,
-        "done": 10,
-        "request": "hammer",
-        "carrying": null
-      },
-      {
-        "t": 140,
-        "fire": 0.42,
-        "done": 11,
-        "request": null,
-        "carrying": null
-      },
-      {
-        "t": 150,
-        "fire": 0.2,
-        "done": 11,
-        "request": "file",
-        "carrying": "charcoal"
-      },
-      {
-        "t": 160,
-        "fire": 0.42,
-        "done": 12,
-        "request": "tongs",
-        "carrying": null
-      },
-      {
-        "t": 170,
-        "fire": 0.63,
-        "done": 13,
-        "request": null,
-        "carrying": null
-      },
-      {
-        "t": 180,
+        "t": 40.2,
         "fire": 0.38,
-        "done": 14,
+        "done": 3,
+        "request": "whetstone",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 50.2,
+        "fire": 0.6,
+        "done": 3,
+        "request": "whetstone",
+        "carrying": "whetstone"
+      },
+      {
+        "t": 60.2,
+        "fire": 0.49,
+        "done": 4,
+        "request": "quench",
+        "carrying": "bucket"
+      },
+      {
+        "t": 70.2,
+        "fire": 0.37,
+        "done": 5,
+        "request": "bellows",
+        "carrying": null
+      },
+      {
+        "t": 80.2,
+        "fire": 0.74,
+        "done": 6,
         "request": "tongs",
         "carrying": null
       },
       {
-        "t": 190,
-        "fire": 0.58,
+        "t": 90.2,
+        "fire": 0.62,
+        "done": 7,
+        "request": "chisel",
+        "carrying": "chisel"
+      },
+      {
+        "t": 100.2,
+        "fire": 0.48,
+        "done": 9,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 110.2,
+        "fire": 0.34,
+        "done": 9,
+        "request": "quench",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 120.2,
+        "fire": 0.53,
+        "done": 10,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 130.4,
+        "fire": 0.38,
+        "done": 10,
+        "request": "tongs",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 140.4,
+        "fire": 0.57,
+        "done": 11,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 150.4,
+        "fire": 0.51,
+        "done": 12,
+        "request": "whetstone",
+        "carrying": "whetstone"
+      },
+      {
+        "t": 160.4,
+        "fire": 0.75,
+        "done": 13,
+        "request": "hammer",
+        "carrying": null
+      },
+      {
+        "t": 170.4,
+        "fire": 0.52,
+        "done": 14,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 180.4,
+        "fire": 0.36,
+        "done": 14,
+        "request": "quench",
+        "carrying": "charcoal"
+      },
+      {
+        "t": 190.4,
+        "fire": 0.52,
         "done": 15,
         "request": null,
         "carrying": null
-      }
-    ]
-  },
-  "lose": {
-    "frames": 269,
-    "state": {
-      "phase": "lost",
-      "t": 51.2,
-      "done": 5,
-      "fed": 0,
-      "wrongs": 0,
-      "fire": 0
-    },
-    "log": [
-      {
-        "t": 10,
-        "fire": 0.66,
-        "done": 0,
-        "request": "tongs",
-        "carrying": "tongs"
       },
       {
-        "t": 20,
-        "fire": 0.51,
-        "done": 2,
+        "t": 200.4,
+        "fire": 0.35,
+        "done": 15,
+        "request": "bellows",
+        "carrying": null
+      },
+      {
+        "t": 210.4,
+        "fire": 0.68,
+        "done": 16,
+        "request": "chisel",
+        "carrying": "chisel"
+      },
+      {
+        "t": 220.4,
+        "fire": 0.5,
+        "done": 18,
         "request": null,
         "carrying": null
       },
       {
-        "t": 30,
-        "fire": 0.35,
+        "t": 230.4,
+        "fire": 0.71,
+        "done": 18,
+        "request": "tongs",
+        "carrying": "tongs"
+      },
+      {
+        "t": 240.4,
+        "fire": 0.52,
+        "done": 19,
+        "request": "quench",
+        "carrying": "bucket"
+      }
+    ],
+    "frames": 1254
+  },
+  "lose": {
+    "state": {
+      "phase": "lost",
+      "t": 85.2,
+      "done": 9,
+      "fed": 0,
+      "pumped": 2,
+      "wrongs": 0,
+      "late": 0,
+      "fire": 0
+    },
+    "card": "The fire's out",
+    "playAgain": {
+      "mode": "play",
+      "t": 1.5,
+      "phase": "play",
+      "card": null
+    },
+    "log": [
+      {
+        "t": 0.2,
+        "fire": 0.8,
+        "done": 0,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 10.2,
+        "fire": 0.7,
+        "done": 1,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 20.2,
+        "fire": 0.6,
         "done": 2,
         "request": "file",
         "carrying": "file"
       },
       {
-        "t": 40,
-        "fire": 0.19,
+        "t": 30.2,
+        "fire": 0.49,
         "done": 3,
         "request": "hammer",
-        "carrying": "hammer"
+        "carrying": null
       },
       {
-        "t": 50,
-        "fire": 0.02,
+        "t": 40.2,
+        "fire": 0.38,
+        "done": 4,
+        "request": "quench",
+        "carrying": "bucket"
+      },
+      {
+        "t": 50.2,
+        "fire": 0.26,
         "done": 5,
+        "request": "bellows",
+        "carrying": null
+      },
+      {
+        "t": 60.2,
+        "fire": 0.24,
+        "done": 6,
+        "request": "tongs",
+        "carrying": null
+      },
+      {
+        "t": 70.2,
+        "fire": 0.21,
+        "done": 8,
         "request": null,
         "carrying": null
+      },
+      {
+        "t": 80.2,
+        "fire": 0.07,
+        "done": 9,
+        "request": "quench",
+        "carrying": null
       }
-    ]
+    ],
+    "frames": 473
+  },
+  "idle": {
+    "state": {
+      "phase": "lost",
+      "t": 62.1,
+      "done": 0,
+      "fed": 0,
+      "pumped": 0,
+      "wrongs": 0,
+      "late": 3,
+      "fire": 0
+    },
+    "card": "The fire's out",
+    "playAgain": {
+      "mode": "play",
+      "t": 1.5,
+      "phase": "play",
+      "card": null
+    },
+    "log": [
+      {
+        "t": 0.2,
+        "fire": 0.8,
+        "done": 0,
+        "request": null,
+        "carrying": null
+      },
+      {
+        "t": 10.2,
+        "fire": 0.7,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 20.2,
+        "fire": 0.54,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 30.2,
+        "fire": 0.44,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 40.2,
+        "fire": 0.28,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 50.2,
+        "fire": 0.11,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      },
+      {
+        "t": 60.2,
+        "fire": 0.02,
+        "done": 0,
+        "request": "file",
+        "carrying": null
+      }
+    ],
+    "frames": 357
   },
   "errors": []
 }

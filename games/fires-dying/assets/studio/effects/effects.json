@@ -1,0 +1,130 @@
+[
+  {
+    "id": "forge-fire",
+    "name": "Forge fire",
+    "at": [
+      -1.9,
+      0.76,
+      -1.65
+    ],
+    "loop": true,
+    "value": {
+      "name": "fire",
+      "default": 0.8
+    },
+    "triggers": [],
+    "warmup": true,
+    "frame": {
+      "center": [
+        -1.9,
+        1.39816,
+        -1.65
+      ],
+      "radius": 1.064,
+      "dir": [
+        0.35,
+        0.3,
+        1
+      ]
+    },
+    "file": "forge-fire.json"
+  },
+  {
+    "id": "sparks",
+    "name": "Sparks",
+    "at": [
+      -0.02,
+      0.78,
+      -0.5
+    ],
+    "loop": false,
+    "value": null,
+    "triggers": [
+      {
+        "on": "Blacksmith:strike@impact",
+        "layer": "burst",
+        "character": "Blacksmith",
+        "clip": "strike",
+        "fraction": 0.6
+      }
+    ],
+    "warmup": true,
+    "frame": {
+      "center": [
+        -0.02,
+        1.0096,
+        -0.5
+      ],
+      "radius": 1.391,
+      "dir": [
+        0.35,
+        0.3,
+        1
+      ]
+    },
+    "file": "sparks.json"
+  },
+  {
+    "id": "chimney-smoke",
+    "name": "Chimney smoke",
+    "at": [
+      -1.9,
+      2.78,
+      -1.94
+    ],
+    "loop": true,
+    "value": null,
+    "triggers": [],
+    "warmup": true,
+    "frame": {
+      "center": [
+        -1.9,
+        3.617,
+        -1.94
+      ],
+      "radius": 1.395,
+      "dir": [
+        0.35,
+        0.3,
+        1
+      ]
+    },
+    "file": "chimney-smoke.json"
+  },
+  {
+    "id": "embers",
+    "name": "Embers",
+    "at": [
+      -1.9,
+      0.8,
+      -1.65
+    ],
+    "loop": false,
+    "value": null,
+    "triggers": [
+      {
+        "on": "fed",
+        "layer": "puff"
+      },
+      {
+        "on": "pumped",
+        "layer": "puff"
+      }
+    ],
+    "warmup": true,
+    "frame": {
+      "center": [
+        -1.9,
+        1.124,
+        -1.65
+      ],
+      "radius": 0.77,
+      "dir": [
+        0.35,
+        0.3,
+        1
+      ]
+    },
+    "file": "embers.json"
+  }
+]

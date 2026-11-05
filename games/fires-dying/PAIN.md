@@ -2,6 +2,56 @@
 
 Every point where a missing or weak studio tool hurt while making this tiny game. Each one says which part of the plan it argues for. This list drives the next work: effects, the UI kit, and whatever else it shows.
 
+## v1.1 (5 November 2026): what the new tools fixed, and what they showed
+
+### Playtest (bot, stepped capture, whole-page frames: `playtest/`)
+- **Win:** 20 jobs in 4:01. Fed 8 times, pumped the bellows 3 times, kept him waiting 5 times. The fire dipped to about 0.35.
+- **Lose** (fetches everything, never feeds): out at 85 s with 9 of 20 done.
+- **Idle:** out at 62 s.
+- "Play again" works in all three captures, and the intro cutscene plays from the title card.
+- The rules' model player (`test/rules.test.ts`): a brisk player wins in about 4.5 minutes, one 20% slower wins in about 5.5 minutes with almost no fire left, and one 40% slower loses.
+
+**Verdict:** a real 4–5 minute game now, but a short one you'd play twice, not ten times.
+- **What works:** the fire you watch and the voiced, iconed calls make it readable at a glance. The quench beat every fifth job and the bellows break the fetch rhythm. Patience adds pressure: a good run feels tight in the last third.
+- **What's still thin:** every job is still "walk somewhere, press E", and the camera is far enough out that the carried tools are hard to see. A first-time human will probably lose once before winning, which is about right. There is no scoring or reason to replay beyond the time on the end card.
+
+### Status of the v1 list
+| # | Pain | Now |
+|---|------|-----|
+| 1 | Placeholder fire (cones) | **Fixed.** The studio's forge fire follows the game's `fire` value; sparks fire on each hammer strike's impact (motion trigger, no game code); chimney smoke; embers when charcoal goes in or the bellows blow. |
+| 2 | Hand-made HUD, bubble, cards | **Fixed.** The UI kit draws the fire and blade bars, the "he wants" slot and line, the carrying slot, the hint, a Use button for touch, the cards and the bubble. The game keeps one CSS rule (an icon inside a bubble). |
+| 3 | No item icons | **Fixed.** Six house icons plus three of the game's own (chisel, whetstone, bellows) through `ui-icon --svg`, linted to the house style. The bubble and the "he wants" slot show the icon. |
+| 4 | Canvas-only captures (`snap()`) | **Fixed.** `play.ts` captures the whole page (`page.screenshot`, now with JPEG). `snap()` is gone. |
+| 5 | No pathfinding | **Still hand-rolled** (via / detour / back-out). Hand props no longer have colliders, so the sack and bucket no longer wedge the apprentice. |
+| 6 | No interaction system | **Still game code** (as decided). `useOf()` now drives both the action and the hint, which removed a class of hint/action mismatches. |
+| 7 | Private player | **Fixed.** `controls: 'none'` gives `sc.player`; the keyboard-nulling hack is gone. |
+| 8 | Manual line playback | **Fixed.** `say()`; the mixer lookup and `new Audio()` are gone. |
+| 9 | Line audio not exported | **Fixed**, but only once the build script passed `gameData()` (see A below). `assets/voice/` is deleted. |
+| 10 | No "carried" form | **Mostly fixed.** `hold()` puts the grip in the palm. See H below. |
+| 11 | Hand props needed colliders | **Fixed.** `set-profile --kind hand-prop`. |
+| 12 | Overlap checks | **Partly fixed.** It still cost two rebuilds (see L). |
+| 13 | "Good lad." mouth 130 ms early | **Fixed in play.** `say()` delays the mouth by the measured offset. The studio check still flags it. |
+| 14 | Names renamed by GLTFLoader | **Fixed.** `named(game, 'Big hammer')`; the sanitising is gone. |
+
+### New in v1.1
+- **A. `game import` wrote empty effects, UI and lines with no warning.** The game's build script gave the import no `gameData()`, so it wrote `effects.json = []`, `ui.json = null` and `lines.json = {}`. The first sign was `say()` failing in the playtest. The import result now says so (`note`). → `/game` fixed.
+- **B–E. Effect parity bugs in the compilers** (found by measuring, fixed in `packages/game/src/effects.ts` and `packages/core/src/effects.ts`):
+  - **B.** quarks' `RectangleEmitter` emits from the rectangle's *edge*, sideways. Web rain was a ring of horizontal streaks. Boxes now use a fine `GridEmitter`.
+  - **C.** The streak length formula subtracted the speed, so web sparks were about half as long as Godot's.
+  - **D.** quarks' particle shader skips three's colour-space step, so linearised palette colours came out about 20% darker. The palette's sRGB values now go straight to quarks.
+  - **E.** Godot had no lifetime randomness: every particle lived for the longest life. Added `lifetime_randomness`.
+  - **Also:** alpha-blended web layers carry alpha^1.6, because Godot blends see-through layers in linear light.
+- **F. UI kit bar text didn't scale.** `.ui-bar .text` had a fixed 20 px font, so on a phone it overflowed a 16 px bar (the review-sheet clip). It now inherits the bar's scaled size, the default heat bar is 40 tall, and tooltips have no vertical padding. The sheet's bubble no longer overlaps the title card. → UI kit fixed.
+- **G. Bubbles ran on the wall clock.** In a stepped capture they vanished early or late, and the old end card (a `setTimeout`) never showed. Bubbles now time by `game.time` when the game keeps one; the end card is on the game clock too. "Play again" works in the capture.
+- **H. `hold()` moves the real prop.** For a source like the charcoal sack (which should stay put), the game clones the node and gives the copy its own `studioName`, then holds that. It's four lines, but `hold(…, { copy: true })` would be cleaner.
+- **O. `hold()` lost props that have no grip.** The sack and the bucket have no grip socket. The fallback placed them in the hand bone's space using a world-space offset, which left the carried sack 4 m away under the floor. Only the playtest's close-ups showed it: the HUD said "carrying" and nothing failed. It's fixed in the template: the fallback hangs the prop under the palm in world space, then attaches it to the bone. Also, grips are exported only for the character the studio posed them on (the Blacksmith), so the apprentice borrows his.
+- **I. Cards have a fixed height and no button.** The kit's card is a title and one line. The game appends paragraphs and a "Play again" button itself and sizes the card from the text length. → UI kit: a card with body text and actions that sizes to its content.
+- **J. No icon-in-bubble part.** The game has one CSS rule for it. → UI kit.
+- **K. `say()` resolves on `setTimeout`.** The game doesn't await it (the smith's busy time comes from `lines.json`), so it's harmless here. In a stepped capture its promise is still on wall time.
+- **L. A laid-down cylinder runs 0 → h, not centred.** The chisel grip floated and the bellows nozzle went into the forge, so two rebuilds. The studio checks named both exactly ("2 separate pieces", "overlaps Forge by 102 cm³"), so it was cheap.
+- **M. Every asset build re-synthesises all 15 voice lines** (about 3 of its 4 minutes). → voice: cache by text and voice.
+- **N. Two effects still don't match across engines.** Smoke now matches in colour and coverage, but the web column rises higher than Godot's, and the cause wasn't found. Web rain drops are under a pixel wide and barely register. Rain is an **Effekseer candidate**. Numbers are in the v1.1 report.
+
 ## Missing tools (the game needed them, the studio had nothing)
 
 1. **The forge fire is a placeholder.**

@@ -25,6 +25,8 @@ export interface StudioGame {
   animations?: THREE.AnimationClip[];
   /** studio characters: idles, the player model (set by startCharacters) */
   characters?: StudioCharacters;
+  /** game seconds, if your tick keeps them (g.time += dt): UI bubbles then time by the game, not the wall */
+  time?: number;
   /** studio effects (startEffects in studio/effects.ts) */
   effects?: StudioEffects;
 }
@@ -269,14 +271,17 @@ export function hold(g: StudioGame, character: string, prop: string, hand: 'righ
   if (!bone) throw new Error(`${character} has no ${hand} hand bone`);
   const charName = (who.userData?.studioName as string) ?? character;
   const h = p.userData?.hold?.[charName]?.[hand] ?? Object.values(p.userData?.hold ?? {})[0]?.[hand];
-  (bone as THREE.Object3D).add(p);
-  if (h) { p.position.fromArray(h.t); p.quaternion.fromArray(h.r); }
-  else {
-    // no exported hold: centre the grip (or the box) on the bone
-    const c = p.userData?.grip?.center ?? new THREE.Box3().setFromObject(p).getCenter(new THREE.Vector3()).sub(p.getWorldPosition(new THREE.Vector3())).toArray();
-    p.quaternion.identity(); p.position.set(-c[0], -c[1], -c[2]);
-  }
-  p.scale.set(1, 1, 1);
+  if (h) { (bone as THREE.Object3D).add(p); p.position.fromArray(h.t); p.quaternion.fromArray(h.r); p.scale.set(1, 1, 1); return p; }
+  // no exported hold (a sack, a bucket: no grip): hang it from the palm as it stands — its box centred
+  // under the hand, its top just below it — worked out in world space, then it rides the bone. (Fire's
+  // Dying v1.1: placing it in bone space left the charcoal sack 4 m away, under the floor.)
+  const b = bone as THREE.Object3D;
+  b.updateWorldMatrix(true, false);
+  p.updateWorldMatrix(true, true);
+  const box = new THREE.Box3().setFromObject(p), c = box.getCenter(new THREE.Vector3()), palm = b.getWorldPosition(new THREE.Vector3());
+  const wp = p.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(palm.x - c.x, palm.y + 0.03 - box.max.y, palm.z - c.z));
+  if (p.parent) { p.parent.worldToLocal(wp); p.position.copy(wp); }
+  b.attach(p);
   return p;
 }
 

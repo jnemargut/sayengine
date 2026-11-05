@@ -24,6 +24,9 @@ export class StudioUI {
     document.body.appendChild(this.root);
     addEventListener('resize', () => this.layout());
   }
+  /** seconds: the game's clock when it keeps one (g.time, advanced by your tick — so stepped captures
+   *  and pauses time bubbles right), else the wall clock */
+  now() { const t = (this.g as any).time; return typeof t === 'number' ? t : performance.now() / 1000; }
   /** px per reference px: the HUD is laid out at 1280×720 and scales with the screen height */
   get k() { return innerHeight / REF.h; }
 
@@ -49,7 +52,7 @@ export class StudioUI {
     for (const d of Object.values(this.els)) {
       const e: El = (d as any).__el;
       const s = d.style, a = e.anchor ?? 'tl';
-      s.width = `${e.w * k}px`; s.height = `${e.h * k}px`; s.fontSize = `${k * (e.part === 'card' ? 1 : 1)}em`;
+      s.width = `${e.w * k}px`; s.height = `${e.h * k}px`; s.fontSize = `${k * (e.part === 'bar' || e.part === 'tooltip' ? 0.85 : 1)}em`;   // as the review sheet draws it
       s.left = s.right = s.top = s.bottom = '';
       if (a === 'center') { s.left = `calc(50% + ${(e.x + e.w / 2 - REF.w / 2 - e.w / 2) * k}px)`; s.top = `calc(50% + ${(e.y + e.h / 2 - REF.h / 2 - e.h / 2) * k}px)`; }
       else {
@@ -76,13 +79,13 @@ export class StudioUI {
     this.root.appendChild(el);
     const box = new THREE.Box3().setFromObject(target);
     const wp = target.getWorldPosition(new THREE.Vector3());
-    this.bubbles.push({ el, target, height: (box.isEmpty() ? 1.8 : box.max.y - wp.y) + 0.12, until: performance.now() + seconds * 1000 });
+    this.bubbles.push({ el, target, height: (box.isEmpty() ? 1.8 : box.max.y - wp.y) + 0.12, until: this.now() + seconds });
     this.update();
     return el;
   }
   /** Bubbles follow their character: call every frame (startUI hooks it into the render loop). */
   update(cam: THREE.Camera = this.g.camera) {
-    const now = performance.now();
+    const now = this.now();
     const w = this.g.renderer.domElement.clientWidth || innerWidth, h = this.g.renderer.domElement.clientHeight || innerHeight;
     this.bubbles = this.bubbles.filter((b) => {
       if (now > b.until) { b.el.remove(); return false; }
