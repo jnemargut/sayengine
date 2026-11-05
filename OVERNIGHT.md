@@ -142,3 +142,12 @@ What got built while you slept, what I checked myself, and anything that went wr
     - Fog washes out the overview camera.
     - "Show me three" only varies the grade.
     - Godot honours only text size and colour from the per-button UI settings.
+- **Step 3b, town life and trailers in the view: merged.** That finishes Phase 10.
+  - **Day clock:** a day strip on the timeline runs 00:00–24:00 and plays up to 600× speed. It charts how many people are out.
+  - **People:** click a person to see their plan for the day. Type "go to the café at 9 instead" and it becomes one step, nobody else's day changes, and the 13 day checks re-run (13/13 pass).
+  - **Trailers:** a trailer's shots sit on a shots track with beat marks and play through each shot's camera. Each shot has Keep, Redo (only that shot changes) and "show me three": orbit, push in and crane up, 37–46% apart. Your pick goes into the taste file.
+  - Screenshots are in `checkpoint-phase10/rest-b/`.
+  - **Still weak:**
+    - People are simple stand-ins and look like dots from the overview.
+    - The trailer was framed for the full town, but the view only has the 27-building cut.
+    - Beat marks are a steady grid; the final cut uses the detected beats.
