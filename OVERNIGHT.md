@@ -120,6 +120,18 @@ What got built while you slept, what I checked myself, and anything that went wr
   - **Still weak:**
     - There's no timeline yet, so you can't point at a moment in the view.
     - "Show me three" only compares in the CLI.
+- **Step 2, the timeline: merged.** 243 tests pass. Both benches re-ran on merged main with no view errors.
+  - **The dock:** a timeline sits under the live view with a track per thing that moves: motions, voice lines, cutscenes, effects, sounds and music. It has play, loop and scrub.
+  - **Red stretches:** failed motion checks show as red stretches. The smith's strike really snaps too fast at 0.97 s.
+  - **Pointing:** click a bone while it moves and you get its moment, e.g. "RightHand at the strike's impact". Say "slower" and the clip becomes one step, with the pinned note following the impact.
+  - **Effects and sound:** sparks fire on each impact and their knobs are sliders. Sounds have their own tracks, with "show me three" for sounds as a listen-and-pick card.
+  - **One place to watch:** the separate preview players are gone. Every preview now opens or records the real view.
+  - **Speed:** about 2 ms a frame on the M2.
+  - **Still weak:**
+    - Recorded videos have no sound.
+    - Walks play in place.
+    - Some old benches were rewritten but not re-run end to end.
+  - Screenshots are in `checkpoint-phase10/timeline/`.
 - **Step 3a, looks, towns and the UI kit in the view: merged.** 236 tests, 235 pass. The one failure is a headless Chrome check on the speech bubble that times out under load and passes on its own (4/4). The view builds.
   - **Looks:** sliders for exposure, white balance, contrast, saturation, fog, sun and lamps. Letting go of a slider makes one step with a note like "warmer: 6200 K → 5600 K". "Show me three" gives three grades side by side with a pick card.
   - **Towns:** click a building to select it by its stable id. Say "flat roof, two storeys taller" and it becomes one fix. Landmarks can be swapped from the inspector.
