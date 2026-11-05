@@ -100,7 +100,7 @@ export async function captureWeb(reel: Reel, gameDir: string, work: string, only
         fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive: true });
         let lookDir: string | null = null;
         if (take.look) { lookDir = `.studio/reel/look-${take.look}/`; lookFiles(take.look, path.join(gameDir, lookDir)); }
-        await p.eval(`(async () => { const g = window.__game; g.paused = true; if (${JSON.stringify(lookDir)}) { g.look?.dispose(); await window.__reelApplyLook(g, undefined, ${JSON.stringify(lookDir)}); } g.renderer.setPixelRatio(1); g.renderer.setSize(${S}, ${S}, false); window.__reelCam = new (g.camera.constructor)(70, 1, 0.1, 3000); return true; })()`, 60000);
+        await p.eval(`(async () => { const g = window.__game; g.paused = true; if (${JSON.stringify(lookDir)}) { g.look?.dispose(); const old = []; g.scene.traverse((o) => { if (o.userData?.studioLook) old.push(o); }); for (const o of old) o.parent?.remove(o); await window.__reelApplyLook(g, undefined, ${JSON.stringify(lookDir)}); } g.renderer.setPixelRatio(1); g.renderer.setSize(${S}, ${S}, false); window.__reelCam = new (g.camera.constructor)(70, 1, 0.1, 3000); return true; })()`, 60000);
         const frames = takeFrames(take, reel.fps);
         for (let i = 0; i < frames.length; i += 12) {
           const batch = frames.slice(i, i + 12);

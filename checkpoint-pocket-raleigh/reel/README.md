@@ -19,7 +19,9 @@ Made by the reel module (`packages/reel/`, `studio reel …`, skill `/reel`) fro
 4. **Cut:** 10 shots of 8/8/8/4/4 beats (day) and 4/4/4/4/8 (night) + an 8-beat end card. Titles/captions are PNGs drawn by headless Chrome (this ffmpeg has no drawtext); captions sit inside the 9:16 safe box.
 5. **Release check (Decision 31):** 66 sampled frames OCR'd on the Mac (Apple Vision via a small Swift helper) against the brand/team/wording lists plus `games/pocket-raleigh/proof/release-lists.json` (requires "OpenStreetMap" and "Overture" to be readable; allows the landmark names as places). **0 findings**: the end-card ODbL credit was read in the video. Music licence present.
 
-Web fixed-step capture works too (`--engine web`): see "Web" below.
+## Web fixed-step capture
+
+`./studio reel capture --project pocket-raleigh-web --reel ../pocket-raleigh/reel/trailer.json --engine web --takes day-street,night-street --size 480` captures the same takes from the three.js build: a reel page bundles the game with the look module, pauses it, and draws one frame per camera at a fixed step (`web-fixed-step-night-street.mp4`). `godot-vs-web-takes.jpg`: Godot (left) vs web (right), day and night, same frame. It works but is slow here — headless Chrome renders on software GL: 4–15 minutes per 5–6 s take at 480², so trailers are captured in Godot. The first web night take was washed out (the day look's lights stayed when the night look was applied); fixed, re-captured.
 
 ## Honest verdict
 
