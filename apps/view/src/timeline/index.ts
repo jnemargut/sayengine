@@ -69,6 +69,8 @@ export function initTimeline(d: TimelineDeps) {
   let cutscene: string | null = params.get('cutscene');
   let seg: any = null;                          // capture: the segment being shown (focus, solo, close)
   let sideKey = '', draft = '', pinDraft = '';
+  // headless Chrome without a GPU renders in software: its frame times say nothing about the Mac's
+  const software = (() => { try { const g = d.renderer.getContext() as any, e = g.getExtension('WEBGL_debug_renderer_info'); return /swiftshader|software|llvmpipe/i.test(e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''); } catch { return false; } })();
   const perf = { cpu: [] as number[], gap: [] as number[], last: 0, t0: 0, particles: 0 };
 
   // ── loading the timeline ───────────────────────────────────────────────────────────────────────────
@@ -221,7 +223,7 @@ export function initTimeline(d: TimelineDeps) {
   }
   setInterval(() => {
     const s = stats();
-    if (!s.frames || capture) { perfEl.textContent = ''; return; }
+    if (!s.frames || capture || software) { perfEl.textContent = software ? 'software GL' : ''; return; }
     perfEl.textContent = `frame ${s.cpuMean.toFixed(1)} ms · ${s.fps.toFixed(0)} fps${perf.particles ? ` · ${perf.particles} particles` : ''}`;
     perfEl.classList.toggle('bad', s.gapP95 > 30);
   }, 1000);

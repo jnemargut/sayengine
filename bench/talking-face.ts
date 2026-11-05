@@ -1,6 +1,6 @@
 // Phase 3 week 4 checkpoint (Decision 21): the blacksmith, built from the character kit, says three
 // short lines in close-up. Everything goes through the real CLI and daemon: new-character → say ×3
-// (local Kokoro voice → Rhubarb → smoothed speech-shape curves) → line-preview --video (the exported
+// (local Kokoro voice → Rhubarb → smoothed speech-shape curves) → line-preview --video (captured from the live view; the exported
 // GLB in three.js, rendered frame by frame in headless Chrome, muxed with the audio by ffmpeg).
 //   node bench/talking-face.ts [outDir]     (default: checkpoint-week4/; STUDIO_PORT default 4589)
 import fs from 'node:fs';
@@ -33,7 +33,7 @@ try {
   studio('new-character', '--preset', 'blacksmith', '--name', 'Blacksmith');
   for (const [text, emotion] of LINES) studio('say', '--text', text, '--emotion', emotion);
   const r = studio('line-preview', '--video', 'true', '--out', out);
-  console.log(`\nvideo:  ${r.result.video}\nplayer: ${r.result.page} (serve the folder: npx http-server ${out})\nstills: ${r.result.stills.map((s: string) => path.basename(s)).join(', ')}`);
+  console.log(`\nvideo:  ${r.result.video}\nview:   ${r.result.view} (the lines play on the live view's timeline)\nstills: ${r.result.stills.map((s: string) => path.basename(s)).join(', ')}`);
 } finally {
   try { execFileSync('node', [path.join(ROOT, 'packages/cli/studio.ts'), 'stop'], { cwd: proj, env, stdio: 'ignore' }); } catch { /* not running */ }
   fs.rmSync(proj, { recursive: true, force: true });

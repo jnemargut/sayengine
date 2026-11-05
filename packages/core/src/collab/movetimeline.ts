@@ -116,7 +116,7 @@ export function nearestMarker(tr: Pick<TlTrack, 'markers'>, at: number, within =
   for (const m of tr.markers) {
     if (m.kind === 'beat' || m.kind === 'bar' || m.kind === 'burst') continue;
     // a named moment beats an unnamed key at the same tick ("impact" over "key 6")
-    const d = (m.len && at >= m.at && at < m.at + m.len ? 0 : Math.abs(m.at - at)) + (m.kind === 'cue' ? TL_TICKS / 20 : 0);
+    const d = (m.len && at >= m.at && at < m.at + m.len ? 0 : Math.abs(m.at - at)) + (m.kind === 'cue' ? TL_TICKS / 4 : 0);
     if (d < bd) { bd = d; best = m; }
   }
   return bd <= within ? best : undefined;

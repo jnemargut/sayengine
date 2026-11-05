@@ -10,9 +10,9 @@ export const TIMELINE_CSS = `
 .tl-bar button { font:inherit; border:none; border-radius:999px; background:var(--color-100); color:var(--color-800); padding:3px 10px; cursor:pointer; }
 .tl-bar button.on { background:var(--color-800); color:var(--color-50); }
 .tl-bar .tl-time { font-family:var(--font-mono); color:var(--color-900); min-width:92px; }
-.tl-bar .tl-moment { color:var(--color-600); overflow:hidden; text-overflow:ellipsis; flex:1; }
+.tl-bar .tl-moment { color:var(--color-600); overflow:hidden; text-overflow:ellipsis; flex:1 1 auto; min-width:0; }
 .tl-bar .tl-moment b { color:var(--color-900); font-weight:600; }
-.tl-bar .tl-perf { font-family:var(--font-mono); color:var(--color-500); }
+.tl-bar .tl-perf { font-family:var(--font-mono); color:var(--color-500); font-size:10px; flex:0 0 auto; }
 .tl-bar .tl-perf.bad { color:#a8483a; }
 .tl-body { display:grid; grid-template-columns:168px minmax(0,1fr); max-height:178px; overflow-y:auto; position:relative; }
 .tl-labels { padding-top:18px; }

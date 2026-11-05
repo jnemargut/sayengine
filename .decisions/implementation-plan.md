@@ -1094,15 +1094,37 @@ Checkpoint: `checkpoint-phase10/core/` (`node bench/collab.ts`).
   - capped at 3 asks; skipped asks and asks over the cap go to the inbox; answers become taste rules (`--remember`, or 3+ picks); asks the taste file answers are skipped
   - unattended work never waits: `--unattended` marks each answer as a guess and leaves a "check my guess" note
 - [x] All four are proven on models first, since models already have steps and proposals.
-- [ ] Not yet: the timeline that carries addresses in the view (step 2); beats / sound / game clocks read from their systems; the share of skipped asks over a *week* (counted overall for now).
+- [x] The timeline that carries addresses in the view, and the beats / sound clocks (step 2). Still open: the game clock read from a running game; the share of skipped asks over a *week* (counted overall for now).
 
-### 2. Everything that moves, on one timeline (about 1.5–2 weeks)
-- [ ] A shared scrub timeline docked in the live view, with tracks per system and failed checks shown as red stretches.
-- [ ] **Motion:** rig parts, actions and character clips in the view. You can point at a bone at a moment, and word notes become steps.
-- [ ] **Voice lines and cutscenes:** in the view.
-- [ ] **Effects:** on the same timeline, with knobs as sliders that become labelled steps.
-- [ ] **Sound:** waveform tracks, with "show me three" plus the listen-and-pick card.
-- [ ] Retire the five separate players: motion, creature, cast, cutscene and line.
+### 2. Everything that moves, on one timeline (about 1.5–2 weeks) — built on branch `phase10/timeline` (2026-11-05)
+Code: `packages/core/src/collab/{movetimeline,scenetimeline,timelinetools}.ts` (the timeline model, shared by the view and
+the studio; the scene timeline builder; `word-note`, `sound-three`), `packages/core/src/sounds.ts` (scene sounds:
+`add-sound|set-sound|remove-sound`), the daemon (`packages/daemon/src/{timeline,viewcapture,previews}.ts`: `/api/timeline`,
+cached GLBs/WAVs, the `timeline` tool, capture from the view), the view dock (`apps/view/src/timeline/*`, small hooks in
+`main.ts`). Tests: `packages/core/test/timeline.test.ts` (6), `packages/daemon/test/timeline.test.ts` (2).
+Checkpoint: `checkpoint-phase10/timeline/` (`node bench/timeline.ts`).
+- [x] A shared scrub timeline docked under the live view: play / pause / scrub / loop, a track per system, failed motion
+  checks as red stretches on every pass of a clip, named moments, notes pinned at a moment as numbered markers.
+  Scrubbing sets the view's moment: selecting a bone or part sends a full D61 address on the track's clock (clip, shot,
+  sound, beats), anchored to a named moment within 0.5 s (named moments win over unnamed keys).
+- [x] **Motion:** kit characters' clips and actions and rig-part creatures play in the view, in the scene (their own GLBs,
+  cached by recipe; held props ride the hand bone). Click a bone on the moving character to point at it. A word note
+  ("slower", "more weight") is `word-note`: one step in a proposal, Before / After playable in the dock. Library actions
+  name their moments (`impact`, `windup`) so effects, sounds and notes can anchor to them.
+- [x] **Voice lines and cutscenes:** lines are voice tracks with their waveform and word moments, the line clip (lip sync)
+  playing on the character; cutscenes play in the view on the shot clock with shot markers (the same CutscenePlayer as
+  web games, per character). Not yet seen end to end in a checkpoint: the forge checkpoint has no recorded line.
+- [x] **Effects:** on the same timeline, bursting on the moments that fire them (sparks on the strike's impact), drawn
+  deterministically so scrubbing back shows the same sparks; knobs are sliders, each release one labelled step.
+- [x] **Sound:** scene sounds (events on moments, beds, music) as waveform tracks rendered locally by the sound module;
+  music on the beats clock with bars and beats; `sound-three` gives three distinct takes and a listen-and-pick ask in the dock.
+- [x] Retired the five players (motion, creature, cast, cutscene, line): `motion-preview`, `creature-preview`,
+  `line-preview` and `cutscene-preview` return the view link and with `--video true` capture the real view headless
+  (MP4 + stills at named moments; cutscenes also a storyboard). Benches (`creatures`, `week6`, `cast`, `faces`,
+  `forge-lesson`, `talking-face`) capture from the view through `bench/viewbench.ts`.
+- [ ] Not yet: audio muxed into captured videos (the old line player muxed the voice); the creature player's live-runtime
+  and deliberately-broken segments; the cast turntable and faceted/smooth toggle page; a walk travelling over the ground
+  in the view (clips play in place).
 
 ### 3. The rest (about 1.5–2 weeks)
 - [ ] **Looks:** sliders for grade, fog and light; point at a region.
