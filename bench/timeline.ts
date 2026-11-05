@@ -46,7 +46,8 @@ const report: any = { made: new Date().toISOString() };
 const shoot = async (page: any, name: string) => { const f = path.join(out, `${name}.png`); fs.writeFileSync(f, await page.screenshot()); shots[name] = path.relative(ROOT, f); };
 const viewReady = `new Promise((r) => { const t = setInterval(() => { const tl = window.__timeline; if (document.querySelector('#conn.live') && tl && tl.ready() && tl.timeline() && tl.timeline().tracks.length) { clearInterval(t); r(true); } }, 100); })`;
 
-await withPage(`${url}/?theme=light`, { width: 1440, height: 900 }, async (page) => {
+const videoOnly = !!process.env.TIMELINE_VIDEO_ONLY;   // re-make just the video (keeps the rest of report.json)
+if (!videoOnly) await withPage(`${url}/?theme=light`, { width: 1440, height: 900 }, async (page) => {
   await page.eval(viewReady, 120000);
   const tl = await page.eval(`(() => { const t = window.__timeline.timeline(); return { length: t.length, tracks: t.tracks.map((x) => ({ id: x.id, label: x.label, clock: x.clock, markers: x.markers.length, error: x.error })) }; })()`);
   report.tracks = tl.tracks;
@@ -106,7 +107,7 @@ await withPage(`${url}/?theme=light`, { width: 1440, height: 900 }, async (page)
 });
 
 // frame time on the GPU (Metal): the forge playing the swing, sparks, fire and sound together
-try {
+if (!videoOnly) try {
   const { chromium } = await import('playwright-core');
   const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${Number(process.env.STUDIO_CHROME_PORT ?? 9610) + 9}`] });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -122,11 +123,12 @@ try {
 } catch (e: any) { report.frameTime = { error: e.message }; }
 
 // a short video: frames of the real view (timeline dock included)
-const cap = await captureFromView(url, path.join(out, 'video'), [{ id: 'forge', seconds: 3.8, focus: 'blacksmith', show: ['anvil', 'stump', 'forge'], dir: [0.2, 0.35, 1], fill: 0.6, select: { object: 'blacksmith', part: 'RightHand' } } as any], { width: 1100, height: 700, fps: 12, name: 'forge-timeline' });
+const cap = await captureFromView(url, path.join(out, 'video'), [{ id: 'forge', seconds: 3, focus: 'blacksmith', show: ['anvil', 'stump'], dir: [-0.75, 0.45, 0.55], fill: 0.75, select: { object: 'blacksmith', part: 'RightHand' } } as any], { width: 1440, height: 900, fps: 12, name: 'forge-timeline' });
 if (cap.video) { fs.copyFileSync(cap.video, path.join(out, 'forge-timeline.mp4')); shots.video = path.relative(ROOT, path.join(out, 'forge-timeline.mp4')); }
 fs.rmSync(path.join(out, 'video'), { recursive: true, force: true });
 
-report.shots = shots;
+if (videoOnly) { try { const old = JSON.parse(fs.readFileSync(path.join(out, 'report.json'), 'utf8')); Object.assign(report, old, { shots: { ...old.shots, ...shots } }); } catch { /* no earlier report */ } }
+else report.shots = shots;
 fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify({ shots, red: report.red?.slice(0, 3), frameTime: report.frameTime, sliderStep: report.sliderStep, wordNote: report.wordNote, viewErrors: report.viewErrors }, null, 2));
 server.close();

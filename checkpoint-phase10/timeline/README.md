@@ -17,7 +17,8 @@ impact, the slider step, the word-note step, the three takes and the measured fr
 | `forge-timeline.mp4` | A short capture from the view (headless, frame by frame): the swing, sparks and dock playing. No audio track (see below). |
 
 Frame time is measured separately in Chrome on the GPU (Metal) with the forge playing the clip, sparks, the fire and
-both sounds together (`report.json` → `frameTime`). The screenshots and video come from headless Chrome with
+both sounds together (`report.json` → `frameTime`): on the M2 (ANGLE Metal), 1.9 ms of work per frame on average
+(2.7 ms at the 95th percentile), frames every 16.7 ms (60 fps, p95 16.7 ms), well under the ~30 ms budget. The screenshots and video come from headless Chrome with
 SwiftShader (software GL), which is why the dock there reads "software GL" instead of a frame time.
 
 Known gaps: captured videos have no audio; the clips play in place (a walk doesn't travel over the ground); the
