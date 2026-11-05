@@ -14,7 +14,9 @@ Every command is `./studio sound <cmd>` (JSON out, no daemon). The right source 
 | UI, hits, pickups, clinks, steam, puffs, risers | synth: `kind + seed` (same samples everywhere) | `sound sfx --kind clink --seed strike-1` |
 | Beds (forge roar, crackle, room, city hum, wind) | procedural seamless loops | `sound bed --kind forge-roar` |
 | Real recordings (fire, wind, traffic, anvils) | CC0 library (OpenGameArt pages that say CC0) | `sound library --search fire`, `sound fetch --id …` |
-| Foley/textures from text | Stable Audio Open Small, local | `sound sao` (status first: gated weights, licence) |
+| Foley/textures no CC0 recording covers | Stable Audio Open Small, local | `sound sao --prompt "…" --seconds 4 --seed 1`; in a pack, an event's `sao: [{prompt, seed, seconds}]` |
+
+**Which source, by default:** a good CC0 recording first (the user found Stable Audio's results about equal to CC0 ones, and CC0 needs no licence or credit line). If no recording fits, generate it with Stable Audio Open Small (quench hiss, bellows, odd one-offs nobody recorded). Use the synth for UI blips, clinks, risers and anything that must vary by seed. In a pack, give a `sao` event synth `sounds` too: if the model can't run on a machine, the pack falls back to them and the report says so. A game that ships Stable Audio sounds must show "Powered by Stability AI" somewhere players see it (Fire's Dying puts it on the title card); CREDITS.md lists it automatically.
 | Music | seeded stems: pad, arp, bass, hats, beat, lead | `sound stems --seed … --mood warm` |
 
 ## A game's sound pack

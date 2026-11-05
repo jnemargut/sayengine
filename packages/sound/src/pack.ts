@@ -6,11 +6,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
-import { writeWav, toMono, seamJump, scale, resample, type Channels } from './dsp.ts';
+import { writeWav, toMono, seamJump, scale, resample, readWav, normalize, type Channels } from './dsp.ts';
 import { sfx, SFX_KINDS } from './sfx.ts';
 import { bed, loopFromRecording, BED_KINDS } from './ambience.ts';
 import { plan, renderStems, sting, lufs, LEVELS, STEMS, FADER, type Stem, type Plan } from './music.ts';
 import { fetchEntry, licenceOf } from './library.ts';
+import { saoCached } from './sao.ts';
 import { writeSidecar, creditsMarkdown, type Licence } from './ledger.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,9 @@ export const PackSpecZ = z.object({
   events: z.record(z.string(), z.object({
     sounds: z.array(z.object({ kind: z.string(), seed: z.union([z.string(), z.number()]), opts: z.record(z.string(), z.any()).optional() })).optional(),
     library: z.string().optional(), gain: z.number().default(1), pitch: z.tuple([z.number(), z.number()]).optional(),
+    // Stable Audio Open Small, for sounds no CC0 recording covers. If the model can't run here, the
+    // event falls back to its synth `sounds` (so give it some), and the report says so.
+    sao: z.array(z.object({ prompt: z.string(), seed: z.number().int().default(1), seconds: z.number().min(0.5).max(11).default(3) })).optional(),
   })).default({}),
   music: z.object({
     seed: z.union([z.string(), z.number()]), mood: z.enum(['warm', 'night', 'forge', 'bright']).optional(), bpm: z.number().optional(), bars: z.number().default(8),
@@ -69,7 +73,15 @@ export async function buildPack(specIn: PackSpec, out: string, log: (s: string) 
   for (const [name, E] of Object.entries(spec.events)) {
     const files: string[] = [];
     if (E.library) { const { wav, entry } = await fetchEntry(E.library); const rel = `${name}-lib.wav`; fs.copyFileSync(wav, path.join(out, rel)); writeSidecar(path.join(out, rel), licenceOf(entry)); m.files[rel] = licenceOf(entry); files.push(rel); }
-    for (const [i, s] of (E.sounds ?? []).entries()) {
+    let usedSao = false;
+    for (const [i, g] of (E.sao ?? []).entries()) {
+      const r = saoCached(g.prompt, { seed: g.seed, seconds: g.seconds });
+      if (!r.ok) { report.saoFallback = [...(report.saoFallback ?? []), `${name}: ${r.error}`]; log(`event ${name}: Stable Audio unavailable, using synth`); break; }
+      const { sr, ch } = readWav(r.file!);
+      files.push(put(`${name}-sao-${i + 1}.wav`, toMono(normalize(resample(ch, sr, 44100), 0.89)), r.licence!));
+      usedSao = true;
+    }
+    for (const [i, s] of (usedSao ? [] : (E.sounds ?? [])).entries()) {
       if (!SFX_KINDS.includes(s.kind) && s.kind !== 'sfxr') throw new Error(`event ${name}: unknown kind ${s.kind}`);
       const a = sfx(s.kind, s.seed, s.opts ?? {});
       files.push(put(`${name}-${i + 1}.wav`, a.length === 2 && s.kind !== 'clink' && s.kind !== 'chime' && s.kind !== 'impact' && s.kind !== 'riser' ? toMono(a) : a, own('synth', `sfx ${s.kind} seed ${s.seed}`)));

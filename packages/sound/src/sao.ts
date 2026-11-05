@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { venvPython } from './beats.ts';
 import type { Licence } from './ledger.ts';
@@ -57,4 +58,17 @@ export function saoGenerate(prompt: string, out: string, opts: { seconds?: numbe
   const last = (r.stdout ?? '').trim().split('\n').pop() ?? '';
   try { const j = JSON.parse(last); if (!j.ok) return { ok: false, error: j.error }; } catch { return { ok: false, error: (r.stderr ?? '').trim().split('\n').slice(-1)[0] || 'no output' }; }
   return { ok: true, file: out, licence: { spdx: SAO_LICENCE.spdx, copyright: `${new Date().getFullYear()} the game's author (output of Stable Audio Open Small)`, source: 'stable-audio-open-small', how: `prompt "${prompt}" seed ${opts.seed ?? 1}`, url: SAO_LICENCE.url, attribution: 'Powered by Stability AI' } };
+}
+
+/** saoGenerate, cached by prompt + seed + length in the sound library (generation costs ~1 min of model load). */
+export function saoCached(prompt: string, opts: { seconds?: number; seed?: number; steps?: number } = {}): ReturnType<typeof saoGenerate> {
+  const seconds = opts.seconds ?? 6, seed = opts.seed ?? 1, steps = opts.steps ?? 8;
+  const key = crypto.createHash('sha1').update(JSON.stringify([prompt, seconds, seed, steps])).digest('hex').slice(0, 16);
+  const dir = path.join(process.env.STUDIO_SOUND_LIBRARY ?? path.join(os.homedir(), '.studio-tools', 'sound-library'), 'sao-cache');
+  const file = path.join(dir, `${key}.wav`);
+  const licence = { spdx: SAO_LICENCE.spdx, copyright: `${new Date().getFullYear()} the game's author (output of Stable Audio Open Small)`, source: 'stable-audio-open-small' as const, how: `prompt "${prompt}" seed ${seed}`, url: SAO_LICENCE.url, attribution: 'Powered by Stability AI' };
+  if (fs.existsSync(file)) return { ok: true, file, licence };
+  fs.mkdirSync(dir, { recursive: true });
+  const r = saoGenerate(prompt, file, { seconds, seed, steps });
+  return r.ok ? { ...r, licence } : r;
 }

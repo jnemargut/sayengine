@@ -64,7 +64,7 @@ export function creditsMarkdown(title: string, entries: Array<{ file: string; li
   const byWork = new Map<string, { l: Licence; files: string[] }>();
   for (const e of [...needs, ...third]) { const k = e.licence.url ?? e.licence.how; const w = byWork.get(k) ?? { l: e.licence, files: [] }; w.files.push(e.file); byWork.set(k, w); }
   const lines = [`# ${title}: sound credits`, '', 'Generated from the licence sidecars (`<file>.license`, REUSE style). Do not edit by hand: re-run `studio sound credits`.', ''];
-  const work = (w: { l: Licence; files: string[] }) => `- **${w.l.how}**${w.l.author ? ` by ${w.l.author}` : ''} — ${w.l.spdx}${w.l.url ? ` — <${w.l.url}>` : ''}${w.l.attribution ? `\n  ${w.l.attribution}` : ''}\n  files: ${w.files.join(', ')}`;
+  const work = (w: { l: Licence; files: string[] }) => `- **${w.l.source === 'stable-audio-open-small' ? 'Generated with Stable Audio Open Small (Stability AI)' : w.l.how}**${w.l.author ? ` by ${w.l.author}` : ''} — ${w.l.spdx}${w.l.url ? ` — <${w.l.url}>` : ''}${w.l.attribution ? `\n  ${w.l.attribution}` : ''}\n  files: ${w.files.join(', ')}`;
   if (needs.length) { lines.push('## Attribution required', ''); for (const w of byWork.values()) if (NEEDS_ATTRIBUTION(w.l.spdx)) lines.push(work(w)); lines.push(''); }
   if (third.length) { lines.push('## Public domain (CC0) recordings — credited as a courtesy', ''); for (const w of byWork.values()) if (!NEEDS_ATTRIBUTION(w.l.spdx)) lines.push(work(w)); lines.push(''); }
   if (own.length) {

@@ -14,8 +14,8 @@
     "deliver": { "sounds": [ { "kind": "chime", "seed": "good-1" }, { "kind": "chime", "seed": "good-2" } ], "gain": 0.45 },
     "wrong": { "sounds": [ { "kind": "buzz", "seed": "wrong-1" } ], "gain": 0.35 },
     "fed": { "sounds": [ { "kind": "thud", "seed": "fed-1" }, { "kind": "thud", "seed": "fed-2" } ], "gain": 0.7 },
-    "pumped": { "sounds": [ { "kind": "puff", "seed": "puff-1" }, { "kind": "puff", "seed": "puff-2" } ], "gain": 0.8 },
-    "quench": { "sounds": [ { "kind": "hiss", "seed": "quench-1" } ], "gain": 0.6 }
+    "pumped": { "sao": [ { "prompt": "old leather bellows pumped twice, airy whoosh, wooden creak", "seed": 7, "seconds": 4 } ], "sounds": [ { "kind": "puff", "seed": "puff-1" }, { "kind": "puff", "seed": "puff-2" } ], "gain": 0.8 },
+    "quench": { "sao": [ { "prompt": "red hot steel quenched in a bucket of water, violent sizzle and hiss", "seed": 7, "seconds": 4 } ], "sounds": [ { "kind": "hiss", "seed": "quench-1" } ], "gain": 0.6 }
   },
   "music": { "seed": "fires-dying", "mood": "forge", "bars": 8, "value": "intensity", "gain": 0.55, "stings": ["won", "lost"] }
 }

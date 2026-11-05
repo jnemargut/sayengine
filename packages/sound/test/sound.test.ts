@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { sfx, SFX_KINDS, renderSfxr, DEFAULT_SFXR } from '../src/sfx.ts';
 import { plan, renderStems, renderStem, STEMS, lufs, mixStems, LEVELS, arrange } from '../src/music.ts';
@@ -169,4 +170,31 @@ test('the sound CLI lists its commands and corrects bad flags', async () => {
   assert.equal(bad.ok, false); assert.match(bad.error, /--kinnd/);
   const s = await soundCli(['sao'], pf);
   assert.ok(s.ok && s.result.licence.spdx === 'LicenseRef-Stability-AI-Community');
+});
+
+test('Stable Audio events: a cached generation is used and credited; without the model the pack falls back to synth', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sao-pack-'));
+  const lib = path.join(tmp, 'lib'), cache = path.join(lib, 'sao-cache');
+  fs.mkdirSync(cache, { recursive: true });
+  const key = (p: string) => crypto.createHash('sha1').update(JSON.stringify([p, 2, 3, 8])).digest('hex').slice(0, 16);
+  writeWav(path.join(cache, `${key('a hiss')}.wav`), sfx('hiss', 'x'), SR);   // stands in for a model output
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const script = `
+    import { buildPack } from ${JSON.stringify(path.join(here, '../src/pack.ts'))};
+    const spec = { title: 'T', owner: 'me', events: {
+      hit: { sao: [{ prompt: 'a hiss', seed: 3, seconds: 2 }], sounds: [{ kind: 'hiss', seed: 'h' }] },
+      miss: { sao: [{ prompt: 'never made', seed: 3, seconds: 2 }], sounds: [{ kind: 'thud', seed: 'm' }] } } };
+    const r = await buildPack(spec, ${JSON.stringify(path.join(tmp, 'out'))});
+    console.log(JSON.stringify({ events: r.manifest.events, fallback: r.report.saoFallback ?? [] }));`;
+  // no weights here, so anything not cached can't be generated
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', env: { ...process.env, STUDIO_SOUND_LIBRARY: lib, STUDIO_SAO_DIR: path.join(tmp, 'no-weights') } });
+  assert.equal(r.status, 0, r.stderr);
+  const j = JSON.parse(r.stdout.trim().split('\n').pop()!);
+  assert.deepEqual(j.events.hit.files, ['hit-sao-1.wav']);
+  assert.deepEqual(j.events.miss.files, ['miss-1.wav']);
+  assert.equal(j.fallback.length, 1);
+  const credits = fs.readFileSync(path.join(tmp, 'out', 'CREDITS.md'), 'utf8');
+  assert.match(credits, /Stable Audio Open Small/);
+  assert.match(credits, /Powered by Stability AI/);
+  fs.rmSync(tmp, { recursive: true, force: true });
 });

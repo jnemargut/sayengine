@@ -263,6 +263,7 @@ async function start(): Promise<StudioGame> {
     "You are the blacksmith's apprentice. Fetch the tools he calls for, work the bellows when he wants heat, and fill the quench tub when the blade needs it.",
     'Keep the forge fed with charcoal from the sack. Finish the blade before the fire dies.',
     'Move: WASD or arrows, or tap where to go. Use: E, Space or the Use button, or tap the thing.',
+    'Some sounds Powered by Stability AI.',   // required by the Stability AI Community License (bellows, quench)
   ], 'Start', () => begin(true));
 
   // ── the frame ──
