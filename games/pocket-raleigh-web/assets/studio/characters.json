@@ -1,0 +1,62 @@
+{
+  "player": {
+    "name": "Walker",
+    "prefix": "",
+    "height": 1.965,
+    "clips": {
+      "pose": {
+        "line": false,
+        "loop": false
+      },
+      "idle": {
+        "motion": "idle",
+        "loop": true,
+        "speed": 0,
+        "duration": 6
+      },
+      "walk": {
+        "motion": "walk",
+        "loop": true,
+        "speed": 1.3839,
+        "duration": 1.0667
+      },
+      "start": {
+        "motion": "start",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.8,
+        "travel": [
+          0,
+          0,
+          0.4046
+        ],
+        "then": "walk",
+        "phase": 0.5
+      },
+      "stop": {
+        "motion": "stop",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.9,
+        "travel": [
+          -0.0215,
+          0,
+          0.3335
+        ],
+        "then": "idle"
+      }
+    },
+    "play": "idle",
+    "id": "walker",
+    "file": "player.glb",
+    "start": [
+      3,
+      0,
+      30
+    ],
+    "rotation": 180,
+    "walkSpeed": 1.3839,
+    "runSpeed": null
+  },
+  "characters": []
+}

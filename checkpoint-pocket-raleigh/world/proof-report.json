@@ -1,0 +1,383 @@
+{
+  "ok": false,
+  "run": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21",
+  "seed": 1,
+  "steps": 30,
+  "views": [
+    {
+      "view": "fayetteville-north",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.11624,
+        "p95": 0.83479,
+        "over": 0.19169,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/fayetteville-north.diff.png"
+      },
+      "drawCalls": 40,
+      "triangles": 118512,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/fayetteville-north.png"
+    },
+    {
+      "view": "fayetteville-south",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.15586,
+        "p95": 0.98981,
+        "over": 0.25452,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/fayetteville-south.diff.png"
+      },
+      "drawCalls": 36,
+      "triangles": 108246,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/fayetteville-south.png"
+    },
+    {
+      "view": "martin-west",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.14174,
+        "p95": 0.96555,
+        "over": 0.22865,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/martin-west.diff.png"
+      },
+      "drawCalls": 34,
+      "triangles": 113860,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/martin-west.png"
+    },
+    {
+      "view": "raleigh-aerial",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.212,
+        "p95": 0.97965,
+        "over": 0.46994,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/raleigh-aerial.diff.png"
+      },
+      "drawCalls": 90,
+      "triangles": 163026,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/raleigh-aerial.png"
+    },
+    {
+      "view": "twin-main-street",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.10901,
+        "p95": 0.90888,
+        "over": 0.18304,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-main-street.diff.png"
+      },
+      "drawCalls": 20,
+      "triangles": 36366,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-main-street.png"
+    },
+    {
+      "view": "twin-aerial",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.08776,
+        "p95": 0.63922,
+        "over": 0.23586,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-aerial.diff.png"
+      },
+      "drawCalls": 76,
+      "triangles": 151704,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-aerial.png"
+    },
+    {
+      "view": "twin-river",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.07521,
+        "p95": 0.58182,
+        "over": 0.0944,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-river.diff.png"
+      },
+      "drawCalls": 53,
+      "triangles": 138938,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/twin-river.png"
+    },
+    {
+      "view": "both-towns",
+      "engine": "godot",
+      "status": "changed",
+      "flip": {
+        "mean": 0.11547,
+        "p95": 0.77997,
+        "over": 0.27591,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/both-towns.diff.png"
+      },
+      "drawCalls": 90,
+      "triangles": 149052,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/godot/both-towns.png"
+    },
+    {
+      "view": "fayetteville-north",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.09228,
+        "p95": 0.79243,
+        "over": 0.18988,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/fayetteville-north.diff.png"
+      },
+      "drawCalls": 130,
+      "triangles": 292334,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/fayetteville-north.png"
+    },
+    {
+      "view": "fayetteville-south",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.1333,
+        "p95": 0.98228,
+        "over": 0.25058,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/fayetteville-south.diff.png"
+      },
+      "drawCalls": 125,
+      "triangles": 282974,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/fayetteville-south.png"
+    },
+    {
+      "view": "martin-west",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.10778,
+        "p95": 0.94401,
+        "over": 0.21471,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/martin-west.diff.png"
+      },
+      "drawCalls": 119,
+      "triangles": 286006,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/martin-west.png"
+    },
+    {
+      "view": "raleigh-aerial",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.19909,
+        "p95": 0.99087,
+        "over": 0.42852,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/raleigh-aerial.diff.png"
+      },
+      "drawCalls": 179,
+      "triangles": 344580,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/raleigh-aerial.png"
+    },
+    {
+      "view": "twin-main-street",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.09249,
+        "p95": 0.87418,
+        "over": 0.17751,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-main-street.diff.png"
+      },
+      "drawCalls": 116,
+      "triangles": 294776,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-main-street.png"
+    },
+    {
+      "view": "twin-aerial",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.06197,
+        "p95": 0.48809,
+        "over": 0.17719,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-aerial.diff.png"
+      },
+      "drawCalls": 164,
+      "triangles": 335966,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-aerial.png"
+    },
+    {
+      "view": "twin-river",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.05183,
+        "p95": 0.42688,
+        "over": 0.08772,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-river.diff.png"
+      },
+      "drawCalls": 142,
+      "triangles": 321446,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/twin-river.png"
+    },
+    {
+      "view": "both-towns",
+      "engine": "web",
+      "status": "changed",
+      "flip": {
+        "mean": 0.10439,
+        "p95": 0.76108,
+        "over": 0.27124,
+        "size": [
+          960,
+          600
+        ],
+        "heatmap": "~/AI3DModel/.claude/worktrees/agent-ade931fe1fe9d38cf/games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/both-towns.diff.png"
+      },
+      "drawCalls": 180,
+      "triangles": 344604,
+      "image": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/web/both-towns.png"
+    }
+  ],
+  "changed": [
+    "godot/fayetteville-north: FLIP mean 0.11624 (> 0.015) or 19.17% pixels changed",
+    "godot/fayetteville-south: FLIP mean 0.15586 (> 0.015) or 25.45% pixels changed",
+    "godot/martin-west: FLIP mean 0.14174 (> 0.015) or 22.86% pixels changed",
+    "godot/raleigh-aerial: FLIP mean 0.212 (> 0.015) or 46.99% pixels changed",
+    "godot/twin-main-street: FLIP mean 0.10901 (> 0.015) or 18.30% pixels changed",
+    "godot/twin-aerial: FLIP mean 0.08776 (> 0.015) or 23.59% pixels changed",
+    "godot/twin-river: FLIP mean 0.07521 (> 0.015) or 9.44% pixels changed",
+    "godot/both-towns: FLIP mean 0.11547 (> 0.015) or 27.59% pixels changed",
+    "web/fayetteville-north: FLIP mean 0.09228 (> 0.015) or 18.99% pixels changed",
+    "web/fayetteville-south: FLIP mean 0.1333 (> 0.015) or 25.06% pixels changed",
+    "web/martin-west: FLIP mean 0.10778 (> 0.015) or 21.47% pixels changed",
+    "web/raleigh-aerial: FLIP mean 0.19909 (> 0.015) or 42.85% pixels changed",
+    "web/twin-main-street: FLIP mean 0.09249 (> 0.015) or 17.75% pixels changed",
+    "web/twin-aerial: FLIP mean 0.06197 (> 0.015) or 17.72% pixels changed",
+    "web/twin-river: FLIP mean 0.05183 (> 0.015) or 8.77% pixels changed",
+    "web/both-towns: FLIP mean 0.10439 (> 0.015) or 27.12% pixels changed"
+  ],
+  "new": [],
+  "budgets": [
+    {
+      "name": "draw calls (worst view)",
+      "value": 180,
+      "max": 1500,
+      "pass": true,
+      "detail": "180 / 1500"
+    },
+    {
+      "name": "triangles drawn (worst view)",
+      "value": 344604,
+      "max": 1500000,
+      "pass": true,
+      "detail": "344604 / 1500000"
+    },
+    {
+      "name": "scene file",
+      "value": 17.837852478027344,
+      "max": 40,
+      "pass": true,
+      "detail": "17.84 MB / 40 MB"
+    }
+  ],
+  "parity": {
+    "fayetteville-north": {
+      "mean": 0.4393,
+      "over": 1
+    },
+    "fayetteville-south": {
+      "mean": 0.44995,
+      "over": 0.99999
+    },
+    "martin-west": {
+      "mean": 0.46322,
+      "over": 0.99996
+    },
+    "raleigh-aerial": {
+      "mean": 0.4589,
+      "over": 0.99996
+    },
+    "twin-main-street": {
+      "mean": 0.43541,
+      "over": 0.99984
+    },
+    "twin-aerial": {
+      "mean": 0.37947,
+      "over": 0.99995
+    },
+    "twin-river": {
+      "mean": 0.43421,
+      "over": 0.99997
+    },
+    "both-towns": {
+      "mean": 0.33753,
+      "over": 0.99999
+    }
+  },
+  "problems": [],
+  "sheet": "games/pocket-raleigh/.studio-game/proof/2026-11-05T10-35-21/sheet.png",
+  "memory": {
+    "godot": {
+      "videoMB": 145.6
+    },
+    "web": {
+      "geometries": 93,
+      "textures": 12
+    }
+  }
+}

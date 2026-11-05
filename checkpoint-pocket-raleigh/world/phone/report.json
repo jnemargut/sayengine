@@ -1,0 +1,65 @@
+{
+  "ok": true,
+  "run": "games/pocket-raleigh-web/.studio-game/proof/phone-2026-11-05T10-23-20",
+  "seconds": 8,
+  "results": {
+    "webkit": {
+      "ok": true,
+      "loadSeconds": 1,
+      "frames": 470,
+      "p50": 17,
+      "p95": 18,
+      "max": 189,
+      "longFrames": 1,
+      "drawCalls": 133,
+      "triangles": 310298,
+      "jsHeapMB": null,
+      "gpu": "Apple GPU",
+      "viewport": [
+        390,
+        844,
+        3
+      ],
+      "screenshot": "games/pocket-raleigh-web/.studio-game/proof/phone-2026-11-05T10-23-20/webkit.png",
+      "logs": []
+    },
+    "chrome-throttled": {
+      "ok": true,
+      "loadSeconds": 1.9,
+      "frames": 480,
+      "p50": 16.7,
+      "p95": 16.8,
+      "max": 66.6,
+      "longFrames": 1,
+      "drawCalls": 133,
+      "triangles": 310298,
+      "jsHeapMB": 98,
+      "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)",
+      "viewport": [
+        390,
+        844,
+        3
+      ],
+      "cpuThrottle": 4,
+      "screenshot": "games/pocket-raleigh-web/.studio-game/proof/phone-2026-11-05T10-23-20/chrome-throttled.png",
+      "logs": []
+    }
+  },
+  "budgets": [
+    {
+      "name": "phone frame time p50 (worst run)",
+      "value": 17,
+      "max": 34,
+      "pass": true,
+      "detail": "17 ms / 34 ms"
+    },
+    {
+      "name": "phone frame time p95 (worst run)",
+      "value": 18,
+      "max": 70,
+      "pass": true,
+      "detail": "18 ms / 70 ms"
+    }
+  ],
+  "caveat": "Imitated phone (Decision 31, option B): Playwright WebKit at 390×844 @3x and Chrome with the CPU slowed, on this Mac's GPU. Real iPhone memory limits and GPU precision are not tested."
+}

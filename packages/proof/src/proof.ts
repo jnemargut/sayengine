@@ -152,7 +152,7 @@ export async function proofViews(studioDir: string, project: string, opts: { aga
   const changed = reports.filter((r) => r.status === 'changed');
   const report = {
     ok: !problems.length && !changed.length && budgets.every((b) => b.pass),
-    run, seed: c.seed, steps: c.steps, views: reports.map(({ image, ...r }) => ({ ...r, image: path.relative(studioDir, image) })),
+    run, dirs: Object.fromEntries(engines.map((e) => [e.engine, e.dir])), seed: c.seed, steps: c.steps, views: reports.map(({ image, ...r }) => ({ ...r, image: path.relative(studioDir, image) })),
     changed: changed.map((r) => `${r.engine}/${r.view}: FLIP mean ${r.flip?.mean} (> ${c.tolerance.flipMean}) or ${(100 * (r.flip?.over ?? 0)).toFixed(2)}% pixels changed`),
     new: reports.filter((r) => r.status === 'new').map((r) => `${r.engine}/${r.view}`),
     budgets, parity, problems, sheet: sheet ? path.relative(studioDir, sheet) : null,
@@ -166,14 +166,16 @@ export async function proofViews(studioDir: string, project: string, opts: { aga
 export function approve(studioDir: string, project: string, views?: string[]) {
   const { dir } = resolveProject(studioDir, project);
   const root = path.join(dir, '.studio-game', 'proof');
-  const runs = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'report.json'))).sort() : [];
+  const runs = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => !d.startsWith('phone-') && fs.existsSync(path.join(root, d, 'report.json'))).sort() : [];
   if (!runs.length) throw new Error('no proof run to approve: studio proof views first');
   const run = path.join(root, runs[runs.length - 1]);
   const done: string[] = [];
+  const dirs = JSON.parse(fs.readFileSync(path.join(run, 'report.json'), 'utf8')).dirs ?? {};
   for (const engine of ['godot', 'web']) {
     const src = path.join(run, engine);
     if (!fs.existsSync(src)) continue;
-    const dest = path.join(dir, 'proof', 'approved', engine);
+    // each engine's pictures belong to its own game (a --against run approves both)
+    const dest = path.join(dirs[engine] ?? dir, 'proof', 'approved', engine);
     fs.mkdirSync(dest, { recursive: true });
     for (const f of fs.readdirSync(src).filter((x) => x.endsWith('.png') && !x.includes('.diff'))) {
       const v = f.replace(/\.png$/, '');

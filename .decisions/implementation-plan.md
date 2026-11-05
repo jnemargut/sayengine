@@ -274,22 +274,34 @@ Six new studio modules, each turning a pain from the Raleigh Terrarium audit int
 
 Each module is a folder in the monorepo with its own ops, checks, CLI tool group and small skill. `/studio` is always loaded; the others load only when needed (D26).
 
+### Status (2026-11-05): weeks 9–10 built on `phase4/world-proof`
+**Built:** the world module (`packages/core/src/world/`, tool group `world-*`, skill `/world`) and the proof module (`packages/proof/`, `studio proof …`, skill `/proof`). Proof target: `games/pocket-raleigh` (Godot 4.7.2) and `games/pocket-raleigh-web` (three.js): three real blocks of Fayetteville St around City Plaza plus an invented river-town twin, walkable in both (walk-to reaches in both engines). Pictures and a walk video: `checkpoint-pocket-raleigh/world/`. 145 tests; `npm run bench:world` 7/7.
+
+**Weak (honest):**
+- **It reads as a clean toy downtown, not yet as Raleigh.** The skyline heights are right (the real tall towers stand where they should) and a craft pass added facade schemes, two-storey bases, cornices, tower crowns, crosswalks, varied trees and sidewalk furniture, but nothing is Raleigh-specific: no landmark models yet (the swap-in works; nobody has modelled the Wells Fargo crown or the City Plaza light towers), and street level is dominated by plain asphalt. The pre-mortem's #1 risk is still live: the next lever is landmarks + regional style rules, not more data.
+- The river twin is the more charming of the two (gables, colours, a mill, a church, a green); its lots are a little too regular.
+- Ground under the town is flat beige between buildings (parking lots read as empty).
+- Godot and the web differ in tone (FLIP parity ≈ 0.4: different tonemappers and ambient) — that's week 11's look work.
+- The imitated phone runs on the Mac's GPU: 60 fps in WebKit at 390×844 @3x and in Chrome with the CPU slowed 4×. That says little about a real iPhone's GPU or memory (Decision 31's accepted risk).
+- No per-building nodes in the engines: buildings are merged into ~110 m chunks with vertex colours (≈ 90 draw calls in Godot, ≈ 180 on the web with shadows, down from 1,700); the per-building ids ride in the chunk's extras.
+- Fetching needs the network and the free `overturemaps` CLI (`~/.studio-tools/venv`); USGS ground is US only.
+
 ### Week 9: world, real
-- [ ] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature.
-- [ ] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area.
-- [ ] Building rules:
-  - square up outlines
-  - roofs from the roof type
-  - clamp silly values
-  - grade roads
-  - per-region style rules
-- [ ] Fix layer, keyed by Overture building ID with a position fallback. Every rebuild re-applies the fixes, and a check flags any fix that has lost its building. Landmarks can be swapped for studio models.
-- [ ] Credits and shared data as the open-data licence (ODbL) requires.
+- [x] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature. *(`world/plan.ts`; ids `ov:<GERS>`, `osm:w<id>`, `inv:<seed>:<lot>`)*
+- [x] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area. *(`studio world-fetch`; overturemaps CLI, the 3DEP ImageServer as raw float32, Overpass; cached in `.studio/cache/world/<area>`; a 56 KB offline test fixture)*
+- [x] Building rules:
+  - square up outlines *(minimum rectangle or orthogonal snapping)*
+  - roofs from the roof type *(flat + parapet, gable, hip, shed, pyramid, dome)*
+  - clamp silly values *(height, floors, 12:1 slenderness, pitched roofs only on simple outlines)*
+  - grade roads *(≤ 8%, the ground pulled to the road)*
+  - per-region style rules *(`raleigh-downtown`, `river-town-1920s`; sidewalks widen to the building line)*
+- [x] Fix layer, keyed by Overture building ID with a position fallback. Every rebuild re-applies the fixes, and a check flags any fix that has lost its building. Landmarks can be swapped for studio models. *(tested through a simulated data refresh: id changed → lands by position; building gone → `world-fixes` check fails)*
+- [x] Credits and shared data as the open-data licence (ODbL) requires. *(`world-info --credits`, `world-share`, the GLB's `asset.copyright`; data names never become node names)*
 
 ### Week 10: world, invented + proof
-- [ ] Invented source: a style plus a street sketch, or a short description, becomes the same town plan. IDs come from seed + lot.
-- [ ] Remix source: real streets with invented buildings.
-- [ ] proof (D31, Mac only): pinned clock and seed, fixed views in Godot and web, FLIP picture diffs, budgets, a phone-sized WebKit window with a throttled CPU.
+- [x] Invented source: a style plus a street sketch, or a short description, becomes the same town plan. IDs come from seed + lot. *(description parsing is keyword rules; Claude writes the sketch for anything richer)*
+- [x] Remix source: real streets with invented buildings.
+- [x] proof (D31, Mac only): pinned clock and seed, fixed views in Godot and web, FLIP picture diffs, budgets, a phone-sized WebKit window with a throttled CPU. *(`proof init/views/approve/phone`; the throttle is Chrome's — WebKit can't be CPU-throttled, so the phone run does both)*
 
 ### Week 11: look
 - [ ] Look record:

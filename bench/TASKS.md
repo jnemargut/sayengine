@@ -61,6 +61,10 @@ This file is the **AI** benchmark: does Claude Code, using the `/studio` skill, 
 | A2 | `/studio make a snake slither across the floor` | a `chain` part with `motion: serpent, ground: true`; "belly slides only along the body" passes; the video shows the body following its own path |
 | A3 | `/studio drive a little car over a bumpy road` | a `wheels` part; wheels roll at ground speed, tyres touch the road, suspension within travel; the body pitches and bounces on its springs; live steering in the preview |
 | A4 | `/studio a windmill turning in a grassy field` | a spinning sails `hinge` (whole turns per loop), a cap hinge within its limits, `sway` grass in shader mode (one mesh; `*.sway.gdshader` for Godot) |
+| W1 | `/world build three blocks of downtown Raleigh around City Plaza` | `world-fetch` once (cached), `world-town --source real`; `studio check` town rows green; `game import` into Godot and web; `game walk-to` along Fayetteville St reaches in both; Claude Reads street-level stills and says honestly whether it reads as Raleigh — `node bench/world.ts` is the offline reference |
+| W2 | `/world now an invented river-town twin next to it, 1920s, three blocks` | `world-town --source invented --seed … --description …`; ids `inv:<seed>:…`; a church, a mill and a town hall; regenerate keeps a fix |
+| W3 | `/world that tower's roof is wrong and the skybridge shouldn't be there` | `world-info --near` finds the ids; `world-fix --set` and `--hide`; a data refresh (`world-fetch --force`) keeps both or `studio check` names the orphan |
+| P1 | `/proof check Pocket Raleigh still looks right and runs on a phone` | `proof views --against` (FLIP vs approved, budgets, contact sheet Read), `proof phone` numbers with the "not a real iPhone" caveat |
 | A5 | `/studio the crab's walk looks like it's skating` | `motion-checks` names the failing check and its frames (the timeline in `creature-preview` shows them red); Claude fixes the motion (speed vs stride) rather than the check |
 
 ## What to record (from `node bench/score.ts`)
