@@ -707,14 +707,45 @@ Weak or not done:
 - [ ] **Self penetration** uses bounding spheres per piece. That is coarse for thin parts.
 
 ### Weeks 15–20, alongside Pocket Raleigh
-- [ ] Wings: flap, glide, fold, hover, flight cycle.
-- [ ] Fins and body wave.
-- [ ] Octopus and spider presets.
-- [ ] One-off actions:
+- [x] Wings: flap, glide, fold, hover, flight cycle.
+- [x] Fins and body wave.
+- [x] Octopus and spider presets.
+- [x] One-off actions:
   - `perform-action "the octopus pours tea"` → key moments → solve → checks → a reviewable clip
   - notes edit timing and style
-  - optional MediaPipe webcam start for human actions
-- [ ] Bench tasks: a crab robot with a whip tail, an octopus pouring tea, a windmill creaking to a stop, a car on a bumpy road.
+  - [ ] optional MediaPipe webcam start for human actions *(skipped: not cheap)*
+- [x] Bench tasks: a crab robot with a whip tail, an octopus pouring tea, a windmill creaking to a stop, a car on a bumpy road. Added: a bird takes off, flies and lands; a fish (and an eel) swims; "make him trip over the bucket".
+
+### Status of weeks 15–20 (2026-11-05, branch `phase8/wings-fins-actions`, not merged)
+Built:
+- [x] **Wings** (`core/src/wings.ts`, `wing` part): a mirrored pair of arm, forearm and hand bones with a feathered leading edge, coverts and a fan of primaries.
+  - Poses: fold (a Z-fold against the flank), flap (a 55 % downstroke, pronation on the way down, the wing flexing on the way up, the outer wing lagging the arm), glide, hover (body pitched up, a sweeping stroke) and spread.
+  - From the proportions: the beat rate is f ≈ 3.9 / span^0.9, the stroke is wider for short wings, the cruising speed comes from the span, and long narrow wings (aspect ratio > 6) fly in bursts of four beats between glides.
+  - Motions `fly`, `glide` and `hover` (`--altitude`). Legs tuck in flight.
+  - Checks: wings clear the body (blade corners against the body ellipsoid), the stroke is symmetric (right = mirror of left), the stroke is within −68°…80°, and the measured beat is within 0.6–1.6× of what the wing size predicts. Wing bones get a pop limit sized to their beat.
+- [x] **Swimming and fins:** a chain with `motion: 'swim'` (`swim: 'fish'` carangiform, or `'eel'` anguilliform) carries a travelling wave: λ ≈ 1 L or 0.6 L, tail amplitude ±0.1 L or ±0.075 L, beat from speed ÷ slip ÷ λ. The head recoils against the tail. `fin` parts flutter or ride along, and mirrored pairs beat together.
+  - Checks: the body wave runs tailward faster than the fish moves (slip measured from the clip by cross-correlating the lateral swing at two points; a fish ≈ 0.7, an eel ≈ 0.45), the tail beat is in range, and the head stays steady (≤ 15°).
+- [x] **Presets:** `octopus` (eight curling arms with sucker strips, a table, a teapot, a cup and a tea stream as props), `spider` (eight tapered legs on tetrapods, abdomen, pedipalps), `bird`, `fish`, `eel`. The crab got a craft pass: a smooth oval shell with a lighter top and a pale belly, two claws with pinching pincers (a hinge riding the claw chain), eyes on stalks, warm-coloured tapered legs with dark tips.
+- [x] **Craft pass on meshes** (all creatures): smooth per-vertex normals, tapered segments with an elliptical cross-section (`squash`) and domed ends (`round`), legs that taper to points (`taper`, `footColor`), toes, sucker strips (`under`). Boxes stay faceted, and `flat: true` keeps a faceted segment for robots.
+- [x] **One-off actions (D53)** (`core/src/actions.ts`, tools `perform-action` and `action-note`): Claude writes key moments as part goals (`body`, `reach`, `hold`, `props` tilt, `wings`, `legs`, `spin`, `creak`, `fx`). These carry forward from key to key.
+  - Solving runs on top of the creature's idle: FABRIK reaching (then smoothed so slack spreads along a tentacle instead of kinking one joint), two-bone IK legs that plant where the body is at a `plant` key and lift by themselves when they can't reach (a take-off), wing modes blended (lifting the wing clear while it folds or unfolds), and hinge speeds integrated, with stick-slip creak.
+  - Props: held props ride the tip with the offset they were picked up with. Effects show and hide on their keys.
+  - A weight follower (a damped spring per goal) gives lag, overshoot and settle.
+  - Notes in words: slower / much slower / faster, more weight / lighter, bigger / subtler, snappier, "hold the pour longer", "pause before the lift". Unknown notes are refused, with the list of notes it understands.
+  - Checks: the universal ones (it ends in its idle pose, spinners excepted), plus: held props stay in the grip (≤ 2.5 cm), and let-go props rest upright on the ground or a surface.
+  - Chain locals are now twist-free (the smallest turn from the parent), so a cone limit means the joint's bend.
+- [x] **Kit characters:** `perform-action` takes the character action format with new `feet` (offsets that carry, y lifts), `pitch` (hips tip forward), `label` and tempo notes. `motion-preview --with Bucket --at [x,y,z]` shows props beside the character. `characterMotionChecks` gained a leg-reach row.
+- [x] **Bird-person hip snap fixed (if cheap):** the walk planner's hip height is now a short window minimum, averaged, instead of a hard switch when a foot lands. The birdfolk walk's 57 mm one-frame drop is now at most ~37 mm/frame, its pops are gone, and every kit clip passes the universal checks (the pinned finding in the test is now `[]`). Hips sit a touch lower at double support.
+- [x] **Live runtime:** `CreatureRuntime.reach(chain, goal | null)` makes a tentacle follow a moving goal live (critically damped follow, eased weight, the same smoothed FABRIK), and springs react live to the root's acceleration. The creature preview has a live segment where an octopus arm follows a yellow goal.
+- [x] **Bench:** `node bench/creatures.ts [crab spider octopus bird fish windmill snake car trip]` (ports 4630/9510 by default). It writes `checkpoint-phase8/{crab,spider,octopus,octopus-noted,bird,bird-takeoff,fish,eel,windmill,trip}` with videos and stills, including a still at every key moment of an action. Every check passes. The action keys Claude wrote are in `bench/actions/*.json`.
+- Tests: 148 (was 135), including `core/test/wingsactions.test.ts`.
+
+Weak or not done:
+- [ ] MediaPipe webcam start: skipped.
+- [ ] Godot still gets baked clips only (no skinned creature export, so no live IK there). The runtime's live reach and springs are TypeScript (web).
+- [ ] Self penetration still uses bounding spheres per piece, so thin feathers and the trip's foot against the bucket aren't judged precisely (the bucket isn't part of the character's checks at all).
+- [ ] Action keys are hand-placed numbers. The octopus took several rounds of checks to find a layout where idle-curling arms don't brush the table, which is the D53 tripwire territory for complex scenes.
+
 
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
