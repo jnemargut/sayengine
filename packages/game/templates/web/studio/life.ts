@@ -511,7 +511,8 @@ export class LifeRuntime {
     if (g && g.k === 'move') {
       const P = this.paths[g.p];
       let s = w.s, lat = w.lat - 0.68;
-      if (lat < 0.05) { s = Math.max(0, w.s - 0.95); lat = w.lat; }   // side by side would take the oncoming side: fall in behind
+      // side by side would take the oncoming side, or they're at (or on) a crossing: fall in behind
+      if (lat < 0.05 || w.wait || w.onCross) { s = Math.max(0, w.s - 0.95); lat = w.lat; }
       const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);
       lat = clamp(lat, -Q[3] + A.r, Q[3] - A.r);
       tx = Q[0] - E[1] * lat; tz = Q[2] + E[0] * lat; ty = Q[1]; face = Math.atan2(E[0], E[1]);

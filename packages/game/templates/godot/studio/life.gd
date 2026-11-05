@@ -721,7 +721,7 @@ func _step_buddy(i: int, dt: float) -> void:
 		var P: Dictionary = paths[int(g["p"])]
 		var s: float = w["s"]
 		var lat: float = float(w["lat"]) - 0.68
-		if lat < 0.05 or w["wait"] or w["nearCross"]:
+		if lat < 0.05 or w["wait"] or w["onCross"]:
 			s = max(0.0, float(w["s"]) - 0.95)
 			lat = w["lat"]
 		var Q := _point_at(P, 4, s)
