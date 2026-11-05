@@ -707,7 +707,7 @@ Anything you ask for moves. Skeletons are built from rig parts, and each part br
   - loop closure
   - ending in idle
 - [x] Failure timeline in the preview.
-- [~] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips. *(TS runtime done; Godot gets baked clips, IK nodes deferred: see status)*
+- [x] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips. *(TS runtime done; Godot live IK on its own TwoBoneIK3D / FABRIK3D since 2026-11-05: see "Godot live IK" below)*
 ### Status of weeks 13–14 (2026-11-04, branch `phase8/rig-parts`, not merged)
 Built:
 - [x] **Framework** (`core/src/rigparts.ts`). A creature is a list of part specs. Each part brings:
@@ -755,7 +755,7 @@ Built:
 - [x] **Runtime:**
   - Everything bakes to clips in `creature.glb`: a node per bone with TRS channels, no skin. It passes the glTF validator, and the four presets import into Godot 4.7.2 with their clips and no warnings.
   - The live TS runtime (`creatureruntime.ts`) handles reach-triggered stepping (one gait group at a time) and wheels with spring suspension and bicycle-model steering over any ground function. Other parts are layered from a baked clip. The player has live segments driven by it.
-  - **Godot IK nodes deferred:** the node-per-bone export has no `Skeleton3D`, so 4.6+ `SkeletonModifier3D` IK (TwoBoneIK3D, FABRIK3D) can't attach. Godot gets the baked clips. Live IK in Godot needs a skinned creature export first.
+  - ~~**Godot IK nodes deferred:** the node-per-bone export has no `Skeleton3D`, so 4.6+ `SkeletonModifier3D` IK (TwoBoneIK3D, FABRIK3D) can't attach. Godot gets the baked clips. Live IK in Godot needs a skinned creature export first.~~ Done 2026-11-05 on `godot/parity-live-ik`: see "Godot live IK" below.
 - [x] **Bench proofs:** `node bench/creatures.ts crab|snake|car|windmill` writes videos and stills to `checkpoint-phase8/`. All motion checks pass. The crab video includes a deliberately broken replay that shows the timeline in red.
 
 Weak or not done:
@@ -800,7 +800,7 @@ Built:
 
 Weak or not done:
 - [ ] MediaPipe webcam start: skipped.
-- [ ] Godot still gets baked clips only (no skinned creature export, so no live IK there). The runtime's live reach and springs are TypeScript (web).
+- [x] ~~Godot still gets baked clips only~~ Godot has live legs and live reach since 2026-11-05 (see "Godot live IK" below). Live springs are still TypeScript only.
 - [ ] Self penetration still uses bounding spheres per piece, so thin feathers and the trip's foot against the bucket aren't judged precisely (the bucket isn't part of the character's checks at all).
 - [ ] Action keys are hand-placed numbers. The octopus took several rounds of checks to find a layout where idle-curling arms don't brush the table, which is the D53 tripwire territory for complex scenes.
 
