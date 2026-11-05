@@ -363,7 +363,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     const townPlaces = places.filter((p) => p.town === ti);
     const benches = townPlaces.filter((p) => p.kind === 'bench'), stalls = townPlaces.filter((p) => p.kind === 'stall'), piers = townPlaces.filter((p) => p.kind === 'pier'), stops = townPlaces.filter((p) => p.kind === 'busstop');
     const park = townPlaces.find((p) => p.kind === 'park');
-    const nFolk = o.folk?.[ti] ?? (plan.source === 'real' ? 190 : 80);
+    const nFolk = o.folk?.[ti] ?? (plan.source === 'real' ? 160 : 70);
     const nDogs = o.dogs?.[ti] ?? 1;
     const order = shuffle(folkModels.map((m) => m.id), R);
     const strollPool = graph.nodes.filter((n) => reach(n.id)).map((n) => n.id);
@@ -600,7 +600,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       plans.push({ idx, segs, home });
       stats.folk++;
       // some go out with a friend: side by side on the walk, standing by them for a chat when they stop
-      if (role === 'folk' && R() < (o.pairs ?? 0.22)) {
+      if (role === 'folk' && R() < (o.pairs ?? 0.18)) {
         const fm = folkModels.filter((x) => x.id !== member.model && !/kid/.test(x.id));
         const pm = fm.length ? pick(fm) : M;
         agents[idx].lane = r2(between(0.75, 0.9));         // keep well right, so the two fit side by side

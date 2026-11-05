@@ -37,6 +37,8 @@ export interface AgentState {
   slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
   fx: number; fz: number;                 // the walking frame: turns smoothly, so a sharp corner never flips our side
   slip: number;                           // until then, a head-on pair stuck in a pinch may slip past each other
+  nearCross: boolean;
+  back: number;                           // until then, step back off a crossing                     // on a crossing or within 3 m of stepping onto one
   bl: number;                             // seconds to blend into (or out of) a spot: longer for a longer step, so nobody pops
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
@@ -185,7 +187,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0, bl: SIT_BLEND };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0, bl: SIT_BLEND, nearCross: false, back: 0 };
   }
 
   firstTrip(i: number, t: number): number {
@@ -357,9 +359,10 @@ export class LifeRuntime {
     const hw = pt[3];
     let want = A.speed, latT = Math.min(A.lane ?? 0.45, hw - A.r);  // keep right (each at their own distance from the middle): the two directions use their own sides
     // crossings: wait at the curb for the walk signal
-    st.wait = false; st.onCross = false;
+    st.wait = false; st.onCross = false; st.nearCross = false;
     if (g.cross) for (const c of g.cross) {
       if (st.s > c.s0 - 0.2 && st.s < c.s1 + 0.2) st.onCross = true;
+      if (st.s > c.s0 - 3 && st.s < c.s1 + 0.2) st.nearCross = true;
       if (st.s < c.s0 - 0.25 && st.s > c.s0 - 2.5) {
         // the walk signal, or (like everyone does) an empty street; and always look both ways
         const signalOk = this.walkOk(c.sig, c.group, this.t);
@@ -374,7 +377,8 @@ export class LifeRuntime {
           const coming = vv.v > 0.5 && d < 7 + vv.v * 2.5 && dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2;
           // one in the junction, turning (even if it's stopped for someone): it goes first
           const vt = this.tripOf(j), turning = vt !== null && this.data.edges[vt.edges[vv.leg]].turn === true;
-          const bd = boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
+          const C0 = pointAt(P, 4, c.s0), C1 = pointAt(P, 4, c.s1);
+          const bd = Math.min(boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid), boxDist(C0[0], C0[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid), boxDist(C1[0], C1[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid));
           if (coming || ((vv.v > 0.05 || turning) && bd < 2.2) || (turning && bd < 6)) { go = false; break; }
         }
         if (!signalOk && anyNear) go = false;
@@ -420,7 +424,15 @@ export class LifeRuntime {
     // ease in and out
     st.v += clamp(want - st.v, -2.5 * dt, 1.2 * dt);
     if (st.v < 0) st.v = 0;
-    const ns = st.s + st.v * dt;
+    // caught on a crossing by a vehicle that stopped for us across our way: step back and let it go
+    if (st.onCross && st.blocked > 1.5) {
+      for (let j = 0; j < this.vehicles.length; j++) {
+        const vv = this.vehicles[j];
+        if (vv.visible && vv.v < 0.05 && boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, this.data.vehicles[j].len, this.data.vehicles[j].wid) < A.r + 0.5) { st.back = this.t + 2.5; break; }
+      }
+    }
+    const ns = st.back > this.t ? Math.max(0, st.s - 0.7 * dt) : st.s + st.v * dt;
+    if (st.back > this.t) st.v = 0;
     // where that puts us (rising from a seat or a spot: blended from where the act left us)
     const P2 = pointAt(P, 4, ns);
     let cx = P2[0] - D[1] * st.lat, cz = P2[2] + D[0] * st.lat;
@@ -456,7 +468,8 @@ export class LifeRuntime {
       if (j === i || !this.agents[j].visible || (this.data.agents[j].owner === i && this.data.agents[j].kind === 'dog')) continue;
       const o = this.agents[j];
       // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
-      if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5 && A.owner === undefined && this.data.agents[j].owner === undefined) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
+      // (or anyone held up 8 s in a knot: they edge past whoever is in the way)
+      if ((st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5 && A.owner === undefined && this.data.agents[j].owner === undefined) || st.blocked > 8) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
       // slipping past: shoulders turned, but never through each other (0.15 m between centres)
       // friends out together walk close (arms brushing: 0.42 m between centres)
       const friends = j === A.pal || j === A.owner;
@@ -692,7 +705,8 @@ export class LifeRuntime {
         let yieldTo = false;
         for (let j = 0; j < this.agents.length && !yieldTo; j++) {
           const o = this.agents[j];
-          if (!o.visible || !o.onCross) continue;
+          // on a crossing, or walking up to one
+          if (!o.visible || !(o.onCross || (o.nearCross && o.v > 0.3))) continue;
           for (let k = 1; k <= 2 && !yieldTo; k++) {
             const lg = st.leg + k < trip.edges.length ? st.leg + k : V.loop ? (st.leg + k) % trip.edges.length : -1;
             if (lg < 0) break;

@@ -232,7 +232,7 @@ func init_day(t0: float, warm := 60.0) -> void:
 		step()
 
 func _fresh_agent() -> Dictionary:
-	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0, "slip": 0.0, "bl": SIT_BLEND}
+	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0, "slip": 0.0, "bl": SIT_BLEND, "nearCross": false, "back": 0.0}
 
 func _first_trip(i: int, tt: float) -> int:
 	var V: Dictionary = V_[i]
@@ -512,12 +512,15 @@ func _step_person(i: int, dt: float) -> void:
 	var latT: float = min(float(A.get("lane", 0.45)), hw - ar)
 	st["wait"] = false
 	st["onCross"] = false
+	st["nearCross"] = false
 	if g.has("cross"):
 		for c in g["cross"]:
 			var s0: float = c["s0"]
 			var s1: float = c["s1"]
 			if st["s"] > s0 - 0.2 and st["s"] < s1 + 0.2:
 				st["onCross"] = true
+			if st["s"] > s0 - 3.0 and st["s"] < s1 + 0.2:
+				st["nearCross"] = true
 			if st["s"] < s0 - 0.25 and st["s"] > s0 - 2.5:
 				var signal_ok := walk_ok(int(c["sig"]), int(c["group"]), t)
 				var go := true
@@ -536,7 +539,9 @@ func _step_person(i: int, dt: float) -> void:
 					var coming: bool = vv["v"] > 0.5 and d < 7.0 + vv["v"] * 2.5 and dx * sin(vv["yaw"]) + dz * cos(vv["yaw"]) > -2.0
 					var vt = trip_of(j)
 					var turning: bool = vt != null and E_[int(vt["edges"][vv["leg"]])].get("turn", false)
-					var bd := box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))
+					var C0 := _point_at(P, 4, s0)
+					var C1 := _point_at(P, 4, s1)
+					var bd: float = min(box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])), min(box_dist(C0[0], C0[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])), box_dist(C1[0], C1[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))))
 					if coming or ((vv["v"] > 0.05 or turning) and bd < 2.2) or (turning and bd < 6.0):
 						go = false
 						break
@@ -594,7 +599,15 @@ func _step_person(i: int, dt: float) -> void:
 	st["v"] += _clamp(want - st["v"], -2.5 * dt, 1.2 * dt)
 	if st["v"] < 0.0:
 		st["v"] = 0.0
-	var ns: float = st["s"] + st["v"] * dt
+	if st["onCross"] and st["blocked"] > 1.5:
+		for j in vehicles.size():
+			var vb: Dictionary = vehicles[j]
+			if vb["visible"] and vb["v"] < 0.05 and box_dist(st["x"], st["z"], vb["x"], vb["z"], vb["yaw"], float(V_[j]["len"]), float(V_[j]["wid"])) < ar + 0.5:
+				st["back"] = t + 2.5
+				break
+	var ns: float = max(0.0, float(st["s"]) - 0.7 * dt) if st["back"] > t else float(st["s"]) + float(st["v"]) * dt
+	if st["back"] > t:
+		st["v"] = 0.0
 	var P2 := _point_at(P, 4, ns)
 	var cx: float = P2[0] - D0z * st["lat"]
 	var cz: float = P2[2] + D0x * st["lat"]
@@ -642,7 +655,7 @@ func _free(i: int, cx: float, cz: float) -> bool:
 		if j == i or not agents[j]["visible"] or (int(A_[j].get("owner", -1)) == i and A_[j]["kind"] == "dog"):
 			continue
 		var o: Dictionary = agents[j]
-		if st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5 and not A.has("owner") and not A_[j].has("owner"):
+		if (st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5 and not A.has("owner") and not A_[j].has("owner")) or st["blocked"] > 8.0:
 			st["slip"] = t + 2.5
 			o["slip"] = t + 2.5
 		var r: float = (min(squeeze, ar + float(A_[j]["r"]))) if squeeze > 0.0 else ar + float(A_[j]["r"])
@@ -1012,7 +1025,7 @@ func _step_vehicle(i: int, dt: float) -> void:
 				if yield_to:
 					break
 				var o: Dictionary = agents[j]
-				if not o["visible"] or not o["onCross"]:
+				if not o["visible"] or not (o["onCross"] or (o["nearCross"] and o["v"] > 0.3)):
 					continue
 				for k2 in [1, 2]:
 					if yield_to:
