@@ -38,10 +38,12 @@ const VIEW_DIR = path.resolve(HERE, '../../../apps/view');
 
 export { DAEMON_TOOLS } from './daemon-tools.ts';
 import { printTool, installFitCalibration } from './print.ts';
+import { TimelineService } from './timeline.ts';
+import { viewPreview } from './previews.ts';
 
-export interface DaemonOptions { dir: string; port: number }
+export interface DaemonOptions { dir: string; port: number; /** serve an existing in-process studio (benches) instead of loading one from dir */ studio?: Studio }
 
-export async function startDaemon({ dir, port }: DaemonOptions) {
+export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
   await initKernel();
   installFitCalibration();
   const stateDir = path.join(dir, '.studio');
@@ -49,12 +51,15 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
   fs.mkdirSync(path.join(stateDir, 'exports'), { recursive: true });
   const repoFile = path.join(stateDir, 'repo.json');
   const data: RepoData | undefined = fs.existsSync(repoFile) ? JSON.parse(fs.readFileSync(repoFile, 'utf8')) : undefined;
-  const studio = new Studio(data, { assets: new DirAssets(path.join(stateDir, 'assets'), dir) });
+  const studio = given ?? new Studio(data, { assets: new DirAssets(path.join(stateDir, 'assets'), dir) });
   setWorldCacheDir(path.join(stateDir, 'cache', 'world'));
   // notes, picks and the project taste file live in .studio (gitignored); studio-wide taste in ~/.studio
   studio.collab.setIO(new FsIO(dir));
   // renders are caches keyed by the recipe that made them (Decision 62): never history, re-made on demand
   const renderCache = new RenderCache(path.join(stateDir, 'cache', 'renders'));
+  // the one timeline the view plays (Phase 10 step 2): built from recipes, GLBs and WAVs cached by stamp
+  const timelines = new TimelineService(studio, new RenderCache(path.join(stateDir, 'cache', 'timeline'), 200));
+  let viewMoment: { seconds: number } | null = null;
   studio.onPersist = (d) => {
     const tmp = repoFile + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(d));
@@ -258,96 +263,15 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const result = { file: out, bytes: bytes.length, objects: ids.length - bad.length - refs.length, skipped: bad, ...(refs.length ? { referencesLeftOut: refs } : {}), ...(validation ? { validation: { errors: validation.errors, warnings: validation.warnings, ...(validation.messages.length ? { messages: validation.messages } : {}) } } : {}), ...extra, ...(hooks.length ? { afterExport: hooks } : {}) };
         return hooksOk ? { ok: true, tool: name, result } : { ok: false, tool: name, error: `after-export check failed: ${hooks.filter((h) => !h.ok).map((h) => `${h.name}: ${h.detail}`).join('; ')}`, result };
       }
-      case 'line-preview': {
-        // the character's lines as a reviewable folder: GLB + audio + player page (+ MP4 with --video)
-        const doc = studio.doc();
-        const obj = studio.findObject(doc, args.object);
-        const all = Object.entries(obj.character?.lines ?? {});
-        if (!all.length) return { ok: false, tool: name, error: `${obj.name} has no lines yet`, hint: `studio say --object ${obj.id} --text "…"` };
-        const want = args.lines ? String(args.lines).split(',').map((x) => x.trim()) : null;
-        const picked = want ? all.filter(([id]) => want.includes(id)) : all;
-        if (!picked.length) return { ok: false, tool: name, error: `no line ${want!.join(', ')}`, hint: `lines: ${all.map(([id]) => id).join(', ')}` };
-        const res = studio.evaluate(obj);
-        if (!res.ok) return { ok: false, tool: name, error: `${obj.name} does not build` };
-        const glb = toGLB([{ obj, res }], {});
-        const validation = await validateGlb(glb);
-        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
-        const lines = picked.map(([id, l]) => ({ id, text: l.text, emotion: l.emotion, duration: l.duration, cues: l.cues, phonemes: l.phonemes, blinks: l.life?.blinks, wav: studio.assets.get(l.audio) }));
-        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-lines`);
-        const lp = await import('./lineplayer/make.ts');
+      case 'line-preview': case 'motion-preview': case 'creature-preview': case 'cutscene-preview':
+        // the separate players are retired: these play on the live view's timeline (and capture it with --video)
+        return viewPreview(name, args, { studio, timelines, viewUrl: `http://localhost:${port}`, outDir: (n) => path.join(stateDir, 'exports', n), dir });
+      case 'timeline': {
+        // the scene timeline for Claude: tracks per system, red stretches, moments (and the view's current moment)
+        const play = args.play ? Object.fromEntries(String(args.play).split(',').map((x: string) => x.trim().split(':'))) : undefined;
         try {
-          let r = await lp.buildLinePreview(out, obj.name, glb, lines);
-          if (args.video) r = { ...r, ...(await lp.captureVideo(out, lines)) };
-          return { ok: true, tool: name, summary: `${lines.length} line(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, lines: lines.map((l) => l.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server, since it loads files)${r.video ? '; the MP4 plays anywhere' : ''}` } };
-        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
-      }
-      case 'motion-preview': {
-        const doc = studio.doc();
-        const obj = studio.findObject(doc, args.object);
-        const all = Object.entries(obj.character?.motions ?? {});
-        if (!all.length) return { ok: false, tool: name, error: `${obj.name} has no motions`, hint: `studio set-motion --object ${obj.id} --id walk --kind walk` };
-        const want = args.motions ? String(args.motions).split(',').map((x) => x.trim()) : null;
-        const picked = want ? all.filter(([id]) => want.includes(id)) : all;
-        if (!picked.length) return { ok: false, tool: name, error: `no motion ${want!.join(', ')}`, hint: `motions: ${all.map(([id]) => id).join(', ')}` };
-        const res = studio.evaluate(obj);
-        if (!res.ok || !res.rig) return { ok: false, tool: name, error: `${obj.name} does not build` };
-        // the character alone, at the origin and facing +Z, so the page can walk it along its own axis
-        const solo = { ...obj, position: [0, 0, 0] as [number, number, number], rotation: 0 };
-        // --with: other scene objects to stand beside it (a bucket to trip over), placed relative to the
-        // character (--at [x,y,z] for the first, else where they are relative to it)
-        const extras = (args.with ? String(args.with).split(',').map((x) => x.trim()).filter(Boolean) : []).map((ref, i) => {
-          const o = studio.findObject(doc, ref);
-          const at = i === 0 && args.at ? (typeof args.at === 'string' ? JSON.parse(args.at) : args.at) : [o.position[0] - obj.position[0], o.position[1] - obj.position[1], o.position[2] - obj.position[2]];
-          const moved = { ...o, position: at as [number, number, number] };
-          return { obj: moved, res: studio.evaluate(moved) };
-        });
-        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }, ...extras], {});
-        const validation = await validateGlb(glb);
-        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
-        const { bakeMotion } = await import('../../core/src/motion.ts');
-        const mp = await import('./motionplayer/make.ts');
-        const motions = picked.map(([id, spec]) => {
-          const c = bakeMotion(id, spec, res.rig!.rig, obj.character);
-          const what = spec.kind === 'action' ? (spec.label ?? spec.action!) : spec.kind;
-          return { id, kind: spec.kind, label: `${obj.name}: ${id}${id === what ? '' : ` (${what})`}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: mp.showTime(c) };
-        });
-        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-motions`);
-        try {
-          let r: any = await mp.buildMotionPreview(out, obj.name, glb, motions);
-          if (args.video) r = { ...r, ...(await mp.captureMotionVideo(out, motions)) };
-          return { ok: true, tool: name, summary: `${motions.length} motion(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, motions: motions.map((m) => m.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server)${r.video ? '; Read the stills to look at the poses' : ''}` } };
-        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
-      }
-      case 'creature-preview': {
-        const doc = studio.doc();
-        const obj = studio.findObject(doc, args.object);
-        if (!obj.creature) return { ok: false, tool: name, error: `${obj.name} is not a creature`, hint: 'studio new-creature --preset crab' };
-        const cp = await import('./creatureplayer/make.ts');
-        const { def, motions } = obj.creature;
-        const want = args.motions ? String(args.motions).split(',').map((x) => x.trim()) : undefined;
-        const legs = def.parts.find((p: any) => p.kind === 'legs') as any, wheels = def.parts.some((p: any) => p.kind === 'wheels');
-        const walk = Object.entries(motions).find(([, m]: any) => m.kind === 'walk') as any;
-        const bumpy = { period: 6, bumps: [{ amp: 0.045, k: 1 }, { amp: 0.03, k: 2, kx: 3 }, { amp: 0.012, k: 7, kx: 5 }] };
-        const live: any[] = [];
-        if (args.live !== false && legs) live.push({ id: 'live-walk', label: `${def.name}: live, steered in a curve over bumps (runtime)`, show: 8, input: { speed: walk?.[1].speed ?? 0.3, strafe: walk?.[1].dir ?? [0, 0, 1], turn: 16 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), terrain: bumpy });
-        if (args.live !== false && wheels) live.push({ id: 'live-drive', label: `${def.name}: live, steering over bumps (runtime)`, show: 8, input: { speed: 1.4, turn: 18, turnWave: 8 }, terrain: { ...bumpy, bumps: bumpy.bumps.map((b) => ({ ...b, amp: b.amp * 1.4 })) } });
-        // a reaching chain (a tentacle, a trunk): a live segment where it follows a moving goal
-        const reacher = !legs && !wheels ? def.parts.find((p: any) => p.kind === 'chain' && p.motion !== 'swim' && p.motion !== 'serpent' && p.segments >= 4) as any : null;
-        if (args.live !== false && reacher) {
-          const tipRest = [reacher.at[0] + reacher.dir[0] * reacher.length * 0.6, reacher.at[1] + 0.3, reacher.at[2] + reacher.dir[2] * reacher.length * 0.6];
-          live.push({ id: 'live-reach', label: `${def.name}: live, ${reacher.id} follows the yellow goal (runtime)`, show: 8, input: { speed: 0 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), reach: { chain: reacher.id, centre: tipRest, radius: reacher.length * 0.18 } });
-        }
-        const broken = args.demoFailure && walk ? [{ id: 'broken-walk', motion: walk[0], label: `${def.name}: ${walk[0]} replayed 1.6× too fast (feet slide: the checks catch it)`, travelScale: 1.6 }] : [];
-        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-creature`);
-        try {
-          let r: any = await cp.buildCreaturePreview(out, def, motions, { motions: want, live, broken });
-          const validation = await validateGlb(fs.readFileSync(r.glb));
-          if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
-          if (args.video) r = { ...r, ...(await cp.captureCreatureVideo(out, r.segments, { name: obj.id })) };
-          const segs = r.segments.map((s: any) => s.id);
-          delete r.segments;
-          const failing = Object.entries<any>(r.checks).filter(([, v]) => !v.pass).map(([k, v]) => `${k}: ${v.failing.join(', ')}`);
-          return { ok: true, tool: name, summary: `${segs.length} segment(s) of ${obj.name}${failing.length ? ` — failing: ${failing.join('; ')}` : ', every motion check passes'}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, segments: segs, note: `open ${r.page} in a browser (serve the folder)${r.video ? '; Read the stills to look' : ''}` } };
+          const r = timelines.summary(String(args.branch ?? 'main'), { play, cutscene: args.cutscene }, args.at !== undefined ? Number(args.at) : viewMoment?.seconds, args.object ? { object: studio.findObject(studio.doc(), args.object).id, part: args.part ?? null } : studio.selection ? { object: studio.selection.object, part: studio.selection.part } : undefined);
+          return { ok: true, tool: name, summary: `${r.tracks.length} track(s), ${r.seconds} s; ${r.red.length ? `${r.red.length} red stretch(es)` : 'no failed checks'}`, result: { ...r, view: `http://localhost:${port}` } };
         } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
       }
       case 'cutscene-data': {
@@ -374,32 +298,6 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
       case 'game-data': {
         const { gameData } = await import('../../core/src/gamedata.ts');
         try { return { ok: true, tool: name, result: gameData(studio) }; } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
-      }
-      case 'cutscene-preview': {
-        const doc = studio.doc();
-        const all = (doc as any).cutscenes ?? {};
-        const cs = all[String(args.id ?? '')] ?? (Object.keys(all).length === 1 && !args.id ? Object.values(all)[0] : null);
-        if (!cs) return { ok: false, tool: name, error: args.id ? `no cutscene "${args.id}"` : 'which cutscene? --id', hint: `cutscenes: ${Object.keys(all).join(', ') || 'none (studio new-cutscene)'}` };
-        const { cutsceneTimeline, cutsceneChecks } = await import('../../core/src/cutscene.ts');
-        let tl;
-        try { tl = cutsceneTimeline(studio, doc, cs as any); } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
-        const checks = cutsceneChecks(studio, doc, cs as any);
-        let items;
-        try { items = selectForExport(studio, doc, {}); } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
-        const glb = toGLB(items.filter((i) => i.obj.role !== 'reference' && i.res.ok), {});
-        const validation = await validateGlb(glb);
-        if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
-        const audio: Record<string, Uint8Array> = {};
-        for (const c of tl.cues) if (c.audio && !audio[c.audio]) { try { audio[c.audio] = studio.assets.get(c.audio); } catch { /* a test line without audio */ } }
-        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${(cs as any).id}-cutscene`);
-        const cp = await import('./cutsceneplayer/make.ts');
-        try {
-          const b = await cp.buildCutscenePreview(out, glb, tl, audio);
-          const cap = await cp.captureCutscene(out, tl, { video: !!args.video });
-          const sb = cp.writeStoryboard(out, tl, cap.boards, checks, { video: cap.video ? path.basename(cap.video) : undefined });
-          const failing = checks.filter((c) => !c.pass);
-          return { ok: true, tool: name, summary: `${tl.shots.length} shots, ${tl.duration.toFixed(1)} s${cap.video ? ` → ${cap.video}` : ''}${failing.length ? `; ${failing.length} check(s) failing` : ''}`, result: { ...b, storyboard: sb, storyboardFrames: cap.stills, ...(cap.video ? { video: cap.video, frames: cap.frames } : {}), seconds: tl.duration, checks, note: 'Read the storyboard PNGs to look at each shot; open storyboard.html (or the MP4) to review the whole cutscene' } };
-        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
       }
       case 'run': {
         if (!args.file && typeof args.code !== 'string') return { ok: false, tool: name, error: '--file <script.js|.ts> or --code "<js>" is required' };
@@ -437,6 +335,19 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         return json(200, d ?? studio.call(tool, args, author, why ? { why } : {}));
       }
       if (url.pathname === '/api/state') return json(200, studio.snapshot());
+      if (url.pathname === '/api/timeline') {
+        const q = url.searchParams;
+        const play = q.get('play') ? Object.fromEntries(q.get('play')!.split(',').filter(Boolean).map((x) => x.split(':'))) : undefined;
+        const tl = timelines.get(q.get('branch') ?? 'main', { play, ...(q.get('cutscene') ? { cutscene: q.get('cutscene')! } : {}) });
+        if (q.get('have') === tl.stamp) return json(200, { same: true, stamp: tl.stamp });
+        return json(200, tl);
+      }
+      if (url.pathname.startsWith('/api/timeline/asset/')) {
+        const a = timelines.asset(url.pathname.slice(20));
+        if (!a) { res.writeHead(404); return res.end('not found'); }
+        res.writeHead(200, { 'content-type': a.type, 'cache-control': 'max-age=3600' });
+        return res.end(Buffer.from(a.bytes));
+      }
       if (url.pathname.startsWith('/assets/')) {
         const id = url.pathname.slice(8);
         let bytes: Uint8Array;
@@ -501,6 +412,7 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           ws.send(JSON.stringify({ type: 'preview', id: m.id, error: e.message }));
         }
       } else if (m.type === 'select') {
+        if (m.seconds !== undefined) viewMoment = { seconds: Number(m.seconds) };
         studio.selection = m.object ? { object: String(m.object), part: m.part ? String(m.part) : null, ...(m.clock ? { clock: m.clock, seconds: Number(m.seconds ?? 0), ...(m.near ? { near: String(m.near) } : {}) } : {}), time: new Date().toISOString() } : null;
       } else if (m.type === 'bake-result') {
         pendingBakes.get(m.id)?.(m);

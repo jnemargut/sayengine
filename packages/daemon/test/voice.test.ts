@@ -1,9 +1,7 @@
-// Voice helpers (Decision 21): WAV decoding and the loudness envelope used for the sync check; the
-// line-preview timeline. The TTS model and Rhubarb are exercised by bench/talking-face.ts (downloads).
+// Voice helpers (Decision 21): WAV decoding and the loudness envelope used for the sync check. The TTS model and Rhubarb are exercised by bench/talking-face.ts (downloads).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decodeWav, loudness } from '../src/voice.ts';
-import { videoTimeline } from '../src/lineplayer/make.ts';
 
 function wav16(samples: number[], rate = 24000, channels = 1) {
   const data = samples.length * 2;
@@ -30,9 +28,5 @@ test('WAV decode (PCM16, stereo averaged) and loudness: silence, then a tone', (
   assert.ok(e[20] < 0.01 && e[80] > 0.9);
   assert.throws(() => decodeWav(new Uint8Array(64)), /not a WAV/);
 });
-
-test('line-preview video timeline: rest gaps around each line', () => {
-  const { segs, total } = videoTimeline([{ id: 'a', duration: 2 }, { id: 'b', duration: 1 }], 0.5);
-  assert.deepEqual(segs, [{ id: 'a', start: 0.5, end: 2.5 }, { id: 'b', start: 3, end: 4 }]);
-  assert.equal(total, 4.5);
-});
+// (the line player's video timeline is gone with the player: voice lines are tracks on the view's
+// timeline now — see packages/core/test/timeline.test.ts)
