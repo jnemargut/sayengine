@@ -8,7 +8,12 @@ extends Node3D
 ##   var life = preload("res://studio/life_view.gd").start(self)   # after the studio scene is in
 
 const LIFE := "res://assets/studio/life.json"
-const POSE_CLIP := {"walk": ["walk"], "idle": ["idle"], "sit": ["sit", "idle"], "fish": ["fish", "idle"], "browse": ["browse", "idle"], "tend": ["browse", "idle"], "wait": ["idle"], "trot": ["trot", "walk"]}
+const POSE_CLIP := {"walk": ["walk"], "idle": ["idle"], "sit": ["sit", "idle"], "fish": ["fish", "idle"], "browse": ["browse", "idle"], "tend": ["idle", "browse"], "wait": ["idle"], "chat": ["idle"], "look": ["browse", "idle"], "trot": ["trot", "walk"]}
+## idle variety: standing in a pose, folk now and then do one of these once, then go back to it (picked from
+## the agent's index and the time)
+const GESTURES := {"idle": ["browse", "nod", "idle", "idle"], "wait": ["browse", "idle", "shrug", "idle"], "chat": ["nod", "shrug", "point", "nod", "idle"], "browse": ["pickup", "point", "nod", "browse"], "tend": ["point", "nod", "pickup", "shrug", "browse"], "look": ["point", "nod", "browse"]}
+const LOOPED := ["walk", "idle", "sit", "fish", "browse", "trot", "drive"]
+const FADE := 0.5
 
 var rt: RefCounted
 var data: Dictionary
@@ -88,8 +93,7 @@ func _make(scene: PackedScene, kind: String, scale: float, shape: Shape3D, lift:
 		ap = aps[0]
 		for nm in ap.get_animation_list():
 			var an := ap.get_animation(nm)
-			if String(nm) in ["walk", "idle", "sit", "fish", "browse", "trot", "drive"]:
-				an.loop_mode = Animation.LOOP_LINEAR
+			an.loop_mode = Animation.LOOP_LINEAR if String(nm) in LOOPED else Animation.LOOP_NONE
 	var body := AnimatableBody3D.new()
 	body.sync_to_physics = false
 	var cs := CollisionShape3D.new()
@@ -98,7 +102,63 @@ func _make(scene: PackedScene, kind: String, scale: float, shape: Shape3D, lift:
 	body.add_child(cs)
 	body.position = Vector3(0, -500, 0)
 	add_child(body)
-	return {"root": root, "ap": ap, "cur": "", "body": body, "kind": kind, "scale": scale, "clip_speed": 1.3 if kind == "person" else (1.2 if kind == "dog" else 8.0), "phase": randf()}
+	var geoms: Array = root.find_children("*", "GeometryInstance3D", true, false)
+	if root is GeometryInstance3D:
+		geoms.append(root)
+	var rods: Array = []
+	for n in root.find_children("*", "Node3D", true, false):
+		if String(n.name).to_lower().begins_with("rod"):
+			rods.append(n)
+	var wheels: Array = []
+	var zs: Array = []
+	for n in root.find_children("wheel-*", "Node3D", true, false):
+		var pv: Node3D = n.get_parent()
+		var aabb := AABB()
+		if n is MeshInstance3D and n.mesh:
+			aabb = n.mesh.get_aabb()
+		wheels.append({"spin": n, "steer": pv if String(pv.name).begins_with("steer-f") else null, "r": max(0.2, aabb.size.y / 2.0)})
+		zs.append(pv.position.z)
+	var wb := 2.6
+	if zs.size() > 1:
+		wb = max(1.0, zs.max() - zs.min())
+	return {"root": root, "ap": ap, "cur": "", "body": body, "kind": kind, "scale": scale, "clip_speed": 1.3 if kind == "person" else (1.2 if kind == "dog" else 8.0), "phase": randf(), "geoms": geoms, "alpha": 0.0, "rods": rods, "wheels": wheels, "wheelbase": wb, "gesture": "", "gesture_end": 0.0, "next_pick": 0.0, "turn": 0.0}
+
+static func _hash(a: int, b: int) -> float:
+	var h: int = (a * 374761393 + b * 668265263) & 0xffffffff
+	h = ((h ^ (h >> 13)) * 1274126177) & 0xffffffff
+	return float((h ^ (h >> 16)) & 0xffffffff) / 4294967296.0
+
+func _set_alpha(A: Dictionary, a: float) -> void:
+	if a == A["alpha"]:
+		return
+	A["alpha"] = a
+	for g in A["geoms"]:
+		(g as GeometryInstance3D).transparency = 1.0 - a
+
+## The clip for a standing pose, with now-and-then gestures (one at a time, then back).
+func _choose(A: Dictionary, i: int, pose: String, tt: float) -> String:
+	var ap: AnimationPlayer = A["ap"]
+	var base := "idle"
+	for n in POSE_CLIP.get(pose, ["idle"]):
+		if ap and ap.has_animation(n):
+			base = n
+			break
+	if not GESTURES.has(pose) or ap == null:
+		A["gesture"] = ""
+		return base
+	if A["gesture"] != "" and tt < A["gesture_end"]:
+		return A["gesture"]
+	A["gesture"] = ""
+	if tt >= A["next_pick"]:
+		var k := int(floor(tt / 4.0))
+		var G: Array = GESTURES[pose]
+		var g: String = G[int(floor(_hash(i, k) * G.size()))]
+		A["next_pick"] = tt + 3.0 + _hash(k, i) * 5.0
+		if g != base and ap.has_animation(g):
+			A["gesture"] = g
+			A["gesture_end"] = tt + ap.get_animation(g).length
+			return g
+	return base
 
 func _snap() -> void:
 	prev_a = []
@@ -146,12 +206,14 @@ static func _lerp_ang(a: float, b: float, t: float) -> float:
 		d += 2.0 * PI
 	return a + d * t
 
-func _play(A: Dictionary, pose: String, v: float) -> void:
+func _play(A: Dictionary, pose: String, v: float, clip := "") -> void:
 	var ap: AnimationPlayer = A["ap"]
 	if ap == null:
 		return
 	var want := ""
-	for n in POSE_CLIP.get(pose, ["idle"]):
+	if clip != "" and ap.has_animation(clip):
+		want = clip
+	for n in ([] if want != "" else POSE_CLIP.get(pose, ["idle"])):
 		if ap.has_animation(n):
 			want = n
 			break
@@ -192,17 +254,24 @@ func _physics_process(dt: float) -> void:
 		var s: Dictionary = rt.agents[i]
 		var A: Dictionary = agents[i]
 		var root: Node3D = A["root"]
-		root.visible = s["visible"]
 		var body: AnimatableBody3D = A["body"]
+		# fade in through a door (and out of one where we were last seen), never a pop
+		_set_alpha(A, clamp(float(A["alpha"]) + (1.0 if s["visible"] else -1.0) * dt * speed / FADE, 0.0, 1.0))
+		root.visible = A["alpha"] > 0.001
 		if not s["visible"]:
 			body.global_position = Vector3(0, -500, 0)
 			continue
 		var p: Array = prev_a[i]
 		var pos := Vector3(lerp(float(p[0]), float(s["x"]), k), lerp(float(p[1]), float(s["y"]), k), lerp(float(p[2]), float(s["z"]), k))
 		root.position = pos
-		root.rotation.y = _lerp_ang(p[3], s["yaw"], k)
+		var standing: bool = s["v"] < 0.05 and s["pose"] != "sit" and s["pose"] != "fish" and A["kind"] == "person"
+		var tw: float = sin(rt.t * 0.13 + i * 2.1) * 0.35 * max(0.0, sin(rt.t * 0.05 + i)) if standing else 0.0
+		A["turn"] = float(A["turn"]) + (tw - float(A["turn"])) * min(1.0, dt * speed * 1.5)
+		root.rotation.y = _lerp_ang(p[3], s["yaw"], k) + float(A["turn"])
 		body.global_position = pos
-		_play(A, s["pose"], s["v"])
+		for r in A["rods"]:
+			(r as Node3D).visible = s["pose"] == "fish"
+		_play(A, s["pose"], s["v"], "" if s["v"] > 0.05 else _choose(A, i, s["pose"], rt.t))
 	for i in vehicles.size():
 		var s: Dictionary = rt.vehicles[i]
 		var A: Dictionary = vehicles[i]
@@ -223,6 +292,15 @@ func _physics_process(dt: float) -> void:
 		var ap: AnimationPlayer = A["ap"]
 		if ap and ap.has_animation("drive"):
 			ap.speed_scale = s["v"] / 8.0
+		# wheels roll with the ground and the front ones steer into the turn (from the turn rate)
+		if A["wheels"].size():
+			var dyaw: float = _lerp_ang(0.0, float(s["yaw"]) - float(p[3]), 1.0) / rt.DT
+			var steer: float = clamp(atan(float(A["wheelbase"]) * dyaw / float(s["v"])), -0.6, 0.6) if s["v"] > 0.3 else 0.0
+			for w in A["wheels"]:
+				(w["spin"] as Node3D).rotation.x += float(s["v"]) * dt * speed / float(w["r"])
+				if w["steer"] != null:
+					var st3: Node3D = w["steer"]
+					st3.rotation.y += (steer - st3.rotation.y) * min(1.0, dt * speed * 8.0)
 	for L in lamps:
 		var c: int = rt.signal_state(L["sig"], L["group"], rt.t)
 		var col: String = L["colour"]
