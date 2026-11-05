@@ -79,17 +79,16 @@ void main() {
     float e = step(outlineThreshold, lap / max(i0, 1e-6));
     c = mix(c, outlineColor, e);
   }
+  if (useGlow > 0.5) {
+    // Godot 4.7 (additive mode): the glow levels gathered from the mip chain, × intensity, added in linear
+    // HDR before the tonemapper
+    vec3 g = texture2D(tGlow0, vUv).rgb * glowLevels[0] + texture2D(tGlow1, vUv).rgb * glowLevels[1] + texture2D(tGlow2, vUv).rgb * glowLevels[2]
+      + texture2D(tGlow3, vUv).rgb * glowLevels[3] + texture2D(tGlow4, vUv).rgb * glowLevels[4] + texture2D(tGlow5, vUv).rgb * glowLevels[5] + texture2D(tGlow6, vUv).rgb * glowLevels[6];
+    c += max(g, vec3(0.0)) * glowIntensity;
+  }
   c = max(c, vec3(0.0));
   c = c / (vec3(1.0) + c);
   c = toSrgb(c);
-  if (useGlow > 0.5) {
-    // Godot 4.7 (additive mode): the glow levels are gathered, × intensity, put through the same transport
-    // tonemapper and sRGB encoding on their own, then added to the encoded colour, before the LUT
-    vec3 g = texture2D(tGlow0, vUv).rgb * glowLevels[0] + texture2D(tGlow1, vUv).rgb * glowLevels[1] + texture2D(tGlow2, vUv).rgb * glowLevels[2]
-      + texture2D(tGlow3, vUv).rgb * glowLevels[3] + texture2D(tGlow4, vUv).rgb * glowLevels[4] + texture2D(tGlow5, vUv).rgb * glowLevels[5] + texture2D(tGlow6, vUv).rgb * glowLevels[6];
-    g = max(g * glowIntensity, vec3(0.0));
-    c = clamp(c + toSrgb(g / (vec3(1.0) + g)), 0.0, 1.0);
-  }
   if (useLut > 0.5) c = texture(tLut, c).rgb;
   gl_FragColor = vec4(c, 1.0);
 }`;
@@ -97,6 +96,9 @@ void main() {
 // The glow chain, after Godot's gaussian glow: each level halves the resolution; a horizontal 7-tap pass
 // reads the level above at even texels (the first pass also applies the HDR threshold curve), then a
 // vertical 7-tap pass blurs at the new size. Weights are Godot's (0.174938, 0.165569, 0.140367, 0.106595).
+// Fitted against Godot 4.7.2 renders of the same views (Pocket Raleigh night): its level 0 sits at
+// 1/2^GLOW_SHIFT of the screen and its glow comes out GLOW_GAIN × brighter than this chain's.
+export const GLOW_SHIFT = 1, GLOW_GAIN = 0.6;   // sweep: gain 0 → 0.150, 0.3 → 0.126, 0.6 → 0.114, 1 → 0.120, 1.6 → 0.142 (mean FLIP, 3 night views)
 const GLOW_FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D tSrc;
@@ -222,12 +224,13 @@ export function installGradePass(renderer: THREE.WebGLRenderer, lut: THREE.Data3
   const hT: THREE.WebGLRenderTarget[] = [], vT: THREE.WebGLRenderTarget[] = [];
   for (let i = 0; i <= maxLevel; i++) { hT.push(mk()); vT.push(mk()); (mat.uniforms as any)['tGlow' + i].value = vT[i].texture; }
   for (let i = maxLevel + 1; i < 7; i++) (mat.uniforms as any)['tGlow' + i].value = rt.texture;
-  if (B && maxLevel >= 0) { mat.uniforms.useGlow.value = 1; mat.uniforms.glowIntensity.value = B.intensity ?? 0.8; mat.uniforms.glowLevels.value = [0, 1, 2, 3, 4, 5, 6].map((i) => levels[i] ?? 0); }
+  if (B && maxLevel >= 0) { mat.uniforms.useGlow.value = 1; mat.uniforms.glowIntensity.value = (B.intensity ?? 0.8) * GLOW_GAIN; mat.uniforms.glowLevels.value = [0, 1, 2, 3, 4, 5, 6].map((i) => levels[i] ?? 0); }
   const runGlow = () => {
     let src: THREE.Texture = rt.texture, w = size.x, h = size.y;
     for (let i = 0; i <= maxLevel; i++) {
-      w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
-      glowMat.uniforms.down.value = 1;
+      const down = i > 0 || GLOW_SHIFT > 0 ? 1 : 0;
+      if (down) { w = Math.max(1, w >> 1); h = Math.max(1, h >> 1); }
+      glowMat.uniforms.down.value = down;
       if (hT[i].width !== w || hT[i].height !== h) { hT[i].setSize(w, h); vT[i].setSize(w, h); }
       glowMat.uniforms.tSrc.value = src; glowMat.uniforms.horizontal.value = 1; glowMat.uniforms.first.value = i === 0 ? 1 : 0;
       renderer.setRenderTarget(hT[i]); orig(glowScene, postCam);

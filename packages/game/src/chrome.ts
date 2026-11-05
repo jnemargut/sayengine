@@ -49,8 +49,9 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
   if (!bin) throw Object.assign(new Error('Chrome not found'), { hint: 'install Google Chrome or set CHROME_BIN' });
   // a random start inside the range: test files run in parallel, and two Chromes racing for one free port
   // would leave one of them driving the other's page
-  const base = Number(process.env.STUDIO_CHROME_PORT ?? 9370);
-  const port = await freePort(base + Math.floor(Math.random() * 30), base + 50);
+  // STUDIO_CHROME_SPAN keeps the ports inside [base, base + span) when a project has a fixed port range
+  const base = Number(process.env.STUDIO_CHROME_PORT ?? 9370), span = Number(process.env.STUDIO_CHROME_SPAN ?? 0);
+  const port = span > 0 ? await freePort(base + Math.floor(Math.random() * span), base + span - 1).catch(() => freePort(base, base + span - 1)) : await freePort(base + Math.floor(Math.random() * 30), base + 50);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-game-chrome-'));
   const child: ChildProcess = spawn(bin, [
     '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
@@ -60,7 +61,8 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
   let ws: WebSocket | null = null;
   try {
     let target: any = null;
-    for (let i = 0; i < 80 && !target; i++) {
+    // a loaded machine (Godot and other Chromes rendering) can take well over 10 s to start Chrome
+    for (let i = 0; i < 320 && !target; i++) {
       await new Promise((r) => setTimeout(r, 125));
       try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find((t: any) => t.type === 'page'); } catch { /* not up yet */ }
     }

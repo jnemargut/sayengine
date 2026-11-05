@@ -1,5 +1,5 @@
 // Keep a headless studio view connected to the daemon (texture bakes on game import need one).
-// STUDIO_CHROME_PORT=9541 node checkpoint-pocket-raleigh/craft/recipe/view-keepalive.ts [minutes]
+// STUDIO_CHROME_PORT=9540 STUDIO_CHROME_SPAN=2 node checkpoint-pocket-raleigh/craft/recipe/view-keepalive.ts [minutes]
 import { withPage } from '../../../packages/game/src/chrome.ts';
 const port = process.env.STUDIO_PORT ?? '4660';
 const minutes = Number(process.argv[2] ?? 240);

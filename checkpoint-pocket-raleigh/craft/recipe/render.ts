@@ -8,7 +8,7 @@ import { renderViews, flipPairs, readConfig, contactSheet } from '../../../packa
 
 const out = path.resolve(process.argv[2] ?? '.studio/craft/run');
 const pick = process.argv[3] && !process.argv[3].startsWith('--') ? process.argv[3] : 'all';
-const env = { ...process.env, STUDIO_PORT: process.env.STUDIO_PORT ?? '4660', STUDIO_CHROME_PORT: process.env.STUDIO_CHROME_PORT ?? '9540', STUDIO_WEB_PORT: process.env.STUDIO_WEB_PORT ?? '9545' };
+const env = { ...process.env, STUDIO_PORT: process.env.STUDIO_PORT ?? '4660', STUDIO_CHROME_PORT: process.env.STUDIO_CHROME_PORT ?? '9542', STUDIO_CHROME_SPAN: process.env.STUDIO_CHROME_SPAN ?? '3', STUDIO_WEB_PORT: process.env.STUDIO_WEB_PORT ?? '9545' };
 Object.assign(process.env, env);
 if (!process.argv.includes('--no-import')) for (const g of ['pocket-raleigh', 'pocket-raleigh-web']) {
   const r = spawnSync('./studio', ['game', 'import', '--project', g], { encoding: 'utf8', env });
