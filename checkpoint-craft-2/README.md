@@ -13,4 +13,6 @@ Before and after, same cameras. "Before" is `main` at 4b22d0f (the Phase 8 bench
 | `dog-faceted.png`, `dog-smooth.png` | A tapered haunch and upper arm with mass, a thicker forearm, broad padded paws. |
 | `faces/before|after/{faceted,smooth}/faces.png` | The whole cast's faces, to check the other mouths didn't change. `checks.txt` lists every check per character. |
 
-`after/` holds the bench videos (`node bench/creatures.ts spider octopus bird fish --out …`) and their stills.
+`after/` holds the after stills at full size. Videos weren't re-rendered: the machine was shared with several other agents (load average around 45), and the creature preview's frame-by-frame capture ran past the CLI's 5-minute request timeout. The stills come from the same player and pages (`buildCreaturePreview`), every motion check passes, and `node bench/creatures.ts spider octopus bird fish` regenerates the videos on a quieter machine.
+
+The "before" bird and fish stills are the Phase 8 bench stills (`checkpoint-phase8/`), at the same times and cameras as the after shots. The close bird shot has no matching before shot. Its before panel is the bench still.
