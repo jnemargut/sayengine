@@ -10,6 +10,7 @@ import type { GameData, EffectBundle } from '../../core/src/gamedata.ts';
 import { STUDIO_ROOT } from './project.ts';
 
 export const QUARKS_VERSION = '0.17.1';
+export const ALPHA_GAMMA = 1.6;
 
 // three.quarks prints a banner with console.log when it loads, which would corrupt the CLI's JSON on
 // stdout: load it on first use, with console.log muted for that moment.
@@ -23,7 +24,10 @@ export async function loadQuarks() {
   return Q;
 }
 
-const v4 = (hex: string, a: number) => { const c = new THREE.Color(hex); return new Q.Vector4(c.r, c.g, c.b, a); };
+// quarks' particle shader ends without three's colour-space step, so it writes its colours straight to
+// the screen: hand it the palette's sRGB values as they are (a linearised colour came out darker than
+// Godot's — the sparks and embers by about 20%)
+const v4 = (hex: string, a: number) => { const c = new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace); return new Q.Vector4(c.r, c.g, c.b, a); };
 
 /** One quarks ParticleSystem per particle layer, under a group named after the effect. Emitters face
  *  their layer's direction (quarks emits along local +Z). */
@@ -34,11 +38,15 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
   for (const l of b.def.layers) {
     if (l.kind !== 'particles') continue;
     const L = l as ParticleLayer;
-    const a = L.alpha ?? [1, 1];
+    // Godot blends see-through layers in linear light, three in the sRGB canvas: there a half-clear dark
+    // puff over a light sky reads denser than in Godot, so alpha-blended layers carry alpha^ALPHA_GAMMA
+    const a = (L.alpha ?? [1, 1]).map((x) => (L.blend === 'alpha' ? Math.pow(x, ALPHA_GAMMA) : x));
     const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: L.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending });
     const spread = THREE.MathUtils.degToRad(Math.min(89, L.spread ?? 0));
     const shape = L.shape.type === 'sphere' ? new Q.SphereEmitter({ radius: L.shape.radius ?? 0.1 })
-      : L.shape.type === 'box' ? new Q.RectangleEmitter({ width: L.shape.size?.[0] ?? 1, height: L.shape.size?.[2] ?? 1 })
+      // a box fills its area: quarks' RectangleEmitter emits from the rectangle's edge, outwards (rain
+      // came out as a ring of sideways streaks); a fine grid emits from all over it, along the direction
+      : L.shape.type === 'box' ? new Q.GridEmitter({ width: L.shape.size?.[0] ?? 1, height: L.shape.size?.[2] ?? 1, column: 64, row: 64 })
       : new Q.ConeEmitter({ radius: L.shape.type === 'point' ? 0.001 : L.shape.radius ?? 0.05, angle: Math.max(0.001, spread), thickness: 1 });
     const behaviors: any[] = [
       new Q.ColorOverLife(new Q.ColorRange(v4(b.colours[L.colour[0]], a[0]), v4(b.colours[L.colour[1]], a[1]))),
@@ -56,7 +64,9 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
       emissionBursts: (L.bursts ?? []).map((x) => ({ time: x.at, count: new Q.ConstantValue(x.count), cycle: 1, interval: 0.01, probability: 1 })),
       shape, material: mat,
       renderMode: L.stretch ? Q.RenderMode.StretchedBillBoard : Q.RenderMode.BillBoard,
-      ...(L.stretch ? { rendererEmitterSettings: { speedFactor: 0, lengthFactor: Math.max(0, ((L.speed[0] + L.speed[1]) / 2) * L.stretch / ((L.size[0] + L.size[1]) / 2) - (L.speed[0] + L.speed[1]) / 2) } } : {}),
+      // a streak as long as Godot's (speed × stretch): quarks draws (1 + lengthFactor / |v·speedFactor|) ×
+      // |v·speedFactor| × size along the velocity, and speedFactor 0 runs as 0.001, so length ≈ lengthFactor × size
+      ...(L.stretch ? { rendererEmitterSettings: { speedFactor: 0, lengthFactor: Math.max(1, ((L.speed[0] + L.speed[1]) / 2) * L.stretch / ((L.size[0] + L.size[1]) / 2)) } } : {}),
       behaviors,
     } as any);
     const e = ps.emitter;

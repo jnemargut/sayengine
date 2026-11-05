@@ -40,7 +40,7 @@ export interface Page {
   eval<T = any>(expression: string, timeoutMs?: number): Promise<T>;
   logs: Array<{ level: string; text: string }>;
   /** The whole page as the player sees it — the canvas and any HTML UI over it (Fire's Dying pain #4). */
-  screenshot(): Promise<Buffer>;
+  screenshot(opts?: { format?: 'png' | 'jpeg'; quality?: number }): Promise<Buffer>;
 }
 
 /** Launch Chrome, open `url`, run `fn(page)`, always clean up. */
@@ -98,8 +98,8 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
         if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
         return r.result.value;
       },
-      async screenshot() {
-        const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+      async screenshot(o: { format?: 'png' | 'jpeg'; quality?: number } = {}) {
+        const r = await send('Page.captureScreenshot', { format: o.format ?? 'png', ...(o.format === 'jpeg' ? { quality: o.quality ?? 85 } : {}), captureBeyondViewport: false });
         return Buffer.from(r.data, 'base64');
       },
     };

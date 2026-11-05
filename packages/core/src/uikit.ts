@@ -42,8 +42,8 @@ export const FORGE_TOKENS: UiTokens = {
 };
 
 export const FORGE_LAYOUT: UiElement[] = [
-  { id: 'heat', part: 'bar', x: 96, y: 28, w: 300, h: 30, text: 'Fire', value: 0.7 },
-  { id: 'score', part: 'label', x: 944, y: 28, w: 240, h: 30, text: 'Blades: 2', anchor: 'tr' },
+  { id: 'heat', part: 'bar', x: 96, y: 28, w: 300, h: 40, text: 'Fire', value: 0.7 },
+  { id: 'score', part: 'label', x: 944, y: 28, w: 240, h: 40, text: 'Blades: 2', anchor: 'tr' },
   { id: 'slot-tongs', part: 'slot', x: 404, y: 588, w: 88, h: 88, icon: 'tongs', anchor: 'bl' },
   { id: 'slot-charcoal', part: 'slot', x: 500, y: 588, w: 88, h: 88, icon: 'charcoal', anchor: 'bl' },
   { id: 'slot-hammer', part: 'slot', x: 596, y: 588, w: 88, h: 88, icon: 'big-hammer', anchor: 'bl' },
@@ -226,10 +226,10 @@ export function uiCss(t: UiTokens, fontUrl = 'font.woff'): string {
 .ui-button:focus-visible { outline: 2px solid var(--ui-ink); outline-offset: 2px; }
 .ui-bar { background: var(--ui-bg); border: var(--ui-border) solid var(--ui-edge); border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); overflow: hidden; }
 .ui-bar > .fill { position: absolute; inset: 0 auto 0 0; background: var(--ui-accent); transition: width .2s; }
-.ui-bar > .text { position: relative; padding: 0 10px; font-size: calc(var(--ui-size) * .85); line-height: inherit; white-space: nowrap; color: var(--ui-ink); text-shadow: 0 1px 0 #000a; }
+.ui-bar > .text { position: relative; padding: 0 10px; font-size: inherit; line-height: inherit; white-space: nowrap; color: var(--ui-ink); text-shadow: 0 1px 0 #000a; }
 .ui-slot { background: var(--ui-bubble); border: ${edge}; border-radius: var(--ui-radius); box-shadow: var(--ui-shadow); padding: 6px; display: grid; place-items: center; }
 .ui-slot > img { width: 100%; height: 100%; } .ui-slot.selected { border-color: var(--ui-accent); }
-.ui-tooltip { background: var(--ui-bg); border: ${Math.max(1, b.width - 1)}px solid var(--ui-edge); border-radius: var(--ui-radius); padding: 6px 12px; font-size: calc(var(--ui-size) * .85); white-space: nowrap; }
+.ui-tooltip { background: var(--ui-bg); border: ${Math.max(1, b.width - 1)}px solid var(--ui-edge); border-radius: var(--ui-radius); padding: 0 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ui-card { background: var(--ui-panel); border: ${b.width + 1}px ${b.style === 'double' ? 'double' : 'solid'} var(--ui-edge); border-radius: ${b.radius + 4}px; box-shadow: var(--ui-shadow); padding: 32px 40px; text-align: center; }
 .ui-card > h1 { margin: 0 0 8px; font-size: var(--ui-title); color: var(--ui-accent); } .ui-card > p { margin: 0; color: var(--ui-muted); }
 .ui-bubble { background: var(--ui-bubble); color: var(--ui-bubble-ink); border: 2px solid var(--ui-bubble-ink); border-radius: 14px; padding: 8px 16px; max-width: 320px; transform: translate(-50%, -100%); white-space: normal; }

@@ -25,6 +25,8 @@ export interface StudioGame {
   animations?: THREE.AnimationClip[];
   /** studio characters: idles, the player model (set by startCharacters) */
   characters?: StudioCharacters;
+  /** game seconds, if your tick keeps them (g.time += dt): UI bubbles then time by the game, not the wall */
+  time?: number;
   /** studio effects (startEffects in studio/effects.ts) */
   effects?: StudioEffects;
 }

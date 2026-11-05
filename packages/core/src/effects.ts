@@ -92,7 +92,7 @@ export const EFFECT_PRESETS: Record<string, { label: string; make(): Omit<Effect
     label: 'Spark burst off an anvil strike: 60 fast stretched sparks with gravity, triggered by an event',
     make: () => ({
       loop: false,
-      layers: [P({ id: 'burst', shape: { type: 'cone', radius: 0.02, angle: 70 }, rate: 0, bursts: [{ at: 0, count: 60 }], life: [0.3, 0.7], speed: [1.6, 3.4], size: [0.022, 0.032], sizeEnd: 0.4, colour: ['spark', 'flame'], alpha: [1, 0], direction: [0, 1, 0], spread: 70, gravity: 6, drag: 0.4, stretch: 0.05 })],
+      layers: [P({ id: 'burst', shape: { type: 'cone', radius: 0.02, angle: 70 }, rate: 0, bursts: [{ at: 0, count: 60 }], life: [0.3, 0.7], speed: [1.6, 3.4], size: [0.03, 0.042], sizeEnd: 0.5, colour: ['spark', 'flame'], alpha: [1, 0], direction: [0, 1, 0], spread: 70, gravity: 6, drag: 0.4, stretch: 0.05 })],
     }),
   },
   'chimney-smoke': {
@@ -106,7 +106,7 @@ export const EFFECT_PRESETS: Record<string, { label: string; make(): Omit<Effect
     label: 'A puff of embers when charcoal is tipped in: a short upward burst that drifts and fades',
     make: () => ({
       loop: false,
-      layers: [P({ id: 'puff', shape: { type: 'disc', radius: 0.12 }, rate: 0, bursts: [{ at: 0, count: 30 }], life: [0.8, 1.5], speed: [0.6, 1.2], size: [0.03, 0.05], sizeEnd: 0.3, colour: ['ember', 'deep'], alpha: [1, 0], direction: [0, 1, 0], spread: 35, gravity: 0.6, turbulence: 0.6 })],
+      layers: [P({ id: 'puff', shape: { type: 'disc', radius: 0.12 }, rate: 0, bursts: [{ at: 0, count: 30 }], life: [0.8, 1.5], speed: [0.6, 1.2], size: [0.04, 0.06], sizeEnd: 0.4, colour: ['ember', 'deep'], alpha: [1, 0], direction: [0, 1, 0], spread: 35, gravity: 0.6, turbulence: 0.6 })],
     }),
   },
   rain: {
@@ -337,7 +337,7 @@ export function godotEffectScene(def: EffectDef, palette?: Record<string, string
     const dir = l.direction ?? [0, 1, 0];
     const shapeType = { point: 0, sphere: 1, cone: 0, box: 3, disc: 6 }[l.shape.type];
     const shapeProps = l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'disc' ? `\nemission_ring_axis = Vector3(0, 1, 0)\nemission_ring_height = 0.0\nemission_ring_radius = ${l.shape.radius ?? 0.1}\nemission_ring_inner_radius = 0.0` : '';
-    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = 1.0\nturbulence_noise_scale = 4.0\nturbulence_influence_min = ${(l.turbulence! * 0.04).toFixed(3)}\nturbulence_influence_max = ${(l.turbulence! * 0.06).toFixed(3)}` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
+    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\nlifetime_randomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = 1.0\nturbulence_noise_scale = 4.0\nturbulence_influence_min = ${(l.turbulence! * 0.04).toFixed(3)}\nturbulence_influence_max = ${(l.turbulence! * 0.06).toFixed(3)}` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
     const dotGrad = add('Gradient', `colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)`);
     const dot = add('GradientTexture2D', `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 1\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)`);
     const mat = add('StandardMaterial3D', `transparency = 1\nalbedo_texture = SubResource("${dot}")\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nbillboard_mode = ${l.stretch ? 2 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);

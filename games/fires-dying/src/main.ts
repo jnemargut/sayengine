@@ -1,20 +1,25 @@
-// Fire's Dying — a tiny forge game. You are the apprentice: fetch the tools the blacksmith calls for and
-// keep the forge fed with charcoal, until the blade is done or the fire goes out.
-// Studio assets (the yard, props, both characters, the voiced lines, the intro cutscene) come from
-// build-assets.ts via `studio game import`; the rules are plain code in rules.ts (tested).
-// Placeholders where the studio has no tool yet: the fire (cones + a light), the HUD and the speech
-// bubble (HTML). See PAIN.md.
+// Fire's Dying — a tiny forge game. You are the apprentice: fetch the tools the blacksmith calls for,
+// pump the bellows when he wants heat, fill the quench tub when the blade needs it, and keep the forge
+// fed with charcoal — until the blade is done or the fire goes out.
+// Everything you see comes from the studio (build-assets.ts → `studio game import`): the yard and props,
+// both characters, the voiced lines (say()), the intro cutscene, the effects (studio/effects.ts: the fire
+// follows the `fire` value, sparks fire on the smith's strike) and the UI kit (studio/ui.ts: bars, slots,
+// cards, bubbles). The rules are plain code in rules.ts (tested); this file is the glue.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { addStaticColliders, installHarness, startCharacters, type StudioGame } from '../studio/harness.ts';
+import { addStaticColliders, installHarness, startCharacters, named, hold, type StudioGame } from '../studio/harness.ts';
+import { startEffects } from '../studio/effects.ts';
+import { startUI, say } from '../studio/ui.ts';
 import { CutscenePlayer } from '../studio/cutscene.ts';
-import { CALLS, ITEMS, LINES, type Item, type Line } from './lines.ts';
-import { newGame, step as stepRules, pickUp, deliver, feed, GOAL, type Event, type State } from './rules.ts';
+import { CALLS, ITEMS, JOBS, LINES, type Item, type Line } from './lines.ts';
+import { newGame, step as stepRules, pickUp, deliver, feed, quench, pump, patience, GOAL, QUENCH_EVERY, CARRY_SPEED, type Event, type State } from './rules.ts';
 
 type V3 = [number, number, number];
-type Station = { key: Item | 'smith' | 'forge'; node: THREE.Object3D; box: THREE.Box3; label: string };
+type Key = Item | 'smith' | 'forge' | 'tub' | 'bellows';
+type Station = { key: Key; node: THREE.Object3D; box: THREE.Box3; label: string };
 const REACH = 0.85; // arm's length plus the stop step's carry
+const ICON = (n: string) => `assets/studio/ui/icons/${n}.svg`;
 
 async function start(): Promise<StudioGame> {
   await RAPIER.init();
@@ -54,104 +59,84 @@ async function start(): Promise<StudioGame> {
   addStaticColliders(world, RAPIER, studio);
 
   const game = {
-    renderer, scene, camera, studio, world, RAPIER, animations: gltf.animations, paused: false,
+    renderer, scene, camera, studio, world, RAPIER, animations: gltf.animations, paused: false, time: 0,
     step(dt: number) { world.timestep = dt; world.step(); },
-  } as StudioGame & { tick(dt: number): void };
+  } as StudioGame & { tick(dt: number): void; time: number };
 
-  const sc = await startCharacters(game, { controls: true });
-  const player: any = sc.keyboard; // the harness's walking apprentice — we drive it ourselves
-  sc.keyboard = null;
-  const START: V3 = sc.manifest.player!.start as V3;
+  // the studio's characters (the apprentice made but driven by this file), effects and UI kit
+  const sc = await startCharacters(game, { controls: 'none' });
+  const player = sc.player!;
+  const PLAYER = sc.manifest.player!.name;
+  const START = sc.manifest.player!.start as V3;
+  const smith = sc.actors.Blacksmith;
+  const fx = await startEffects(game);
+  const ui = await startUI(game);
+  const lineInfo: Record<string, { duration: number; text: string }> = (await (await fetch('assets/studio/lines/lines.json')).json()).Blacksmith ?? {};
 
-  // ── stations: where each thing lives, the smith, the forge ──
-  // three's GLTF loader turns spaces in node names into underscores, so look names up the same way
-  const named = (n: string) => studio.getObjectByName(THREE.PropertyBinding.sanitizeNodeName(n));
+  // ── stations: where each thing lives, the smith, the forge, the quench tub, the bellows ──
   const box = (o: THREE.Object3D) => new THREE.Box3().setFromObject(o);
   const stations: Station[] = [];
-  for (const [k, it] of Object.entries(ITEMS) as Array<[Item, (typeof ITEMS)[Item]]>) {
-    const n = named(it.object);
-    if (n) stations.push({ key: k, node: n, box: box(n), label: it.label });
-    else console.error(`fires-dying: no '${it.object}' in the scene`);
-  }
-  const smithNode = named('Blacksmith (character)') ?? named('Blacksmith')!;
-  // hand things over at the anvil too: the smith stands behind it
-  const smithBox = box(named('Blacksmith')!).union(box(named('Stump')!));
-  stations.push({ key: 'smith', node: smithNode, box: smithBox, label: 'the blacksmith' });
-  const forgeNode = named('Forge')!;
-  const forgeBox = box(forgeNode);
-  stations.push({ key: 'forge', node: forgeNode, box: forgeBox, label: 'the forge' });
+  for (const [k, it] of Object.entries(ITEMS) as Array<[Item, (typeof ITEMS)[Item]]>) { const n = named(game, it.object); stations.push({ key: k, node: n, box: box(n), label: it.label }); }
+  const smithNode = named(game, 'Blacksmith');
+  stations.push({ key: 'smith', node: smithNode, box: box(smithNode).union(box(named(game, 'Stump'))), label: 'the blacksmith' });  // hand over at the anvil too
+  const forgeNode = named(game, 'Forge');
+  stations.push({ key: 'forge', node: forgeNode, box: box(forgeNode), label: 'the forge' });
+  stations.push({ key: 'tub', node: named(game, 'Quench tub'), box: box(named(game, 'Quench tub')), label: 'the quench tub' });
+  stations.push({ key: 'bellows', node: named(game, 'Bellows'), box: box(named(game, 'Bellows')), label: 'the bellows' });
+  const station = (k: Key) => stations.find((s) => s.key === k)!;
   const xzDist = (p: V3, b: THREE.Box3) => Math.hypot(Math.max(b.min.x - p[0], 0, p[0] - b.max.x), Math.max(b.min.z - p[2], 0, p[2] - b.max.z));
   const nearest = (p: V3) => stations.map((s) => ({ s, d: xzDist(p, s.box) })).filter((x) => x.d <= REACH).sort((a, b) => a.d - b.d)[0]?.s ?? null;
 
-  // ── the fire (placeholder: three cones and a light, sized by the fire level) ──
-  const bed = new THREE.Vector3((forgeBox.min.x + forgeBox.max.x) / 2, 0.86, forgeNode.getWorldPosition(new THREE.Vector3()).z + 0.05);
-  const fire = new THREE.Group();
-  fire.position.copy(bed);
-  const flames = [['#ff8a2a', 0.13, 0], ['#ffc04a', 0.09, 0.06], ['#ff5a1f', 0.1, -0.07]].map(([c, r, x]) => {
-    const m = new THREE.Mesh(new THREE.ConeGeometry(r as number, 0.4, 6), new THREE.MeshBasicMaterial({ color: c as string, transparent: true, opacity: 0.9 }));
-    m.position.x = x as number; m.position.y = 0.2; fire.add(m); return m;
-  });
-  scene.add(fire);
+  // the forge's light (effects draw the flames; a light makes the yard glow with them)
+  const bed = new THREE.Vector3((station('forge').box.min.x + station('forge').box.max.x) / 2, 0.86, forgeNode.getWorldPosition(new THREE.Vector3()).z + 0.05);
   const glow = new THREE.PointLight('#ff8a3a', 4, 6, 1.6);
   glow.position.copy(bed).add(new THREE.Vector3(0, 0.5, 0.3));
   scene.add(glow);
+  // the blade heats through each round of work and goes dark when it's quenched
+  const blade: any = named(game, 'Blade');
+  const bladeMat: THREE.MeshStandardMaterial | null = blade?.isMesh ? (blade.material = blade.material.clone()) : (blade?.getObjectByProperty('isMesh', true) as any)?.material?.clone() ?? null;
+  if (bladeMat) { bladeMat.emissive = new THREE.Color('#ff6a1a'); blade.traverse((o: any) => { if (o.isMesh) o.material = bladeMat; }); }
 
-  // the blade heats as the work goes on
-  const blade: any = named('Blade');
-  if (blade?.material) { blade.material = blade.material.clone(); blade.material.emissive = new THREE.Color('#ff6a1a'); }
-
-  // ── the smith: idle, hammering between calls, his voiced lines ──
-  const smithMixer = sc.mixers.find((m) => (m.getRoot() as THREE.Object3D).name === THREE.PropertyBinding.sanitizeNodeName('Blacksmith (character)')) ?? sc.mixers[0];
-  const clip = (n: string) => game.animations!.find((a) => a.name === n);
-  const idleAct = smithMixer.existingAction(clip('idle')!) ?? smithMixer.clipAction(clip('idle')!);
-  let smithAct: THREE.AnimationAction | null = null, smithBusy = 0;
-  const once = (name: string, fade = 0.2) => {
-    const c = clip(name); if (!c) return 0;
-    const a = smithMixer.clipAction(c); a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true;
-    a.reset().setEffectiveWeight(1).fadeIn(fade).play();
-    idleAct.fadeOut(fade);
-    if (smithAct && smithAct !== a) smithAct.fadeOut(fade);
-    smithAct = a; smithBusy = c.duration;
-    return c.duration;
+  // ── the smith: hammering between calls, his voiced lines (say(): voice + mouth + body) ──
+  const strikeDur = smith.clip('strike')?.duration ?? 1.8;
+  let smithBusy = 0;
+  const bubbleOver = smith.root.getObjectByProperty('isSkinnedMesh', true) ?? smith.root;
+  const clearBubbles = () => { for (const b of ui.bubbles) b.el.remove(); ui.bubbles = []; };
+  const speak = (l: Line, icon?: string) => {
+    const d = lineInfo[l.id]?.duration ?? 1.5;
+    say(game, 'Blacksmith', l.id, { bubble: false }).catch((e) => console.error(e));
+    smithBusy = d + 0.2;
+    clearBubbles();
+    const b = ui.bubble(bubbleOver, l.text, d + 1.4);
+    if (icon) { const img = document.createElement('img'); img.src = ICON(icon); img.alt = icon.replace(/-/g, ' '); img.className = 'bubble-icon'; b.prepend(img); }
   };
-  const voices = new Map<string, HTMLAudioElement>();
-  const speak = (l: Line) => {
-    const d = once(`line:${l.id}`);
-    let a = voices.get(l.id);
-    if (!a) { a = new Audio(`assets/voice/${l.id}.wav`); voices.set(l.id, a); }
-    a.currentTime = 0; a.play().catch(() => {});
-    bubble(l.text, d + 1.2);
-  };
-  const updateSmith = (dt: number, s: State | null) => {
-    if (smithBusy > 0) {
-      smithBusy -= dt;
-      if (smithBusy <= 0 && smithAct) { smithAct.fadeOut(0.3); idleAct.reset().fadeIn(0.3).play(); smithAct = null; }
-    } else if (s && s.phase === 'play' && !s.request && s.working > 0.9) once('strike', 0.15); // hammering while he works
-  };
-
-  // ── HUD (placeholder HTML) ──
-  const css = document.createElement('style');
-  css.textContent = `
-    .hud{position:fixed;left:16px;top:14px;font:600 14px/1.3 system-ui,sans-serif;color:#f3e7d3;text-shadow:0 1px 2px #000a;user-select:none}
-    .bar{width:220px;height:12px;border:2px solid #c9a36a;border-radius:4px;background:#3a2f26;margin:4px 0 10px;overflow:hidden}
-    .bar>i{display:block;height:100%;background:#e8622c}.bar.blade>i{background:#d9d2c4}
-    .bubble{position:fixed;transform:translate(-50%,-100%);background:#f3e7d3;color:#2b2622;border:3px solid #c9a36a;border-radius:10px;padding:6px 10px;font:600 15px system-ui,sans-serif;max-width:260px;text-align:center;pointer-events:none;transition:opacity .2s}
-    .hint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);font:600 15px system-ui,sans-serif;color:#f3e7d3;background:#2b2622cc;border:2px solid #c9a36a;border-radius:8px;padding:6px 12px}
-    .card{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1c1814e6;color:#f3e7d3;font:16px/1.5 system-ui,sans-serif;text-align:center;gap:10px}
-    .card h1{font:800 44px/1.1 Georgia,serif;margin:0;color:#ffb35a}.card button{font:700 18px system-ui;padding:10px 26px;border-radius:8px;border:2px solid #c9a36a;background:#e8622c;color:#fff;cursor:pointer}
-    .card p{max-width:440px;margin:0 16px}`;
+  const css = document.createElement('style');   // the one thing the kit has no part for: an icon inside a bubble
+  css.textContent = '.ui-bubble .bubble-icon{width:1.6em;height:1.6em;vertical-align:middle;margin:-.2em .35em 0 -.2em}';
   document.head.appendChild(css);
-  const el = (cls: string, html = '') => { const d = document.createElement('div'); d.className = cls; d.innerHTML = html; document.body.appendChild(d); return d; };
-  const hud = el('hud', 'Fire<div class="bar"><i id="fireBar"></i></div>Blade<div class="bar blade"><i id="bladeBar"></i></div><div id="wants"></div><div id="carry"></div>');
-  const bubbleEl = el('bubble'); bubbleEl.style.opacity = '0';
-  const hintEl = el('hint'); hintEl.style.display = 'none';
-  let bubbleT = 0;
-  function bubble(text: string, secs: number) { bubbleEl.textContent = text; bubbleT = secs; }
-  const card = el('card');
-  const showCard = (title: string, body: string, button: string, onClick: () => void) => {
-    card.innerHTML = `<h1>${title}</h1><p>${body}</p><button>${button}</button>`;
-    card.style.display = 'flex';
-    card.querySelector('button')!.onclick = () => { card.style.display = 'none'; onClick(); };
+
+  // ── the HUD (the studio layout: fire and blade bars, what he wants, what you carry, the hint) ──
+  const HUD = ['fire', 'blade', 'want', 'wants', 'carry-label', 'carry', 'hint', 'use'];
+  const showHud = (on: boolean) => { for (const id of HUD) if (ui.els[id]) ui.els[id].style.visibility = on ? '' : 'hidden'; };
+  const setSlot = (id: string, icon: string | null) => {
+    const d = ui.els[id]; if (!d) return;
+    let img = d.querySelector('img');
+    if (!icon) { img?.remove(); return; }
+    if (!img) { img = document.createElement('img'); d.appendChild(img); }
+    if (img.getAttribute('src') !== ICON(icon)) { img.setAttribute('src', ICON(icon)); img.alt = icon.replace(/-/g, ' '); }
+  };
+  ui.els.use?.addEventListener('click', () => act());
+  let cardEl: HTMLElement | null = null;
+  const hideCard = () => { cardEl?.remove(); cardEl = null; delete ui.els.card; };
+  const showCard = (title: string, body: string[], button: string, onClick: () => void) => {
+    hideCard(); clearBubbles();
+    cardEl = ui.add({ id: 'card', part: 'card', x: 260, y: 120, w: 760, h: 480, text: title, anchor: 'center' });
+    for (const t of body) { const p = document.createElement('p'); p.textContent = t; p.style.marginTop = '0.6em'; cardEl.appendChild(p); }
+    const b = document.createElement('button');
+    b.className = 'ui-button'; b.textContent = button;
+    Object.assign(b.style, { margin: '1em auto 0', padding: '0.4em 1.4em', display: 'inline-flex' });
+    b.onclick = () => { hideCard(); onClick(); };
+    cardEl.appendChild(b);
+    ui.layout();
   };
 
   // ── state ──
@@ -160,41 +145,64 @@ async function start(): Promise<StudioGame> {
   let held: THREE.Object3D | null = null, heldKey: Item | null = null;
   let target: { station?: Station; point?: V3 } | null = null;
   let intro: CutscenePlayer | null = null;
-  let seed = 1, stuck = 0, detour = 0, detourSide = 1, via: [number, number] | null = null;
+  let seed = 1, stuck = 0, detour = 0, detourSide = 1, via: [number, number] | null = null, endIn = -1, reachT = 0, pumpT = 0;
   const keys = new Set<string>();
-  addEventListener('keydown', (e) => { keys.add(e.code); if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); act(); } if (e.code === 'KeyR' && mode === 'end') begin(false); if (mode === 'intro' && (e.code === 'Space' || e.code === 'Escape')) endIntro(); });
+  addEventListener('keydown', (e) => {
+    keys.add(e.code);
+    if (cardEl && (e.code === 'Enter' || e.code === 'Space' || (e.code === 'KeyR' && mode === 'end'))) { e.preventDefault(); (cardEl.querySelector('button') as HTMLButtonElement).click(); return; }
+    if (e.code === 'KeyE' || e.code === 'Space') { e.preventDefault(); act(); }
+    if (mode === 'intro' && (e.code === 'Space' || e.code === 'Escape')) endIntro();
+  });
   addEventListener('keyup', (e) => keys.delete(e.code));
 
+  // carrying: a copy of the thing rides the apprentice's hand (hold() puts its grip in the palm); the
+  // tool leaves its place on the shelf until it's handed over (the sack stays: it holds more charcoal)
   const setHeld = (k: Item | null) => {
-    if (held) { scene.remove(held); held = null; }
+    if (held) { held.removeFromParent(); held = null; }
+    for (const [it] of Object.entries(ITEMS)) station(it as Item).node.visible = true;
     heldKey = k;
     if (!k) return;
-    const src = stations.find((s) => s.key === k)!.node;
-    held = src.clone(true);
-    held.traverse((o: any) => { if (o.name?.endsWith('_collision')) o.visible = false; });
-    held.scale.setScalar(k === 'charcoal' ? 0.55 : k === 'bucket' ? 0.8 : 1);
-    scene.add(held);
+    const src = station(k).node, copy = src.clone(true);
+    copy.userData = { ...src.userData, studioName: `${ITEMS[k].object} (carried)` };
+    copy.traverse((o: any) => { if (o.name?.endsWith('_collision')) o.visible = false; });
+    scene.add(copy);
+    held = hold(game, PLAYER, copy.userData.studioName, 'right');
+    if (k === 'charcoal') held.scale.setScalar(0.55); else if (k === 'bucket') held.scale.setScalar(0.8);
+    if (k !== 'charcoal') src.visible = false;
   };
-  const hand = player.mesh.getObjectByName('RightHand') as THREE.Object3D | undefined;
   const pickClip = sc.avatar?.animations.find((a: THREE.AnimationClip) => a.name === 'pickup');
-  const reach = () => { if (!pickClip) return; const a = player.mixer.clipAction(pickClip); a.setLoop(THREE.LoopOnce, 1); a.reset().setEffectiveWeight(0.85).fadeIn(0.12).play(); setTimeout(() => a.fadeOut(0.25), 450); };
+  const reach = () => { if (!pickClip || !player.mixer) return; const a = player.mixer.clipAction(pickClip); a.setLoop(THREE.LoopOnce, 1); a.reset().setEffectiveWeight(0.85).fadeIn(0.12).play(); reachT = 0.45; };
 
   const handle = (ev: Event[]) => {
     for (const e of ev) {
-      if (e.kind === 'call') speak(CALLS[e.item]);
-      else if (e.kind === 'good') speak(LINES.good);
-      else if (e.kind === 'wrong') speak(LINES.wrong);
-      else if (e.kind === 'low-fire') speak(CALLS.charcoal);
+      if (e.kind === 'call') speak(CALLS[e.job], JOBS[e.job].icon);
+      else if (e.kind === 'good') speak(e.job === 'quench' ? LINES.hiss : LINES.good);
+      else if (e.kind === 'wrong') speak(LINES.wrong, JOBS[e.wanted]?.icon);
+      else if (e.kind === 'impatient') speak(LINES.late, JOBS[e.job].icon);
+      else if (e.kind === 'low-fire') speak(CALLS.charcoal, 'charcoal');
+      else if (e.kind === 'fed') fx.event('fed');
+      else if (e.kind === 'pumped') { fx.event('pumped'); pumpT = 0.6; }
       else if (e.kind === 'won' || e.kind === 'lost') finish(e.kind === 'won');
     }
+  };
+  /** what using a station does now, or null when it does nothing (the hint shows this) */
+  const useOf = (s: Station): string | null => {
+    const st = state!;
+    if (s.key === 'smith') return heldKey && heldKey !== 'charcoal' ? `give him ${ITEMS[heldKey].label}` : null;
+    if (s.key === 'forge') return heldKey === 'charcoal' ? 'tip the charcoal in' : null;
+    if (s.key === 'tub') return heldKey === 'bucket' ? (st.request === 'quench' ? 'fill the quench tub' : null) : null;
+    if (s.key === 'bellows') return st.request === 'bellows' ? 'pump the bellows' : st.pumpCool > 0 ? null : 'pump the bellows (a little heat)';
+    return heldKey === s.key ? null : `take ${s.label}`;
   };
   function act(to?: Station) {
     if (mode !== 'play' || !state) return;
     const f = player.feet() as V3;
     const s = to && xzDist(f, to.box) <= REACH ? to : nearest(f);
-    if (!s) return;
-    if (s.key === 'smith') { if (heldKey && heldKey !== 'charcoal') { reach(); handle(deliver(state)); setHeld(state.carrying); } }
-    else if (s.key === 'forge') { if (heldKey === 'charcoal') { reach(); handle(feed(state)); setHeld(state.carrying); } }
+    if (!s || !useOf(s)) return;
+    if (s.key === 'smith') { reach(); handle(deliver(state)); setHeld(state.carrying); }
+    else if (s.key === 'forge') { reach(); handle(feed(state)); setHeld(state.carrying); }
+    else if (s.key === 'tub') { reach(); handle(quench(state)); setHeld(state.carrying); }
+    else if (s.key === 'bellows') handle(pump(state));
     else { reach(); pickUp(state, s.key); setHeld(s.key); }
   }
 
@@ -207,45 +215,59 @@ async function start(): Promise<StudioGame> {
     const hit = ray.intersectObjects([studio, floor], true)[0];
     if (!hit) return;
     let o: THREE.Object3D | null = hit.object;
-    const st = () => stations.find((s) => s.node === o || s.node.name === o?.name);
+    const st = () => stations.find((s) => s.node === o);
     while (o && !st()) o = o.parent;
     const found = o ? st() : undefined;
     via = null; target = found ? { station: found } : { point: [hit.point.x, 0, hit.point.z] };
   });
 
-  // ── flow: title → intro cutscene → play → end ──
+  // ── flow: title → intro cutscene → play → end card → play again ──
   async function begin(withIntro: boolean) {
     state = newGame(seed++);
-    card.style.display = 'none';
-    setHeld(null); target = null; via = null;
+    hideCard(); clearBubbles();
+    setHeld(null); target = null; via = null; endIn = -1;
     player.body.setTranslation({ x: START[0], y: START[1] + player.half + player.radius + 0.02, z: START[2] }, true);
     player.heading = Math.PI;
-    if (blade?.material) blade.material.emissiveIntensity = 0;
+    fx.setValue('fire', state.fire);
     if (withIntro) {
       const tl = await (await fetch('assets/studio/cutscenes/intro.json')).json();
       intro = new CutscenePlayer(studio, game.animations!, tl, camera, 'assets/studio/cutscenes/audio/');
       intro.play(); mode = 'intro';
-    } else { mode = 'play'; }
+    } else mode = 'play';
   }
-  function endIntro() { if (!intro) return; intro.stop(); intro.mixer.stopAllAction(); intro = null; mode = 'play'; idleAct.reset().play(); }
+  function endIntro() { if (!intro) return; intro.stop(); intro.mixer.stopAllAction(); intro = null; mode = 'play'; smith.play('idle', { fade: 0.2 }); }
   function finish(won: boolean) {
     if (mode === 'end') return;
     mode = 'end'; target = null;
     speak(won ? LINES.win : LINES.lose);
-    const s = state!;
-    setTimeout(() => showCard(won ? 'The blade is done' : "The fire's out", won
-      ? `You fetched ${s.done} tools and fed the forge ${s.fed} times in ${Math.round(s.t)} seconds${s.wrongs ? `, with ${s.wrongs} wrong tool${s.wrongs > 1 ? 's' : ''}` : ''}.`
-      : `${s.done} of ${GOAL} tools fetched in ${Math.round(s.t)} seconds. Keep an eye on the fire.`, 'Play again', () => begin(false)), 1800);
+    endIn = 2.4;   // the card follows the line, on the game's clock (so stepped captures see it too)
   }
-  showCard("Fire's Dying", 'You are the blacksmith\'s apprentice. Fetch the tools he calls for, and keep the forge fed with charcoal from the sack. Finish the blade before the fire goes out.<br><br>Move: WASD or arrows, or tap where to go. Use: E or Space, or tap the thing.', 'Start', () => begin(true));
+  const endCard = () => {
+    const s = state!, won = s.phase === 'won';
+    const extra = [s.wrongs ? `${s.wrongs} wrong tool${s.wrongs > 1 ? 's' : ''}` : '', s.late ? `kept him waiting ${s.late} time${s.late > 1 ? 's' : ''}` : ''].filter(Boolean).join(', ');
+    showCard(won ? 'The blade is done' : "The fire's out", won
+      ? [`${GOAL} jobs in ${Math.floor(s.t / 60)}:${String(Math.round(s.t % 60)).padStart(2, '0')}. You fed the forge ${s.fed} times and worked the bellows ${s.pumped}.`, extra ? `(${extra})` : 'Not one slip.']
+      : [`${s.done} of ${GOAL} jobs done in ${Math.round(s.t)} seconds.`, s.fed ? 'Feed the forge before he has to shout for charcoal.' : 'The forge needs charcoal from the sack: it never fed once.'],
+    'Play again', () => begin(false));
+  };
+  showHud(false);
+  showCard("Fire's Dying", [
+    "You are the blacksmith's apprentice. Fetch the tools he calls for, work the bellows when he wants heat, and fill the quench tub when the blade needs it.",
+    'Keep the forge fed with charcoal from the sack. Finish the blade before the fire dies.',
+    'Move: WASD or arrows, or tap where to go. Use: E, Space or the Use button, or tap the thing.',
+  ], 'Start', () => begin(true));
 
   // ── the frame ──
   const camPos = new THREE.Vector3(), camAt = new THREE.Vector3();
+  let shownFire = -1;
   game.tick = (dt: number) => {
+    game.time += dt;
     if (mode === 'intro' && intro) {
       intro.update(dt);
       player.move([0, 0], 0, dt); game.step(dt); player.sync(dt);
+      showHud(false);
       if (intro.done) endIntro();
+      ui.update();
       return;
     }
     const playing = mode === 'play' && state;
@@ -269,89 +291,73 @@ async function start(): Promise<StudioGame> {
           if (!b && !via && l < 0.15) target = null;
           else {
             dir = [dx / l, dz / l];
-            // no pathfinding: when blocked, slide sideways around the obstacle for a moment
+            // when blocked, slide sideways around the obstacle for a moment
             if (detour > 0) { detour -= dt; const a = detourSide * 1.1; dir = [dir[0] * Math.cos(a) - dir[1] * Math.sin(a), dir[0] * Math.sin(a) + dir[1] * Math.cos(a)]; }
             else if (player.hs < player.walkSpeed * 0.25 && player.state === 'walk') {
               if ((stuck += dt) > 0.25) {
                 stuck = 0;
                 if (!via && Math.hypot(START[0] - f[0], START[2] - f[2]) > 0.6) via = [START[0], START[2]];
                 else { detour = 0.7; detourSide = -detourSide; }
-                // wedged into a collider (a stop step can carry the body in): back out a little
-                const t = player.body.translation();
+                const t = player.body.translation();   // wedged (a stop step can carry the body in): back out
                 player.body.setTranslation({ x: t.x - dir[0] * 0.15, y: t.y, z: t.z - dir[1] * 0.15 }, true);
               }
-            }
-            else stuck = 0;
+            } else stuck = 0;
           }
         }
       }
     }
-    player.move(dir, dir[0] || dir[1] ? player.walkSpeed : 0, dt);
+    const speed = player.walkSpeed * (heldKey ? CARRY_SPEED[heldKey] ?? 1 : 1);
+    player.move(dir, dir[0] || dir[1] ? speed : 0, dt);
     game.step(dt);
-    sc.update(dt);
+    sc.update(dt);          // every character's clips, and the effects (sparks on the strike's impact)
     player.sync(dt);
-    updateSmith(dt, state);
-    // held thing in the right hand
-    if (held && hand) { hand.getWorldPosition(held.position); held.position.y -= heldKey === 'bucket' || heldKey === 'charcoal' ? 0.18 : 0.04; held.rotation.set(0, player.heading + Math.PI / 2, 0); }
-    // fire and blade
-    const lvl = state ? state.fire : 0.8, tt = performance.now() / 1000;
-    fire.visible = lvl > 0.005;
-    flames.forEach((m, i) => { m.scale.set(0.6 + lvl * 0.6, 0.25 + lvl * 1.5 + 0.15 * Math.sin(tt * 9 + i * 2), 0.6 + lvl * 0.6); });
-    glow.intensity = 0.4 + lvl * 5 + Math.sin(tt * 13) * 0.3 * lvl;
-    if (blade?.material && state) blade.material.emissiveIntensity = (state.done / GOAL) * 1.2;
+    if (reachT > 0 && (reachT -= dt) <= 0 && pickClip && player.mixer) player.mixer.clipAction(pickClip).fadeOut(0.25);
+    // the smith: talking, else hammering while he works, else waiting
+    if (smithBusy > 0) smithBusy -= dt;
+    else if (state?.phase === 'play' && !state.request && state.working > 0.9 && mode === 'play') { smith.play('strike', { once: true, fade: 0.15 }); smithBusy = strikeDur; }
+    // the fire follows the game; the light with it; the bellows' puff lifts it for a moment
+    const lvl = state ? state.fire : 0.8;
+    pumpT = Math.max(0, pumpT - dt);
+    const shown = Math.min(1, lvl + pumpT * 0.3);
+    if (Math.abs(shown - shownFire) > 0.005) { fx.setValue('fire', shown); shownFire = shown; }
+    glow.intensity = shown > 0.005 ? 0.4 + shown * 5 + Math.sin(game.time * 13) * 0.3 * shown : 0;
+    if (bladeMat && state) bladeMat.emissiveIntensity = state.phase === 'won' ? 0 : ((state.done % QUENCH_EVERY) / (QUENCH_EVERY - 1)) * 1.3;
     // camera: the whole yard, drifting a little with the apprentice
     const f = player.feet() as V3;
     camPos.set(f[0] * 0.3, 6.4, 5.8 + f[2] * 0.2); camAt.set(f[0] * 0.3, 0.2, -0.6 + f[2] * 0.15);
     camera.position.lerp(camPos, Math.min(1, dt * 2.5)); camera.lookAt(camAt);
     // HUD
-    (document.getElementById('fireBar') as HTMLElement).style.width = `${lvl * 100}%`;
-    (document.getElementById('bladeBar') as HTMLElement).style.width = `${state ? (state.done / GOAL) * 100 : 0}%`;
-    (document.getElementById('wants') as HTMLElement).textContent = state?.request ? `He wants: ${ITEMS[state.request].label}` : state?.phase === 'play' ? 'He is working…' : '';
-    (document.getElementById('carry') as HTMLElement).textContent = heldKey ? `Carrying: ${ITEMS[heldKey].label}` : '';
-    hud.style.display = mode === 'play' || mode === 'end' ? 'block' : 'none';
-    const near = playing ? nearest(f) : null;
-    const hint = !near ? '' : near.key === 'smith' ? (heldKey && heldKey !== 'charcoal' ? `E: give ${ITEMS[heldKey].label}` : '') : near.key === 'forge' ? (heldKey === 'charcoal' ? 'E: tip the charcoal in' : '') : heldKey === near.key ? '' : `E: take ${near.label}`;
-    hintEl.textContent = hint; hintEl.style.display = hint ? 'block' : 'none';
-    if (bubbleT > 0) {
-      bubbleT -= dt;
-      const head = new THREE.Vector3(); (named('Blacksmith')!).getWorldPosition(head); head.y += 1.75;
-      head.project(camera);
-      bubbleEl.style.left = `${(head.x * 0.5 + 0.5) * innerWidth}px`; bubbleEl.style.top = `${(-head.y * 0.5 + 0.5) * innerHeight}px`;
+    showHud(mode === 'play' || mode === 'end');
+    if (state) {
+      ui.setBar('fire', lvl); ui.setText('fire', lvl < 0.3 ? 'Fire: low!' : 'Fire');
+      ui.setBar('blade', state.done / GOAL); ui.setText('blade', `Blade ${state.done} / ${GOAL}`);
+      const r = state.request;
+      setSlot('want', r ? JOBS[r].icon : null);
+      ui.setText('wants', r ? `He wants: ${JOBS[r].want}` : state.phase === 'play' ? 'He is hammering' : '');
+      ui.els.want?.classList.toggle('selected', !!r && state.waited > patience(state.done) * 0.6);
+      setSlot('carry', heldKey ? ITEMS[heldKey].icon : null);
     }
-    bubbleEl.style.opacity = bubbleT > 0 ? '1' : '0';
+    const near = playing ? nearest(f) : null;
+    const use = near ? useOf(near) : null;
+    ui.setText('hint', use ? `E · ${use}` : '');
+    if (ui.els.hint) ui.els.hint.style.visibility = use && mode === 'play' ? '' : 'hidden';
+    if (ui.els.use) ui.els.use.style.visibility = mode === 'play' ? '' : 'hidden';
+    if (endIn > 0 && (endIn -= dt) <= 0) endCard();
+    ui.update();
   };
 
   // scripted play for headless tests and capture: window.__fires
   (window as any).__fires = {
     get state() { return state; }, get mode() { return mode; }, get carrying() { return heldKey; },
+    /** the card on screen (its title), or null */
+    get card() { return cardEl?.querySelector('h1')?.textContent ?? null; },
+    /** press the card's button (Start / Play again), as a player would */
+    press() { (cardEl?.querySelector('button') as HTMLButtonElement | null)?.click(); return !!cardEl; },
     begin: (intro = false) => begin(intro), endIntro, act, stations: () => stations.map((s) => s.key),
-    goTo(key: string) { const s = stations.find((x) => x.key === key); if (target?.station !== s) via = null; target = s ? { station: s } : null; return !!s; },
+    goTo(key: Key) { const s = stations.find((x) => x.key === key); if (target?.station !== s) via = null; target = s ? { station: s } : null; return !!s; },
     get busy() { return !!target; },
     pause() { game.paused = true; },
     advance(dt: number, n = 1, draw = true) { for (let i = 0; i < n; i++) game.tick(dt); if (draw) renderer.render(scene, camera); },
-    /** the canvas plus the HUD drawn over it (the HTML HUD isn't in canvas captures) */
-    snap(w = 960) {
-      const src = renderer.domElement, h = Math.round(w * src.height / src.width), k = w / innerWidth;
-      const c = document.createElement('canvas'); c.width = w; c.height = h;
-      const x = c.getContext('2d')!;
-      x.drawImage(src, 0, 0, w, h);
-      x.font = `600 ${Math.round(14 * k)}px system-ui`; x.fillStyle = '#f3e7d3';
-      const bar = (y: number, label: string, v: number, col: string) => { x.fillStyle = '#f3e7d3'; x.fillText(label, 16 * k, y); x.fillStyle = '#3a2f26'; x.fillRect(16 * k, y + 5 * k, 220 * k, 12 * k); x.fillStyle = col; x.fillRect(16 * k, y + 5 * k, 220 * k * v, 12 * k); x.strokeStyle = '#c9a36a'; x.lineWidth = 2; x.strokeRect(16 * k, y + 5 * k, 220 * k, 12 * k); };
-      if (mode === 'play' || mode === 'end') {
-        bar(28 * k, 'Fire', state ? state.fire : 0, '#e8622c');
-        bar(64 * k, 'Blade', state ? state.done / GOAL : 0, '#d9d2c4');
-        x.fillStyle = '#f3e7d3';
-        x.fillText((document.getElementById('wants') as HTMLElement).textContent ?? '', 16 * k, 106 * k);
-        x.fillText((document.getElementById('carry') as HTMLElement).textContent ?? '', 16 * k, 126 * k);
-      }
-      if (bubbleT > 0 && bubbleEl.textContent) {
-        const bx = parseFloat(bubbleEl.style.left) * k, by = parseFloat(bubbleEl.style.top) * k, tw = x.measureText(bubbleEl.textContent).width + 20 * k;
-        x.fillStyle = '#f3e7d3'; x.fillRect(bx - tw / 2, by - 30 * k, tw, 26 * k); x.strokeStyle = '#c9a36a'; x.strokeRect(bx - tw / 2, by - 30 * k, tw, 26 * k);
-        x.fillStyle = '#2b2622'; x.textAlign = 'center'; x.fillText(bubbleEl.textContent, bx, by - 12 * k); x.textAlign = 'left';
-      }
-      if (card.style.display !== 'none') { x.fillStyle = '#1c1814e6'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffb35a'; x.textAlign = 'center'; x.font = `800 ${Math.round(40 * k)}px Georgia`; x.fillText(card.querySelector('h1')?.textContent ?? '', w / 2, h / 2); x.textAlign = 'left'; }
-      return c.toDataURL('image/jpeg', 0.85);
-    },
   };
 
   addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });

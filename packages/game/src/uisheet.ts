@@ -38,11 +38,11 @@ h2{font-size:15px;margin:22px 0 10px;color:${ui.tokens.palette.muted};letter-spa
   <div class="ui-panel" style="left:0;top:0;width:220px;height:120px">Panel<br><span style="color:var(--ui-muted)">muted text</span></div>
   <button class="ui-button" style="left:240px;top:0;width:150px;height:56px">Pump</button>
   <button class="ui-button" style="left:240px;top:66px;width:150px;height:56px;background:${ui.tokens.palette.muted}">Disabled</button>
-  <div class="ui-bar" style="left:410px;top:0;width:260px;height:30px;line-height:24px"><div class="fill" style="width:62%"></div><div class="text">Fire 62%</div></div>
+  <div class="ui-bar" style="left:410px;top:0;width:260px;height:30px;line-height:24px;font-size:20px"><div class="fill" style="width:62%"></div><div class="text">Fire 62%</div></div>
   <div class="ui-slot" style="left:410px;top:44px;width:76px;height:76px"><img src="icons/${icons[0] ?? ''}.svg" alt=""></div>
   <div class="ui-slot selected" style="left:494px;top:44px;width:76px;height:76px"><img src="icons/${icons[1] ?? ''}.svg" alt=""></div>
-  <div class="ui-tooltip" style="left:690px;top:0;line-height:24px">Big hammer</div>
-  <div class="ui-bubble" style="left:760px;top:140px;transform:translate(-50%,-100%)">Good lad. Now hold it still.</div>
+  <div class="ui-tooltip" style="left:690px;top:0;font-size:20px;line-height:34px">Big hammer</div>
+  <div class="ui-bubble" style="left:720px;top:140px;transform:translate(-50%,-100%)">Good lad. Now hold it still.</div>
   <div class="ui-card" style="left:900px;top:0;width:300px;height:130px;padding:16px"><h1 style="font-size:30px">The Fire's Dying</h1><p>press any key</p></div>
 </div>
 <h2>HUD on a ${phone.w}×${phone.h} phone, translated (pseudolocalised +40%) — dashed line: the safe area</h2>

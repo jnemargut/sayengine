@@ -38,6 +38,15 @@ test('three.quarks: pinned, and every preset round-trips through its JSON with i
       const v = new THREE.Vector3(0, 0, 1).applyQuaternion(e.quaternion);
       assert.ok(Math.abs(v.x - dir[0]) + Math.abs(v.y - dir[1]) + Math.abs(v.z - dir[2]) < 1e-3, `${k}: emits along ${dir}, got ${v.toArray()}`);
       assert.equal(e.system.emissionOverTime.value ?? e.system.emissionOverTime.a ?? 0, l.rate);
+      // parity fixes (v1.1): a box fills its area (quarks' rectangle emits from its edge, sideways), a
+      // streak is speed × stretch long like Godot's, and colours reach quarks as the palette's sRGB
+      if (l.shape.type === 'box') assert.equal(e.system.emitterShape.type, 'grid', `${k}: a box emits from a grid`);
+      if (l.stretch) {
+        const avg = (r: number[]) => (r[0] + r[1]) / 2;
+        assert.ok(Math.abs(e.system.rendererEmitterSettings.lengthFactor * avg(l.size) - avg(l.speed) * l.stretch) < 1e-6, `${k}: streak length`);
+      }
+      const c0 = e.system.behaviors.find((x: any) => x.type === 'ColorOverLife').color.a;
+      assert.ok(Math.abs(c0.x - new THREE.Color().setStyle(DEFAULT_FIRE_PALETTE[l.colour[0]] ?? l.colour[0], THREE.LinearSRGBColorSpace).r) < 1e-3, `${k}: colour unlinearised`);
     }
   }
 });
