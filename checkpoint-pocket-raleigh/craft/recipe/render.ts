@@ -21,7 +21,7 @@ const c = { ...cfg, views };
 const res: Record<string, Record<string, string>> = {};
 for (const [game, engine] of [['games/pocket-raleigh', 'godot'], ['games/pocket-raleigh-web', 'web']] as const) {
   const r = await renderViews(path.resolve(game), engine, c as any, path.join(out, engine));
-  if (!r.ok) console.log(engine, r.error, r.errors.slice(0, 5));
+  if (!r.ok || r.errors.length) console.log(engine, r.error ?? '', JSON.stringify(r.errors.slice(0, 8)), JSON.stringify(r.warnings.slice(0, 4)));
   res[engine] = r.images;
 }
 const names = views.map((v) => v.name).filter((n) => res.godot[n] && res.web[n]);

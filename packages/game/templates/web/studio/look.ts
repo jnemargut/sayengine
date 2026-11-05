@@ -79,15 +79,17 @@ void main() {
     float e = step(outlineThreshold, lap / max(i0, 1e-6));
     c = mix(c, outlineColor, e);
   }
-  if (useGlow > 0.5) {
-    // Godot: glow levels gathered from the mip chain, × intensity, added before the tonemapper (additive mode)
-    vec3 g = texture2D(tGlow0, vUv).rgb * glowLevels[0] + texture2D(tGlow1, vUv).rgb * glowLevels[1] + texture2D(tGlow2, vUv).rgb * glowLevels[2]
-      + texture2D(tGlow3, vUv).rgb * glowLevels[3] + texture2D(tGlow4, vUv).rgb * glowLevels[4] + texture2D(tGlow5, vUv).rgb * glowLevels[5] + texture2D(tGlow6, vUv).rgb * glowLevels[6];
-    c += g * glowIntensity;
-  }
   c = max(c, vec3(0.0));
   c = c / (vec3(1.0) + c);
   c = toSrgb(c);
+  if (useGlow > 0.5) {
+    // Godot 4.7 (additive mode): the glow levels are gathered, × intensity, put through the same transport
+    // tonemapper and sRGB encoding on their own, then added to the encoded colour, before the LUT
+    vec3 g = texture2D(tGlow0, vUv).rgb * glowLevels[0] + texture2D(tGlow1, vUv).rgb * glowLevels[1] + texture2D(tGlow2, vUv).rgb * glowLevels[2]
+      + texture2D(tGlow3, vUv).rgb * glowLevels[3] + texture2D(tGlow4, vUv).rgb * glowLevels[4] + texture2D(tGlow5, vUv).rgb * glowLevels[5] + texture2D(tGlow6, vUv).rgb * glowLevels[6];
+    g = max(g * glowIntensity, vec3(0.0));
+    c = clamp(c + toSrgb(g / (vec3(1.0) + g)), 0.0, 1.0);
+  }
   if (useLut > 0.5) c = texture(tLut, c).rgb;
   gl_FragColor = vec4(c, 1.0);
 }`;
@@ -99,6 +101,7 @@ const GLOW_FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D tSrc;
 uniform float horizontal;
+uniform float down;
 uniform float first;
 uniform float threshold;
 uniform float softness;
@@ -106,7 +109,7 @@ uniform float cap;
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   ivec2 sz = textureSize(tSrc, 0);
-  ivec2 bp = horizontal > 0.5 ? p * 2 : p;
+  ivec2 bp = horizontal > 0.5 && down > 0.5 ? p * 2 : p;
   ivec2 dir = horizontal > 0.5 ? ivec2(1, 0) : ivec2(0, 1);
   float w[4] = float[4](0.174938, 0.165569, 0.140367, 0.106595);
   vec4 c = texelFetch(tSrc, clamp(bp, ivec2(0), sz - 1), 0) * w[0];
@@ -212,7 +215,7 @@ export function installGradePass(renderer: THREE.WebGLRenderer, lut: THREE.Data3
   const levels: number[] = B ? (B.levels ?? [0, 0, 1, 0, 1, 0, 0]) : [];
   const maxLevel = levels.reduce((m, v, i) => (v > 0 ? i : m), -1);
   const glowMat = new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader: GLOW_FRAG, depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { tSrc: { value: null }, horizontal: { value: 1 }, first: { value: 0 }, threshold: { value: B?.threshold ?? 1 }, softness: { value: B?.softness ?? 2 }, cap: { value: 12 } } });
+    uniforms: { tSrc: { value: null }, horizontal: { value: 1 }, down: { value: 1 }, first: { value: 0 }, threshold: { value: B?.threshold ?? 1 }, softness: { value: B?.softness ?? 2 }, cap: { value: 12 } } });
   const glowQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), glowMat); glowQuad.frustumCulled = false;
   const glowScene = new THREE.Scene(); glowScene.add(glowQuad);
   const mk = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false, colorSpace: THREE.LinearSRGBColorSpace });
@@ -224,6 +227,7 @@ export function installGradePass(renderer: THREE.WebGLRenderer, lut: THREE.Data3
     let src: THREE.Texture = rt.texture, w = size.x, h = size.y;
     for (let i = 0; i <= maxLevel; i++) {
       w = Math.max(1, w >> 1); h = Math.max(1, h >> 1);
+      glowMat.uniforms.down.value = 1;
       if (hT[i].width !== w || hT[i].height !== h) { hT[i].setSize(w, h); vT[i].setSize(w, h); }
       glowMat.uniforms.tSrc.value = src; glowMat.uniforms.horizontal.value = 1; glowMat.uniforms.first.value = i === 0 ? 1 : 0;
       renderer.setRenderTarget(hT[i]); orig(glowScene, postCam);

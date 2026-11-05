@@ -838,7 +838,7 @@ function lightPools(plan: TownPlan, style: Style, lamps: LampSpot[], models: Rec
     for (const s of mm.soups) if (/(^|\s)lamp$/.test(s.mat.name)) for (let i = 1; i < s.positions.length; i += 3) top = Math.max(top, s.positions[i]);
     if (!top) continue;
     const base = pr.base ?? groundAt(plan.ground, pr.at[0], pr.at[1]);
-    sb.pool(m, pr.at, Math.min(16, Math.max(7, top * 0.75)), lin(POOL_COLORS.mast), flat(base + 0.04));
+    sb.pool(m, pr.at, Math.min(10, Math.max(7, top * 0.55)), lin(POOL_COLORS.mast), flat(base + 0.04));
   }
   // shop windows spill onto the sidewalk in front of them
   for (const b of plan.buildings) {

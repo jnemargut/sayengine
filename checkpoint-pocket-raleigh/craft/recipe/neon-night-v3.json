@@ -1,7 +1,7 @@
 {
   "name": "neon-night-v3",
   "label": "Neon night v3: a real night, near-black navy sky, neutral dark shadows; warm sodium and white LED street light pooling on the ground, lit shops, floodlit Capitol, glow around every light",
-  "tonemap": { "curve": "aces", "exposure": 0.6 },
+  "tonemap": { "curve": "aces", "exposure": 0.3 },
   "grade": { "temperature": 0, "tint": 0, "contrast": 1.08, "saturation": 1.0, "vibrance": 0.05, "lift": [0.004, 0.004, 0.006], "gamma": [1, 1, 1], "gain": [1, 1, 1], "shadows": { "color": "#2a3340", "amount": 0.08 }, "highlights": { "color": "#ffc88a", "amount": 0.12 } },
   "lutSize": 33,
   "toon": { "enabled": false, "bands": 3, "softness": 0.1 },
@@ -9,19 +9,19 @@
   "palette": { "sky": "#0a1019", "sodium": "#ffa04a", "led": "#fff0dc", "window": "#ffc073", "magenta": "#ff4fb0", "cyan": "#3fe0ff", "asphalt": "#1a1c20", "brick": "#5a3a30" },
   "sky": { "color": "#0a1019" },
   "fog": { "enabled": true, "color": "#111822", "begin": 140, "end": 1200 },
-  "light": { "sun": { "color": "#aebbd0", "energy": 0.14, "elevation": 40, "azimuth": 210, "shadows": true }, "ambient": { "color": "#8f97a6", "energy": 0.22 } },
+  "light": { "sun": { "color": "#aebbd0", "energy": 0.14, "elevation": 40, "azimuth": 210, "shadows": true }, "ambient": { "color": "#8f97a6", "energy": 0.15 } },
   "materials": {
-    "lit": { "emission": "#ffc073", "emissionEnergy": 2.2 },
+    "lit": { "emission": "#ffc073", "emissionEnergy": 1.6 },
     "lamp": { "emission": "#ffa04a", "emissionEnergy": 7 },
     "led": { "emission": "#fff0dc", "emissionEnergy": 7 },
     "neon": { "emission": "#ff4fb0", "emissionEnergy": 4 },
     "sign": { "emission": "#3fe0ff", "emissionEnergy": 2 },
     "shop": { "emission": "#ffd29a", "emissionEnergy": 1.8 },
-    "flood": { "emission": "#ffd7a3", "emissionEnergy": 0.35 },
-    "pool": { "emission": "#ffffff", "emissionEnergy": 1.6 },
+    "flood": { "emission": "#ffd7a3", "emissionEnergy": 0.16 },
+    "pool": { "emission": "#ffffff", "emissionEnergy": 0.9 },
     "water": { "tint": "#3a4a5a", "roughness": 0.08 }
   },
-  "bloom": { "enabled": true, "threshold": 1.0, "softness": 2.0, "intensity": 0.6, "levels": [0, 0.8, 1, 0.6, 0.3, 0, 0] },
+  "bloom": { "enabled": true, "threshold": 1.2, "softness": 2.0, "intensity": 0.45, "levels": [0, 0.8, 1, 0.6, 0.3, 0, 0] },
   "fallback": "auto",
   "board": { "references": [], "colourfulness": [20, 55], "paletteMatch": 0.5 }
 }

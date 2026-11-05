@@ -111,7 +111,7 @@ static func apply(root: Node3D, rec: Dictionary = {}) -> bool:
 		root.add_child(_outline(ol))
 	return true
 
-## Glow around bright lights (look.bloom): Godot's own glow in additive mode with linear upscaling. The
+## Glow around bright lights (look.bloom): Godot's own glow in additive mode with linear upscaling (Godot 4.7 tonemaps the glow on its own and adds it to the encoded colour, before the LUT). The
 ## web build runs a matched mip-chain pass (same threshold curve, same 7-tap blur, same level weights).
 static func _glow(e: Environment, b) -> void:
 	if not (b is Dictionary) or not bool(b.get("enabled", true)) or not _graded_renderer():

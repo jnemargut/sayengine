@@ -149,6 +149,20 @@ function addSoups(prims: Map<string, Prim>, soups: TownNode['soups'], shift: V3)
   }
 }
 
+/** Weld identical corners (same position, normal and colour) of a soup into an indexed mesh. */
+export function indexSoup(p: { positions: number[]; normals: number[]; colors: number[] }) {
+  const n = p.positions.length / 3, map = new Map<string, number>();
+  const pos: number[] = [], nor: number[] = [], col: number[] = [], idx = new Uint32Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = i * 3;
+    const key = `${p.positions[k]},${p.positions[k + 1]},${p.positions[k + 2]},${p.normals[k]},${p.normals[k + 1]},${p.normals[k + 2]},${p.colors[k]},${p.colors[k + 1]},${p.colors[k + 2]}`;
+    let v = map.get(key);
+    if (v === undefined) { v = pos.length / 3; map.set(key, v); pos.push(p.positions[k], p.positions[k + 1], p.positions[k + 2]); nor.push(p.normals[k], p.normals[k + 1], p.normals[k + 2]); col.push(p.colors[k], p.colors[k + 1], p.colors[k + 2]); }
+    idx[i] = v;
+  }
+  return { positions: new Float32Array(pos), normals: new Float32Array(nor), colors: new Float32Array(col), indices: idx };
+}
+
 export interface ChunkNode { name: string; semanticType: string; at: V3; prims: Prim[]; extras: Record<string, unknown> }
 /** Merge a town's building nodes into chunks (cells of `cell` metres): few draw calls, phone-friendly. */
 export function chunkNodes(nodes: TownNode[], cell = 110): ChunkNode[] {
@@ -189,7 +203,9 @@ export function addTownsToGlb(B: GlbBuilder, towns: ReturnType<typeof worldNodes
           mi = B.gltf.materials.length - 1;
           matIdx.set(p.mat.name, mi);
         }
-        return { attributes: { POSITION: B.accessor(new Float32Array(p.positions), 'VEC3', true), NORMAL: B.accessor(new Float32Array(p.normals), 'VEC3'), COLOR_0: B.accessor(new Float32Array(p.colors), 'VEC3') }, material: mi };
+        // flat-shaded soups share many identical corners (quads, fans): index them (about a third smaller)
+        const ix = indexSoup(p);
+        return { attributes: { POSITION: B.accessor(ix.positions, 'VEC3', true), NORMAL: B.accessor(ix.normals, 'VEC3'), COLOR_0: B.accessor(ix.colors, 'VEC3') }, indices: B.typed(ix.indices, 'SCALAR', { target: 34963 }), material: mi };
       });
       if (!prims.length) continue;
       primitives += prims.length;
