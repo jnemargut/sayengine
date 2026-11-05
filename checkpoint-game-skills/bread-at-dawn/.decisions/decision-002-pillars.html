@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 2: Three Pillars — Bread at Dawn</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.confidence-badge.lean { background:#d97706; color:white; }
+.confidence-badge.toss-up { background:#64748b; color:white; }
+.option-summary ul { padding-left:1.2rem; margin:0.3rem 0; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.play { width:100%; aspect-ratio:16/10; border:1px solid #e2e8f0; border-radius:10px; background:#dfe7ef; }
+</style>
+<style>
+.poster { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.poster svg { display:block; width:100%; height:auto; }
+.poster .line { padding:8px 10px; font-size:0.82rem; font-weight:700; color:#0f172a; line-height:1.35; }
+.poster .quote { padding:0 10px 9px; font-size:0.66rem; color:#64748b; }
+.pillars { display:grid; grid-template-columns:1fr; gap:5px; }
+.pil { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; font-size:0.64rem; color:#334155; }
+.pil b { display:block; font-size:0.74rem; color:#0f172a; margin-bottom:2px; }
+.pil .y::before { content:"✓ "; color:#2c6e48; font-weight:700; }
+.pil .n::before { content:"✕ "; color:#a83a32; font-weight:700; }
+.pil .y, .pil .n { display:block; }
+.ledger { display:flex; flex-wrap:wrap; gap:5px; margin:0 auto 1.5rem; max-width:1200px; }
+.ledger span { font-size:0.68rem; padding:3px 10px; border-radius:999px; background:#edf6f0; color:#2c6e48; font-weight:600; }
+.ledger span.p { background:#f1f5f9; color:#94a3b8; }
+.sheet { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:1.3fr 1fr; gap:14px; }
+.blk { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; font-size:0.85rem; color:#334155; }
+.blk h3 { font-size:0.68rem; letter-spacing:.07em; text-transform:uppercase; color:#64748b; margin-bottom:6px; }
+.blk.grey { color:#94a3b8; background:#f8fafc; border-style:dashed; }
+.noplay { aspect-ratio:16/10; border-radius:8px; background:#e8eef5; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem; text-align:center; padding:12px; }
+</style></head><body>
+<a href="index.html" class="back-link">← All decisions</a>
+<header class="page">
+<span class="decision-number">Decision 2 · Step 1 of 7 · Bread at Dawn</span>
+<h1>Three Pillars</h1>
+<span class="category-badge">Concept</span>
+<span class="triage-badge two-way">🔁 Two-way door</span>
+<span class="triage-badge stakes-high">High stakes</span>
+<p class="decision-description">A pillar is a short statement every feature in Bread at Dawn has to pass through; three of them decide what gets built and what gets cut. Each set below shows, for every pillar, one feature it lets in (✓) and one it keeps out (✕).</p>
+<a class="preview-link" href="preview.html">See the game so far →</a><br>
+<p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+<main class="options-grid"><article class="option-card option-a"><div class="card-header"><div class="card-header-top"><span class="option-label">Option A</span><div class="card-badges"><span class="pick-badge">My pick: fits the fantasy</span><span class="confidence-badge lean">Lean</span></div></div><h2 class="option-title">Cozy · Hills · Waking Town</h2></div>
+<div class="visual-preview"><div class="pillars"><div class="pil"><b>Cozy, never rushed</b><span class="y">A soft sunrise glow as time passes</span><span class="n">A fail screen when you're late</span></div><div class="pil"><b>Hills are the puzzle</b><span class="y">Choosing the long flat road or the steep shortcut</span><span class="n">A map that marks the best route for you</span></div><div class="pil"><b>The town wakes as you go</b><span class="y">Windows light up behind you</span><span class="n">Customers who never appear</span></div></div><div class="proof"><b>What it feels like:</b> every feature asks: is it calm, is it about the hills, does the town wake?</div></div>
+<div class="option-summary">Keeps the pace gentle, makes geography the challenge and rewards you with a town that changes. Every later feature has to be calm, about routes, or about the town waking. It fits the chosen fantasy line almost word for word.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>The fantasy is the dawn courier</li><li>You want a clear filter for cutting</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>"Hills" must stay fun, not tiring</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div></article><article class="option-card option-b"><div class="card-header"><div class="card-header-top"><span class="option-label">Option B</span></div><h2 class="option-title">Warmth · People · Routes</h2></div>
+<div class="visual-preview"><div class="pillars"><div class="pil"><b>Warm bread, cold morning</b><span class="y">Steam fading as loaves cool</span><span class="n">A score for speed</span></div><div class="pil"><b>Every house is a person</b><span class="y">The fisherman always wants rye</span><span class="n">Identical doorsteps</span></div><div class="pil"><b>Tiny town, big routes</b><span class="y">Back alleys that link up</span><span class="n">A second town</span></div></div><div class="proof"><b>What it feels like:</b> every feature asks: is it warm, is it a person, does it link the town?</div></div>
+<div class="option-summary">Puts warmth and the townspeople first. Good for a character-rich game, but "warm bread, cold morning" quietly invites a timer, and the people pillar means writing many small characters.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>Characters matter most</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Timer creep</li><li>Lots of characters</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div></article><article class="option-card option-c"><div class="card-header"><div class="card-header-top"><span class="option-label">Option C</span></div><h2 class="option-title">Momentum · Feel · Calm</h2></div>
+<div class="visual-preview"><div class="pillars"><div class="pil"><b>One more delivery</b><span class="y">A short run between bakery visits</span><span class="n">Long walks with nothing to do</span></div><div class="pil"><b>Pushing feels good</b><span class="y">The cart lurches on cobbles</span><span class="n">Instant, weightless movement</span></div><div class="pil"><b>Nobody's in a hurry but you</b><span class="y">Neighbours waving slowly</span><span class="n">Traffic that blocks you</span></div></div><div class="proof"><b>What it feels like:</b> every feature asks: does it make you want one more run?</div></div>
+<div class="option-summary">All about how the cart feels and the urge for one more run. Great for a toy-first build, but it says little about the town or the mood, so later look and world decisions have less to go on.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>The toy is the heart</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Thin guidance for look and world</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div></article><article class="option-card option-d"><div class="card-header"><div class="card-header-top"><span class="option-label">Option D</span></div><h2 class="option-title">Handmade · Kindness · Dawn</h2></div>
+<div class="visual-preview"><div class="pillars"><div class="pil"><b>Small and handmade</b><span class="y">A chalk menu at the bakery</span><span class="n">A procedural endless town</span></div><div class="pil"><b>Kindness is the reward</b><span class="y">A thank-you note left out</span><span class="n">Coins and upgrades</span></div><div class="pil"><b>Dawn is the clock</b><span class="y">Light changes as the round goes on</span><span class="n">A digital timer on screen</span></div></div><div class="proof"><b>What it feels like:</b> every feature asks: is it handmade, is it kind, does dawn show it?</div></div>
+<div class="option-summary">Values over mechanics: small, kind, lit by dawn. Very clear about tone and what to cut (no coins, no upgrades), less clear about what the challenge is.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>Tone matters more than challenge</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Vague about challenge</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div></article></main>
+<section class="case-against"><h2>The case against my pick</h2><p>This is a lean, not a strong pick: C's "pushing feels good" pillar is the one that protects the toy, and A has nothing that says the cart itself must feel great. If the toy at step 2 is the make-or-break, swap "The town wakes as you go" for "Pushing feels good".</p></section>
+<section class="assumptions"><h2>Assumptions and tripwires</h2><ul><li>Pillars can be rewritten freely until the loop is decided (step 4).</li><li>Tripwire: if a playtest finding fits no pillar, the pillars are missing something.</li></ul></section>
+<section class="comparison-section"><h2>Side by side</h2><div class="comparison-table-wrapper"><table class="comparison-table"><thead><tr><th></th><th class="col-a col-pick">A · Cozy · Hills · Waking Town</th><th class="col-b">B · Warmth · People · Routes</th><th class="col-c">C · Momentum · Feel · Calm</th><th class="col-d">D · Handmade · Kindness · Dawn</th></tr></thead><tbody><tr><td>Fits "dawn courier"</td><td class="col-pick">Closely</td><td>Partly</td><td>Partly</td><td>Mostly</td></tr><tr><td>Makes you cut</td><td class="col-pick">Timers, fail screens</td><td>Speed scores</td><td>Long empty walks</td><td>Coins, upgrades</td></tr><tr><td>Guides look and world</td><td class="col-pick">Yes</td><td>Yes</td><td>Little</td><td>Yes</td></tr><tr><td>Undo cost</td><td class="col-pick">Low: rewrite before the toy</td><td>Low</td><td>Low</td><td>Low</td></tr></tbody></table></div></section>
+
+<div class="page-footer"><p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p></div>
+</body></html>

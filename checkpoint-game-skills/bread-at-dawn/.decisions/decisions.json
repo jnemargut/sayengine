@@ -1,0 +1,105 @@
+{
+ "projectName": "Bread at Dawn",
+ "projectDescription": "a cozy game where you deliver bread at dawn",
+ "createdAt": "2026-11-05",
+ "game": {
+  "variant": null,
+  "road": [
+   {
+    "step": 1,
+    "status": "doing"
+   },
+   {
+    "step": 2,
+    "status": "todo"
+   },
+   {
+    "step": 3,
+    "status": "todo"
+   },
+   {
+    "step": 4,
+    "status": "todo"
+   },
+   {
+    "step": 5,
+    "status": "todo"
+   },
+   {
+    "step": 6,
+    "status": "todo"
+   },
+   {
+    "step": 7,
+    "status": "todo"
+   }
+  ],
+  "next": 1,
+  "engine": null,
+  "studio": "~/AI3DModel/.claude/worktrees/agent-ac70cb1d2fa422099/studio"
+ },
+ "decisions": [
+  {
+   "id": 1,
+   "slug": "fantasy",
+   "title": "The fantasy in one line",
+   "category": "concept",
+   "skill": "x-game-concept",
+   "step": 1,
+   "spec": [
+    "fantasy",
+    "game.title"
+   ],
+   "status": "auto-picked",
+   "chosenOption": "A",
+   "chosenTitle": "The Dawn Courier",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Deliver warm bread across a sleepy hill town before the sun is up",
+    "B": "Bake through the night, then race your loaves out before they go cold",
+    "C": "You're the baker's dog, carrying one loaf at a time to the people who love you",
+    "D": "Each dawn, deliver bread and watch the town wake up, one window at a time"
+   },
+   "caseAgainst": "C has more instant charm; A bets on pushing being fun before the toy exists.",
+   "htmlFile": "decision-001-fantasy.html",
+   "reasoning": "Dry run: auto-picked the recommendation to walk the road.",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "decidedAt": "2026-11-05"
+  },
+  {
+   "id": 2,
+   "slug": "pillars",
+   "title": "Three pillars",
+   "category": "concept",
+   "skill": "x-game-concept",
+   "step": 1,
+   "spec": [
+    "pillars"
+   ],
+   "status": "presented",
+   "recommended": "A",
+   "confidence": "lean",
+   "options": {
+    "A": "Cozy, never rushed \u00b7 Hills are the puzzle \u00b7 The town wakes as you go",
+    "B": "Warm bread, cold morning \u00b7 Every house is a person \u00b7 Tiny town, big routes",
+    "C": "One more delivery \u00b7 Pushing feels good \u00b7 Nobody's in a hurry but you",
+    "D": "Small and handmade \u00b7 Kindness is the reward \u00b7 Dawn is the clock"
+   },
+   "caseAgainst": "Nothing in A protects how the cart feels; C does.",
+   "htmlFile": "decision-002-pillars.html",
+   "stakes": "high",
+   "reversibility": "two-way"
+  },
+  {
+   "id": 3,
+   "slug": "toy-loop-story",
+   "title": "Toy, loop or story, and the core verb",
+   "category": "concept",
+   "skill": "x-game-concept",
+   "step": 1,
+   "status": "pending"
+  }
+ ]
+}

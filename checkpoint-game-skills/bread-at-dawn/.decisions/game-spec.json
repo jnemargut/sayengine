@@ -1,0 +1,17 @@
+{
+ "version": 1,
+ "game": {
+  "title": "Bread at Dawn",
+  "engine": null,
+  "from": "d1"
+ },
+ "fantasy": {
+  "line": "Deliver warm bread across a sleepy hill town before the sun is up",
+  "from": "d1"
+ },
+ "open": [],
+ "pending": [
+  "pillars (d2)",
+  "variant and toy (d3)"
+ ]
+}

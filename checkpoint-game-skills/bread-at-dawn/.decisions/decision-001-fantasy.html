@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 1: The Fantasy in One Line — Bread at Dawn</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#f1f5f9; color:#475569; }
+.confidence-badge.lean { background:#d97706; color:white; }
+.confidence-badge.toss-up { background:#64748b; color:white; }
+.option-summary ul { padding-left:1.2rem; margin:0.3rem 0; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.play { width:100%; aspect-ratio:16/10; border:1px solid #e2e8f0; border-radius:10px; background:#dfe7ef; }
+</style>
+<style>
+.poster { width:100%; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0; background:white; }
+.poster svg { display:block; width:100%; height:auto; }
+.poster .line { padding:8px 10px; font-size:0.82rem; font-weight:700; color:#0f172a; line-height:1.35; }
+.poster .quote { padding:0 10px 9px; font-size:0.66rem; color:#64748b; }
+.pillars { display:grid; grid-template-columns:1fr; gap:5px; }
+.pil { background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px 8px; font-size:0.64rem; color:#334155; }
+.pil b { display:block; font-size:0.74rem; color:#0f172a; margin-bottom:2px; }
+.pil .y::before { content:"✓ "; color:#2c6e48; font-weight:700; }
+.pil .n::before { content:"✕ "; color:#a83a32; font-weight:700; }
+.pil .y, .pil .n { display:block; }
+.ledger { display:flex; flex-wrap:wrap; gap:5px; margin:0 auto 1.5rem; max-width:1200px; }
+.ledger span { font-size:0.68rem; padding:3px 10px; border-radius:999px; background:#edf6f0; color:#2c6e48; font-weight:600; }
+.ledger span.p { background:#f1f5f9; color:#94a3b8; }
+.sheet { max-width:1200px; margin:0 auto; display:grid; grid-template-columns:1.3fr 1fr; gap:14px; }
+.blk { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; font-size:0.85rem; color:#334155; }
+.blk h3 { font-size:0.68rem; letter-spacing:.07em; text-transform:uppercase; color:#64748b; margin-bottom:6px; }
+.blk.grey { color:#94a3b8; background:#f8fafc; border-style:dashed; }
+.noplay { aspect-ratio:16/10; border-radius:8px; background:#e8eef5; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:0.85rem; text-align:center; padding:12px; }
+</style></head><body>
+<a href="index.html" class="back-link">← All decisions</a>
+<header class="page">
+<span class="decision-number">Decision 1 · Step 1 of 7 · Bread at Dawn</span>
+<h1>The Fantasy in One Line</h1>
+<span class="category-badge">Concept</span>
+<span class="triage-badge two-way">🔁 Two-way door</span>
+<span class="triage-badge stakes-high">High stakes</span>
+<p class="decision-description">Everything else in Bread at Dawn has to serve one line a player would say about it. Four honest readings of "a cozy game where you deliver bread at dawn": each implies a different core action, a different feeling and a different size of game.</p>
+<a class="preview-link" href="preview.html">See the game so far →</a><br>
+<p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+<main class="options-grid"><article class="option-card option-a chosen"><div class="card-header"><div class="card-header-top"><span class="option-label">Option A</span><div class="card-badges"><span class="pick-badge">My pick: closest to your idea, toy-friendly</span><span class="confidence-badge strong">Strong pick</span><span class="chosen-badge">Chosen (dry run)</span></div></div><h2 class="option-title">The Dawn Courier</h2></div>
+<div class="visual-preview"><div class="poster"><svg viewBox="0 0 320 120" role="img" aria-label="scene sketch"><rect width="320" height="120" fill="#cfd8ea"/>
+<path d="M0,95 C60,60 120,62 170,80 C220,98 270,70 320,74 L320,120 L0,120 Z" fill="#9fb38a"/>
+<rect x="60" y="62" width="22" height="18" fill="#e9dcc5"/><polygon points="58,62 71,52 84,62" fill="#8a4a32"/>
+<rect x="210" y="70" width="24" height="18" fill="#e9dcc5"/><polygon points="208,70 222,59 236,70" fill="#8a4a32"/>
+<rect x="130" y="70" width="26" height="12" rx="2" fill="#b07a45"/><circle cx="135" cy="84" r="3.5" fill="#3a2a1e"/><circle cx="151" cy="84" r="3.5" fill="#3a2a1e"/><ellipse cx="143" cy="68" rx="9" ry="4" fill="#e3b06a"/><circle cx="292" cy="96" r="12" fill="#f3c27a"/></svg><div class="line">Deliver warm bread across a sleepy hill town before the sun is up</div><div class="quote">"I push my little cart up the hills and every door gets its loaf before sunrise."</div></div><div class="proof"><b>What it feels like:</b> I push my little cart up the hills and every door gets its loaf before sunrise.</div></div>
+<div class="option-summary">Rides on the literal idea: you are the baker's courier, the hills are the challenge, sunrise is a gentle clock. The core verb is pushing a cart, which suits a toy you can feel in your hands, and the town gives every route a reason. Cozy because nothing punishes you; the sun just rises.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>The route is the puzzle and the cart is the toy</li><li>It grows naturally: more streets, more customers</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Could feel like a chore if pushing isn't fun</li><li>Sunrise as a clock must stay gentle</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div></article><article class="option-card option-b"><div class="card-header"><div class="card-header-top"><span class="option-label">Option B</span></div><h2 class="option-title">Night Baker, Dawn Racer</h2></div>
+<div class="visual-preview"><div class="poster"><svg viewBox="0 0 320 120" role="img" aria-label="scene sketch"><rect width="320" height="120" fill="#2b3550"/>
+<path d="M0,95 C60,60 120,62 170,80 C220,98 270,70 320,74 L320,120 L0,120 Z" fill="#56664a"/>
+<rect x="60" y="62" width="22" height="18" fill="#d6c8ae"/><polygon points="58,62 71,52 84,62" fill="#8a4a32"/>
+<rect x="210" y="70" width="24" height="18" fill="#d6c8ae"/><polygon points="208,70 222,59 236,70" fill="#8a4a32"/>
+<rect x="120" y="58" width="34" height="26" rx="4" fill="#7a4a32"/><rect x="128" y="66" width="18" height="10" rx="2" fill="#f08a3c"/></svg><div class="line">Bake through the night, then race your loaves out before they go cold</div><div class="quote">"I time my ovens so everything comes out warm right when the first doors open."</div></div><div class="proof"><b>What it feels like:</b> I time my ovens so everything comes out warm right when the first doors open.</div></div>
+<div class="option-summary">Two halves: a baking toy at night and a delivery run at dawn, linked by warmth. More systems and more to learn, and the "before they go cold" timer leans toward pressure rather than calm.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>Two verbs to enjoy</li><li>Strong sense of craft</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Twice the game to build</li><li>Timer pressure fights "cozy"</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div></article><article class="option-card option-c"><div class="card-header"><div class="card-header-top"><span class="option-label">Option C</span></div><h2 class="option-title">The Baker's Dog</h2></div>
+<div class="visual-preview"><div class="poster"><svg viewBox="0 0 320 120" role="img" aria-label="scene sketch"><rect width="320" height="120" fill="#d8dfe9"/>
+<path d="M0,95 C60,60 120,62 170,80 C220,98 270,70 320,74 L320,120 L0,120 Z" fill="#a7b98f"/>
+<rect x="60" y="62" width="22" height="18" fill="#eadfc9"/><polygon points="58,62 71,52 84,62" fill="#8a4a32"/>
+<rect x="210" y="70" width="24" height="18" fill="#eadfc9"/><polygon points="208,70 222,59 236,70" fill="#8a4a32"/>
+<ellipse cx="150" cy="80" rx="14" ry="7" fill="#c98a4b"/><circle cx="165" cy="73" r="6" fill="#c98a4b"/><ellipse cx="160" cy="70" rx="3" ry="5" fill="#8a5a2b"/><rect x="141" y="68" width="12" height="5" rx="2" fill="#e3b06a"/><circle cx="292" cy="96" r="12" fill="#f3c27a"/></svg><div class="line">You're the baker's dog, carrying one loaf at a time to the people who love you</div><div class="quote">"Everyone in town knows me. I trot each loaf to the right house and get a pat."</div></div><div class="proof"><b>What it feels like:</b> Everyone in town knows me. I trot each loaf to the right house and get a pat.</div></div>
+<div class="option-summary">The same delivery, seen through a relationship: you are the dog, the town are your friends, and the delight is being greeted. Uses the studio's new four-legged characters. Simpler controls, more charm, less route puzzle.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>Instant charm</li><li>Every delivery is a small scene</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>Less to master</li><li>Leans on character work</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div></article><article class="option-card option-d"><div class="card-header"><div class="card-header-top"><span class="option-label">Option D</span></div><h2 class="option-title">The Town Wakes Up</h2></div>
+<div class="visual-preview"><div class="poster"><svg viewBox="0 0 320 120" role="img" aria-label="scene sketch"><rect width="320" height="120" fill="#c9d3e6"/>
+<path d="M0,95 C60,60 120,62 170,80 C220,98 270,70 320,74 L320,120 L0,120 Z" fill="#9fb38a"/>
+<rect x="60" y="62" width="22" height="18" fill="#e9dcc5"/><polygon points="58,62 71,52 84,62" fill="#8a4a32"/>
+<rect x="210" y="70" width="24" height="18" fill="#e9dcc5"/><polygon points="208,70 222,59 236,70" fill="#8a4a32"/>
+<rect x="130" y="70" width="26" height="12" rx="2" fill="#b07a45"/><circle cx="135" cy="84" r="3.5" fill="#3a2a1e"/><circle cx="151" cy="84" r="3.5" fill="#3a2a1e"/><ellipse cx="143" cy="68" rx="9" ry="4" fill="#e3b06a"/><rect x="64" y="66" width="5" height="5" fill="#ffd27a"/><rect x="214" y="74" width="5" height="5" fill="#ffd27a"/><rect x="224" y="74" width="5" height="5" fill="#2b3550"/></svg><div class="line">Each dawn, deliver bread and watch the town wake up, one window at a time</div><div class="quote">"Every house I reach lights up. By the last one the whole town is awake."</div></div><div class="proof"><b>What it feels like:</b> Every house I reach lights up. By the last one the whole town is awake.</div></div>
+<div class="option-summary">Centres the place: deliveries make the town wake (lights, shutters, people stepping out). The verb is still pushing the cart, but the reward is watching the world change, which is very cozy and very visual.</div>
+<div class="verdict"><div class="pros"><h3>Works well when</h3><ul><li>A beautiful payoff for each delivery</li><li>Shows off look and world</li></ul></div><div class="cons"><h3>Watch out for</h3><ul><li>The payoff costs art and life work</li><li>The verb may get less attention</li></ul></div></div>
+<div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div></article></main>
+<section class="case-against"><h2>The case against my pick</h2><p>The dog (C) has more instant charm, and charm is what makes a cozy game get shared. A also bets on pushing a cart being fun, which nobody knows until step 2 builds the toy; if the cart turns out to be a chore, the town-waking payoff in D rescues the idea better than A does.</p></section>
+<section class="assumptions"><h2>Assumptions and tripwires</h2><ul><li>The verb (push a cart) gets tested within the hour at step 2.</li><li>Tripwire: if pushing isn't fun in the toy, revisit this and look at C or D.</li></ul></section>
+<section class="comparison-section"><h2>Side by side</h2><div class="comparison-table-wrapper"><table class="comparison-table"><thead><tr><th></th><th class="col-a col-pick">A · The Dawn Courier</th><th class="col-b">B · Night Baker, Dawn Racer</th><th class="col-c">C · The Baker's Dog</th><th class="col-d">D · The Town Wakes Up</th></tr></thead><tbody><tr><td>Core verb</td><td class="col-pick">Push a cart</td><td>Bake, then deliver</td><td>Carry and trot</td><td>Push a cart, light the town</td></tr><tr><td>Feeling</td><td class="col-pick">Cozy, light</td><td>Busy, warm</td><td>Sweet, social</td><td>Calm, wonder</td></tr><tr><td>Size it wants</td><td class="col-pick">4 streets is enough</td><td>Bigger: two spaces</td><td>Small: one street works</td><td>Medium: needs town life</td></tr><tr><td>Undo cost</td><td class="col-pick">Low: rewrite the line</td><td>Medium: a second system to unpick</td><td>Low</td><td>Low</td></tr></tbody></table></div></section>
+
+<div class="page-footer"><p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p></div>
+</body></html>
