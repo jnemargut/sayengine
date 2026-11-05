@@ -204,7 +204,7 @@ function timeline(s: Segment, t: number) {
   ctx2d.fillStyle = '#1c1917';
   const bad = s.checks.filter((k) => !k.pass).length;
   ctx2d.fillText(bad ? `checks: ${bad} failing (red = frames where it breaks)` : `checks: all ${s.checks.length} pass`, x0 + pad, y0 + pad + 8);
-  const F = Math.max(1, s.frames ?? 1);
+  const F = Math.max(1, s.frames ?? 1) + 1;          // frames 0..frames (the last closes the loop)
   s.checks.forEach((k, i) => {
     const y = y0 + pad + 18 + i * rowH;
     ctx2d.font = '12px system-ui, sans-serif';

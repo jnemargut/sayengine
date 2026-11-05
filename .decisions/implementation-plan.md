@@ -613,21 +613,21 @@ Anything you ask for moves. Skeletons are built from rig parts, and each part br
 
 ## Implementation Steps
 ### Weeks 13–14: framework and core parts
-- [ ] Rig-part framework. Each part has bones, goals (tip/foot targets, angles), a procedural motion generator, style settings, and declared checks.
-- [ ] Legs ×N:
+- [x] Rig-part framework. Each part has bones, goals (tip/foot targets, angles), a procedural motion generator, style settings, and declared checks.
+- [x] Legs ×N:
   - gait scheduling for 2/4/6/8 legs
   - IK foot targets that step when out of reach
   - body height and tilt follow the feet
-- [ ] Chains:
+- [x] Chains:
   - follow-the-leader and FABRIK
   - wave, coil and reach
   - snake serpentine motion
-- [ ] Wheels and tracks: roll at ground speed, steer, springy suspension.
-- [ ] Hinges and sliders, with limits.
-- [ ] Springs.
-- [ ] Shader sway for plants and flags.
-- [ ] Re-express the human, chibi, lanky, stocky, beaked and quadruped plans (after the craft pass) as part combos, with no visual or motion change and all existing checks still green.
-- [ ] Universal checks:
+- [x] Wheels and tracks: roll at ground speed, steer, springy suspension.
+- [x] Hinges and sliders, with limits.
+- [x] Springs.
+- [x] Shader sway for plants and flags.
+- [x] Re-express the human, chibi, lanky, stocky, beaked and quadruped plans (after the craft pass) as part combos, with no visual or motion change and all existing checks still green.
+- [x] Universal checks:
   - foot/contact sliding, body-relative
   - self and world penetration
   - balance for legged bodies
@@ -635,8 +635,64 @@ Anything you ask for moves. Skeletons are built from rig parts, and each part br
   - velocity and jerk pops
   - loop closure
   - ending in idle
-- [ ] Failure timeline in the preview.
-- [ ] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips.
+- [x] Failure timeline in the preview.
+- [~] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips. *(TS runtime done; Godot gets baked clips, IK nodes deferred: see status)*
+### Status of weeks 13–14 (2026-11-04, branch `phase8/rig-parts`, not merged)
+Built:
+- [x] **Framework** (`core/src/rigparts.ts`). A creature is a list of part specs. Each part brings:
+  - its bones
+  - its pieces (rigid shapes on bones)
+  - its contacts, limits and declared checks
+  - a procedural motion in `bakeCreature`
+
+  Clips are local rotations plus translation offsets, in place, with `speed` and `dir`. Loops fit whole frames: the cycle and the speed are rescaled, and swings and spins fit whole periods. The loop check compares the pose computed at t = duration with frame 0 (`clip.seam`), not a copy of it.
+- [x] **Legs ×N:**
+  - tripod gait for 6, tetrapod for 8, lateral sequence for 4, alternate for 2
+  - analytic two-bone IK
+  - stance stride = speed × duty × cycle, so planted feet don't move
+  - body height and pitch/roll follow the planted feet
+
+  Reach-triggered stepping is in the live runtime.
+- [x] **Chains:**
+  - FABRIK (reach)
+  - follow-the-leader serpentine (arc-length walk along the body's own path)
+  - wave, whip and coil
+- [x] **Wheels:**
+  - roll at ground speed (whole turns per road loop)
+  - damped-spring suspension (body heave, pitch and roll)
+  - struts that stay upright
+  - steering in the runtime
+- [x] **Hinges and sliders** (spin, swing, still, with limits) and **springs** (they lag behind their parent's acceleration, then settle).
+- [x] **Sway:** a bone per blade (baked), or `mode: 'shader'` (one mesh). The shader version uses the same formula (`swayDeg`) in the three.js player (`onBeforeCompile`) and in a generated Godot `*.sway.gdshader`.
+- [x] **Universal checks + part checks** (`creatureChecks`), each with failing frame ranges:
+  - contact sliding in body lengths per second (feet 3 %, bellies 6 % sideways)
+  - feet and belly on the ground
+  - leg reach
+  - world penetration, and self penetration between non-neighbouring bones
+  - balance (centre of mass over the support polygon with three or more feet down)
+  - joint and hinge limits
+  - pops (joint speed) and jolts (body acceleration)
+  - loop closure, or ends in idle
+  - wheels roll at ground speed, tyres touch, suspension within travel
+  - shader sway bend limit
+
+  `studio motion-checks` lists them. `Studio.checks` adds one row per creature motion.
+- [x] **Body plans as part combos:** `BODY_PLAN_PARTS` describes each kit plan (human, chibi, lanky, stocky, beaked, quadruped, with tails and wings) as parts. The kit's generation and motion code is unchanged, so there is no visible or motion change. `characterMotionChecks` runs the universal checks (heel and ball planted, pops, loop) on kit clips.
+
+  One real finding: the **birdfolk walk's hips drop 57 mm and jump back in one frame at each heel strike**, and the spring tail whips with it at 1950°/s. It was left as is (no motion change in this phase) and pinned in the test. Fix it in the kit's walk planner.
+- [x] **Tools:** `new-creature` (presets crab, snake, car, windmill, or `--parts`), `add-part`, `set-creature-motion`, `motion-checks`, the kernel `creature` op (hull per piece), and the daemon's `creature-preview` (player, video, stills, failure timeline on every frame, plus `--demo-failure`).
+- [x] **Runtime:**
+  - Everything bakes to clips in `creature.glb`: a node per bone with TRS channels, no skin. It passes the glTF validator, and the four presets import into Godot 4.7.2 with their clips and no warnings.
+  - The live TS runtime (`creatureruntime.ts`) handles reach-triggered stepping (one gait group at a time) and wheels with spring suspension and bicycle-model steering over any ground function. Other parts are layered from a baked clip. The player has live segments driven by it.
+  - **Godot IK nodes deferred:** the node-per-bone export has no `Skeleton3D`, so 4.6+ `SkeletonModifier3D` IK (TwoBoneIK3D, FABRIK3D) can't attach. Godot gets the baked clips. Live IK in Godot needs a skinned creature export first.
+- [x] **Bench proofs:** `node bench/creatures.ts crab|snake|car|windmill` writes videos and stills to `checkpoint-phase8/`. All motion checks pass. The crab video includes a deliberately broken replay that shows the timeline in red.
+
+Weak or not done:
+- [ ] **Looks:** the creatures are blocky (boxes, few-sided segments, flat shading). The crab reads as a spidery robot. The grass is dark and its shadows don't sway.
+- [ ] **Godot:** the sway `.gdshader` is generated but not yet compiled in Godot, and nothing applies it on import.
+- [ ] **Runtime coverage:** the runtime covers legs and wheels only. Live chains (a reaching tentacle) and live springs come with one-off actions (weeks 15–20).
+- [ ] **Self penetration** uses bounding spheres per piece. That is coarse for thin parts.
+
 ### Weeks 15–20, alongside Pocket Raleigh
 - [ ] Wings: flap, glide, fold, hover, flight cycle.
 - [ ] Fins and body wave.
