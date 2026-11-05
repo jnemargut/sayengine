@@ -44,5 +44,6 @@ export async function fetchEntry(id: string): Promise<{ wav: string; entry: Libr
   const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', orig, '-ar', '44100', '-c:a', 'pcm_s16le', wav], { encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`${e.id}: ffmpeg could not convert ${path.basename(orig)}: ${r.stderr}`);
   fs.writeFileSync(path.join(dir, 'licence.json'), JSON.stringify({ ...e, fetched: new Date().toISOString(), original: path.basename(orig) }, null, 2));
+  if (path.resolve(orig) !== path.resolve(wav)) fs.rmSync(orig, { force: true });     // keep only the converted copy
   return { wav, entry: e, cached: false };
 }
