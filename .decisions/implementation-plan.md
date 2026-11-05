@@ -1066,28 +1066,35 @@ All of it gets built before your own game starts. **See it: `.decisions/preview.
   - `/Users/jonnemargut` becomes `~`
 - [ ] Re-run the full test suite on a quiet machine, push to the private repo, and upload the release.
 
-### 1. Shared core (about 1 week), proven on models
-- [ ] **Moment address (D61):**
-  - `{thing, clock, at, len, near, of}` with integer ticks at 24,000 a second
-  - clocks for clip, game (tick + seed + build), beats, sound and shot
-  - named moments re-resolve after re-timing; ones that can't are marked stale
-  - the view shows readable times; ticks stay in the files
-- [ ] **Steps for any asset (D62):**
-  - recipe steps on the shared branching history
-  - renders are caches keyed by their recipe
-  - proposals keep or undo each step, and "keep" counts only after the before/after is seen
-  - the studio tracks how many steps are kept without being opened
-  - "show me three" makes three distinct takes, compared per section, and logs your pick
-- [ ] **Notes inbox and taste (D63):**
-  - a notes panel in the view, plus `notes.json` per project
-  - `taste.md`, studio-wide and per game, with each rule's source
-  - proposals say when they lean on a taste rule
-  - kept out of the public repo unless you opt in
-- [ ] **"Your call" card (D64):**
+### 1. Shared core (about 1 week), proven on models — built on branch `phase10/core` (2026-11-05)
+Code: `packages/core/src/collab/` (address, timelines, steps, notes, taste, card, three, tools), the view
+(`apps/view/src/collab.ts`, notes panel, pins, card, Before/after), `studio notes|taste|address|open-step|card|answer|skip-ask|show-three|pick-take|review-stats`,
+`--why` on any call. Skill: `.claude/skills/studio/working-together.md`. Tests: `packages/core/test/collab.test.ts` (15).
+Checkpoint: `checkpoint-phase10/core/` (`node bench/collab.ts`).
+- [x] **Moment address (D61):**
+  - `{thing, clock, at, len, near, of}` with integer ticks at 24,000 a second (`game` adds `{seed, build}`)
+  - clocks for clip, game (tick + seed + build), beats, sound and shot. Only clip (character and creature actions) and shot (cutscenes) are read from the doc so far; beats, sound and game format and parse, and get a timeline provider when their systems join the view (step 2)
+  - named moments re-resolve after re-timing ("slower" moves a note on "pour" with it, keeping its offset); unanchored ones, gone moments and gone parts are marked stale with the reason
+  - the view shows readable times ("1.4 s", "bar 9", "10:32", "shot 3"); ticks stay in the files. Selection in the view and `studio selection` produce addresses
+- [x] **Steps for any asset (D62):**
+  - recipe steps on the shared branching history: every step knows the assets it touched (model, character, creature, look, cutscene, effect, ui, town) and carries its word note (`--why`)
+  - renders are caches keyed by their recipe (`.studio/cache/renders`, `studio render` hits it); none in history
+  - proposals keep or undo each step, and "keep" counts as reviewed only after `open-step` (the view's Before/after, or Space over a step)
+  - the studio counts steps kept without being opened (`review-stats`, the view's review panel, tripwire at > 9 in 10 of 10+)
+  - "show me three" makes three takes ≥ 15% apart (refused otherwise), compares them per section, commits the pick whole, discards the others and logs the pick
+  - proven on models; smoke-tested on a look (look-new / look-set) and a creature action note
+- [x] **Notes inbox and taste (D63):**
+  - a notes panel in the view (pin on the selection, open / on it / done / stale, re-pin), pins in the viewport, plus `.studio/notes.json` per project
+  - `taste.md`, studio-wide (`~/.studio/taste.md`, seeded with the 5 Nov verdicts) and per project (`.studio/taste.md`), each rule with its source; a rule only when said outright or from 3+ picks
+  - proposals say when they lean on a taste rule (the card's "per your taste file")
+  - kept out of the public repo unless you opt in (`.studio/` and any `taste.md` / `notes.json` / `picks.json` are gitignored)
+- [x] **"Your call" card (D64):**
   - "I checked" comes from the checks
-  - "Your call" covers listen and pick, watch once, play 60 s
-  - capped at about 3 asks; skipped asks go to the inbox; answers become taste rules
-- [ ] All four are proven on models first, since models already have steps and proposals.
+  - "Your call": pick one of N, yes / not yet, play 60 s (once per playable change), a short note
+  - capped at 3 asks; skipped asks and asks over the cap go to the inbox; answers become taste rules (`--remember`, or 3+ picks); asks the taste file answers are skipped
+  - unattended work never waits: `--unattended` marks each answer as a guess and leaves a "check my guess" note
+- [x] All four are proven on models first, since models already have steps and proposals.
+- [ ] Not yet: the timeline that carries addresses in the view (step 2); beats / sound / game clocks read from their systems; the share of skipped asks over a *week* (counted overall for now).
 
 ### 2. Everything that moves, on one timeline (about 1.5–2 weeks)
 - [ ] A shared scrub timeline docked in the live view, with tracks per system and failed checks shown as red stretches.

@@ -5,6 +5,8 @@ description: Turn studio scenes into playable games and check them in a real eng
 
 # /game — studio scenes into real engines
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 The studio makes things; real engines run games (decision 13). `./studio game <command>` drives **Godot** for standalone games and **three.js + Rapier** for web apps and browser games, headlessly, and returns JSON plus PNG paths you can Read. You never click around an engine editor.
 
 The user's request: **$ARGUMENTS**

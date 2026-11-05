@@ -5,6 +5,8 @@ description: Build towns in the studio — a few real blocks of a US town from o
 
 # /world — towns, real or invented (Decisions 26–28)
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 One pipeline for every town: a **source** (real data, invented, or a remix of real streets with invented buildings) becomes a **town plan** (streets, lots, buildings with height, floors, roof and use, water, parks, every feature with a stable ID), the shared **rules** clean it up (square outlines, roofs from the roof type, clamp silly values, grade roads, per-region style), and the town's **fix layer** re-applies your hand fixes on every rebuild. No splats (Decision 28): towns are low-poly meshes.
 
 The user's request: **$ARGUMENTS**

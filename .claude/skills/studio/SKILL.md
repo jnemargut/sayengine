@@ -14,8 +14,9 @@ The user's request: **$ARGUMENTS**
 1. `./studio status` — auto-starts the engine daemon. If `views` is 0, tell the user once: "Open http://localhost:4517 to watch."
 2. `./studio scene` — see what exists. Never recreate something that's there; modify it.
 3. `./studio ops` once per session — the op vocabulary, anchors and tips.
-4. If the request says "this", "that", "the selected …", or names no part: `./studio selection` — what the human clicked, with its size and the ops that made it.
+4. If the request says "this", "that", "the selected …", or names no part: `./studio selection`. It returns what the human clicked: its size, the ops that made it, and a moment **address** ("Walnut stool / seat") to use with `--at`.
 5. The human edits too. Steps by `human` in `./studio log` / `proposals` are theirs (drags, slider changes, dropped files): build on them, don't revert them.
+6. `./studio taste` and `./studio notes`. Follow the taste rules, and say when a choice leans on one. Open notes are the user's asks: `notes on-it --id n2` when you take one, `notes done --id n2` when a kept step covers it. Stale notes point at something that's gone. Ask the user where they go now, never guess. The details for every studio skill are in [working-together.md](working-together.md).
 
 ## How models are built
 
@@ -50,7 +51,7 @@ The user's request: **$ARGUMENTS**
 ## The loop — numbers rule, pictures advise
 
 For every step:
-1. Make one meaningful change (one tool call = one reviewable step). Use `--label` on `set-op` / `set-params` to say *why* in plain words — the human reads it in the review panel.
+1. Make one meaningful change: one tool call is one reviewable step, about one word note's worth ("thinner legs", "warmer"). Add `--why "thinner legs"` to the call so the review panel shows the note on the step. `--label` on `set-op` / `set-params` still describes *what* changed.
 2. Read the `checks` in the result. **If anything fails, fix it before moving on.** Checks are the authority on anything measurable — never argue with them from a picture.
 3. At milestones (object roughly complete, before handing a proposal to the human, or when the request is about style or proportion): `./studio render --views front,side,iso`, then **Read the PNG files it returns**. Numbered dots match the `legend`; failing parts are red. Use images for "does it look like what was asked", not for measurements. If render says no view is connected, carry on with checks and `inspect`, and mention the view isn't open.
 4. When the human wants to *see* or *share* the result ("show me", "render it nicely", end of a big piece of work): `./studio render --style presentation` (materials, soft shadows, studio backdrop, no labels; `--views hero,low,front`). Read it before you hand it over.
@@ -64,9 +65,11 @@ Common fixes:
 ## Proposals — how the human stays in control
 
 - **New object in an empty scene**: build directly on main.
-- **Any change to something that exists, or any request for alternatives** → `./studio propose --title "…"` first, make the changes as separate steps, then stop and say: "Proposal p1 is ready in the view — keep or undo each change, then Commit." Don't commit unless the user says so ("just do it", "commit it").
-- Alternatives ("show me three backrests") → one proposal per alternative: `propose`, edit, `switch --branch main`, `propose` again… The view shows each as a thumbnail to compare side by side.
-- After review, `./studio proposals` shows what the human kept or undid; continue from there.
+- **Any change to something that exists, or any request for alternatives** → `./studio propose --title "…"` first, make the changes as separate steps (each with `--why`), then **add the card**: `./studio card --asks '[…]'`, at most 3 asks, only what checks can't judge (pick / yesno / play60 / note, each with a `topic`). "I checked" is filled from the checks; asks the taste file answers are skipped. Then stop and say: "Proposal p1 is ready in the view. Open each step's Before/after, keep or undo it, answer the card, then Commit." Don't commit unless the user says so ("just do it", "commit it").
+- "Keep" only counts as reviewed once the step's before/after was opened (the view's Before/after button, or `./studio open-step --step 2`). `./studio review-stats` shows how many were kept without opening.
+- Alternatives ("show me three backrests") → `./studio show-three --title "Backrest" --topic backrest --takes '[{"label":"low","traits":["low"],"calls":[{"tool":"set-param","args":{"name":"backH","value":0.3}}]}, …]'`, exactly three **deliberately different** takes (too-alike takes are refused). Read the per-section compare it returns. The user picks with `./studio pick-take --take low`: one take is committed whole, the other two are discarded, never merged. Picks feed the taste file (3 of the same → a rule).
+- After review, `./studio proposals` shows what the human kept, undid, opened and answered; `./studio notes` shows skipped asks. Continue from there.
+- Working unattended (overnight, a long batch the user isn't watching)? Never wait on an ask: `card --unattended true` with a `guess` on each ask, carry on, and list the guesses as guesses in your summary.
 - `./studio undo` reverts the last step on the active branch (as a new commit).
 
 ## References (imports)
@@ -178,6 +181,7 @@ Tell the user the file path, the triangle count against the budget, and the unwr
 ## Rules
 
 - One tool call per meaningful change; never batch unrelated edits into one step.
+- A taste rule only comes from the user saying it outright (`taste add --said true`) or from 3+ matching picks. Never write one from your own guess.
 - Never claim something is finished while a check fails.
 - Don't invent commands or flags — `./studio help`, `./studio <command> --help`.
 - If the daemon or view misbehaves: `./studio status`; restart with `./studio stop`, then any command.

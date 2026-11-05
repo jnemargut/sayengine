@@ -5,6 +5,8 @@ description: Make trailers and short clips from a game itself — a reel file (t
 
 # /reel — trailers are cutscene files, cut to the beat (Decision 32)
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 The user's request: **$ARGUMENTS**
 
 A reel file lives in the game: `games/<game>/reel/<id>.json` (example: `games/pocket-raleigh/reel/trailer.json`).

@@ -5,6 +5,8 @@ description: Give a studio town life — folk, a dog walker, cars and a bus goin
 
 # /life — folk, animals and traffic (Decision 30)
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 **Dumb people, smart places.** Places say what they offer — a bench "sit ×2", a market stall "browse ×2 + tend", a pier "fish ×2", a park "walk the dog", a bus stop "wait ×3", a door "come and go" — and the seeded schedule sends the cast to them. Everything is baked once in the studio from the town plan (`/world`) and exported as one `life.json` that both engines read; nothing is navmeshed twice.
 
 The user's request: **$ARGUMENTS**

@@ -5,6 +5,8 @@ description: Give a game its sound — seeded synth game sounds (clinks, pickups
 
 # /sound — layered sound (Decision 33)
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 The user's request: **$ARGUMENTS**
 
 Every command is `./studio sound <cmd>` (JSON out, no daemon). The right source for each kind of sound:

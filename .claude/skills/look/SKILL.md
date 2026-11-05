@@ -5,6 +5,8 @@ description: Give a whole scene or game a look — a pinned tonemapper, a 33³ c
 
 # /look — looks as data, reference boards, measured targets (Decision 29)
 
+> **Working together** (decisions 61–64): before proposing, read `./studio taste` and `./studio notes`. Give each step its word note (`--why "warmer"`), point at moments with addresses, and end each proposal with a "your call" card of at most 3 asks. Overnight work never waits on an ask. See [../studio/working-together.md](../studio/working-together.md).
+
 A look is **one record** in the scene (`doc.look`), with history and undo like everything else. It drives:
 the studio view, thumbnails and presentation renders · Godot (Environment + the LUT as a Texture3D) · three.js (one grade pass) · the bake fallback (renderers without colour grading) · reels later (they render through the same games).
 
