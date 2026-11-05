@@ -17,7 +17,8 @@
     "test": "node --test packages/*/test/*.test.ts apps/*/test/*.test.ts games/*/test/*.test.ts",
     "bench": "node bench/run.ts && node bench/game.ts && node bench/diorama.ts && node bench/lesson.ts",
     "bench:effects": "node bench/effects.ts",
-    "bench:world": "node bench/world.ts"
+    "bench:world": "node bench/world.ts",
+    "bench:godot-ik": "node bench/godot-ik.ts"
   },
   "engines": {
     "node": ">=23.6"
