@@ -766,6 +766,11 @@ func _step_buddy(i: int, dt: float) -> void:
 			if pox * pox + poz * poz < prr * prr:
 				st["visible"] = false
 				return
+		for j in vehicles.size():
+			var vq: Dictionary = vehicles[j]
+			if vq["visible"] and box_dist(tx, tz, vq["x"], vq["z"], vq["yaw"], float(V_[j]["len"]), float(V_[j]["wid"])) < ar + 0.3:
+				st["visible"] = false
+				return
 		st["x"] = tx
 		st["y"] = ty
 		st["z"] = tz

@@ -352,7 +352,8 @@ export class LifeRuntime {
     const fx0 = st.fx, fz0 = st.fz;
     {
       const a0 = Math.atan2(st.fx, st.fz), a1 = Math.atan2(Dp[0], Dp[1]);
-      const a = angleTo(a0, a1, 2.6 * dt);
+      // (slower far from the middle line, so a wide offset never swings round faster than a step)
+      const a = angleTo(a0, a1, Math.min(2.6, 1.6 / Math.max(0.3, Math.abs(st.lat))) * dt);
       st.fx = Math.sin(a); st.fz = Math.cos(a);
     }
     const D = [st.fx, st.fz];

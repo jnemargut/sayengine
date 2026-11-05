@@ -535,6 +535,7 @@ export class LifeRuntime {
         if (ox * ox + oz * oz < r * r) { st.visible = false; return; }
       }
       if (this.player.on) { const ox = this.player.x - tx, oz = this.player.z - tz, r = A.r + this.player.r + 0.05; if (ox * ox + oz * oz < r * r) { st.visible = false; return; } }
+      for (let j = 0; j < this.vehicles.length; j++) { const vv = this.vehicles[j]; if (vv.visible && boxDist(tx, tz, vv.x, vv.z, vv.yaw, this.data.vehicles[j].len, this.data.vehicles[j].wid) < A.r + 0.3) { st.visible = false; return; } }
       st.x = tx; st.y = ty; st.z = tz; st.yaw = face; st.seg = 0; st.fromX = tx; st.fromY = ty; st.fromZ = tz;
     }
     st.visible = true;
