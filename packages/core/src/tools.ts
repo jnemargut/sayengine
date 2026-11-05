@@ -15,6 +15,7 @@ import { CUTSCENE_TOOLS, cutsceneChecks } from './cutscene.ts';
 import { EFFECT_TOOLS, effectChecks } from './effects.ts';
 import { UI_TOOLS, uiChecks } from './uikit.ts';
 import { WORLD_TOOLS, worldChecks } from './world/tools.ts';
+import { LOOK_TOOLS } from './look/tools.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -769,6 +770,7 @@ TOOLS.push(...CUTSCENE_TOOLS);
 TOOLS.push(...EFFECT_TOOLS);
 TOOLS.push(...UI_TOOLS);
 TOOLS.push(...WORLD_TOOLS);
+TOOLS.push(...LOOK_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

@@ -18,6 +18,21 @@ export const PROOF_COMMANDS: Record<string, { description: string; flags: Record
     flags: { '--project': 'game', '--views': 'comma-separated view names' },
     example: 'studio proof approve --project pocket-raleigh',
   },
+  'look-board': {
+    description: 'The look\'s reference board and gates (Decision 29) on the latest proof run (or --render true for a fresh one): per view and engine, colourfulness (Hasler–Süsstrunk M) against the look\'s range, palette match (vs the look palette, or vs the reference pictures), and a local style score (DINOv2-small, ~/.studio-tools/venv) against the references. Writes board-<look>.json and a sheet (references first) to Read.',
+    flags: { '--project': 'game', '--against': 'the other engine\'s game (with --render)', '--render': 'render the views first' },
+    example: 'studio look board --project pocket-raleigh',
+  },
+  'look-ab': {
+    description: 'Put version A beside version B (two folders of stills, or two pictures) on one sheet to Read: each row is A | B. Looks are judged by A/B picks only.',
+    flags: { '--a': 'folder or picture', '--b': 'folder or picture', '--views': 'comma-separated view names to include', '--out': 'sheet path' },
+    example: 'studio look ab --a stills/neon-a --b stills/neon-b --views city-plaza,skyline-south',
+  },
+  'look-pick': {
+    description: 'Log an A/B pick with a one-line reason (never a score out of 10).',
+    flags: { '--a': 'version A', '--b': 'version B', '--pick': 'A or B', '--why': 'what decided it', '--log': 'picks file (default .studio/look/picks.jsonl)' },
+    example: 'studio look pick --a neon-a --b neon-b --pick B --why "materials read; less monochrome violet"',
+  },
   phone: {
     description: 'The imitated phone (Decision 31, Mac only): the web build in Playwright\'s WebKit at 390×844 @3x and in Chrome with the CPU slowed (--throttle 4), walking the proof.json phone path for --seconds; reports frame times (p50, p95, long frames), draw calls, JS heap, console errors and a screenshot from each. Real-iPhone memory and GPU precision are NOT covered.',
     flags: { '--project': 'web game', '--seconds': 'walk length (default from proof.json, else 8)', '--throttle': 'Chrome CPU slow-down (default 4)' },
@@ -50,6 +65,9 @@ export async function proofCli(argv: string[], parseFlags: (a: string[]) => Reco
       }
       case 'views': return { tool: 'proof-views', ...(await P.proofViews(DIR, String(a.project ?? ''), { against: a.against as string | undefined, approveNew: a.approveNew === true || a.approveNew === 'true' })) };
       case 'approve': return { ok: true, tool: 'proof-approve', result: P.approve(DIR, String(a.project ?? ''), a.views ? String(a.views).split(',').map((s) => s.trim()) : undefined) };
+      case 'look-board': { const L = await import('./lookboard.ts'); return { tool: 'look-board', ...(await L.lookBoard(DIR, String(a.project ?? ''), { against: a.against as string | undefined, render: a.render === true || a.render === 'true' })) }; }
+      case 'look-ab': { const L = await import('./lookboard.ts'); return { ok: true, tool: 'look-ab', result: L.lookAB(DIR, String(a.a), String(a.b), { views: a.views ? String(a.views).split(',').map((x) => x.trim()) : undefined, out: a.out as string | undefined }) }; }
+      case 'look-pick': { const L = await import('./lookboard.ts'); return { ok: true, tool: 'look-pick', result: L.lookPick(DIR, String(a.a), String(a.b), String(a.pick), String(a.why ?? ''), a.log as string | undefined) }; }
       case 'phone': return { tool: 'proof-phone', ...(await P.phone(DIR, String(a.project ?? ''), { seconds: a.seconds as number | undefined, throttle: a.throttle as number | undefined })) };
     }
   } catch (e: any) {

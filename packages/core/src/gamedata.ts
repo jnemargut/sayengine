@@ -6,6 +6,8 @@ import type { SceneDoc } from './types.ts';
 import { largestTop } from './scene.ts';
 import { DEFAULT_FIRE_PALETTE, resolveColour, type EffectDef } from './effects.ts';
 import type { UiKit } from './uikit.ts';
+import { activeLook } from './look/tools.ts';
+import { runtimeLook } from './look/look.ts';
 
 type V3 = [number, number, number];
 export interface EffectBundle { def: EffectDef; at: V3; colours: Record<string, string> }
@@ -40,6 +42,7 @@ export function gameData(studio: Studio, doc: SceneDoc = studio.doc()) {
       lines.push({ character: o.name, line, text: clip.text, clip: `line:${line}`, duration: clip.duration, sync: clip.sync ?? 0, audio });
     }
   }
-  return { effects, ui: (doc.ui ?? null) as UiKit | null, lines };
+  const lk = activeLook(doc);
+  return { effects, ui: (doc.ui ?? null) as UiKit | null, lines, look: lk ? runtimeLook(lk) : null };
 }
 export type GameData = ReturnType<typeof gameData>;

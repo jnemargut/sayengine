@@ -1,0 +1,34 @@
+---
+name: look
+description: Give a whole scene or game a look — a pinned tonemapper, a 33³ colour grade, toon and outline, palette, fog, sky and light, material tweaks (lit windows, lamps, neon) — as one record that drives the studio view, Godot, three.js, bakes and thumbnails; check it against reference pictures with measured gates (colourfulness range, palette match, a local style score) and judge versions only by A/B picks. Use for /look, or when the user asks for a mood, time of day, colour grade, "make it look like this picture", "less saturated", night, neon, toy, or for Godot and web to look the same.
+---
+
+# /look — looks as data, reference boards, measured targets (Decision 29)
+
+A look is **one record** in the scene (`doc.look`), with history and undo like everything else. It drives:
+the studio view, thumbnails and presentation renders · Godot (Environment + the LUT as a Texture3D) · three.js (one grade pass) · the bake fallback (renderers without colour grading) · reels later (they render through the same games).
+
+The user's request: **$ARGUMENTS**
+
+## How the engines stay the same (don't undo this)
+
+Neither engine picks its own tonemapper. Both output the **transport** — Reinhard `x/(1+x)`, sRGB-encoded — and the look's 33³ LUT undoes it, applies the pinned curve (`neutral`, `aces`, `filmic`, `reinhard`, `linear`) and the grade. Godot also shades Lambert (not Burley), has no background reflections, flat town layers cast no shadows in both, and light energies map ×π into three.js. Godot vs web FLIP on Pocket Raleigh's pinned views: ≤ 0.11 (day) and ≤ 0.09 (night). If parity drifts, measure with `/proof` before touching the look.
+
+## Make and change a look
+
+- `./studio look-new --preset day-toy` (or `neon-night`, `studio-neutral`, or `--record {...}`); `--activate false` keeps the current one active.
+- `./studio look-set --look day-toy --set '{"grade":{"saturation":0.92}}'` — a partial record, deep-merged; `null` removes a key. "Not too saturated" is `grade.saturation` / `vibrance`, then check the colourfulness gate.
+- `./studio look-use --look neon-night` (or `none`); `./studio look-info --record true`.
+- Record fields: `tonemap {curve, exposure}`, `grade {temperature, tint, contrast, saturation, vibrance, lift, gamma, gain, shadows{color,amount}, highlights{color,amount}}`, `lutSize` (33), `toon {enabled, bands}`, `outline {enabled, width px, color, threshold}`, `palette {name: #hex}`, `sky {color}`, `fog {enabled, color, begin, end}`, `light {sun {color, energy, elevation, azimuth, shadows}, ambient {color, energy}}`, `materials {class: {emission, emissionEnergy, roughness, metalness, tint}}`, `fallback auto|grade|bake`, `board {references, colourfulness [min,max], paletteMatch, styleMin}`.
+- Material classes: towns carry `matte`, `glossy`, `metal`, `water`, plus `lit` (some windows), `lamp` (street lamps), `neon` (blade signs), `sign` (sign bands). A studio model's part joins a class when its material name ends in that word (`set-material --name "lantern lamp"`) — only when the model rides in a town (landmark or placed prop); stand-alone studio objects are baked to one texture.
+- **toon is in the record but not drawn yet** (say so if asked).
+
+## Into the games
+
+`./studio game import --project <game>` writes `assets/studio/look/` (`look.json`, `lut.png` strip, `look.cube`). The game's `main.gd` / `main.ts` call `LOOK.apply(self)` / `applyLook(game)`. Godot's Compatibility renderer (or `fallback: "bake"`) gets the grade **baked into the GLB's colours** instead (exact under the look's reference light; textures keep only a graded factor).
+
+## Judge it: numbers first, then A/B
+
+1. `./studio proof views --project <godot game> --against <web game>` (pinned views in both engines + parity).
+2. `./studio look board --project <godot game>` → per view and engine: colourfulness (Hasler–Süsstrunk M vs the board's range), palette match (vs the reference pictures, else the look palette) and a style score (DINOv2-small, local, vs the references; needs `~/.studio-tools/venv/bin/pip install torch transformers`). Read the sheet.
+3. Compare versions: `./studio look ab --a <stills A> --b <stills B> --views city-plaza,skyline-south` → Read the sheet, then `./studio look pick --a … --b … --pick A|B --why "…"`. **Never score a look out of 10**; numbers catch "too saturated", not "no charm".

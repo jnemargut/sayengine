@@ -108,9 +108,19 @@ export function townNodes(plan: TownPlan, opts: BuildOpts = {}): TownNode[] {
   // ground
   {
     const sb = new SoupBuilder();
-    const m = M('ground', C.ground, 0.97);
+    const life = style.life;
+    const m = M('ground', life?.groundTint ?? C.ground, 0.97);
     const P = (i: number, j: number): V3 => [g.x0 + i * g.dx, g.heights[j * g.nx + i], g.z0 + j * g.dz];
-    for (let j = 0; j + 1 < g.nz; j++) for (let i = 0; i + 1 < g.nx; i++) sb.quad(m, P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j + 1), [0, 1, 0]);
+    // the open ground between buildings: worn concrete, with lawn patches where nothing stands (no flat beige)
+    const lawnM = life?.lawns ? M('ground lawn', life.lawns.color, 0.95) : null;
+    const lawnM2 = life?.lawns ? M('ground lawn', shade(life.lawns.color, -0.1), 0.95) : null;
+    const open = (x: number, z: number) => !plan.buildings.some((b) => !b.hidden && pointInPoly([x, z], b.footprint)) && plan.streets.every((st) => distToPolyline([x, z], st.points) > st.width / 2 + st.sidewalk + 1.5);
+    for (let j = 0; j + 1 < g.nz; j++) for (let i = 0; i + 1 < g.nx; i++) {
+      const cx = g.x0 + (i + 0.5) * g.dx, cz = g.z0 + (j + 0.5) * g.dz;
+      const blob = lawnM && (hash32(`lawn${Math.floor(cx / 14)}:${Math.floor(cz / 14)}`) % 1000) / 1000 < life!.lawns!.share;
+      const mm = blob && open(cx, cz) ? ((i + j) % 3 ? lawnM! : lawnM2!) : m;
+      sb.quad(mm, P(i, j), P(i + 1, j), P(i + 1, j + 1), P(i, j + 1), [0, 1, 0]);
+    }
     // a skirt down the edges so the town reads as a diorama, not a sheet
     const skirt = M('ground edge', shade(C.ground, -0.25), 0.97);
     const low = Math.min(...g.heights) - 3;
@@ -139,6 +149,21 @@ export function townNodes(plan: TownPlan, opts: BuildOpts = {}): TownNode[] {
   if (plan.trees.length) nodes.push({ name: 'Trees', semanticType: 'trees', at: [0, 0, 0], soups: trees(plan, style).result(), extras: { count: plan.trees.length } });
   const lights = streetLights(plan, style);
   if (lights.triangles) nodes.push({ name: 'Street furniture', semanticType: 'street-furniture', at: [0, 0, 0], soups: lights.result(), extras: {} });
+  const life = streetLife(plan, style);
+  if (life.triangles) nodes.push({ name: 'Street life', semanticType: 'street-furniture', at: [0, 0, 0], soups: life.result(), extras: { parkedCars: true } });
+  // props placed by the fix layer (street landmarks): the studio model as is, at its spot
+  for (const pr of plan.props ?? []) {
+    const mm = opts.models?.[pr.model];
+    if (!mm) continue;
+    const base = pr.base ?? groundAt(g, pr.at[0], pr.at[1]);
+    const sb = new SoupBuilder([pr.at[0], base, pr.at[1]]);
+    const rot = ((pr.rotation ?? 0) * Math.PI) / 180, cs = Math.cos(rot), sn = Math.sin(rot);
+    for (const s of mm.soups) for (let i = 0; i < s.positions.length; i += 9) {
+      const P = (k: number): V3 => { const x = s.positions[i + k], y = s.positions[i + k + 1], z = s.positions[i + k + 2]; return [pr.at[0] + x * cs - z * sn, base + y, pr.at[1] + x * sn + z * cs]; };
+      sb.tri(s.mat, P(0), P(3), P(6), [s.normals[i] * cs - s.normals[i + 2] * sn, s.normals[i + 1], s.normals[i] * sn + s.normals[i + 2] * cs]);
+    }
+    nodes.push({ name: `Prop ${pr.model} ${pr.fix}`, semanticType: 'landmark', at: [pr.at[0], base, pr.at[1]], soups: sb.result(), extras: { model: pr.model, fixes: [pr.fix] } });
+  }
   const names = new Set<string>();
   for (const b of plan.buildings) {
     if (b.hidden) continue;
@@ -197,6 +222,24 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
   const scheme: 'punched' | 'ribbon' | 'piers' = b.use === 'office' ? (sch < 0.45 ? 'ribbon' : sch < 0.75 ? 'punched' : 'piers') : b.use === 'home' || b.use === 'church' ? 'punched' : sch < 0.3 ? 'piers' : 'punched';
   const hasBase = b.floors >= 4 && b.use !== 'parking' && b.use !== 'home';
   const baseM = M('base', stable(b.id, 'base') < 0.5 ? shade(pal.trim, -0.08) : shade(pal.wall, -0.22), 0.85);
+  // window habits (style.life.windows): some windows lit (they glow in a night look), blinds half down,
+  // the odd blank bay, paired windows and a smaller attic row on older blocks: no two facades alike
+  const W = style.life?.windows;
+  const litM = M('glass lit', pal.glass, 0.25, 0.1);
+  const pairs = !!W && scheme === 'punched' && stable(b.id, 'pairs') < W.pairs;
+  const litFloor = (f: number) => (stable(b.id, `lf${f}`) < 0.45 ? 1.7 : 0.35);
+  const win = (face: number, f: number, k: number, t0: number, t1: number, yb: number, yt: number, pane: (t0: number, t1: number, yb: number, yt: number, m: Mat, o?: number) => void, allowBlank = true) => {
+    if (!W) { pane(t0, t1, yb, yt, glassM); return; }
+    const key = `${face}:${f}:${k}`;
+    if (allowBlank && stable(b.id, 'x' + key) < W.blank) return;
+    const lit = stable(b.id, 'l' + key) < W.lit * litFloor(f);
+    pane(t0, t1, yb, yt, lit ? litM : glassM);
+    const bl = stable(b.id, 'b' + key);
+    if (bl < 0.32) {
+      const c = W.blinds[Math.floor(stable(b.id, 'bc' + key) * W.blinds.length)];
+      pane(t0, t1, yt - (yt - yb) * (0.35 + bl * 1.2), yt, M(lit ? 'blind lit' : 'blind', lit ? shade(pal.glass, 0.1) : c, 0.8), 0.075);
+    }
+  };
   // the street side: edges whose middle is closest to a street get the shopfront and the door
   const nearStreet = (a: P2, c: P2) => {
     const m: P2 = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2];
@@ -225,7 +268,19 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
           sb.quad(awn, off(t0, depth, yA), off(t1, depth, yA), off(t1, depth, yA - 0.3), off(t0, depth, yA - 0.3), [out[0], 0, out[1]]);
         }
       }
-      pane(0, 1, floor0 + gf * 0.8, floor0 + gf - 0.15, trimM, 0.12);   // sign band / string course
+      const signs = style.life?.signs;
+      if (signs && b.use !== 'civic' && stable(b.id, 'signband' + i) < 0.55) {
+        // a painted sign band (it glows in a night look) and a blade sign or two sticking out over the sidewalk
+        pane(0, 1, floor0 + gf * 0.8, floor0 + gf - 0.15, M('sign', signs[Math.floor(stable(b.id, 'sc' + i) * signs.length)], 0.6), 0.12);
+        for (let k = 0; k < bays; k += 3) {
+          if (stable(b.id, `blade${i}:${k}`) > 0.6) continue;
+          const t = (k + 0.5) / bays, yS = floor0 + gf + 0.6;
+          const c = off(t, 0.75, yS + 0.9);
+          const col = signs[Math.floor(stable(b.id, `bc${i}:${k}`) * signs.length)];
+          sb.box(M('neon', col, 0.5), c, [1.0, 1.6, 0.12], Math.atan2(out[1], out[0]));
+          sb.box(trimM, off(t, 0.15, yS + 1.75), [0.3, 0.08, 0.08], Math.atan2(out[1], out[0]));
+        }
+      } else pane(0, 1, floor0 + gf * 0.8, floor0 + gf - 0.15, trimM, 0.12);   // sign band / string course
     } else if (isFront && b.use !== 'parking') {
       const d = 0.5 + r() * 0.0;
       const doorW = Math.min(1.8, len * 0.3) / len;
@@ -242,17 +297,25 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
     for (let f = 1; f < b.floors; f++) {
       const yb = floor0 + gf + (f - 1) * fh;
       if (b.use === 'parking') { pane(0.02, 0.98, yb + 0.9, yb + fh - 0.35, darkM, 0.04); pane(0, 1, yb + 0.75, yb + 0.9, trimM, 0.08); continue; }
-      if (tower) { pane(0.03, 0.97, yb + 0.55, yb + fh - 0.35, glassM, 0.05); continue; }
+      if (tower) {
+        if (!W) { pane(0.03, 0.97, yb + 0.55, yb + fh - 0.35, glassM, 0.05); continue; }
+        // curtain wall in bays: some lit, some with blinds (a night look shows who works late)
+        for (let k = 0; k < bays; k++) win(i, f, k, 0.03 + (0.94 * k) / bays, 0.03 + (0.94 * (k + 1)) / bays, yb + 0.55, yb + fh - 0.35, (a0, a1, y0, y1, m, o) => pane(a0, a1, y0, y1, m, o ?? 0.05), false);
+        continue;
+      }
       if (scheme === 'ribbon') {
-        pane(0.04, 0.96, yb + 0.95, yb + fh - 0.45, glassM, 0.06);
+        if (!W) pane(0.04, 0.96, yb + 0.95, yb + fh - 0.45, glassM, 0.06);
+        else for (let k = 0; k < bays; k++) win(i, f, k, 0.04 + (0.92 * k) / bays, 0.04 + (0.92 * (k + 1)) / bays, yb + 0.95, yb + fh - 0.45, (a0, a1, y0, y1, m, o) => pane(a0, a1, y0, y1, m, o ?? 0.06), false);
         pane(0, 1, yb + fh - 0.45, yb + fh - 0.25, trimM, 0.09);
         continue;
       }
       const wFrac = scheme === 'piers' ? 0.56 : b.use === 'office' ? 0.6 : 0.4 + stable(b.id, 'wfrac') * 0.12;
-      const top = scheme === 'piers' ? yb + fh - 0.5 : yb + Math.min(fh - 0.55, 1.9 + stable(b.id, 'wh') * 0.6);
+      const attic = !!W?.attic && scheme === 'punched' && f === b.floors - 1 && b.floors >= 3 && b.use !== 'home';
+      const top = scheme === 'piers' ? yb + fh - 0.5 : attic ? yb + 0.85 + Math.min(fh - 1.4, 1.1) : yb + Math.min(fh - 0.55, 1.9 + stable(b.id, 'wh') * 0.6);
       for (let k = 0; k < bays; k++) {
-        const t0 = (k + (1 - wFrac) / 2) / bays, t1 = (k + (1 + wFrac) / 2) / bays;
-        pane(t0, t1, yb + 0.85, top, glassM);
+        const shift = pairs && bays >= 2 && k < bays - (bays % 2) ? (k % 2 ? -0.13 : 0.13) / bays : 0;
+        const t0 = (k + (1 - wFrac) / 2) / bays + shift, t1 = (k + (1 + wFrac) / 2) / bays + shift;
+        win(i, f, k, t0, t1, yb + 0.85, top, pane);
         if (scheme === 'punched') pane(t0 - 0.03 / bays, t1 + 0.03 / bays, yb + 0.68, yb + 0.85, trimM, 0.1);   // sill
         if (scheme === 'punched' && fh > 3.4) pane(t0 - 0.02 / bays, t1 + 0.02 / bays, top, top + 0.22, trimM, 0.08);   // lintel
       }
@@ -434,6 +497,11 @@ function roads(plan: TownPlan, style: Style): SoupBuilder {
         const a = side < 0 ? -w - s.sidewalk : w, b = side < 0 ? -w : w + s.sidewalk;
         const keep = (p: P2) => !onOther(s, p, 0.8);
         ribbon(sb, walkM, s.points, hs, a, b, 0.17, keep);
+        // Raleigh's streetscape: a band of red brick pavers along the curb
+        if (style.life?.brickBand && s.sidewalk >= 2.5) {
+          const bw = Math.min(0.9, s.sidewalk * 0.22);
+          ribbon(sb, M('brick pavers', style.life.brickBand, 0.9), s.points, hs, side < 0 ? -w - bw : w, side < 0 ? -w : w + bw, 0.176, keep);
+        }
         // curb face along the road edge
         const edge = side < 0 ? -w : w;
         for (let i = 0; i + 1 < s.points.length; i++) {
@@ -576,6 +644,14 @@ function streetLights(plan: TownPlan, style: Style): SoupBuilder {
         if (clear) {
           sb.frustum(pole, [q[0], y, q[1]], 0.09, 0.07, 4.6, 5);
           sb.box(lamp, [q[0] - nn[0] * 0.5, y + 4.6, q[1] - nn[1] * 0.5], [0.45, 0.22, 0.45]);
+          const ban = style.life?.banners;
+          if (ban) {
+            // a city banner on the pole, hanging over the sidewalk side
+            const col = ban[Math.floor(d / spacing) % ban.length];
+            const ang = Math.atan2(nn[1], nn[0]);
+            sb.box(M('banner', col, 0.8), [q[0] + nn[0] * 0.32, y + 3.3, q[1] + nn[1] * 0.32], [0.55, 1.3, 0.04], ang);
+            sb.box(M('banner', shade(col, 0.6), 0.8), [q[0] + nn[0] * 0.32, y + 3.3, q[1] + nn[1] * 0.32], [0.56, 0.18, 0.045], ang);
+          }
         }
         // a planter and a bench a few metres on, where the sidewalk is wide enough
         if (s.sidewalk >= 4.5) {
@@ -598,6 +674,63 @@ function streetLights(plan: TownPlan, style: Style): SoupBuilder {
     }
   }
   void style;
+  return sb;
+}
+
+/** Street life (style.life): parked cars along the parking lanes and café tables under umbrellas on wide
+ * sidewalks. Deterministic per street; clear of junctions, crossings and buildings. */
+function streetLife(plan: TownPlan, style: Style): SoupBuilder {
+  const sb = new SoupBuilder();
+  const L = style.life;
+  if (!L) return sb;
+  const wheelM = M('tyre', '#1d1e21', 0.9), glassM = M('car glass', '#26313a', 0.3, 0.1);
+  const onOther = (s: Street, p: P2, pad: number) => plan.streets.some((o) => o !== s && o.kind !== 'footway' && distToPolyline(p, o.points) < o.width / 2 + pad);
+  const inBuilding = (p: P2, pad = 0.6) => plan.buildings.some((b) => !b.hidden && (pointInPoly(p, b.footprint) || distToPolyline(p, [...b.footprint, b.footprint[0]]) < pad));
+  for (const s of plan.streets) {
+    const hs = s.heights ?? s.points.map((p) => groundAt(plan.ground, p[0], p[1]));
+    const len = s.points.reduce((acc, p, i) => (i ? acc + Math.hypot(p[0] - s.points[i - 1][0], p[1] - s.points[i - 1][1]) : 0), 0);
+    const w = s.width / 2;
+    // parked cars: streets with room for a parking lane
+    if (L.parkedCars && L.carColors && s.width >= 9 && ['secondary', 'tertiary', 'residential'].includes(s.kind)) {
+      for (const side of [-1, 1]) for (let d = 6; d < len - 6; d += L.parkedCars) {
+        const key = `${s.id}:${side}:${Math.round(d)}`;
+        if ((hash32('car' + key) % 100) < 38) continue;   // gaps
+        const { p, dir } = alongLine(s.points, d);
+        const nn: P2 = [-dir[1] * side, dir[0] * side];
+        const c: P2 = [p[0] + nn[0] * (w - 1.25), p[1] + nn[1] * (w - 1.25)];
+        if (onOther(s, c, 7)) continue;
+        const y = heightAlong(s, hs, d) + 0.06;
+        const col = L.carColors[hash32('cc' + key) % L.carColors.length];
+        const body = M('car paint', col, 0.45, 0.2), ang = Math.atan2(dir[1], dir[0]);
+        const P = (u: number, v: number, h: number): V3 => [c[0] + dir[0] * u + nn[0] * v, y + h, c[1] + dir[1] * u + nn[1] * v];
+        const van = hash32('van' + key) % 7 === 0;
+        sb.box(body, P(0, 0, 0.62), [van ? 4.9 : 4.3, 0.62, 1.78], ang);
+        sb.box(glassM, P(van ? 0.3 : -0.25, 0, van ? 1.35 : 1.18), [van ? 3.9 : 2.3, van ? 0.85 : 0.5, 1.6], ang);
+        sb.box(body, P(van ? 0.3 : -0.25, 0, van ? 1.8 : 1.45), [van ? 3.95 : 2.25, 0.06, 1.62], ang);
+        for (const u of [-1.35, 1.35]) for (const v of [-0.78, 0.78]) sb.box(wheelM, P(u, v, 0.32), [0.66, 0.64, 0.24], ang);
+      }
+    }
+    // café tables under umbrellas on wide sidewalks
+    if (L.cafes && s.sidewalk >= L.cafes.minSidewalk && ['primary', 'secondary', 'tertiary', 'residential'].includes(s.kind)) {
+      for (const side of [-1, 1]) for (let d = 9; d < len - 9; d += 9.5) {
+        const key = `${s.id}:${side}:${Math.round(d)}`;
+        if ((hash32('cafe' + key) % 100) < 45) continue;
+        const { p, dir } = alongLine(s.points, d);
+        const nn: P2 = [-dir[1] * side, dir[0] * side];
+        const c: P2 = [p[0] + nn[0] * (w + s.sidewalk - 2.1), p[1] + nn[1] * (w + s.sidewalk - 2.1)];
+        if (onOther(s, c, 3) || inBuilding(c, 1.2)) continue;
+        const y = heightAlong(s, hs, d) + 0.17;
+        const col = L.cafes.umbrellas[hash32('uc' + key) % L.cafes.umbrellas.length];
+        const ang = Math.atan2(dir[1], dir[0]);
+        const metal = M('cafe metal', '#3a3b3d', 0.5, 0.5), seat = M('cafe chair', '#5d4a3a', 0.85);
+        sb.frustum(metal, [c[0], y, c[1]], 0.06, 0.06, 0.74, 5);
+        sb.frustum(M('cafe table', '#e8e2d4', 0.7), [c[0], y + 0.72, c[1]], 0.45, 0.45, 0.04, 8);
+        for (const u of [-0.75, 0.75]) sb.box(seat, [c[0] + dir[0] * u, y + 0.45, c[1] + dir[1] * u], [0.42, 0.9, 0.42], ang);
+        sb.frustum(metal, [c[0], y + 0.76, c[1]], 0.03, 0.03, 1.6, 4);
+        sb.frustum(M('umbrella', col, 0.8), [c[0], y + 2.05, c[1]], 1.35, 0.05, 0.4, 8, ang);
+      }
+    }
+  }
   return sb;
 }
 

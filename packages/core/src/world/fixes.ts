@@ -17,6 +17,9 @@ export interface Fix {
   hide?: boolean;                // e.g. a tank, a skybridge the data got wrong
   model?: string;                // swap in this studio object (a landmark made by hand)
   modelRotation?: number;
+  /** place the model at `at` as a prop (it replaces nothing): street landmarks like light masts */
+  place?: boolean;
+  base?: number;                 // a placed prop's floor height (default: the ground under it)
   note?: string;
 }
 export interface FixReport {
@@ -28,6 +31,7 @@ export const FALLBACK_RADIUS = 10;
 
 export function validateFix(f: Fix): void {
   if (!f.id && !f.at) throw new Error('a fix needs the building --id or a position --at [x, z]');
+  if (f.place && (!f.model || !f.at)) throw new Error('a placed prop needs --model and --at [x, z]');
   if (!f.set && !f.hide && !f.model) throw new Error('a fix needs something to do: --set {...}, --hide true or --model <studio object>');
   const s = f.set ?? {};
   if (s.roof && !ROOF_TYPES.includes(s.roof)) throw new Error(`roof must be one of ${ROOF_TYPES.join(', ')}`);
@@ -54,6 +58,11 @@ export function applyFixes(plan: TownPlan, fixes: Fix[]): FixReport {
   const rep: FixReport = { applied: [], orphaned: [] };
   const style = styleFor(plan.style);
   fixes.forEach((f, index) => {
+    if (f.place) {
+      (plan.props ??= []).push({ model: f.model!, at: f.at!, rotation: f.modelRotation, base: f.base, fix: index });
+      rep.applied.push({ index, building: `prop:${f.model}`, by: 'position', ...(f.note ? { note: f.note } : {}) });
+      return;
+    }
     const t = findTarget(plan, f);
     if (!t) { rep.orphaned.push({ index, id: f.id, at: f.at, note: f.note, reason: f.id ? `no building ${f.id}${f.at ? ` and nothing within ${FALLBACK_RADIUS} m of [${f.at.map((v) => v.toFixed(1)).join(', ')}]` : ''}` : `nothing within ${FALLBACK_RADIUS} m of [${f.at!.map((v) => v.toFixed(1)).join(', ')}]` }); return; }
     const b = t.b;

@@ -11,13 +11,13 @@ const CHARS := preload("res://studio/characters.gd")
 const PLAYER := preload("res://studio/player.gd")
 const EFFECTS := preload("res://studio/effects.gd")
 const UI := preload("res://studio/ui.gd")
+const LOOK := preload("res://studio/look.gd")
 var effects: Node    # effects.set_value("fire", 0.4), effects.event("fed")
 var ui: CanvasLayer  # ui.set_bar("heat", 0.4), ui.bubble(node, "Good lad.")
 var player: CharacterBody3D
 var cam: Camera3D
 
 func _ready() -> void:
-	_add_environment()
 	_add_floor()
 	if ResourceLoader.exists(STUDIO_SCENE):
 		var studio: Node3D = load(STUDIO_SCENE).instantiate()
@@ -25,6 +25,9 @@ func _ready() -> void:
 		add_child(studio)
 		CHARS.animate(studio)
 	# studio effects and the UI kit's HUD (empty until the studio has some)
+	# the studio look (look.json: sky, fog, light, grade); without one, the game's own environment
+	if not LOOK.apply(self):
+		_add_environment()
 	effects = EFFECTS.start(self)
 	ui = UI.start(self)
 	var info = CHARS.manifest().get("player")

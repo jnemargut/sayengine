@@ -34,7 +34,7 @@ test('views are checked before anything renders', () => {
 
 test('the proof CLI lists its commands and corrects bad flags without starting anything', async () => {
   const h = await proofCli(['help'], () => ({}));
-  assert.deepEqual(Object.keys(h.commands).sort(), ['approve', 'init', 'phone', 'views']);
+  assert.deepEqual(Object.keys(h.commands).sort(), ['approve', 'init', 'look-ab', 'look-board', 'look-pick', 'phone', 'views']);
   const bad = await proofCli(['views', '--projct', 'x'], (a) => ({ [a[0].slice(2)]: a[1] }));
   assert.equal(bad.ok, false);
   assert.match(bad.error, /unknown flag --projct/);

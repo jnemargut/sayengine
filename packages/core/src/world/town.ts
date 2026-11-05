@@ -92,6 +92,9 @@ function linear(hex: string): [number, number, number] {
 /** Shading class of a material: colours ride as vertex colours, so a whole chunk needs only a few materials. */
 function shadeClass(m: { name: string; roughness: number; metalness?: number }) {
   if (m.name === 'water') return { name: 'water', roughness: 0.12, metalness: 0 };
+  // classes a look can light up (Decision 29 material tweaks): lit windows, lamps, neon, signs
+  const special = /(^|\s)(lit|lamp|neon|sign)$/.exec(m.name);
+  if (special) return { name: special[2], roughness: special[2] === 'lit' ? 0.28 : 0.5, metalness: 0 };
   if ((m.metalness ?? 0) >= 0.3) return { name: 'metal', roughness: 0.55, metalness: 0.5 };
   if (m.roughness < 0.45) return { name: 'glossy', roughness: 0.28, metalness: 0.05 };
   return { name: 'matte', roughness: 0.9, metalness: 0 };

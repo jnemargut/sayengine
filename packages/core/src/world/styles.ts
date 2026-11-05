@@ -17,6 +17,18 @@ export interface Style {
   glassTowerAbove: number;             // buildings taller than this get curtain-wall glass bands
   colors: { ground: string; road: string; marking: string; sidewalk: string; park: string; water: string; plaza: string; trunk: string; leaves: string[]; awning: string[] };
   streetTrees: number;                 // spacing (m) of trees along main streets; 0 = none
+  /** Street-level life and facade habits (the "generic toy downtown" fix). All optional. */
+  life?: {
+    windows?: { lit: number; blinds: string[]; blank: number; pairs: number; attic: boolean };   // shares 0..1
+    brickBand?: string;                 // a brick paver band along the curb (Raleigh's Fayetteville St streetscape)
+    parkedCars?: number;                // spacing (m) of parked cars along streets with parking lanes; 0 = none
+    carColors?: string[];
+    cafes?: { minSidewalk: number; umbrellas: string[] };   // tables + umbrellas on wide sidewalks
+    banners?: string[];                 // lamp-post banners
+    signs?: string[];                   // blade signs and sign bands on shopfronts (neon at night)
+    lawns?: { color: string; share: number };   // grass patches on the open ground between buildings
+    groundTint?: string;                // the open ground's colour (no more flat beige)
+  };
 }
 
 const pal = (wall: string, trim: string, roof: string, glass = '#2f3b45', accent?: string): Palette => ({ wall, trim, roof, glass, ...(accent ? { accent } : {}) });
@@ -46,8 +58,22 @@ export const STYLES: Record<string, Style> = {
     storefront: (b) => b.use !== 'parking' && b.use !== 'church' && b.use !== 'home',
     cornice: true,
     glassTowerAbove: 45,
-    colors: { ground: '#b9b1a3', road: '#4f4f52', marking: '#e8e2cf', sidewalk: '#cfc7b8', park: '#7d9a5a', water: '#5f8fa3', plaza: '#d9cfbd', trunk: '#5a4636', leaves: ['#5f7f3e', '#6e8c45', '#58773a', '#7a9550'], awning: ['#2f5d50', '#8a3b32', '#2d4a6b', '#b0813a', '#5a3d5c'] },
+    colors: { ground: '#b9b1a3', road: '#56575c', marking: '#e8e2cf', sidewalk: '#cfc7b8', park: '#7d9a5a', water: '#5f8fa3', plaza: '#d9cfbd', trunk: '#5a4636', leaves: ['#5f7f3e', '#6e8c45', '#58773a', '#7a9550'], awning: ['#2f5d50', '#8a3b32', '#2d4a6b', '#b0813a', '#5a3d5c'] },
     streetTrees: 13,
+    life: {
+      // downtown Raleigh: tinted and shaded office glass, some floors lit late, the odd blank bay and paired
+      // windows on the older brick blocks; red brick pavers along the curbs; parked cars on the cross streets;
+      // café tables under umbrellas on Fayetteville St; city banners on the lamp posts
+      windows: { lit: 0.3, blinds: ['#b8b2a2', '#93a1a8', '#c4b89c', '#7f929c'], blank: 0.07, pairs: 0.35, attic: true },
+      brickBand: '#8e6152',
+      parkedCars: 7.5,
+      carColors: ['#b8322a', '#2f5d8a', '#e9e6df', '#2b2d31', '#8c9196', '#d9a441', '#3f6f4f', '#6b2f4a'],
+      cafes: { minSidewalk: 6, umbrellas: ['#c0392b', '#2f6d5a', '#e0a43a', '#2d4a6b', '#f0ebe0'] },
+      banners: ['#b0302a', '#1f4e8c', '#d99a2b'],
+      signs: ['#c0392b', '#2f6d5a', '#d9a441', '#2d4a6b', '#7a3b6a', '#e46d2e'],
+      lawns: { color: '#7f9d58', share: 0.35 },
+      groundTint: '#8f8a80',
+    },
   },
   'river-town-1920s': {
     id: 'river-town-1920s',

@@ -9,6 +9,7 @@ const CHARS := preload("res://studio/characters.gd")
 const PLAYER := preload("res://studio/player.gd")
 const EFFECTS := preload("res://studio/effects.gd")
 const UI := preload("res://studio/ui.gd")
+const LOOK := preload("res://studio/look.gd")
 const SKY := Color(0.80, 0.86, 0.90)
 var effects: Node
 var ui: CanvasLayer
@@ -16,12 +17,14 @@ var player: CharacterBody3D
 var cam: Camera3D
 
 func _ready() -> void:
-	_add_environment()
 	if ResourceLoader.exists(STUDIO_SCENE):
 		var studio: Node3D = load(STUDIO_SCENE).instantiate()
 		studio.name = "Studio"
 		add_child(studio)
 		CHARS.animate(studio)
+	# the studio look (look.json: sky, fog, light, grade); without one, the game's own environment
+	if not LOOK.apply(self):
+		_add_environment()
 	effects = EFFECTS.start(self)
 	ui = UI.start(self)
 	var info = CHARS.manifest().get("player")

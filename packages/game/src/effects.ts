@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { effectFrame, godotEffectScene, godotShapeShader, webShapeShader, godotTheme, uiCss, type ParticleLayer } from '../../core/src/index.ts';
 import type { GameData, EffectBundle } from '../../core/src/gamedata.ts';
 import { STUDIO_ROOT } from './project.ts';
+import { writeLook } from './look.ts';
 
 export const QUARKS_VERSION = '0.17.1';
 export const ALPHA_GAMMA = 1.6;
@@ -108,6 +109,8 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
     fs.writeFileSync(path.join(lnDir, 'lines.json'), '{}\n');
   };
   empties();
+  // the look (Decision 29): look.json, the LUT strip and .cube, or the grade baked into the colours
+  files.push(...writeLook(dir, engine, data?.look ?? null).files);
   if (!data) return files;
   // effects
   const manifest = data.effects.map((b) => ({ id: b.def.id, name: b.def.name, at: b.at, loop: b.def.loop, value: b.def.value ?? null, triggers: b.def.triggers ?? [], warmup: b.def.warmup !== false, frame: effectFrame(b.def, b.at), file: engine === 'godot' ? `${b.def.id}.tscn` : `${b.def.id}.json` }));

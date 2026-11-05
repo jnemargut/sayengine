@@ -25,7 +25,8 @@ The user's request: **$ARGUMENTS**
 ## Fixing buildings (the fix layer)
 
 - Find the id: `./studio world-info --town "Pocket Raleigh" --near [x,z]` (x east, z south, metres from the town centre).
-- `./studio world-fix --town "Pocket Raleigh" --id ov:… --set '{"roof":"hip","height":24,"wall":"#c9bea8"}' --note "why"`; `--hide true` for data mistakes (skybridges, tanks); `--model <studio object>` swaps in a landmark you modelled with /studio (it stands on the footprint, `--model-rotation` degrees).
+- `./studio world-fix --town "Pocket Raleigh" --id ov:… --set '{"roof":"hip","height":24,"wall":"#c9bea8"}' --note "why"`; `--hide true` for data mistakes (skybridges, tanks); `--model <studio object>` swaps in a landmark you modelled with /studio (it stands on the footprint, `--model-rotation` degrees). `--place true --model <object> --at [x,z] [--base y]` places a studio model as a **prop** that replaces no building (light masts, statues, kiosks); it rides in the town and survives rebuilds like any fix. Name a part's material ending in `lamp`, `neon`, `sign` or `lit` and a night look can light it (/look).
+- Street life comes from the style's `life` rules (`raleigh-downtown`): window habits (lit, blinds, blank bays, paired windows, attic rows), brick pavers along the curb, parked cars, café tables, lamp-post banners, blade signs, lawn patches. Tune them there, not with fixes.
 - Each fix is keyed by id **and** position: after a data refresh (`world-fetch --force true`) a fix whose id vanished lands by position, and one with no building left is flagged by `studio check`. Undo / `world-unfix --index n` remove fixes.
 - Styles: `raleigh-downtown`, `river-town-1920s`, `generic`. If a town reads as tidy boxes, fix the **style rules** (`packages/core/src/world/styles.ts`, `mesh.ts`) before adding more fixes.
 

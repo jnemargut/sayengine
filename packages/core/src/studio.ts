@@ -1,4 +1,5 @@
 // Studio: the headless engine facade. One instance per project. DOM-free.
+import { activeLook } from './look/tools.ts';
 import { History, getAt, setAt, type Change, type Commit, type RepoData } from './history.ts';
 import { evaluateObject, overlapVolume, setMeshLoader, supportOf, type EvalResult } from './kernel.ts';
 import { runChecks, type CheckResult } from './checks.ts';
@@ -590,6 +591,7 @@ export class Studio {
       })),
       history: this.log('main', 12),
       activity: this.activity.slice(-40),
+      look: activeLook(main),
     };
   }
 }

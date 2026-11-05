@@ -304,17 +304,31 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - [x] proof (D31, Mac only): pinned clock and seed, fixed views in Godot and web, FLIP picture diffs, budgets, a phone-sized WebKit window with a throttled CPU. *(`proof init/views/approve/phone`; the throttle is Chrome's — WebKit can't be CPU-throttled, so the phone run does both)*
 
 ### Week 11: look
-- [ ] Look record:
-  - tonemapper, pinned
-  - 33³ colour grade
-  - toon and outline
+- [x] Look record:
+  - tonemapper, pinned *(neither engine picks one: both output Reinhard x/(1+x) as a "transport", and the LUT undoes it and applies the look's curve — neutral, aces, filmic, reinhard or linear)*
+  - 33³ colour grade *(exposure, white balance, contrast, lift/gamma/gain, split toning, saturation and vibrance in Oklab)*
+  - toon and outline *(outline drawn in both engines from the depth buffer; **toon is in the record but not drawn yet**)*
   - palette
   - fog, sky and light
-  - material tweaks
-- [ ] The look drives the view, Godot (with the LUT converted), three.js, bakes, thumbnails and reels.
-- [ ] Bake fallback for renderers without colour grading.
-- [ ] Reference boards and gates: colourfulness range, palette match, and a local style score (CSD or DINOv2-small). Claude judges only by A/B picks.
-- [ ] Two looks: "day toy" and "neon night".
+  - material tweaks *(by shading class: towns now carry `lit` windows, `lamp`, `neon` and `sign` classes a night look lights up)*
+- [x] The look drives the studio view (viewport, thumbnails, presentation renders), Godot (the LUT as a lossless strip sliced into a Texture3D), three.js (one grade pass wrapping `renderer.render`), and bakes. Reels will render through the same games. *(`packages/core/src/look/`, tools `look-*`, skill `/look`)*
+- [x] Bake fallback for renderers without colour grading *(Godot Compatibility, or `fallback: "bake"`: the grade is baked into the GLB's vertex and base colours on import, exact under the look's reference light)*.
+- [x] Reference boards and gates: colourfulness range, palette match, and a local style score (DINOv2-small in `~/.studio-tools/venv`). Claude judges only by A/B picks (`studio look board|ab|pick`; picks are logged).
+- [x] Two looks: "day toy" and "neon night" on Pocket Raleigh, both engines. Pictures, sheet and flythrough: `checkpoint-pocket-raleigh/look/`.
+
+### Status (2026-11-05): week 11 built on `phase4/look`
+**Parity fixed:** Godot vs web FLIP on the 10 pinned views is 0.054–0.110 with day toy and 0.040–0.088 with neon night (was 0.34–0.46). What it took: the shared transport + LUT, Lambert diffuse in Godot (its default Burley brightens grazing views), no background reflections in Godot, light energies ×π in three.js, an ambient light instead of a hemisphere, and a measured Godot 4.7 quirk (with fog on, the BG_COLOR sky is sRGB-decoded twice). What is left is shadow-map filtering and anti-aliasing.
+
+**Craft against "generic toy downtown":** PNC Plaza and Wells Fargo Capitol Center are studio models swapped in with the landmark fix; the four City Plaza light masts are one studio model placed four times by a new fix kind (`--place`, a prop that replaces no building). The `raleigh-downtown` style rules now break the window grids (lit windows, blinds, blank bays, paired windows, attic rows, curtain walls in bays) and give the street level brick pavers, parked cars, café tables under umbrellas, lamp-post banners, blade signs and lawn patches.
+
+**Weak (honest):**
+- Looking at the stills: it reads as **a downtown with Raleigh's skyline**, not as Fayetteville Street at eye level. From the plaza you see the PNC crown, the Wells Fargo top and the light masts, which is a real gain; but the street walls are still rule-built boxes, and nothing at street level (the Capitol at the north end, the Performing Arts Center at the south end, the real storefronts) says Raleigh.
+- The landmark shapes are from memory of the skyline, not a survey or photos (none were available locally).
+- Neon night has no glow (bloom) and no pools of lamp light on the ground: lights are emissive surfaces, not lights. Bloom would need matching Godot glow and a web bloom; parity would have to be re-earned.
+- There are no user reference pictures yet, so the palette gate ran against the look's own palette and the targets are a first guess. The local style score (DINOv2-small, ~2 s a picture) barely separates the two looks (both ≈ 0.70 against the week-10 stills): it responds to content more than style. That trips Decision 29's tripwire: try CSD, or keep only colourfulness and A/B.
+- The gates did their job once: day toy v1 was above the colourfulness range on 10 of 20 renders; v2 (less saturation) fails 2 and was picked A/B (`checkpoint-pocket-raleigh/look/picks.jsonl`).
+- Toon shading is not drawn. Window lighting is per pane, at one constant warm colour.
+- Bake fallback: textures keep only a graded factor, not graded texels.
 
 ### Week 12: life, people
 - [ ] Smart places: benches, stalls, piers, dog walks.
