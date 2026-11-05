@@ -30,6 +30,7 @@ export class TownPanel {
   draft = '';
   fixes: any[] = [];                        // the town's fix layer (for "back to the data")
   private framed = '';
+  private queued: [TownState[], string, any[]] | null = null;
 
   constructor(host: ViewHost) {
     this.host = host;
@@ -45,7 +46,8 @@ export class TownPanel {
     const t = towns[0];
     if (!t) { this.clear(); return; }
     const key = `${t.name}|${t.stamp}|${branchKey}`;
-    if (key === this.loadKey || this.loading) return;
+    if (key === this.loadKey) return;
+    if (this.loading) { this.queued = [towns, branchKey, fixLayer]; return; }
     this.loading = true;
     try {
       const r: TownView = await (await fetch(`/api/town?name=${encodeURIComponent(t.name)}`)).json();
@@ -55,7 +57,9 @@ export class TownPanel {
       if (this.framed !== t.name) { this.framed = t.name; this.host.frameBox(new THREE.Box3().setFromObject(this.group), [0.9, 0.85, 1.25]); }
     } catch (e: any) { this.error = e.message ?? String(e); }
     finally { this.loading = false; this.host.rerender(); }
-    if (this.loadKey !== key) return;
+    // the recipe changed while this chunk was loading: load the newer one
+    const q = this.queued; this.queued = null;
+    if (q) await this.sync(...q);
   }
 
   clear() {
@@ -97,7 +101,7 @@ export class TownPanel {
         // the selected building gets its own copy of the material, lit up in sage
         const base = matFor(p.mat);
         const mat = n.worldId && n.worldId === this.selected && p.mat.name !== 'pool' ? (base as THREE.MeshStandardMaterial).clone() : base;
-        if (mat !== base) { (mat as THREE.MeshStandardMaterial).emissive.set('#5b8c7a'); (mat as THREE.MeshStandardMaterial).emissiveIntensity = 0.9; mat.userData = { ...base.userData, picked: true }; }
+        if (mat !== base) { (mat as THREE.MeshStandardMaterial).emissive.set('#5b8c7a'); (mat as THREE.MeshStandardMaterial).emissiveIntensity = 0.5; mat.userData = { ...base.userData, picked: true }; }
         const m = new THREE.Mesh(geo, mat);
         m.userData = { town: v.town, worldId: n.worldId ?? null, kind: n.kind };
         const flat = /ground|roads|parks|water/.test(n.kind) || p.mat.name === 'pool';

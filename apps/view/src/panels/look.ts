@@ -5,8 +5,7 @@
 // on a spot of the picture; "Show me three" asks for three distinct grades and lays them side by side.
 import * as THREE from 'three';
 import { knobsFor, knob, knobStep, turnKnob, lookTakes, type Knob } from '../../../../packages/core/src/look/knobs.ts';
-import { parseLook, engineLight, buildLut, type Look } from '../../../../packages/core/src/look/look.ts';
-import { lutTexture, installGradePass } from '../../../../packages/game/templates/web/studio/look.ts';
+import { parseLook, engineLight, type Look } from '../../../../packages/core/src/look/look.ts';
 import type { ViewHost } from './host.ts';
 
 const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -203,21 +202,4 @@ export function tweakMaterials(root: THREE.Object3D | null, tweaks: Record<strin
     if (m.userData.picked) return;   // the selected building keeps its highlight
     if (t?.emission) { m.emissive.set(t.emission); m.emissiveIntensity = t.emissionEnergy ?? 1; } else { m.emissive.set('#000000'); m.emissiveIntensity = 0; }
   });
-}
-
-/** A grade-only render of the shown scene under one look (for the three thumbnails). */
-export function shootUnder(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THREE.Camera, look: Look, w = 240, h = 150): string {
-  r.setSize(w, h, false);
-  const L = { ...look, lutSize: 17 };
-  const lut = buildLut(L);
-  const tex = lutTexture(lut.data, lut.size);
-  const pass = installGradePass(r, tex, { outline: look.outline });
-  const bg = scene.background;
-  scene.background = new THREE.Color(look.sky.color);
-  const c = (cam as THREE.PerspectiveCamera).clone(); c.aspect = w / h; c.updateProjectionMatrix();
-  r.render(scene, c);
-  const url = r.domElement.toDataURL('image/png');
-  scene.background = bg;
-  pass.dispose(); tex.dispose();
-  return url;
 }

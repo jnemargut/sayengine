@@ -1,7 +1,7 @@
 // The step-3 panels in one place (looks with sliders, towns you click to fix, the UI kit over the
 // scene). main.ts calls a handful of hooks: onState, html, inspector, click, frame, pins, note target.
 import * as THREE from 'three';
-import { LookPanel, shootUnder } from './look.ts';
+import { LookPanel } from './look.ts';
 import { TownPanel, type TownState } from './town.ts';
 import { UiPanel } from './ui.ts';
 import { esc, type ViewHost } from './host.ts';
@@ -13,7 +13,6 @@ export class Panels {
   look: LookPanel; town: TownPanel; ui: UiPanel;
   private state: any = null;
   private bubble: HTMLDivElement;
-  private shotR: THREE.WebGLRenderer | null = null;
 
   constructor(host: ViewHost) {
     this.host = host;
@@ -54,12 +53,7 @@ export class Panels {
     if (this.look.shootThree(state.takes ?? [], state.proposals ?? [], (L) => this.shoot(L))) this.host.rerender();
   }
 
-  private shoot(L: any): string {
-    this.shotR ??= new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-    this.shotR.outputColorSpace = THREE.SRGBColorSpace;
-    this.shotR.shadowMap.enabled = true;
-    return shootUnder(this.shotR, this.host.scene, this.host.camera, L);
-  }
+  private shoot(L: any): string { return this.host.shootUnder(L, 320, 200); }
 
   /** The panel above the inspector: the look's sliders, the town's chunk line, the UI kit's screens and checks. */
   html(): string {

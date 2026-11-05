@@ -1038,6 +1038,16 @@ panels = new Panels({
     controls.target.copy(c); controls.update();
     lastFrameKey = 'town';
   },
+  shootUnder: (look, w, h) => {
+    syncLook(look);
+    renderer.render(scene, camera);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const src = renderer.domElement, sa = src.width / src.height, ta = w / h;
+    const sw = sa > ta ? src.height * ta : src.width, sh = sa > ta ? src.height : src.width / ta;
+    c.getContext('2d')!.drawImage(src, (src.width - sw) / 2, (src.height - sh) / 2, sw, sh, 0, 0, w, h);
+    syncLook(state?.look ?? null);
+    return c.toDataURL('image/png');
+  },
   thingWords: (thing) => { const [h, ...rest] = thing.split('/'); const o = state?.main.find((x) => x.id === h); return [o?.name ?? (h.startsWith('town:') ? h.slice(5) : h === 'ui' ? 'UI kit' : h.startsWith('look:') ? `look ${h.slice(5)}` : h), ...rest.map((x) => panels.town.building(x)?.label ?? x)].join(' / '); },
 });
 connect();

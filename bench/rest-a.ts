@@ -18,9 +18,13 @@ fs.mkdirSync(out, { recursive: true });
 execFileSync(process.execPath, [path.join(ROOT, 'apps/view/build.ts')], { stdio: 'ignore' });
 const PORT0 = Number(process.env.STUDIO_PORT ?? 4720);
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const report: any = { made: new Date().toISOString(), shots: [], scenes: {} };
+// SCENES=town,ui re-runs only those (a loaded machine can time a screenshot out); the report is merged
+const only = process.env.SCENES?.split(',');
+const prev = (() => { try { return JSON.parse(fs.readFileSync(path.join(out, 'report.json'), 'utf8')); } catch { return null; } })();
+const report: any = only && prev ? { ...prev, made: new Date().toISOString() } : { made: new Date().toISOString(), shots: [], scenes: {} };
 
 async function scene(name: string, port: number, setup: (ok: (t: string, a: object, why?: string) => any, studio: any) => void, drive: (page: Page, studio: any, shot: (f: string) => Promise<void>) => Promise<any>) {
+  if (only && !only.includes(name)) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `studio-resta-${name}-`));
   process.env.STUDIO_HOME = path.join(dir, 'home');
   const { server, studio, url } = await startDaemon({ dir, port });
@@ -32,7 +36,7 @@ async function scene(name: string, port: number, setup: (ok: (t: string, a: obje
     const r = await withPage(url, { width: 1440, height: 1000 }, async (page) => {
       await page.eval(`new Promise((r) => { const t = setInterval(() => { if (document.querySelector('#conn.live')) { clearInterval(t); r(true); } }, 100); })`, 60000);
       await wait(2500);
-      const shot = async (f: string) => { const p = path.join(out, f); fs.writeFileSync(p, await page.screenshot()); report.shots.push(path.relative(ROOT, p)); };
+      const shot = async (f: string) => { const p = path.join(out, f); fs.writeFileSync(p, await page.screenshot()); const rel = path.relative(ROOT, p); if (!report.shots.includes(rel)) report.shots.push(rel); };
       const res = await drive(page, studio, shot);
       const errs = page.logs.filter((l) => l.level === 'error' && !/favicon|fonts\.g/.test(l.text));
       return { ...res, viewErrors: errs.map((e) => e.text).slice(0, 5) };

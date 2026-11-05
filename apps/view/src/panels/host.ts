@@ -18,6 +18,8 @@ export interface ViewHost {
   rerender(): void;
   /** point the camera at a box */
   frameBox(box: THREE.Box3, dir?: [number, number, number]): void;
+  /** the viewport as it is, graded by this look, as a small PNG (the main renderer: textures don't cross GL contexts) */
+  shootUnder(look: any, w: number, h: number): string;
   /** a thing in words ("Walnut stool / seat", "Mini Raleigh / Office 2a17ab") */
   thingWords(thing: string): string;
 }
