@@ -1,10 +1,16 @@
 {
-  "made": "2026-11-05T19:24:30.332Z",
+  "made": "2026-11-05T19:33:38.378Z",
   "shots": [
     "checkpoint-phase10/core/view-card-and-notes.png",
     "checkpoint-phase10/core/view-before-after.png",
     "checkpoint-phase10/core/view-answered-skipped.png"
   ],
+  "renderCache": {
+    "first": false,
+    "second": true,
+    "sameKey": true,
+    "ok": true
+  },
   "notes": [
     {
       "id": "n1",
@@ -34,7 +40,7 @@
   ],
   "card": {
     "proposal": "p1",
-    "made": "2026-11-05T19:23:13.982Z",
+    "made": "2026-11-05T19:32:04.790Z",
     "unattended": false,
     "checked": {
       "passed": 4,
@@ -75,7 +81,7 @@
         "id": "a1",
         "status": "answered",
         "answer": "13 mm",
-        "answeredAt": "2026-11-05T19:24:13.770Z"
+        "answeredAt": "2026-11-05T19:33:08.063Z"
       },
       {
         "kind": "yesno",

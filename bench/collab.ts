@@ -60,6 +60,7 @@ const card = ok('card', { asks: [
 console.log('card:', JSON.stringify((card.result as any).byTaste));
 
 const shots: string[] = [];
+let cacheCheck: Record<string, boolean> = {};
 const reveal = `(() => { const c = document.querySelector('.card'); if (c) c.scrollIntoView({ block: 'end' }); return true; })()`;
 await withPage(url, { width: 1440, height: 1100 }, async (page) => {
   await page.eval(`new Promise((r) => { const t = setInterval(() => { if (document.querySelector('#conn.live') && document.querySelector('[data-focus="p1"]')) { clearInterval(t); r(true); } }, 100); })`, 60000);
@@ -87,19 +88,23 @@ await withPage(url, { width: 1440, height: 1100 }, async (page) => {
   const c = path.join(out, 'view-answered-skipped.png');
   fs.writeFileSync(c, await page.screenshot());
   shots.push(c);
-  const errs = page.logs.filter((l) => l.level === 'error');
+  // renders are caches keyed by the recipe: the second identical render comes from the cache
+  const render = async () => (await (await fetch(`${url}/api/call`, { method: 'POST', body: JSON.stringify({ tool: 'render', args: { views: 'iso', proposal: 'p1' } }) })).json()) as any;
+  const r1 = await render(), r2 = await render();
+  cacheCheck = { first: !!r1.result?.cached, second: !!r2.result?.cached, sameKey: r1.result?.key === r2.result?.key, ok: r1.ok && r2.ok };
+  const errs = page.logs.filter((l) => l.level === 'error' && !/favicon/.test(l.text));
   if (errs.length) console.log('view errors:', errs);
 });
 
 const stats = studio.collab.stats();
 const report = {
-  made: new Date().toISOString(), shots: shots.map((s) => path.relative(ROOT, s)),
+  made: new Date().toISOString(), shots: shots.map((s) => path.relative(ROOT, s)), renderCache: cacheCheck,
   notes: studio.collab.notes.list({ status: 'all' }).map((n) => ({ id: n.id, status: n.status, text: n.text, thing: n.address.thing, why: n.log.at(-1)?.why })),
   card: studio.history.proposal('p1').card,
   stats: { steps: stats.steps, notes: stats.notes, taste: stats.taste, asks: stats.asks },
 };
 fs.writeFileSync(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
-console.log(JSON.stringify({ shots: report.shots, notes: report.notes, stats: report.stats }, null, 2));
+console.log(JSON.stringify({ shots: report.shots, renderCache: cacheCheck, notes: report.notes, stats: report.stats }, null, 2));
 server.close();
 fs.rmSync(dir, { recursive: true, force: true });
 process.exit(0);

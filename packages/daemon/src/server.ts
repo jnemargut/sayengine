@@ -193,8 +193,8 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           return f;
         });
         return { ok: true, tool: name, result: args.style === 'presentation'
-          ? { images: files, note: 'Presentation render: materials, environment light and soft shadows, no labels. Read it to judge the look; share the PNG.' }
-          : { images: files, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
+          ? { images: files, key, note: 'Presentation render: materials, environment light and soft shadows, no labels. Read it to judge the look; share the PNG.' }
+          : { images: files, key, legend: reply.legend, note: 'Read these PNGs to look. Use them for proportion/style only — numbers from `studio check` are the authority.' } };
       }
       case 'print':
         // 3D printing (Decision 43): checks → Bambu Studio project for your printer → opens in the app
