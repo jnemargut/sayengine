@@ -158,7 +158,18 @@ func _place(c: Control) -> void:
 	c.size = Vector2(w, h)
 	var part := String(e.get("part", ""))
 	var base := _size() * (0.85 if part == "bar" or part == "tooltip" else 1.0)
+	# the element's own tokens (picked in the studio view): text size and ink from the palette
+	var st: Dictionary = e.get("style", {})
+	if st.has("size"):
+		base = float(st["size"])
 	_font(c, base)
+	if st.has("ink"):
+		var ink := Color.html(String(kit.get("tokens", {}).get("palette", {}).get(String(st["ink"]), "#ffffff")))
+		var targets: Array = [c]
+		targets.append_array(c.find_children("*", "Label", true, false))
+		for n in targets:
+			if n is Label or n is Button:
+				n.add_theme_color_override("font_color", ink)
 	for n in c.find_children("*", "Label", true, false):
 		if n.theme_type_variation == &"TitleLabel":
 			n.add_theme_font_size_override("font_size", int(round(float(kit.get("tokens", {}).get("font", {}).get("title", 44)) * k)))

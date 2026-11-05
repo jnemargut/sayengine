@@ -25,15 +25,22 @@ export function timelineFor(doc: SceneDoc, thing: string, clock: Clock, ctx: { s
 
 /** A timeless thing: an object (or one of its parts) exists or not; its version is its recipe. */
 function thingTimeline(doc: SceneDoc, id: string, part: string | undefined, studio?: any): Timeline {
-  const [kind, key] = id.includes(':') ? [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)] : ['object', id];
+  const [kind, key] = id === 'ui' ? ['ui', 'ui'] : id.includes(':') ? [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)] : ['object', id];
   const rec = assetRecord(doc, kind, key);
   let exists = rec !== undefined;
   if (exists && part && kind === 'object' && studio) {
     const r = studio.evaluate(doc.objects[key]);
     exists = !!r.parts?.some((p: any) => p.name === part);
   }
+  // a UI kit element ("ui/heat") and a town's building by its stable id ("town:Pocket Raleigh/ov:2a17…")
+  if (exists && part && kind === 'ui') exists = !!(rec as any).layout?.some((e: any) => e.id === part);
+  if (exists && part && kind === 'town' && partExists.town) exists = partExists.town(doc, key, part);
+  if (exists && part && kind !== 'object') return { clock: 'none', thing: `${id}/${part}`, length: 0, version: stamp(kind === 'ui' ? (rec as any).layout.find((e: any) => e.id === part) : { town: rec, part }), markers: {}, exists };
   return { clock: 'none', thing: id + (part ? `/${part}` : ''), length: 0, version: exists ? stamp(rec) : 'gone', markers: {}, exists };
 }
+
+/** Part checks other modules provide (the world module: does this town still have that building?). */
+export const partExists: { town?: (doc: SceneDoc, town: string, building: string) => boolean } = {};
 
 export function assetRecord(doc: SceneDoc, kind: string, key: string): unknown {
   const d: any = doc;

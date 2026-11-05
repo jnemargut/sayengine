@@ -4,3 +4,4 @@ export { TONE_CURVES, toneCurve, transport, untransport, hexToLinear, linearToHe
 export { colourfulness, dominantColours, paletteMatch, paletteMatchImages, boardGates, type GateResult } from './gates.ts';
 export { decodePng, encodePng, type Image } from './png.ts';
 export { LOOK_TOOLS, activeLook, lookState, mergeLook, lookSummary } from './tools.ts';
+export { LOOK_KNOBS, knob, knobsFor, turnKnob, knobStep, lookTakes, tempToKelvin, kelvinToTemp, kelvinToHex, hexToKelvin, fogDensity, type Knob } from './knobs.ts';

@@ -9,8 +9,17 @@ import { area, centroid, convexOverlap, distToPolyline, pointInPoly, type P2 } f
 import { BUILDING_USES, ROOF_TYPES } from './plan.ts';
 import { STYLES } from './styles.ts';
 import { validateFix, findTarget, type Fix } from './fixes.ts';
+import { fixFromWords } from './words.ts';
+import { partExists } from '../collab/timelines.ts';
 import { buildTown, creditsText, landmarkObjects, listAreas, type TownSpec, type WorldState } from './town.ts';
 import { townNodes, nodeTriangles, type ModelMesh, type Soup } from './mesh.ts';
+
+// notes on a building ("town:Pocket Raleigh/ov:2a17…") go stale when the building leaves the data
+partExists.town = (doc: any, town: string, building: string) => {
+  const spec = doc.world?.towns?.[town];
+  if (!spec) return false;
+  try { return buildTown(spec, doc.world).plan.buildings.some((b) => b.id === building); } catch { return false; }
+};
 
 const P2Z = z.tuple([z.number(), z.number()]);
 const TownRef = z.string().optional().describe('town name (defaults to the only town)');
@@ -145,6 +154,7 @@ export const WORLD_TOOLS: ToolDef[] = [
     input: z.object({
       town: TownRef, id: z.string().optional(), at: P2Z.optional(), set: FixSetZ.optional(), hide: z.boolean().optional(),
       model: z.string().optional(), modelRotation: z.number().optional(), note: z.string().optional(),
+      words: z.string().optional().describe('a word note about the building, read into the fix: "flat roof", "two storeys taller", "brick", "a shop", "no shopfronts", "hide it" (it also becomes the step\'s note)'),
       place: z.boolean().optional().describe('place --model at --at as a prop that replaces no building (light masts, statues)'), base: z.number().optional().describe('a placed prop\'s floor height (default: the ground)'),
     }),
     example: 'studio world-fix --town "Pocket Raleigh" --id ov:2a17… --set \'{"roof":"hip","height":24}\' --note "the old courthouse has a hipped roof"',
@@ -152,6 +162,16 @@ export const WORLD_TOOLS: ToolDef[] = [
       const spec = townOf(ctx, a.town);
       const t = buildTown(spec);
       const f: Fix = { ...(a.id ? { id: a.id } : {}), ...(a.at ? { at: a.at } : {}), ...(a.set ? { set: a.set } : {}), ...(a.hide ? { hide: true } : {}), ...(a.model ? { model: a.model } : {}), ...(a.modelRotation !== undefined ? { modelRotation: a.modelRotation } : {}), ...(a.note ? { note: a.note } : {}) };
+      let heard: ReturnType<typeof fixFromWords> | null = null;
+      if (a.words) {
+        const tw = findTarget(t.plan, f);
+        if (!tw) throw new Error(`no building ${a.id ? `"${a.id}"` : ''}${a.at ? ` at [${a.at.join(', ')}]` : ''} in ${spec.name} to read "${a.words}" against`);
+        heard = fixFromWords(a.words, tw.b);
+        f.set = { ...heard.set, ...(f.set ?? {}) };
+        if (!Object.keys(f.set).length) delete f.set;
+        if (heard.hide) f.hide = true;
+        if (!f.note) f.note = a.words;
+      }
       if (a.place) { f.place = true; if (a.base !== undefined) f.base = a.base; }
       validateFix(f);
       if (f.place) {
@@ -174,7 +194,7 @@ export const WORLD_TOOLS: ToolDef[] = [
       }
       ctx.set(['world', 'towns', spec.name, 'fixes'], [...spec.fixes, f]);
       ctx.summary(`${spec.name}: fix #${spec.fixes.length} on ${target.b.id}${target.b.name ? ` (${target.b.name})` : ''}: ${[a.set ? Object.entries(a.set).map(([k, v]) => `${k} ${v}`).join(', ') : '', a.hide ? 'hidden' : '', a.model ? `landmark ${f.model}` : ''].filter(Boolean).join('; ')}`);
-      return { index: spec.fixes.length, fix: f, building: { id: target.b.id, by: target.by } };
+      return { index: spec.fixes.length, fix: f, building: { id: target.b.id, by: target.by }, ...(heard ? { heard: heard.understood, ...(heard.unknown.length ? { notUnderstood: heard.unknown } : {}) } : {}) };
     },
   },
   {

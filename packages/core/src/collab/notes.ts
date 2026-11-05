@@ -4,6 +4,10 @@
 import { resolveAddress, type MomentAddress, type Timeline } from './address.ts';
 
 export type NoteStatus = 'open' | 'on-it' | 'done' | 'stale';
+/** Where on the picture a note points ("too dark here"): the look it was seen under, the 3D point under
+ *  the pointer and its spot on screen (0..1), so the view can pin it there again. The address still
+ *  names the thing under it. */
+export interface NoteRegion { look?: string; point?: [number, number, number]; screen?: [number, number]; radius?: number }
 export interface Note {
   id: string;
   text: string;
@@ -13,6 +17,7 @@ export interface Note {
   from?: 'view' | 'cli' | 'card' | 'guess';
   proposal?: string;              // the proposal it came from (card asks)
   ask?: string;                   // the card ask it came from
+  region?: NoteRegion;            // a spot on the picture (looks: "too dark here")
   basis?: Pick<Timeline, 'length' | 'version' | 'markers'>;   // the clock as it was: re-timing keeps the offset from the named moment
   created: string;
   updated: string;
@@ -45,12 +50,13 @@ export class Notes {
     return n;
   }
 
-  add(text: string, address: MomentAddress, opts: { author?: string; from?: Note['from']; proposal?: string; ask?: string; basis?: Timeline | null } = {}): Note {
+  add(text: string, address: MomentAddress, opts: { author?: string; from?: Note['from']; proposal?: string; ask?: string; basis?: Timeline | null; region?: NoteRegion } = {}): Note {
     if (!text.trim()) throw new Error('a note needs words');
     const t = this.now();
     const n: Note = {
       id: `n${++this.data.seq}`, text: text.trim(), address, status: 'open', author: opts.author ?? 'human',
       ...(opts.from ? { from: opts.from } : {}), ...(opts.proposal ? { proposal: opts.proposal } : {}), ...(opts.ask ? { ask: opts.ask } : {}),
+      ...(opts.region ? { region: opts.region } : {}),
       ...(opts.basis ? { basis: { length: opts.basis.length, version: opts.basis.version, markers: opts.basis.markers } } : {}),
       created: t, updated: t, log: [{ time: t, status: 'open' }],
     };

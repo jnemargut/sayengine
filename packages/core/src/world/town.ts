@@ -149,6 +149,13 @@ function addSoups(prims: Map<string, Prim>, soups: TownNode['soups'], shift: V3)
   }
 }
 
+/** One node's soups as primitives by shading class, colours as vertex colours (the GLB's and the view's way). */
+export function nodePrims(soups: TownNode['soups'], shift: V3 = [0, 0, 0]): Prim[] {
+  const prims = new Map<string, Prim>();
+  addSoups(prims, soups, shift);
+  return [...prims.values()];
+}
+
 /** Weld identical corners (same position, normal and colour) of a soup into an indexed mesh. */
 export function indexSoup(p: { positions: number[]; normals: number[]; colors: number[] }) {
   const n = p.positions.length / 3, map = new Map<string, number>();

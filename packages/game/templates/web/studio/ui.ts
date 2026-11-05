@@ -7,7 +7,8 @@ import * as THREE from 'three';
 import type { StudioGame } from './harness.ts';
 
 type V3 = [number, number, number];
-interface El { id: string; part: string; x: number; y: number; w: number; h: number; text?: string; icon?: string; value?: number; anchor?: string }
+interface El { id: string; part: string; x: number; y: number; w: number; h: number; text?: string; icon?: string; value?: number; anchor?: string; style?: { size?: number; fill?: string; ink?: string; pad?: number } }
+const cssVar = (k: string) => `var(--ui-${k.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)})`;
 interface Kit { tokens: any; layout: El[]; icons: string[]; profile: string }
 const BASE = 'assets/studio/ui/';
 const REF = { w: 1280, h: 720 };
@@ -60,6 +61,12 @@ export class StudioUI {
         if (a.includes('b')) s.bottom = `${(REF.h - e.y - e.h) * k}px`; else s.top = `${e.y * k}px`;
       }
       if (e.part === 'bar' || e.part === 'label' || e.part === 'tooltip') s.lineHeight = `${e.h * k - 6}px`;
+      // the element's own tokens (picked in the studio view): text size, palette fill and ink, padding
+      const st = e.style;
+      if (st?.size) s.fontSize = `${st.size * k}px`;
+      if (st?.fill) { if (e.part === 'bar') (d.querySelector('.fill') as HTMLElement | null)?.style.setProperty('background', cssVar(st.fill)); else s.background = cssVar(st.fill); }
+      if (st?.ink) { s.color = cssVar(st.ink); const tx = d.querySelector('.text, h1') as HTMLElement | null; if (tx) tx.style.color = cssVar(st.ink); }
+      if (st?.pad !== undefined) s.padding = e.part === 'slot' || e.part === 'card' ? `${st.pad * k}px` : `0 ${st.pad * k}px`;
     }
   }
   setBar(id: string, v: number) { const f = this.els[id]?.querySelector('.fill') as HTMLElement | null; if (f) f.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`; }
