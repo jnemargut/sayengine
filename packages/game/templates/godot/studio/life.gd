@@ -214,7 +214,7 @@ func init_day(t0: float, warm := 60.0) -> void:
 		step()
 
 func _fresh_agent() -> Dictionary:
-	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0}
+	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0, "slip": 0.0}
 
 func _first_trip(i: int, tt: float) -> int:
 	var V: Dictionary = V_[i]
@@ -320,6 +320,7 @@ func _next_seg(i: int) -> void:
 	st["fromY"] = st["y"]
 	st["fromZ"] = st["z"]
 	st["stay"] = false
+	st["blocked"] = 0.0
 	if g["k"] == "move":
 		st["s"] = 0.0
 		st["blocked"] = 0.0
@@ -410,7 +411,12 @@ func _step_person(i: int, dt: float) -> void:
 				if dx * dx + dz * dz < r * r and dx * dx + dz * dz < ex * ex + ez * ez:
 					st["actStart"] += dt
 					st["actEnd"] += dt
+					st["blocked"] += dt
 					k = _clamp((t - st["actStart"]) / SIT_BLEND, 0.0, 1.0)
+					if st["blocked"] > 4.0:
+						st["actEnd"] = t
+						st["stay"] = true
+						k = 0.0
 					break
 		st["x"] = st["fromX"] + (float(at[0]) - st["fromX"]) * k
 		st["y"] = st["fromY"] + (float(at[1]) - st["fromY"]) * k
@@ -437,7 +443,7 @@ func _step_person(i: int, dt: float) -> void:
 	var D0z: float = st["fz"]
 	var hw: float = pt[3]
 	var want: float = A["speed"]
-	var latT: float = min(0.4, hw * 0.4)
+	var latT: float = min(0.45, hw - ar)
 	st["wait"] = false
 	st["onCross"] = false
 	if g.has("cross"):
@@ -447,21 +453,26 @@ func _step_person(i: int, dt: float) -> void:
 			if st["s"] > s0 - 0.2 and st["s"] < s1 + 0.2:
 				st["onCross"] = true
 			if st["s"] < s0 - 0.25 and st["s"] > s0 - 2.5:
-				var go := walk_ok(int(c["sig"]), int(c["group"]), t)
-				if go:
-					var M := _point_at(P, 4, (s0 + s1) / 2.0)
-					for j in vehicles.size():
-						var vv: Dictionary = vehicles[j]
-						if not vv["visible"]:
-							continue
-						var dx: float = M[0] - vv["x"]
-						var dz: float = M[2] - vv["z"]
-						var d := sqrt(dx * dx + dz * dz)
-						var Vd: Dictionary = V_[j]
-						var coming: bool = vv["v"] > 0.5 and d < 7.0 + vv["v"] * 2.5 and dx * sin(vv["yaw"]) + dz * cos(vv["yaw"]) > -2.0
-						if coming or box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])) < 2.2:
-							go = false
-							break
+				var signal_ok := walk_ok(int(c["sig"]), int(c["group"]), t)
+				var go := true
+				var any_near := false
+				var M := _point_at(P, 4, (s0 + s1) / 2.0)
+				for j in vehicles.size():
+					var vv: Dictionary = vehicles[j]
+					if not vv["visible"]:
+						continue
+					var dx: float = M[0] - vv["x"]
+					var dz: float = M[2] - vv["z"]
+					var d := sqrt(dx * dx + dz * dz)
+					var Vd: Dictionary = V_[j]
+					if d < 30.0:
+						any_near = true
+					var coming: bool = vv["v"] > 0.5 and d < 7.0 + vv["v"] * 2.5 and dx * sin(vv["yaw"]) + dz * cos(vv["yaw"]) > -2.0
+					if coming or (vv["v"] > 0.05 and box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])) < 2.2):
+						go = false
+						break
+				if not signal_ok and any_near:
+					go = false
 				if not go:
 					want = min(want, max(0.0, (s0 - 0.35 - st["s"]) * 2.0))
 					st["wait"] = true
@@ -483,9 +494,9 @@ func _step_person(i: int, dt: float) -> void:
 		if abs(side) < r + 0.35:
 			if side <= 0.05:
 				latT = max(latT, st["lat"] + side + r + 0.35)
-			else:
+			elif hw > 1.2 or st["blocked"] > 2.0:
 				latT = min(latT, st["lat"] + side - r - 0.35)
-			if ahead < r + 0.45:
+			if ahead < r + 0.45 and o["v"] > 0.05:
 				want = min(want, o["v"] * 0.9)
 	if player["on"]:
 		var dx: float = player["x"] - st["x"]
@@ -515,37 +526,7 @@ func _step_person(i: int, dt: float) -> void:
 	if k < 1.0:
 		cx = st["fromX"] + (cx - st["fromX"]) * k
 		cz = st["fromZ"] + (cz - st["fromZ"]) * k
-	var ok := true
-	for j in agents.size():
-		if j == i or not agents[j]["visible"] or int(A_[j].get("owner", -1)) == i:
-			continue
-		var r: float = ar + float(A_[j]["r"])
-		var dx: float = agents[j]["x"] - cx
-		var dz: float = agents[j]["z"] - cz
-		var d2 := dx * dx + dz * dz
-		var ex: float = agents[j]["x"] - st["x"]
-		var ez: float = agents[j]["z"] - st["z"]
-		if d2 < r * r and d2 < ex * ex + ez * ez:
-			ok = false
-			break
-	if ok:
-		for j in vehicles.size():
-			var vv: Dictionary = vehicles[j]
-			if not vv["visible"]:
-				continue
-			var Vd: Dictionary = V_[j]
-			var dn := box_dist(cx, cz, vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))
-			if dn < ar + 0.2 and dn < box_dist(st["x"], st["z"], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])):
-				ok = false
-				break
-	if ok and player["on"]:
-		var r: float = ar + float(player["r"]) + 0.05
-		var dx: float = player["x"] - cx
-		var dz: float = player["z"] - cz
-		var ex: float = player["x"] - st["x"]
-		var ez: float = player["z"] - st["z"]
-		if dx * dx + dz * dz < r * r and dx * dx + dz * dz < ex * ex + ez * ez:
-			ok = false
+	var ok := _free(i, cx, cz)
 	var E := _dir_at(P, 4, ns if ok else float(st["s"]))
 	if ok:
 		st["s"] = ns
@@ -555,15 +536,64 @@ func _step_person(i: int, dt: float) -> void:
 		st["y"] = (st["fromY"] + (P2[1] - st["fromY"]) * k) if k < 1.0 else P2[1]
 	else:
 		st["v"] = 0.0
-		st["lat"] = lat0
 		st["blocked"] += dt
 		if k < 1.0:
 			st["moveStart"] += dt
+		var Q := _point_at(P, 4, st["s"])
+		var sx: float = Q[0] - D0z * st["lat"]
+		var sz: float = Q[2] + D0x * st["lat"]
+		if k >= 1.0 and st["lat"] != lat0 and _free(i, sx, sz):
+			st["x"] = sx
+			st["z"] = sz
+		else:
+			st["lat"] = lat0
+		E = _dir_at(P, 4, st["s"])
 	if st["v"] > 0.05:
 		st["yaw"] = _angle_to(st["yaw"], atan2(float(E[0]), float(E[1])), 5.0 * dt)
 	st["pose"] = "walk" if st["v"] > 0.05 else "idle"
 	if st["s"] >= float(P["len"]) - 1e-6:
 		_next_seg(i)
+
+## May person i stand at (cx, cz)? Nobody (folk, car, player) is closer there than now and inside reach.
+func _free(i: int, cx: float, cz: float) -> bool:
+	var A: Dictionary = A_[i]
+	var st: Dictionary = agents[i]
+	var ar: float = A["r"]
+	var squeeze: float = 0.46 if st["blocked"] > 2.5 else -1.0
+	for j in agents.size():
+		if j == i or not agents[j]["visible"] or int(A_[j].get("owner", -1)) == i:
+			continue
+		var o: Dictionary = agents[j]
+		if st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5:
+			st["slip"] = t + 2.5
+			o["slip"] = t + 2.5
+		if st["slip"] > t and o["slip"] > t:
+			continue
+		var r: float = (min(squeeze, ar + float(A_[j]["r"]))) if squeeze > 0.0 else ar + float(A_[j]["r"])
+		var dx: float = o["x"] - cx
+		var dz: float = o["z"] - cz
+		var d2 := dx * dx + dz * dz
+		var ex: float = o["x"] - st["x"]
+		var ez: float = o["z"] - st["z"]
+		if d2 < r * r and d2 < ex * ex + ez * ez:
+			return false
+	for j in vehicles.size():
+		var vv: Dictionary = vehicles[j]
+		if not vv["visible"]:
+			continue
+		var Vd: Dictionary = V_[j]
+		var dn := box_dist(cx, cz, vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))
+		if dn < ar + 0.2 and dn < box_dist(st["x"], st["z"], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])):
+			return false
+	if player["on"]:
+		var r: float = ar + float(player["r"]) + 0.05
+		var dx: float = player["x"] - cx
+		var dz: float = player["z"] - cz
+		var ex: float = player["x"] - st["x"]
+		var ez: float = player["z"] - st["z"]
+		if dx * dx + dz * dz < r * r and dx * dx + dz * dz < ex * ex + ez * ez:
+			return false
+	return true
 
 func heading_of(p: int, s: float) -> float:
 	var D := _dir_at(paths[p], 4, s)
