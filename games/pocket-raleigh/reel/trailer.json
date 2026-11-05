@@ -36,7 +36,7 @@
       "keys": [ { "position": [-4, 2.2, 190], "target": [2, 5, 0] }, { "position": [-2, 2.4, 140], "target": [4, 7, -40] }, { "position": [-1, 2.6, 100], "target": [6, 9, -60] } ],
       "crop": { "9:16": { "x": 0.52 } } },
     { "id": "night-plaza", "look": "neon-night", "seconds": 5, "note": "the light masts glowing over City Plaza",
-      "keys": [ { "position": [22, 12, 72], "target": [2, 18, -40] }, { "position": [12, 14, 42], "target": [0, 22, -50] } ],
+      "keys": [ { "position": [-2, 1.8, 66], "target": [28, 28, -60] }, { "position": [-1, 2.6, 50], "target": [30, 34, -60] } ],
       "crop": { "16:9": { "y": 0.45 }, "9:16": { "x": 0.48 } } },
     { "id": "night-skyline", "look": "neon-night", "seconds": 5, "note": "the skyline from the south, pulling back",
       "keys": [ { "position": [150, 40, 400], "target": [0, 70, -100] }, { "position": [190, 55, 480], "target": [0, 70, -100] } ],

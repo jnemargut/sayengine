@@ -113,8 +113,11 @@ export async function reelCut(reel: Reel, work: string, out: string, aspects: re
     spawnSync('ffmpeg', ['-y', '-loglevel', 'error', ...inputs, '-filter_complex', `${stills[tag].map((_, i) => `[${i}:v]scale=${w}:-2[s${i}]`).join(';')};${stills[tag].map((_, i) => `[s${i}]`).join('')}xstack=inputs=${n}:layout=${layout}:fill=black`, '-q:v', '3', sheet]);
     void rows;
   }
-  const errs = cutErrors(cut, grid.beats);
-  const report = { reel: reel.id, engine, duration: cut.duration, bpm: cut.bpm, shots: cut.shots.map((s) => ({ n: s.index, take: s.take, start: s.start, end: s.end, in: s.in, out: s.out, beats: s.beats, caption: s.caption ?? s.title?.text })), endCard: cut.endCard, cutsVsDetectedBeatsMs: { max: Math.max(...errs), median: errs.sort((a, b) => a - b)[Math.floor(errs.length / 2)] }, warnings: cut.warnings, videos, stills };
+  // how far each cut is from the nearest beat librosa actually detected (cuts in passages where it found
+  // none — the quiet intro — are counted separately: they sit on the steady grid it implies)
+  const period = 60 / cut.bpm;
+  const all = cutErrors(cut, grid.beats), errs = all.filter((e) => e < period * 500);
+  const report = { reel: reel.id, engine, duration: cut.duration, bpm: cut.bpm, shots: cut.shots.map((s) => ({ n: s.index, take: s.take, start: s.start, end: s.end, in: s.in, out: s.out, beats: s.beats, caption: s.caption ?? s.title?.text })), endCard: cut.endCard, cutsVsDetectedBeatsMs: { cuts: all.length, nearADetectedBeat: errs.length, max: Math.max(...errs), median: [...errs].sort((a, b) => a - b)[Math.floor(errs.length / 2)] }, warnings: cut.warnings, videos, stills };
   fs.writeFileSync(path.join(out, `${reel.id}-cut.json`), JSON.stringify(report, null, 2));
   return report;
 }

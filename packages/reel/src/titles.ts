@@ -30,12 +30,18 @@ const DRAW = (W: number, H: number, card: Card) => `(() => {
     g.beginPath(); g.roundRect(x0, y0, w0, h0, r); g.fill();
     shadowText(card.text, W / 2, y + px * 0.04, px, 600);
   } else {
+    const y = H * (card.kind === 'end' ? 0.44 : W >= H ? 0.42 : 0.3);
     if (card.kind === 'end') { g.fillStyle = 'rgba(6,8,20,0.35)'; g.fillRect(0, 0, W, H); }
+    else {
+      // a soft dark band behind the title so it reads over a busy street
+      const band = g.createLinearGradient(0, y - short * 0.2, 0, y + short * 0.2);
+      band.addColorStop(0, 'rgba(8,10,24,0)'); band.addColorStop(0.5, 'rgba(8,10,24,0.38)'); band.addColorStop(1, 'rgba(8,10,24,0)');
+      g.fillStyle = band; g.fillRect(0, y - short * 0.2, W, short * 0.4);
+    }
     const px = fit(card.text, short * (card.kind === 'end' ? 0.12 : 0.11), 800);
-    const y = H * (card.kind === 'end' ? 0.44 : 0.42);
     shadowText(card.text, W / 2, y, px, 800);
     if (card.sub) { const sp = fit(card.sub, short * 0.04, 500); shadowText(card.sub, W / 2, y + px * 0.85, sp, 500, 0.92); }
-    if (card.credit) { const cp = fit(card.credit, short * 0.022, 500); shadowText(card.credit, W / 2, H * (W > H ? 0.9 : 0.8), cp, 500, 0.85); }
+    if (card.credit) { const cp = fit(card.credit, short * (W >= H ? 0.022 : 0.03), 500); shadowText(card.credit, W / 2, H * (W > H ? 0.9 : 0.8), cp, 500, 0.85); }
   }
   return c.toDataURL('image/png');
 })()`;

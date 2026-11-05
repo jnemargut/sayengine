@@ -51,7 +51,7 @@ export function buildRecipe(reel: Reel, cut: Cut, aspect: Aspect, inputs: Recipe
   parts.push(`[${cur}]fade=t=in:st=0:d=0.4,fade=t=out:st=${f3(cut.duration - 0.6)}:d=0.6,format=yuv420p[vout]`);
   parts.push(`[${musicIdx}:a]atrim=0:${f3(cut.duration)},asetpts=PTS-STARTPTS,afade=t=out:st=${f3(cut.duration - 1.2)}:d=1.2[aout]`);
   const filter = parts.join(';\n');
-  args.push('-/filter_complex', '__FILTER__', '-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-r', String(fps), '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-t', f3(cut.duration), out);
+  args.push('-/filter_complex', '__FILTER__', '-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '22', '-r', String(fps), '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-t', f3(cut.duration), out);
   return { args, filter, overlays };
 }
 
