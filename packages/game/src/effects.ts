@@ -27,7 +27,9 @@ export async function loadQuarks() {
 // quarks' particle shader ends without three's colour-space step, so it writes its colours straight to
 // the screen: hand it the palette's sRGB values as they are (a linearised colour came out darker than
 // Godot's — the sparks and embers by about 20%)
-const v3 = (hex: string) => { const c = new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace); return new Q.Vector3(c.r, c.g, c.b); };
+// — unless a studio look is on: then three draws into the look's linear HDR target and the grade pass
+// encodes, so colours go in linear and blend in linear light, as Godot's do (no alpha exponent)
+const v3 = (hex: string, linear = false) => { const c = new THREE.Color().setStyle(hex, linear ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace); return new Q.Vector3(c.r, c.g, c.b); };
 
 /** The exponent on a layer's alpha that makes the web's sRGB blend land where Godot's linear-light blend
  *  does, at half alpha:
@@ -51,7 +53,7 @@ export function alphaGamma(blend: 'add' | 'alpha', hex: string): number {
 
 /** One quarks ParticleSystem per particle layer, under a group named after the effect. Emitters face
  *  their layer's direction (quarks emits along local +Z). */
-export function quarksGroup(b: EffectBundle): THREE.Group {
+export function quarksGroup(b: EffectBundle, opts: { linear?: boolean } = {}): THREE.Group {
   if (!Q) throw new Error('call loadQuarks() first');
   const g = new THREE.Group();
   g.name = b.def.id;
@@ -61,7 +63,7 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
     // Godot blends in linear light, three in the sRGB canvas: each layer's alpha carries an exponent that
     // makes the web blend land where Godot's does (alphaGamma), over its whole life (several keys, since
     // a two-key ramp from 1 to 0 has nothing for an exponent to bend) and across the particle's soft dot
-    const gam = alphaGamma(L.blend, b.colours[L.colour[0]]);
+    const gam = opts.linear ? 1 : alphaGamma(L.blend, b.colours[L.colour[0]]);
     const a = (L.alpha ?? [1, 1]) as [number, number];
     const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: L.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending });
     const spread = THREE.MathUtils.degToRad(Math.min(89, L.spread ?? 0));
@@ -72,7 +74,7 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
       : new Q.ConeEmitter({ radius: L.shape.type === 'point' ? 0.001 : L.shape.radius ?? 0.05, angle: Math.max(0.001, spread), thickness: 1 });
     const behaviors: any[] = [
       new Q.ColorOverLife(new Q.Gradient(
-        [[v3(b.colours[L.colour[0]]), 0], [v3(b.colours[L.colour[1]]), 1]],
+        [[v3(b.colours[L.colour[0]], opts.linear), 0], [v3(b.colours[L.colour[1]], opts.linear), 1]],
         [0, 0.15, 0.35, 0.6, 0.8, 1].map((t) => [Math.pow(Math.max(0, a[0] + (a[1] - a[0]) * t), gam), t]))),
       new Q.SizeOverLife(new Q.PiecewiseBezier([[new Q.Bezier(1, 1 + ((L.sizeEnd ?? 1) - 1) / 3, 1 + (2 * ((L.sizeEnd ?? 1) - 1)) / 3, L.sizeEnd ?? 1), 0]])),
     ];
@@ -109,7 +111,7 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
   return g;
 }
 
-export const quarksJSON = (b: EffectBundle) => quarksGroup(b).toJSON();
+export const quarksJSON = (b: EffectBundle, opts: { linear?: boolean } = {}) => quarksGroup(b, opts).toJSON();
 /** Load quarks JSON back (what the game does): the round-trip test reads the emitters out of it. */
 export function parseQuarks(json: any): THREE.Object3D {
   if (!Q) throw new Error('call loadQuarks() first');
@@ -134,7 +136,10 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
   };
   empties();
   // the look (Decision 29): look.json, the LUT strip and .cube, or the grade baked into the colours
-  files.push(...writeLook(dir, engine, data?.look ?? null).files);
+  const lk = writeLook(dir, engine, data?.look ?? null);
+  files.push(...lk.files);
+  // a graded look renders the web scene into a linear target: effects compile for linear-light blending
+  const linear = engine === 'web' && lk.mode === 'grade';
   if (!data) return files;
   // effects
   const manifest = data.effects.map((b) => ({ id: b.def.id, name: b.def.name, at: b.at, loop: b.def.loop, value: b.def.value ?? null, triggers: b.def.triggers ?? [], warmup: b.def.warmup !== false, frame: effectFrame(b.def, b.at), file: engine === 'godot' ? `${b.def.id}.tscn` : `${b.def.id}.json` }));
@@ -144,7 +149,7 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
       for (const b of data.effects) put(`effects/${b.def.id}.tscn`, godotEffectScene(b.def, b.colours));
     } else {
       const shader = webShapeShader();
-      for (const b of data.effects) put(`effects/${b.def.id}.json`, JSON.stringify({ def: b.def, at: b.at, colours: b.colours, quarks: quarksJSON(b), quarksVersion: QUARKS_VERSION, shader }));
+      for (const b of data.effects) put(`effects/${b.def.id}.json`, JSON.stringify({ def: b.def, at: b.at, colours: b.colours, quarks: quarksJSON(b, { linear }), ...(linear ? { linear: true } : {}), quarksVersion: QUARKS_VERSION, shader }));
     }
   }
   put('effects/effects.json', JSON.stringify(manifest, null, 2) + '\n');
