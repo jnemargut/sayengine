@@ -15,7 +15,8 @@
     "build:view": "node apps/view/build.ts",
     "serve": "node packages/cli/studio.ts serve",
     "test": "node --test packages/*/test/*.test.ts apps/*/test/*.test.ts",
-    "bench": "node bench/run.ts && node bench/game.ts && node bench/diorama.ts && node bench/lesson.ts"
+    "bench": "node bench/run.ts && node bench/game.ts && node bench/diorama.ts && node bench/lesson.ts",
+    "bench:effects": "node bench/effects.ts"
   },
   "engines": {
     "node": ">=23.6"
