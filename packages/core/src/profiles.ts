@@ -42,6 +42,7 @@ export function budgetFor(p: GameProfile): Budget {
   if (p.shapes !== undefined) b.shapes = p.shapes;
   if (p.fingers !== undefined) b.fingers = p.fingers;
   if (p.collision !== undefined) b.collision = p.collision;
+  if (p.kind === 'hand-prop' && p.collision === undefined) b.collision = false;   // carried props ride the hand bone
   return b;
 }
 

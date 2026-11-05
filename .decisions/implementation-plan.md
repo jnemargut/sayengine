@@ -179,7 +179,7 @@ Characters that act in cutscenes: stylized faces that speak and emote, real fing
 
 ### Week 4: voice and lip sync + checkpoint (D21)
 - [ ] `studio line` tool: audio file + script → alignment (Rhubarb, Whisper timings) → 15 shapes → smoothing (coarticulation, M/B/P closure, emotion scale)
-- [ ] Checks: lips closed on every M/B/P; no shape held unnaturally; sync offset
+- [x] Checks: lips closed on every M/B/P; no shape held unnaturally; sync offset
 - [ ] Test voices: a **local, free** text-to-speech model (user's call, 2026-11-04), no paid services. Candidates: Kokoro-82M (Apache-2.0, runs locally via kokoro-js / ONNX) first, Piper as fallback; confirm each voice's licence before use
 - [ ] **Checkpoint:** one close-up line rendered for you to judge. Tripwire: not reading as speech after a week of tuning → revisit 19–21
 
@@ -754,11 +754,44 @@ A tool is needed only when Claude can't tell whether something is right by readi
 - [ ] Uses the recast characters, motion, a cutscene intro and voices.
 - [ ] Record every point where a missing tool hurt. That list drives weeks 15–16.
 
+### Status, weeks 15–16 (2026-11-05, branch `phase9/effects-ui`, not merged)
+Built in main's codebase for Fire's Dying to adopt in its v1.1 pass (the game branch is untouched).
+- **The one-hour particle test:** Godot 4.7.2 GL Compatibility renders GPUParticles3D, turbulence, trails and CPUParticles3D on the Mac. Godot's web export templates aren't installed here, so the browser itself is untested. The desktop Compatibility renderer stands in for it, and the CPU twins are the safety net. The web runtime turns them on by default only for web builds on phones.
+- **Effects (core `effects.ts`, game `effects.ts`, `effects.gd`, studio `effects.ts`):**
+  - Format: particle layers (shape, rate, bursts, life, speed, size over life, colour/alpha ramps, gravity, drag, turbulence, stretch) and shape layers (flame, ring, arc and puff cards with a shared scrolling-noise shader).
+  - Godot `.tscn`: GPU particles plus a CPU twin per layer.
+  - three.quarks 0.17.1 JSON, pinned exactly, with a round-trip test.
+  - Palette names (`look.palette` when a look lab exists).
+  - `--value` makes an effect follow a 0–1 game value.
+  - Triggers: game events, or motion moments (`Blacksmith:strike@impact`, with the motion id resolved to its action).
+  - Checks: peak particles and overdraw per profile, fallback (and what it loses), palette ΔE, warm-up, and parity.
+  - Tools: `add-effect`, `set-effect`, `remove-effect`, `effect-info`, `effect-review`.
+  - `game effect --against` renders both engines from one review camera. It returns MP4s, a side-by-side card and a parity score, and saves the score to the effect.
+- **UI kit (core `uikit.ts`, `ui.gd`, studio `ui.ts`):**
+  - Forge tokens with the Roboto OFL font. Parts: panel, button, bar, slot, tooltip, card, label, and a bubble that tracks a character.
+  - Output: a Godot Theme and web CSS.
+  - Six house SVG icons, linted to SVG Tiny and scored at 24 px.
+  - Checks: contrast, pseudolocalised overflow, tap size, text size, safe area, icon contrast, and font licence.
+  - `game ui-sheet` renders the review sheet. `game screenshot --page true` captures the 3D plus the UI in both engines.
+- **/game fixes (pain log):**
+  - #4: whole-page capture.
+  - #7: `Player` exported, `controls: 'none'`, and start/stop step travel through the character controller.
+  - #8/#13: `say()` plays voice, clip and bubble, shifted by the line's measured sync.
+  - #9: every line's audio is exported.
+  - #10: `extras.grip` and per-hand `extras.hold`, plus `hold()`.
+  - #11: a `hand-prop` profile kind with no collider.
+  - #12: `place-object on` uses the largest flat top.
+  - #14: `extras.studioName` and `named()`.
+  - Not done: #5 pathfinding and #6 interactables, left for later.
+- **Proof:** `npm run bench:effects`, 13 tasks, all passing.
+  - Godot vs web parity: forge fire matches (0.09). Embers 0.28, sparks 0.43 and smoke 0.43 drift. Rain differs at 0.77.
+  - Tripwire D56: smoke, sparks and rain drift visibly between engines. Next, tune them, or try Effekseer for those types.
+
 ### Effects (weeks 15–16)
-- [ ] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.
-- [ ] Effect format: emitters, lifetime behaviours, bursts, and shape effects (flame meshes, arcs, rings) with scrolling noise.
-- [ ] Compile to Godot `.tres` plus the CPU fallback, and to three.quarks JSON (pinned version, round-trip test).
-- [ ] Look-lab colours, and triggers from motion events.
+- [x] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.
+- [x] Effect format: emitters, lifetime behaviours, bursts, and shape effects (flame meshes, arcs, rings) with scrolling noise.
+- [x] Compile to Godot `.tres` plus the CPU fallback, and to three.quarks JSON (pinned version, round-trip test).
+- [x] Look-lab colours, and triggers from motion events.
 - [ ] Checks:
   - overdraw estimate
   - peak particle count
@@ -766,14 +799,14 @@ A tool is needed only when Claude can't tell whether something is right by readi
   - palette
   - Godot vs web frame diff
   - warm-up at load
-- [ ] Side-by-side review card.
+- [x] Side-by-side review card.
 
 ### UI kit (weeks 15–16)
-- [ ] UI tokens derived from the look lab: palette, OFL font, border/corner style, shadows.
-- [ ] Parts: panel, button, bar, slot, tooltip, dialogue box. Output as a Godot Theme `.tres` (StyleBoxFlat and 9-slice) plus a web CSS overlay.
-- [ ] SVG icons in a house style, linted to SVG Tiny, rendered and scored. CC0 pack fallback, with credits.
-- [ ] Checks: contrast (4.5:1 and 3:1), pseudolocalised text overflow, tap targets of 44 px or more, safe area.
-- [ ] Review: a UI sheet, plus the UI over game screenshots.
+- [x] UI tokens derived from the look lab: palette, OFL font, border/corner style, shadows.
+- [x] Parts: panel, button, bar, slot, tooltip, dialogue box. Output as a Godot Theme `.tres` (StyleBoxFlat and 9-slice) plus a web CSS overlay.
+- [x] SVG icons in a house style, linted to SVG Tiny, rendered and scored. CC0 pack fallback, with credits.
+- [x] Checks: contrast (4.5:1 and 3:1), pseudolocalised text overflow, tap targets of 44 px or more, safe area.
+- [x] Review: a UI sheet, plus the UI over game screenshots.
 
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |

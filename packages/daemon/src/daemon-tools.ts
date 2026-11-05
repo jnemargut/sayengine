@@ -73,6 +73,11 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     flags: { type: 'object', properties: {} },
   },
   {
+    name: 'game-data',
+    description: 'What `studio game import` writes besides the GLB (Phase 9): every effect with its position and resolved colours, the UI kit (tokens, HUD layout, icons), and every recorded character line with its audio as base64 WAV.',
+    flags: { type: 'object', properties: {} },
+  },
+  {
     name: 'cutscene-preview',
     description: 'Review a cutscene (Decision 24): writes a folder with the studio scene (GLB with every character\'s clips), the cutscene timeline, the line audio and the three.js cutscene player (the same one web games use), plus storyboard.html — one frame per shot with its framing, lines and the checks (Read the storyboard PNGs to look). --video true also renders every frame in headless Chrome and muxes an MP4 with the voices. --id cutscene [--out dir]',
     flags: { type: 'object', properties: { id: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false } } },

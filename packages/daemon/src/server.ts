@@ -326,6 +326,10 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         }
         return errors.length ? { ok: false, tool: name, error: errors.join('; ') } : { ok: true, tool: name, result: { cutscenes: bundles } };
       }
+      case 'game-data': {
+        const { gameData } = await import('../../core/src/gamedata.ts');
+        try { return { ok: true, tool: name, result: gameData(studio) }; } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+      }
       case 'cutscene-preview': {
         const doc = studio.doc();
         const all = (doc as any).cutscenes ?? {};

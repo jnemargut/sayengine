@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import type RAPIER_NS from '@dimforge/rapier3d-compat';
 import { CutscenePlayer } from './cutscene.ts';
+import { startEffects, type StudioEffects } from './effects.ts';
 
 type Rapier = typeof RAPIER_NS;
 export interface StudioGame {
@@ -24,31 +25,76 @@ export interface StudioGame {
   animations?: THREE.AnimationClip[];
   /** studio characters: idles, the player model (set by startCharacters) */
   characters?: StudioCharacters;
+  /** studio effects (startEffects in studio/effects.ts) */
+  effects?: StudioEffects;
 }
 
 // ── studio characters: NPCs play idle; the player (studio game import --player) walks ──
 interface ClipInfo { motion?: string; loop?: boolean; speed?: number; duration?: number; travel?: V3; then?: string; phase?: number }
 interface CharInfo { name: string; prefix: string; height: number; clips: Record<string, ClipInfo>; play: string | null }
 interface Manifest { player: (CharInfo & { start: V3; rotation: number; walkSpeed: number }) | null; characters: CharInfo[] }
+/** One studio character in the game: its mixer, and its clips by studio name ("hammer-strike", "line:hello"). */
+export interface Actor {
+  name: string; root: THREE.Object3D; mixer: THREE.AnimationMixer;
+  clip(name: string): THREE.AnimationClip | null;
+  /** the action for a clip (created on first use) */
+  action(name: string): THREE.AnimationAction | null;
+  /** play a clip: once (then back to idle) or looping, cross-fading from what plays now */
+  play(name: string, opts?: { once?: boolean; fade?: number; delay?: number }): THREE.AnimationAction | null;
+}
 export interface StudioCharacters {
   manifest: Manifest;
   mixers: THREE.AnimationMixer[];
+  /** every character by its studio name, the player included */
+  actors: Record<string, Actor>;
   avatar: { scene: THREE.Object3D; animations: THREE.AnimationClip[] } | null;
+  /** the player when startCharacters made one (controls 'keyboard' or 'none') */
+  player: Player | null;
+  /** @deprecated the same as player when it is keyboard-driven */
   keyboard: Player | null;
   update(dt: number): void;
 }
 
+function makeActor(name: string, root: THREE.Object3D, mixer: THREE.AnimationMixer, clips: THREE.AnimationClip[], prefix: string, idle: string | null): Actor {
+  const byName = (n: string) => clips.find((a) => a.name === prefix + n) ?? clips.find((a) => a.name === n) ?? null;
+  let current: THREE.AnimationAction | null = idle && byName(idle) ? mixer.clipAction(byName(idle)!) : null;
+  const actor: Actor = {
+    name, root, mixer,
+    clip: byName,
+    action(n) { const c = byName(n); return c ? mixer.clipAction(c) : null; },
+    play(n, o = {}) {
+      const a = actor.action(n);
+      if (!a) return null;
+      const fade = o.fade ?? 0.2;
+      a.reset().setEffectiveWeight(1).setEffectiveTimeScale(1);
+      if (o.once) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
+      if (o.delay) a.startAt(mixer.time + o.delay);
+      if (current && current !== a) a.crossFadeFrom(current, fade, false); else a.fadeIn(fade);
+      a.play();
+      const prev = current;
+      current = a;
+      if (o.once && idle && n !== idle) {
+        const back = (e: any) => { if (e.action !== a) return; mixer.removeEventListener('finished', back); const i = actor.action(idle); if (i && current === a) { i.reset().play(); i.crossFadeFrom(a, fade, false); current = i; } };
+        mixer.addEventListener('finished', back);
+      }
+      void prev;
+      return a;
+    },
+  };
+  return actor;
+}
+
 /** Start the studio's characters: idles for everyone in the scene, the player model ready to spawn.
  *  With controls, the player stands where it stood in the studio and arrow keys / WASD walk it. */
-export async function startCharacters(g: StudioGame, opts: { controls?: boolean } = {}): Promise<StudioCharacters> {
+export async function startCharacters(g: StudioGame, opts: { controls?: boolean | 'keyboard' | 'none' } = {}): Promise<StudioCharacters> {
   const empty: Manifest = { player: null, characters: [] };
   const res = await fetch('assets/studio/characters.json').catch(() => null);
   const manifest: Manifest = res?.ok ? await res.json().catch(() => empty) : empty;
   const mixers: THREE.AnimationMixer[] = [];
+  const actors: Record<string, Actor> = {};
   manifest.characters.forEach((c, i) => {
-    if (!g.studio || !c.play) return;
-    const clip = g.animations?.find((a) => a.name === c.prefix + c.play);
-    if (!clip) return;
+    if (!g.studio) return;
+    const clip = c.play ? g.animations?.find((a) => a.name === c.prefix + c.play) : undefined;
     // characters share bone names (Hips, Head…): each one's mesh and skeleton go under their own
     // group so its mixer can only reach its own bones
     const node = g.studio.getObjectByName(c.name);
@@ -63,10 +109,14 @@ export async function startCharacters(g: StudioGame, opts: { controls?: boolean 
       root = group;
     }
     const m = new THREE.AnimationMixer(root);
-    const a = m.clipAction(clip);
-    a.play();
-    a.time = (i * 1.37) % Math.max(0.1, clip.duration);
+    if (clip) {
+      const a = m.clipAction(clip);
+      a.play();
+      a.time = (i * 1.37) % Math.max(0.1, clip.duration);
+    }
     mixers.push(m);
+    const studioName = (node?.userData?.studioName as string) ?? c.name;
+    actors[studioName] = makeActor(studioName, root, m, g.animations ?? [], c.prefix, clip ? c.play : null);
   });
   let avatar: StudioCharacters['avatar'] = null;
   if (manifest.player) {
@@ -74,13 +124,20 @@ export async function startCharacters(g: StudioGame, opts: { controls?: boolean 
     if (gltf) avatar = { scene: gltf.scene, animations: gltf.animations };
   }
   const sc: StudioCharacters = {
-    manifest, mixers, avatar, keyboard: null,
+    manifest, mixers, actors, avatar, player: null, keyboard: null,
     update(dt: number) { for (const m of mixers) m.update(dt); },
   };
   g.characters = sc;
-  if (opts.controls && avatar && manifest.player) {
+  // controls 'none': the player stands ready and your code drives it (player.move + player.sync), no keys
+  if (opts.controls === 'none' && avatar && manifest.player) {
     const p = new Player(g, manifest.player.start, ((manifest.player.rotation ?? 0) * Math.PI) / 180);
-    sc.keyboard = p;
+    sc.player = p;
+    if (p.mixer) actors[manifest.player.name] = makeActor(manifest.player.name, p.mesh, p.mixer, avatar.animations, '', 'idle');
+  }
+  if ((opts.controls === true || opts.controls === 'keyboard') && avatar && manifest.player) {
+    const p = new Player(g, manifest.player.start, ((manifest.player.rotation ?? 0) * Math.PI) / 180);
+    sc.keyboard = sc.player = p;
+    if (p.mixer) actors[manifest.player.name] = makeActor(manifest.player.name, p.mesh, p.mixer, avatar.animations, '', 'idle');
     const keys = new Set<string>();
     addEventListener('keydown', (e) => keys.add(e.code));
     addEventListener('keyup', (e) => keys.delete(e.code));
@@ -113,6 +170,8 @@ export function addStaticColliders(world: RAPIER_NS.World, R: Rapier, root: THRE
   root.updateMatrixWorld(true);
   let n = 0;
   const onBone = (o: THREE.Object3D) => { for (let p = o.parent; p; p = p.parent) if ((p as any).isBone) return true; return false; };
+  // hand props (studio set-profile --kind hand-prop) get no collider: they ride in a hand
+  const handProp = (o: THREE.Object3D) => { for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p.userData?.kind === 'hand-prop') return true; return false; };
   root.traverse((o: any) => {
     if (!o.isMesh) return;
     if (o.isSkinnedMesh) {
@@ -125,7 +184,7 @@ export function addStaticColliders(world: RAPIER_NS.World, R: Rapier, root: THRE
       n++;
       return;
     }
-    if (onBone(o)) return;
+    if (onBone(o) || handProp(o)) return;
     const g: THREE.BufferGeometry = o.geometry;
     const pos = g.getAttribute('position');
     const verts = new Float32Array(pos.count * 3);
@@ -179,6 +238,48 @@ function find(g: StudioGame, name: string): THREE.Object3D | null {
   return list.find((o) => norm(o.name) === norm(name)) ?? list.find((o) => norm(o.name).includes(norm(name))) ?? g.scene.getObjectByName(name) ?? null;
 }
 
+/** A studio object by the name it has in the studio ("Big hammer"), whatever GLTFLoader renamed it to
+ *  ("Big_hammer"): nodes carry extras.studioName. Fire's Dying pain #14. Throws with the names it has. */
+export function named(g: StudioGame, studioName: string): THREE.Object3D {
+  let hit: THREE.Object3D | null = null;
+  g.scene.traverse((o) => { if (!hit && o.userData?.studioName === studioName) hit = o; });
+  if (!hit) g.scene.traverse((o) => { if (!hit && typeof o.userData?.studioName === 'string' && norm(o.userData.studioName) === norm(studioName)) hit = o; });
+  if (!hit && g.characters?.player && norm(g.characters.player.name) === norm(studioName)) hit = g.characters.player.mesh;
+  if (!hit) hit = find(g, studioName);
+  if (!hit) {
+    const names: string[] = [];
+    g.scene.traverse((o) => { if (typeof o.userData?.studioName === 'string') names.push(o.userData.studioName); });
+    throw new Error(`no studio object "${studioName}" (have: ${names.join(', ')})`);
+  }
+  return hit;
+}
+
+/** Put a prop in a character's hand: the prop's grip socket goes into the palm (the studio exports, per
+ *  character and hand, where the prop sits relative to the hand bone), and it follows every clip.
+ *  Returns the prop. Fire's Dying pain #10: no more hand-placed offsets. */
+export function hold(g: StudioGame, character: string, prop: string, hand: 'right' | 'left' = 'right'): THREE.Object3D {
+  const p = named(g, prop), who = g.characters?.actors[character]?.root ?? named(g, character);
+  const boneName = hand === 'left' ? 'LeftHand' : 'RightHand';
+  let bone: THREE.Object3D | null = null;
+  who.traverse((o: any) => { if (!bone && o.isBone && o.name.replace(/[^A-Za-z]/g, '') === boneName) bone = o; });
+  if (!bone) {
+    // characters share bone names: in a scene with several, the character's skinned mesh knows its own
+    who.traverse((o: any) => { if (!bone && o.isSkinnedMesh) bone = o.skeleton.bones.find((b: THREE.Bone) => b.name.replace(/[^A-Za-z]/g, '') === boneName) ?? null; });
+  }
+  if (!bone) throw new Error(`${character} has no ${hand} hand bone`);
+  const charName = (who.userData?.studioName as string) ?? character;
+  const h = p.userData?.hold?.[charName]?.[hand] ?? Object.values(p.userData?.hold ?? {})[0]?.[hand];
+  (bone as THREE.Object3D).add(p);
+  if (h) { p.position.fromArray(h.t); p.quaternion.fromArray(h.r); }
+  else {
+    // no exported hold: centre the grip (or the box) on the bone
+    const c = p.userData?.grip?.center ?? new THREE.Box3().setFromObject(p).getCenter(new THREE.Vector3()).sub(p.getWorldPosition(new THREE.Vector3())).toArray();
+    p.quaternion.identity(); p.position.set(-c[0], -c[1], -c[2]);
+  }
+  p.scale.set(1, 1, 1);
+  return p;
+}
+
 function boxOf(o: THREE.Object3D | null): Box {
   const b = new THREE.Box3();
   if (o) b.setFromObject(o);
@@ -213,7 +314,7 @@ function xzDist(p: V3, b: Box) {
 const DIRS: Record<string, V3> = { front: [0, 0.18, 1], back: [0, 0.18, -1], side: [1, 0.18, 0], top: [0.001, 1, 0.001], low: [0.9, 0.12, 1.1], iso: [1, 0.75, 1.15] };
 
 // ── play-test player: a kinematic capsule with Rapier's character controller ──
-class Player {
+export class Player {
   body: RAPIER_NS.RigidBody; collider: RAPIER_NS.Collider; ctrl: RAPIER_NS.KinematicCharacterController; mesh: THREE.Object3D;
   vy = 0; radius = 0.3; half = 0.55; // capsule: 2*0.55 + 2*0.3 = 1.7 m
   walkSpeed = 1.4; clipSpeed = 1.4; heading = 0; hs = 0;
@@ -293,7 +394,11 @@ class Player {
         // jump the body to where the clip left the hips (travel is in the character's own frame, +Z forward)
         const tr = info?.travel ?? [0, 0, 0], h = this.heading;
         const t = this.body.translation();
-        const dx = tr[0] * Math.cos(h) + tr[2] * Math.sin(h), dz = -tr[0] * Math.sin(h) + tr[2] * Math.cos(h);
+        let dx = tr[0] * Math.cos(h) + tr[2] * Math.sin(h), dz = -tr[0] * Math.sin(h) + tr[2] * Math.cos(h);
+        // the step's travel goes through the character controller, so it can't carry the body into a wall
+        this.ctrl.computeColliderMovement(this.collider, { x: dx, y: 0, z: dz });
+        const mv = this.ctrl.computedMovement();
+        dx = mv.x; dz = mv.z;
         this.body.setTranslation({ x: t.x + dx, y: t.y, z: t.z + dz }, true);
         this.mesh.position.x += dx; this.mesh.position.z += dz;
         if (this.state === 'starting') {
@@ -323,7 +428,66 @@ function clearSpot(g: StudioGame, at: V3): boolean {
   return !hit;
 }
 
+/** Point a camera at an effect the way the studio frames it (the Godot runner uses the same numbers). */
+function frameCamera(cam: THREE.PerspectiveCamera, f: { center: V3; radius: number; dir: V3 }) {
+  const d = new THREE.Vector3(...f.dir).normalize();
+  const dist = f.radius / Math.tan((cam.fov * Math.PI) / 360);
+  cam.position.set(...f.center).addScaledVector(d, dist);
+  cam.up.set(0, 1, 0);
+  cam.lookAt(...f.center);
+  cam.near = 0.02; cam.far = dist + 50;
+  cam.updateProjectionMatrix();
+}
+
 const commands = {
+  /** Play one studio effect frame by frame from the studio's review camera: --value ramps its game value,
+   *  events fire game events, play loops character clips (so motion triggers fire). JPEG frames + a
+   *  background frame with the effect hidden (for the Godot-vs-web parity diff). */
+  async effect(g: StudioGame, c: any) {
+    const fx = await startEffects(g);
+    const me = fx.live[c.id];
+    if (!me) return { ok: false, error: `no effect ${c.id} in the game (have: ${Object.keys(fx.live).join(', ') || 'none'}; studio game import writes them)` };
+    for (const k of Object.keys(fx.live)) fx.show(k, k === c.id);
+    const sz = new THREE.Vector2(); g.renderer.getSize(sz);
+    const cam = new THREE.PerspectiveCamera(40, sz.x / sz.y, 0.02, 200);
+    frameCamera(cam, c.frame);
+    for (const p of c.play ?? []) g.characters?.actors[p.character]?.play(p.clip, { fade: 0 });
+    g.characters?.update(0);   // everyone in their current pose (the others then hold it)
+    fx.show(c.id, false);
+    g.renderer.render(g.scene, cam);
+    const bg = g.renderer.domElement.toDataURL('image/jpeg', 0.92);
+    fx.show(c.id, true);
+    const fps = c.fps ?? 30, n = Math.ceil((c.seconds ?? 4) * fps), dt = 1 / fps;
+    const frames: string[] = [];
+    const ev = [...(c.events ?? [])].sort((x: any, y: any) => x.at - y.at);
+    for (let f = 0; f < n; f++) {
+      const t = f * dt;
+      if (Array.isArray(c.value) && me.file.def.value) fx.setValue(me.file.def.value.name, c.value[0] + (c.value[1] - c.value[0]) * Math.min(1, t / Math.max(0.01, c.seconds ?? 4)));
+      else if (typeof c.value === 'number' && me.file.def.value) fx.setValue(me.file.def.value.name, c.value);
+      while (ev.length && ev[0].at <= t) { const e = ev.shift(); if (e.burst) fx.burst(c.id, e.burst); else fx.event(e.name); }
+      // only the characters asked to play move: the rest hold still, so the frame diff sees the effect alone
+      for (const p of c.play ?? []) g.characters?.actors[p.character]?.mixer.update(dt);
+      fx.update(dt);
+      g.renderer.render(g.scene, cam);
+      if (c.frames !== false) frames.push(g.renderer.domElement.toDataURL('image/jpeg', 0.9));
+    }
+    return { ok: true, effect: c.id, frames, background: bg, fired: fx.fired, seconds: n * dt };
+  },
+
+  /** Set the game up for a whole-page capture (canvas + HTML UI): the game camera at a view, the UI kit
+   *  and effects started, values set, a few seconds played. The Node side then captures the page. */
+  async stage(g: StudioGame, c: any) {
+    const fx = await startEffects(g);
+    for (const [k, v] of Object.entries(c.values ?? {})) fx.setValue(k, v as number);
+    if (c.ui !== false) { const { startUI } = await import('./ui.ts'); const ui = await startUI(g); for (const [k, v] of Object.entries(c.bars ?? {})) ui.setBar(k, v as number); if (c.card) ui.card(c.card.title, c.card.sub); for (const b of c.bubbles ?? []) { const a = g.characters?.actors[b.character]; if (a) ui.bubble(a.root.getObjectByProperty('isSkinnedMesh', true) ?? a.root, b.text, 60); } }
+    if (c.frame) frameCamera(g.camera, c.frame);
+    for (const p of c.play ?? []) g.characters?.actors[p.character]?.play(p.clip, { fade: 0 });
+    const dt = 1 / 60;
+    for (let t = 0; t < (c.seconds ?? 1); t += dt) { g.step(dt); g.characters?.update(dt); }
+    (g as any).ui?.update(g.camera);
+    return { ok: true, staged: true };
+  },
+
   /** Play a studio cutscene (assets/studio/cutscenes/<id>.json) frame by frame; frames as JPEG data URLs when c.frames. */
   async cutscene(g: StudioGame, c: any) {
     const res = await fetch(`assets/studio/cutscenes/${c.id}.json`);

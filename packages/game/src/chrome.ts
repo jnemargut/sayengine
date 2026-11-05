@@ -24,10 +24,10 @@ export function findChrome(): string | null {
   return null;
 }
 
-function freePort(start: number): Promise<number> {
+function freePort(start: number, end = start + 50): Promise<number> {
   return new Promise((resolve, reject) => {
     const tryPort = (p: number) => {
-      if (p > start + 50) return reject(new Error('no free debugging port'));
+      if (p > end) return reject(new Error('no free debugging port'));
       const s = net.createServer();
       s.once('error', () => tryPort(p + 1));
       s.listen(p, '127.0.0.1', () => s.close(() => resolve(p)));
@@ -39,13 +39,18 @@ function freePort(start: number): Promise<number> {
 export interface Page {
   eval<T = any>(expression: string, timeoutMs?: number): Promise<T>;
   logs: Array<{ level: string; text: string }>;
+  /** The whole page as the player sees it — the canvas and any HTML UI over it (Fire's Dying pain #4). */
+  screenshot(): Promise<Buffer>;
 }
 
 /** Launch Chrome, open `url`, run `fn(page)`, always clean up. */
 export async function withPage<T>(url: string, size: { width: number; height: number }, fn: (page: Page) => Promise<T>): Promise<T> {
   const bin = findChrome();
   if (!bin) throw Object.assign(new Error('Chrome not found'), { hint: 'install Google Chrome or set CHROME_BIN' });
-  const port = await freePort(Number(process.env.STUDIO_CHROME_PORT ?? 9370));
+  // a random start inside the range: test files run in parallel, and two Chromes racing for one free port
+  // would leave one of them driving the other's page
+  const base = Number(process.env.STUDIO_CHROME_PORT ?? 9370);
+  const port = await freePort(base + Math.floor(Math.random() * 30), base + 50);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-game-chrome-'));
   const child: ChildProcess = spawn(bin, [
     '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
@@ -84,6 +89,7 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
     await send('Runtime.enable');
     await send('Log.enable');
     await send('Page.enable');
+    await send('Emulation.setDeviceMetricsOverride', { width: size.width, height: size.height, deviceScaleFactor: 1, mobile: false });
     await send('Page.navigate', { url });
     const page: Page = {
       logs,
@@ -91,6 +97,10 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
         const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, timeoutMs);
         if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
         return r.result.value;
+      },
+      async screenshot() {
+        const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+        return Buffer.from(r.data, 'base64');
       },
     };
     // wait for the document to exist before handing over

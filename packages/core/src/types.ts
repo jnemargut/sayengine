@@ -238,6 +238,7 @@ export interface GameProfile {
   shapes?: number;               // face shape keys (morph targets) per character
   fingers?: boolean;             // keep finger bones (web-mobile drops them by default)
   collision?: boolean;           // require a collision shape
+  kind?: 'prop' | 'hand-prop';   // hand-prop: carried in a hand, so no collider is needed (it rides the hand bone)
 }
 
 export interface SceneDoc {
@@ -246,6 +247,8 @@ export interface SceneDoc {
   objects: Record<string, SceneObject>;
   objectOrder: string[];
   cutscenes?: Record<string, import('./cutscene.ts').Cutscene>;   // Decision 24: shots, cameras, lines, actions
+  effects?: Record<string, import('./effects.ts').EffectDef>;       // Decisions 56–57: particles and shape effects
+  ui?: import('./uikit.ts').UiKit;                                  // Decision 58: tokens, parts, icons
 }
 
 export function emptyDoc(): SceneDoc {

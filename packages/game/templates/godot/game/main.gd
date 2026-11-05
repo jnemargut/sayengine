@@ -9,6 +9,10 @@ extends Node3D
 const STUDIO_SCENE := "res://assets/studio/scene.glb"
 const CHARS := preload("res://studio/characters.gd")
 const PLAYER := preload("res://studio/player.gd")
+const EFFECTS := preload("res://studio/effects.gd")
+const UI := preload("res://studio/ui.gd")
+var effects: Node    # effects.set_value("fire", 0.4), effects.event("fed")
+var ui: CanvasLayer  # ui.set_bar("heat", 0.4), ui.bubble(node, "Good lad.")
 var player: CharacterBody3D
 var cam: Camera3D
 
@@ -20,6 +24,9 @@ func _ready() -> void:
 		studio.name = "Studio"
 		add_child(studio)
 		CHARS.animate(studio)
+	# studio effects and the UI kit's HUD (empty until the studio has some)
+	effects = EFFECTS.start(self)
+	ui = UI.start(self)
 	var info = CHARS.manifest().get("player")
 	if info is Dictionary and ResourceLoader.exists("res://assets/studio/player.glb"):
 		player = CharacterBody3D.new()

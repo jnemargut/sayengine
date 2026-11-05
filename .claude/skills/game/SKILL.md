@@ -37,6 +37,21 @@ Motions arrive as clips named by their id (`idle`, `walk`, `wave`…; several ch
 
 **The player is a studio character**: `./studio game import --project forge --player Apprentice` exports that character on its own (`player.glb`, with what it holds) and leaves it out of the scene. It starts where it stood in the studio; `walk-to` and the game's own controls (arrow keys / WASD in the generated main scene, camera following) play its walk clip at the speed the body actually moves and idle when it stops. `--player none` goes back to a capsule. Characters in the scene block the way with a capsule. `./studio game walk-to --project forge --target Anvil --video true` records the walk from a following camera (MP4 + 3 stills): Read the stills — feet planted, facing the way it walks, idle at the end.
 
+**Game code helpers** (web, `studio/harness.ts` and `studio/ui.ts`; Godot equivalents in `studio/effects.gd`, `studio/ui.gd`):
+- `named(game, 'Big hammer')` finds a studio object by its studio name (GLTFLoader renames nodes; every node carries `extras.studioName`).
+- `hold(game, 'Blacksmith', 'Big hammer', 'right')` parents a prop to the hand bone at its grip socket (exported per character and hand). Mark carried props `studio set-profile --kind hand-prop`: no collider, and a grip socket in the export.
+- `startCharacters(game, { controls: 'none' })` makes the studio player without keyboard controls; drive `game.characters.player.move(dir, speed, dt)` + `.sync(dt)` yourself. `controls: true` keeps WASD. `game.characters.actors[name].play(clip, {once})` plays any clip.
+- `say(game, 'Blacksmith', 'good-lad')` plays the line's voice, its `line:<id>` clip (shifted by the line's measured lip-sync offset) and a speech bubble over the speaker. `game import` writes every recorded line to `assets/studio/lines/` (`lines.json` + WAVs).
+
+## Effects and UI (Decisions 56–58)
+
+- Effects are made in the studio (`studio add-effect --preset forge-fire|sparks|chimney-smoke|embers|rain`, `--value fire` to follow a 0–1 game value, `--triggers '[{"on":"Blacksmith:strike@impact","layer":"burst"}]'` or a game event name). `game import` compiles them: Godot `.tscn` (GPU particles, a CPU twin per layer, shape effects with a scrolling-noise shader) and web three.quarks JSON with the same shader. In game code: `const fx = await startEffects(game)` / `EFFECTS.start(self)`; `fx.setValue('fire', 0.4)`; `fx.event('fed')`. Motion-tied bursts fire by themselves.
+- `./studio game effect --project <godot game> --id forge-fire --value '[0.2,1]' --against <web game>` plays it from the studio's review camera in both engines: MP4s, a side-by-side card (PNG + MP4) and the Godot-vs-web parity, saved to the effect's `fx-parity` check. Watch the videos / Read the card.
+- The UI kit comes from the studio (`studio ui-kit --preset forge`, `studio ui-icon --names '[…]'`): `game import` writes a Godot Theme (`assets/studio/ui/theme.tres`) or `ui.css`, the font and SVG icons. In game code: `startUI(game)` / `UI.start(self)` builds the HUD; `setBar`, `setText`, `card(title, sub)`, `bubble(node, text)`. `./studio game ui-sheet` renders the kit's review sheet and scores the icons.
+- `./studio game screenshot --project <name> --page true` captures the whole screen — 3D plus the HUD and any HTML/Control UI (the web canvas alone misses HTML). `--bubbles '[{"character":"Blacksmith","text":"…"}]'`, `--values '{"fire":0.6}'`.
+
+Not yet (later passes): pathfinding around obstacles (`walk-to` goes straight) and interactables.
+
 ## Rules
 
 - **Never edit the engine copies of studio assets** (`assets/studio/`). Change the model with `/studio`, then `game import` again. Materials come from the studio on every import.

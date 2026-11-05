@@ -12,6 +12,8 @@ import { CHARACTER_TOOLS } from './charactertools.ts';
 import { PRINT_TOOLS } from './printtools.ts';
 import { PART_TOOLS } from './parttools.ts';
 import { CUTSCENE_TOOLS, cutsceneChecks } from './cutscene.ts';
+import { EFFECT_TOOLS, effectChecks } from './effects.ts';
+import { UI_TOOLS, uiChecks } from './uikit.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -244,6 +246,7 @@ export const TOOLS: ToolDef[] = [
       materials: z.number().int().positive().optional(), collision: z.boolean().optional(),
       fingers: z.boolean().optional().describe('characters: keep finger bones (web-mobile drops them by default)'),
       shapes: z.number().int().positive().optional().describe('characters: face shape-key budget'),
+      kind: z.enum(['prop', 'hand-prop']).optional().describe('hand-prop: something carried in a hand (tongs, a hammer, a cup): no collision shape is required, and the export carries its grip socket for the runtime hold()'),
     }),
     example: `studio set-profile --object stool --profile godot-desktop`,
     run(ctx, a) {
@@ -255,10 +258,10 @@ export const TOOLS: ToolDef[] = [
         return { profile: null };
       }
       const prof: any = { ...(o.profile?.name === a.profile ? o.profile : {}), name: a.profile };
-      for (const k of ['triangles', 'texture', 'materials', 'collision', 'fingers', 'shapes'] as const) if (a[k] !== undefined) prof[k] = a[k];
+      for (const k of ['triangles', 'texture', 'materials', 'collision', 'fingers', 'shapes', 'kind'] as const) if (a[k] !== undefined) prof[k] = a[k];
       ctx.set(['objects', o.id, 'profile'], prof);
       const b = budgetFor(prof);
-      ctx.summary(`${o.name}: game profile ${a.profile} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
+      ctx.summary(`${o.name}: game profile ${a.profile}${prof.kind === 'hand-prop' ? ' (hand prop)' : ''} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
       return { profile: prof, budget: { ...b, lodAbove: Number.isFinite(b.lodAbove) ? b.lodAbove : null }, note: PROFILES[a.profile as ProfileName].description };
     },
   },
@@ -657,6 +660,9 @@ export const TOOLS: ToolDef[] = [
       const out: Record<string, any[]> = Object.fromEntries(ids.map((id) => [id, ctx.studio.checks(id)]));
       // cutscenes (Decision 24) are checked as a whole: speakers in frame, cuts between words, the 180° rule
       if (!a.object) for (const cs of Object.values((ctx.doc as any).cutscenes ?? {})) out[`cutscene:${(cs as any).id}`] = cutsceneChecks(ctx.studio, ctx.doc, cs as any);
+      // effects and the UI kit (Decisions 56–58): budgets, fallback, palette, contrast, overflow, tap size
+      if (!a.object) for (const fx of Object.values((ctx.doc as any).effects ?? {})) out[`effect:${(fx as any).id}`] = effectChecks(fx as any, (ctx.doc as any).look?.palette);
+      if (!a.object && (ctx.doc as any).ui) out['ui'] = uiChecks((ctx.doc as any).ui);
       const all = Object.values(out).flat() as any[];
       const fail = all.filter((c) => !c.pass && !c.pending).length, pend = all.filter((c) => !c.pass && c.pending).length;
       ctx.summary(fail || pend ? `${fail} failing, ${pend} pending of ${all.length}` : `all ${all.length} checks pass`);
@@ -757,6 +763,8 @@ TOOLS.push(...CHARACTER_TOOLS);
 TOOLS.push(...PRINT_TOOLS);
 TOOLS.push(...PART_TOOLS);
 TOOLS.push(...CUTSCENE_TOOLS);
+TOOLS.push(...EFFECT_TOOLS);
+TOOLS.push(...UI_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);

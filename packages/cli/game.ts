@@ -29,6 +29,16 @@ export async function gameContext() {
       if (!r.ok) throw new Error(`cutscenes: ${r.error}`);
       return r.result?.cutscenes ?? [];
     },
+    async studioCall(tool: string, args: Record<string, unknown>) {
+      const r: any = await callTool(tool, args);
+      return { ok: !!r.ok, error: r.error, result: r.result };
+    },
+    async gameData() {
+      if (!DAEMON_TOOLS.some((t) => t.name === 'game-data')) return null;
+      const r: any = await callTool('game-data', {});
+      if (!r.ok) throw new Error(`effects, UI and lines: ${r.error}`);
+      return r.result ?? null;
+    },
   };
 }
 

@@ -16,6 +16,11 @@ export { findGodot } from './godot.ts';
 import { writeCutscenes, muxCutscene, type CutsceneBundle } from './cutscene.ts';
 export { writeCutscenes, godotCutsceneScene } from './cutscene.ts';
 export { findChrome } from './chrome.ts';
+import { writeGameData } from './effects.ts';
+import { frameStats, parity, sideBySide } from './fxreview.ts';
+import type { GameData } from '../../core/src/gamedata.ts';
+export { writeGameData, quarksJSON, quarksGroup, parseQuarks, loadQuarks, QUARKS_VERSION } from './effects.ts';
+export { frameStats, parity } from './fxreview.ts';
 
 export interface GameContext {
   studioDir: string;
@@ -25,6 +30,10 @@ export interface GameContext {
   objectInfo?(object: string): Promise<{ id: string; name: string; position: [number, number, number]; rotation: number; character: boolean } | null>;
   /** The studio's cutscenes as timelines + their voices (Decision 24). */
   cutscenes?(): Promise<CutsceneBundle[]>;
+  /** Effects (with positions), the UI kit and every recorded line's audio (Phase 9). */
+  gameData?(): Promise<GameData | null>;
+  /** Call a studio tool (game effect --against saves the parity review on the effect). */
+  studioCall?(tool: string, args: Record<string, unknown>): Promise<{ ok: boolean; error?: string; result?: any }>;
 }
 
 /**
@@ -56,6 +65,16 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         const g = godot.findGodot();
         return out({ ok: true, result: { games, engines: { godot: g ? { available: true, ...g } : { available: false, hint: 'brew install --cask godot, or set GODOT_BIN' }, web: findChrome() ? { available: true, chrome: findChrome() } : { available: false, hint: 'install Google Chrome or set CHROME_BIN' } } } });
       }
+    }
+    if (tool.name === 'game-ui-sheet') {
+      const data = ctx.gameData ? await ctx.gameData() : null;
+      if (!data?.ui) return out({ ok: false, error: 'no UI kit in the studio', hint: 'studio ui-kit --preset forge, then studio ui-icon --names ...' });
+      const outDir = path.resolve(ctx.studioDir, String(args.out ?? path.join('.studio', 'ui-sheet')));
+      const { renderSheet } = await import('./uisheet.ts');
+      const r = await renderSheet(data.ui, outDir);
+      let scores: any = null;
+      if (ctx.studioCall && Object.keys(r.masks ?? {}).length) { const sc = await ctx.studioCall('ui-score-icons', { masks: r.masks }); scores = sc.result?.scores ?? sc.error; }
+      return out({ ok: true, result: { png: r.png, sheet: r.sheet, scores }, note: 'Read the PNG to look at the kit.' });
     }
     const { dir, config } = resolveProject(ctx.studioDir, args.project);
     const project = path.relative(ctx.studioDir, dir) || '.';
@@ -93,6 +112,8 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         fs.writeFileSync(path.join(dir, 'assets', 'studio', 'characters.json'), JSON.stringify(charactersManifest(dest, player ? { ...player, glb: playerGlb } : null), null, 2) + '\n');
         // cutscenes: the timelines, voices and (Godot) generated scenes
         const cutscenes = !args.file && ctx.cutscenes ? writeCutscenes(dir, config.engine, await ctx.cutscenes()) : [];
+        // effects, the UI kit, every line's audio (Godot imports them in the same pass below)
+        const extra = await writeGameData(dir, config.engine, !args.file && ctx.gameData ? await ctx.gameData() : null);
         const rep: any = config.engine === 'godot' ? await godot.importProject(dir) : await web.webCommand(dir, { cmd: 'info' });
         const report = config.engine === 'godot' ? rep : { ...rep.result, warnings: rep.warnings ?? [], errors: [...(rep.errors ?? []), ...(rep.error ? [rep.error] : [])] };
         const strict = args.strict !== false;
@@ -101,7 +122,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
+          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }
@@ -111,8 +132,17 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         return out({ ...base, ...r });
       }
       case 'game-screenshot': {
-        const views = parseViews(args.views);
         const size = Number(args.size ?? 960);
+        if (args.page === true || args.page === 'true') {
+          const parse = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
+          const frame = args.object ? objectFrame(dir, String(args.object)) : null;
+          const cmd: any = { cmd: 'page', prefix: `${stamp()}-page`, ui: args.ui !== false && args.ui !== 'false', seconds: Number(args.seconds ?? 1), ...(args.values ? { values: parse(args.values) } : {}), ...(args.bubbles ? { bubbles: parse(args.bubbles) } : {}), ...(args.card ? { card: parse(args.card) } : {}), ...(args.bars ? { bars: parse(args.bars) } : {}), ...(args.play ? { play: parse(args.play) } : {}), ...(frame ? { frame } : {}) };
+          const r = config.engine === 'godot'
+            ? await godot.runnerCommand(dir, { ...cmd, outDir: workDir(dir, 'shots') }, { windowed: true, size })
+            : await web.webCommand(dir, cmd, { size });
+          return out({ ...base, ...r, ...(r.ok ? { note: 'The whole screen as the player sees it (3D + UI). Read the PNG.' } : {}) });
+        }
+        const views = parseViews(args.views);
         const cmd: any = { cmd: 'screenshot', views, size, prefix: `${stamp()}-shot`, ...(args.object ? { object: args.object } : {}), ...(args.player ? { player: args.player } : {}) };
         const r = config.engine === 'godot'
           ? await godot.runnerCommand(dir, { ...cmd, outDir: workDir(dir, 'shots') }, { windowed: true, size })
@@ -153,6 +183,43 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         if (video && r.ok) Object.assign(r.result ?? (r.result = {}), muxCutscene(frameDir, 30, tl, path.join(dir, 'assets', 'studio', 'cutscenes', 'audio'), path.join(workDir(dir, 'video'), `${stamp()}-${id}.mp4`)));
         return out({ ...base, ...r, ...(r.ok ? { summary: `${tl.title ?? id}: ${tl.shots.length} shots, ${tl.duration.toFixed(1)} s in ${config.engine}${r.result?.video ? ` → ${r.result.video}` : ''}` } : {}) });
       }
+      case 'game-effect': {
+        const id = String(args.id ?? '');
+        const parse = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
+        const run = async (pdir: string, engine: Engine): Promise<any> => {
+          const man = path.join(pdir, 'assets', 'studio', 'effects', 'effects.json');
+          const list: any[] = fs.existsSync(man) ? JSON.parse(fs.readFileSync(man, 'utf8')) : [];
+          const m = list.find((x) => x.id === id);
+          if (!m) return { ok: false, error: `no effect "${id}" in ${path.relative(ctx.studioDir, pdir)} (have: ${list.map((x) => x.id).join(', ') || 'none'})`, hint: 'studio add-effect, then studio game import' };
+          const frameDir = path.join(workDir(pdir, 'video'), `${stamp()}-${id}`), background = `${frameDir}-background.png`;
+          fs.mkdirSync(frameDir, { recursive: true });
+          const cmd: any = { cmd: 'effect', id, frame: m.frame, seconds: Number(args.seconds ?? 4), frames: frameDir, background, ...(args.value !== undefined ? { value: parse(args.value) } : {}), ...(args.events ? { events: parse(args.events) } : {}), ...(args.play ? { play: parse(args.play) } : {}), ...(args.cpu ? { cpu: args.cpu === true || args.cpu === 'true' } : {}) };
+          let r: any;
+          if (engine === 'godot') r = await godot.runnerCommand(pdir, cmd, { windowed: true, size: 960, timeoutMs: 300000 });
+          else {
+            r = await web.webCommand(pdir, cmd, { size: 960 });
+            if (r.result?.background) { fs.writeFileSync(background, Buffer.from(String(r.result.background).replace(/^data:image\/\w+;base64,/, ''), 'base64')); delete r.result.background; }
+          }
+          if (!r.ok) return r;
+          const stats = frameStats(frameDir, background);
+          // the frame where the effect covers the most (a burst at its height): the review card's still
+          let peak: string | null = null;
+          if (stats?.peakFrame && fs.existsSync(stats.peakFrame)) { peak = `${frameDir}-peak${path.extname(stats.peakFrame)}`; fs.copyFileSync(stats.peakFrame, peak); stats.peakFrame = peak; }
+          return { ...r, result: { ...r.result, background, stats, peak, ...framesToVideo(frameDir, 30) } };
+        };
+        const a = await run(dir, config.engine);
+        if (!a.ok || !args.against) return out({ ...base, ...a, ...(a.ok ? { summary: `${id} in ${config.engine}: ${a.result.video ?? 'no video'}`, note: 'Watch the MP4 or Read the stills.' } : {}) });
+        const other = resolveProject(ctx.studioDir, String(args.against));
+        copyTemplate(other.config.engine, other.dir, { NAME: other.config.name }, true);
+        const b = await run(other.dir, other.config.engine);
+        if (!b.ok) return out({ ...base, ok: false, error: `in ${other.config.engine}: ${b.error}`, result: a.result });
+        const [gd, wb] = config.engine === 'godot' ? [a, b] : [b, a];
+        const par = gd.result.stats && wb.result.stats ? parity(gd.result.stats, wb.result.stats) : null;
+        const card = gd.result.video && wb.result.video ? sideBySide({ video: gd.result.video, still: gd.result.peak ?? gd.result.stills[1], label: 'Godot' }, { video: wb.result.video, still: wb.result.peak ?? wb.result.stills[1], label: 'web' }, path.join(workDir(dir, 'video'), `${stamp()}-${id}-side-by-side`)) : null;
+        let saved = false;
+        if (par && ctx.studioCall) { const sv = await ctx.studioCall('effect-review', { id, score: par.score, detail: par.detail }); saved = !!sv.ok; }
+        return out({ ...base, ok: true, result: { godot: gd.result, web: wb.result, parity: par, card, savedToStudio: saved }, summary: `${id}: ${par ? par.detail : 'no parity (a render is missing)'}` });
+      }
       case 'game-test': {
         const assertions = typeof args.assertions === 'string' ? JSON.parse(args.assertions) : args.assertions ?? [];
         if (!Array.isArray(assertions)) return out({ ok: false, ...base, error: '--assertions must be a JSON array of {kind, …}' });
@@ -166,6 +233,28 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
   } catch (e: any) {
     return out({ ok: false, error: e.message, ...(e.hint ? { hint: e.hint } : {}) });
   }
+}
+
+/** A camera framing one object for a page capture, from the scene GLB's node bounds. */
+function objectFrame(dir: string, object: string) {
+  const glb = path.join(dir, 'assets', 'studio', 'scene.glb');
+  if (!fs.existsSync(glb)) return null;
+  const b = fs.readFileSync(glb);
+  const j = JSON.parse(b.subarray(20, 20 + b.readUInt32LE(12)).toString('utf8'));
+  const norm = (s: string) => s.toLowerCase().replace(/[_-]/g, ' ').trim();
+  const n = (j.nodes ?? []).find((x: any) => norm(x.extras?.studioName ?? x.name ?? '') === norm(object));
+  if (!n || n.mesh === undefined) return null;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const p of j.meshes[n.mesh].primitives) { const acc = j.accessors[p.attributes.POSITION]; if (acc?.min) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], acc.min[k]); hi[k] = Math.max(hi[k], acc.max[k]); } }
+  const t = n.translation ?? [0, 0, 0];
+  const c = [0, 1, 2].map((k) => t[k] + (lo[k] + hi[k]) / 2);
+  const r = Math.max(hi[1] - lo[1], (hi[0] - lo[0]) / 1.6, (hi[2] - lo[2]) / 1.6) * 0.75;
+  return { center: c, radius: +Math.max(0.5, r).toFixed(3), dir: [0.6, 0.45, 1] };
+}
+
+function summariseAssets(dir: string, files: string[]) {
+  const rel = files.map((f) => path.relative(path.join(dir, 'assets', 'studio'), f));
+  return { effects: rel.filter((f) => f.startsWith('effects/') && /\.(tscn|json)$/.test(f) && !f.endsWith('effects.json')).length, ui: rel.includes('ui/ui.json'), icons: rel.filter((f) => f.startsWith('ui/icons/')).length, lines: rel.filter((f) => f.startsWith('lines/') && f.endsWith('.wav')).length };
 }
 
 /** Clip names, loops and speeds per character in an exported GLB (from its animation and node extras). */
