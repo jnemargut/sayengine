@@ -120,3 +120,13 @@ What got built while you slept, what I checked myself, and anything that went wr
   - **Still weak:**
     - There's no timeline yet, so you can't point at a moment in the view.
     - "Show me three" only compares in the CLI.
+- **Step 3a, looks, towns and the UI kit in the view: merged.** 236 tests, 235 pass. The one failure is a headless Chrome check on the speech bubble that times out under load and passes on its own (4/4). The view builds.
+  - **Looks:** sliders for exposure, white balance, contrast, saturation, fog, sun and lamps. Letting go of a slider makes one step with a note like "warmer: 6200 K → 5600 K". "Show me three" gives three grades side by side with a pick card.
+  - **Towns:** click a building to select it by its stable id. Say "flat roof, two storeys taller" and it becomes one fix. Landmarks can be swapped from the inspector.
+  - **UI kit:** the HUD draws over the scene in a phone or desktop frame. Click a button to point at it. The contrast, overflow and tap-size checks update live.
+  - Screenshots are in `checkpoint-phase10/rest-a/`.
+  - **Still weak:**
+    - Only a 27-building cut of the town has been tried in the view.
+    - Fog washes out the overview camera.
+    - "Show me three" only varies the grade.
+    - Godot honours only text size and colour from the per-button UI settings.
