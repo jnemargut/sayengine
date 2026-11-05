@@ -33,3 +33,22 @@ checkpoint-godot-live-ik/*
 !checkpoint-godot-live-ik/report.json
 !checkpoint-godot-live-ik/README.md
 !checkpoint-godot-live-ik/games/
+
+# Demo media lives in the GitHub release (checkpoints-media zip), not in git history
+checkpoint*/**/*.mp4
+checkpoint*/**/*.png
+checkpoint*/**/*.jpg
+checkpoint*/**/*.jpeg
+checkpoint*/**/*.glb
+checkpoint*/**/*.gltf
+checkpoint*/**/*.wav
+checkpoint*/**/*.m4a
+checkpoint*/**/*.webm
+checkpoint*/**/*.mov
+checkpoint*/**/*.gif
+checkpoint*/**/*.woff
+checkpoint*/**/*.3mf
+checkpoint*/**/*.stl
+checkpoint*/**/*.zip
+checkpoint*/**/*.bin
+checkpoint*/**/*.cube
