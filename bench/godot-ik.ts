@@ -17,11 +17,12 @@ import { exportGame } from '../packages/core/src/gameexport.ts';
 import { creatureWithClips } from '../packages/core/src/creatures.ts';
 import { creatureSkinnedGLB, creatureIkInfo } from '../packages/core/src/creatureskin.ts';
 import { creatureChecks, terrainHeight, type CreatureClip, type TerrainSpec } from '../packages/core/src/rigparts.ts';
+import { qAxisAngle, qMul, qRot, type Q, type V3 } from '../packages/core/src/rig.ts';
 import { findGodot } from '../packages/game/src/index.ts';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const outDir = path.resolve(process.argv[2] ?? path.join(ROOT, 'checkpoint-godot-live-ik'));
-const shots = process.argv.slice(3).length ? process.argv.slice(3) : ['stairs', 'crab', 'baked', 'reach'];
+const shots = process.argv.slice(3).length ? process.argv.slice(3) : ['stairs', 'crab', 'baked', 'spider', 'reach'];
 fs.mkdirSync(outDir, { recursive: true });
 const godot = findGodot();
 if (!godot) { console.log('skip: Godot not installed'); process.exit(0); }
@@ -40,8 +41,10 @@ fs.writeFileSync(path.join(proj, 'ik_bench.tscn'), '[gd_scene load_steps=2 forma
 await initKernel();
 const crab = creatureWithClips('crab');
 const octo = creatureWithClips('octopus');
+const spider = creatureWithClips('spider');
 fs.writeFileSync(path.join(proj, 'crab.glb'), creatureSkinnedGLB(crab.c, crab.clips));
 fs.writeFileSync(path.join(proj, 'octopus.glb'), creatureSkinnedGLB(octo.c, octo.clips));
+fs.writeFileSync(path.join(proj, 'spider.glb'), creatureSkinnedGLB(spider.c, spider.clips));
 const studio = new Studio();
 const step = (t: string, a: object) => { const r: any = studio.call(t, a); if (!r.ok) throw new Error(`${t}: ${r.error}`); return r.result; };
 step('new-character', { name: 'Apprentice', preset: 'apprentice', position: [0, 0, 0] });
@@ -51,11 +54,12 @@ const charId = studio.findObject(doc, 'apprentice').id;
 const ex = await exportGame([{ obj: doc.objects[charId], res: studio.evaluate(doc.objects[charId]) }], { target: 'godot', baker: null, evaluateOp: (o, op) => studio.evaluateOp(o, op) } as any);
 fs.writeFileSync(path.join(proj, 'apprentice.glb'), ex.glb);
 const walk = crab.clips.find((x) => x.id === 'walk')!;
-const bumpy: TerrainSpec = { period: 6, bumps: [{ amp: 0.05, k: 2, kx: 1.9 }, { amp: 0.03, k: 5, phase: 1.1, kx: 3.7 }, { amp: 0.012, k: 11, phase: 0.4 }] };
+// bumps up to about ±15 cm (a third of the crab's leg reach), with short ones a foot can land across
+const bumpy: TerrainSpec = { period: 6, bumps: [{ amp: 0.085, k: 2, kx: 1.9 }, { amp: 0.045, k: 5, phase: 1.1, kx: 3.7 }, { amp: 0.02, k: 11, phase: 0.4, kx: 6.1 }] };
 const N = 120, SIZE = 6;
 const heights: number[] = [];
 for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) heights.push(+terrainHeight(bumpy, -SIZE / 2 + (SIZE * i) / N, -SIZE / 2 + (SIZE * j) / N).toFixed(5));
-fs.writeFileSync(path.join(proj, 'bench.json'), JSON.stringify({ n: N, size: SIZE, heights, crabSpeed: walk.speed, walkSpeed: 1.0, ik: creatureIkInfo(crab.c), octoIk: creatureIkInfo(octo.c) }));
+fs.writeFileSync(path.join(proj, 'bench.json'), JSON.stringify({ n: N, size: SIZE, heights, crabSpeed: walk.speed, walkSpeed: 1.0, ik: creatureIkInfo(crab.c), octoIk: creatureIkInfo(octo.c), spiderIk: creatureIkInfo(spider.c), spiderSpeed: spider.clips.find((x) => x.id === 'walk')?.speed ?? 0.3 }));
 
 const run = (args: string[], timeout = 240000) => {
   const r = spawnSync(godot.bin, args, { cwd: proj, encoding: 'utf8', timeout, maxBuffer: 1 << 28 });
@@ -86,7 +90,8 @@ for (const shot of shots) {
   const m = JSON.parse(fs.readFileSync(path.join(frames, 'metrics.json'), 'utf8'));
   const res: any = { video, stills, frames: n, errors: errs, clip: m.clip };
   if (shot === 'stairs') res.feet = stairsMetrics(m.frames);
-  if (shot === 'crab') res.checks = crabChecks(m);
+  if (shot === 'crab') res.checks = liveChecks(crab.c, m);
+  if (shot === 'spider') res.checks = liveChecks(spider.c, m);
   if (shot === 'baked') res.checks = bakedChecks();
   if (shot === 'reach') {
     const st = (e: number[]) => ({ meanCm: r3(e.reduce((s, x) => s + x, 0) / e.length * 100), p95Cm: r3(pct(e, 0.95) * 100), maxCm: r3(Math.max(...e) * 100) });
@@ -102,30 +107,39 @@ if (!process.env.BENCH_KEEP) fs.rmSync(tmp, { recursive: true, force: true }); e
 console.log(`report: ${path.join(outDir, 'report.json')}`);
 
 // ── measures ───────────────────────────────────────────────────────────────────────────────────
-/** Humanoid feet on the stairs: while a foot is planted (the clip's ankle low and still), how far its
- *  ankle is from where it should sit above the ground, how fast it slides, and whether the toes go in. */
+/** Humanoid feet on the stairs. A foot is planted while its ankle barely moves across the ground
+ *  (< 0.12 m/s). For planted frames: the sole's gap to the ground under it (the lower of heel and toe,
+ *  each against its own height on the flat floor at the start), how far the ankle drifts during one plant
+ *  (sliding), and frames where the toes go into a step. */
 function stairsMetrics(rows: any[]) {
   const out: any = {};
-  const skip = 15;   // the first half second settles
+  const skip = 10;
   for (const s of ['Left', 'Right']) {
-    const h = rows.map((r) => r[s].ankle[1] - r[s].ground);
-    const stanceH = pct(h.slice(skip), 0.1);
-    const gap: number[] = [], slide: number[] = [], toeIn: number[] = [];
-    let planted = 0;
+    const flat = rows.slice(skip, 40);
+    const a0 = pct(flat.map((r) => r[s].ankle[1] - r[s].ground), 0.05), t0 = pct(flat.map((r) => r[s].toe[1] - r[s].ground), 0.05);
+    const gap: number[] = [];
+    const drift: number[] = [];
+    let toeIn = 0, planted = 0, runStart: number[] | null = null, runMax = 0;
     for (let f = skip + 1; f < rows.length; f++) {
-      const a = rows[f][s].ankle, b = rows[f - 1][s].ankle;
-      const v = Math.hypot(a[0] - b[0], a[2] - b[2]) * 30;
-      toeIn.push(Math.max(0, -(rows[f][s].toe[1] - rows[f][s].ground) - 0.0));
-      if (h[f] < stanceH + 0.025 && v < 0.25) { planted++; gap.push(Math.abs(h[f] - stanceH)); slide.push(v); }
+      const r = rows[f], q = rows[f - 1][s].ankle, an = r[s].ankle;
+      const v = Math.hypot(an[0] - q[0], an[2] - q[2]) * 30;
+      if (r[s].toe[1] - r[s].ground < -0.012) toeIn++;
+      if (v < 0.12) {
+        planted++;
+        gap.push(Math.min(an[1] - r[s].ground - a0, r[s].toe[1] - r[s].ground - t0));
+        if (!runStart) { runStart = an; runMax = 0; }
+        runMax = Math.max(runMax, Math.hypot(an[0] - runStart[0], an[2] - runStart[2]));
+      } else if (runStart) { drift.push(runMax); runStart = null; }
     }
-    out[s] = { plantedFrames: planted, ankleAboveGroundM: r3(stanceH), stanceGapP95Cm: r3(pct(gap, 0.95) * 100), slideP95MS: r3(pct(slide, 0.95)), climbedM: r3(rows[rows.length - 1].root[1] - rows[0].root[1]) };
+    if (runStart) drift.push(runMax);
+    out[s] = { plantedFrames: planted, soleGapP95Cm: r3(pct(gap.map(Math.abs), 0.95) * 100), soleGapMaxCm: r3(Math.max(...gap.map(Math.abs)) * 100), plantDriftMaxCm: r3(Math.max(0, ...drift) * 100), toeIntoStepFrames: toeIn };
   }
+  out.climbedM = r3(rows[rows.length - 1].root[1] - rows[0].root[1]);
   return out;
 }
 
-/** The crab's live capture as a clip, through the universal motion checks on the bumpy ground. */
-function crabChecks(m: any) {
-  const c = crab.c;
+/** A creature's live capture (the crab, the spider) as a clip, through the universal motion checks on the bumpy ground. */
+function liveChecks(c: typeof crab.c, m: any) {
   const names: string[] = m.bones;
   const idx = c.bones.map((b) => { const i = names.indexOf(b.name); return i >= 0 ? i : names.indexOf(b.name.replace(/\./g, '_')); });
   const rows: any[] = m.frames.slice(15);
@@ -133,13 +147,16 @@ function crabChecks(m: any) {
   const legsOf = creatureIkInfo(c).legs;
   const clip: CreatureClip = {
     id: 'live', kind: 'walk', fps: 30, frames: F, duration: F / 30, loop: false, speed: 0, dir: [1, 0, 0],
-    rot: rows.map((r) => idx.map((g) => r.rot[g] as any)),
+    // the Body (the root bone) carries the creature's travel and yaw: world = root + yaw × pose
+    rot: rows.map((r) => idx.map((g, bi) => (c.parents[bi] < 0 && c.bones[bi].name === 'Body' ? qMul(qAxisAngle([0, 1, 0], (r.yaw * 180) / Math.PI), r.rot[g]) : r.rot[g]) as Q)),
     off: rows.map((r) => idx.map((g, bi) => {
       const p = c.parents[bi];
       const rest = p < 0 ? c.bones[bi].head : c.bones[bi].head.map((v, k) => v - c.bones[p].head[k]);
-      const o = r.pos[g].map((v: number, k: number) => v - rest[k]);
-      if (p < 0 && c.bones[bi].name === 'Body') { o[0] += r.root[0]; o[2] += r.root[2]; }
-      return o;
+      if (p < 0 && c.bones[bi].name === 'Body') {
+        const w = qRot(qAxisAngle([0, 1, 0], (r.yaw * 180) / Math.PI), r.pos[g]);
+        return [w[0] + r.root[0] - rest[0], w[1] - rest[1], w[2] + r.root[2] - rest[2]] as V3;
+      }
+      return r.pos[g].map((v: number, k: number) => v - rest[k]) as V3;
     })),
     contacts: rows.map((r) => c.contacts.map((cd) => { const li = legsOf.findIndex((l) => l.knee === cd.bone); return li >= 0 ? !!r.down[li] : false; })),
     notes: [], reachMiss: 0,
@@ -148,7 +165,17 @@ function crabChecks(m: any) {
   const checks = creatureChecks(live as any, clip);
   // a live run is not a loop and does not end in idle: those two don't apply
   const use = checks.filter((k) => !/loop|idle/i.test(k.name));
-  return { summary: `${use.filter((k) => k.pass).length}/${use.length} pass`, checks: use.map((k) => `${k.pass ? 'ok' : 'NO'} ${k.name}: worst ${k.worst} ${k.unit} (limit ${k.limit})${k.pass ? '' : ` frames ${JSON.stringify(k.frames.slice(0, 4))}`}`), notApplicable: checks.filter((k) => /loop|idle/i.test(k.name)).map((k) => k.name) };
+  // how close the drawn feet are to the runtime's targets (the IK's own accuracy), and the fastest joint
+  const miss = rows.flatMap((r) => r.feet.map((p: number[], i: number) => Math.hypot(p[0] - r.targets[i][0], p[1] - r.targets[i][1], p[2] - r.targets[i][2])));
+  let fastest = 0;
+  for (let f = 1; f <= F; f++) for (let b = 0; b < c.bones.length; b++) {
+    const q0 = clip.rot[f - 1][b], q1 = clip.rot[f][b];
+    const d = Math.abs(q0[0] * q1[0] + q0[1] * q1[1] + q0[2] * q1[2] + q0[3] * q1[3]);
+    fastest = Math.max(fastest, (2 * Math.acos(Math.min(1, d)) * 180 / Math.PI) * 30);
+  }
+  const steps = rows.reduce((n: number, r: any, i: number) => n + (i ? r.down.filter((d: boolean, k: number) => d && !rows[i - 1].down[k]).length : 0), 0);
+  return { footToTargetP95Cm: r3(pct(miss, 0.95) * 100), footToTargetMaxCm: r3(Math.max(...miss) * 100), fastestJointDegS: Math.round(fastest), footfalls: steps, travelledM: r3(Math.hypot(rows[rows.length - 1].root[0] - rows[0].root[0], rows[rows.length - 1].root[2] - rows[0].root[2])),
+    summary: `${use.filter((k) => k.pass).length}/${use.length} pass`, checks: use.map((k) => `${k.pass ? 'ok' : 'NO'} ${k.name}: worst ${k.worst} ${k.unit} (limit ${k.limit})${k.pass ? '' : ` frames ${JSON.stringify(k.frames.slice(0, 4))}`}`), notApplicable: checks.filter((k) => /loop|idle/i.test(k.name)).map((k) => k.name) };
 }
 
 /** The baked walk (no live IK) on the same bumpy ground: what the fallback gets wrong there. */

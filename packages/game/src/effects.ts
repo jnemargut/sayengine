@@ -95,8 +95,11 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
     } as any);
     const e = ps.emitter;
     e.name = L.id;
-    // the runtime draws each particle with Godot's dot (alpha falling linearly to the rim) raised to `dot`
-    e.userData = { layer: L.id, rate: L.rate, oneShot, dot: +gam.toFixed(3) };
+    // what each particle is drawn with (studio/effects.ts makes the texture; Godot's compiler the same shape):
+    // a stretched layer is a streak (soft across, solid along its length, so a raindrop reads end to end);
+    // an additive one Godot's dot (alpha falling linearly to the rim) raised to its exponent; a see-through
+    // puff keeps the soft dot (it reads like Godot's under the exponent on its alpha)
+    e.userData = { layer: L.id, rate: L.rate, oneShot, ...(L.stretch ? { streak: +gam.toFixed(3) } : L.blend === 'add' ? { dot: +gam.toFixed(3) } : {}) };
     const dir = new THREE.Vector3(...(L.direction ?? [0, 1, 0])).normalize();
     e.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     e.position.set(...(L.offset ?? [0, 0, 0]));

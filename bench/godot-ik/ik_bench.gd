@@ -61,6 +61,8 @@ func _ready() -> void:
 			_stairs()
 		"crab", "baked":
 			_crab(shot == "baked")
+		"spider":
+			_spider()
 		"reach":
 			_reach()
 	_place_cam()
@@ -114,7 +116,7 @@ func _stairs() -> void:
 		var h := rise * (i + 1)
 		_box(Vector3(1.6, h, tread), Vector3(0, h / 2.0, 2.2 + tread * (i + 0.5)), Color(0.72, 0.66, 0.58).darkened(0.04 * (i % 2)))
 	var top := rise * 5
-	_box(Vector3(1.6, top, 2.0), Vector3(0, top / 2.0, 2.2 + tread * 5 + 1.0), Color(0.68, 0.64, 0.58))
+	_box(Vector3(1.6, top, 3.4), Vector3(0, top / 2.0, 2.2 + tread * 5 + 1.7), Color(0.68, 0.64, 0.58))
 	subject = _load("res://apprentice.glb")
 	subject.position = Vector3(0, 0, 0.0)
 	var ap := _player(subject)
@@ -182,7 +184,19 @@ func _crab(baked: bool) -> void:
 		ik.speed = float(bumps.get("crabSpeed", 0.3))
 		ik.strafe = Vector3(1, 0, 0)
 		ik.recording = true
-	cam_off = Vector3(0.35, 0.42, 1.55)
+	cam_off = Vector3(0.2, 0.38, 1.3)
+
+# ── the spider walking forward over the same ground, turning a little ─────────────────────────
+func _spider() -> void:
+	_ground_mesh()
+	subject = _load("res://spider.glb")
+	metrics["clip"] = _play(_player(subject), "idle")
+	subject.position = Vector3(0, 0, -1.2)
+	ik = CREATURE_IK.attach(subject, bumps.get("spiderIk"))
+	ik.speed = float(bumps.get("spiderSpeed", 0.3))
+	ik.turn = 9.0
+	ik.recording = true
+	cam_off = Vector3(1.1, 0.45, 0.4)
 
 # ── a tentacle after a moving goal ─────────────────────────────────────────────────────────────
 func _reach() -> void:
@@ -206,7 +220,7 @@ func _goal_at(t: float) -> Vector3:
 func _place_cam() -> void:
 	var p := subject.global_position if subject else Vector3.ZERO
 	follow = follow.lerp(p, 0.08) if frame > 0 else p
-	var look := follow + Vector3(0, 0.25 if shot != "stairs" else 0.9, 0)
+	var look := follow + Vector3(0, 0.15 if shot != "stairs" else 0.9, 0)
 	if shot == "stairs":
 		look = Vector3(0, follow.y + 0.9, follow.z + 0.4)
 	elif shot == "reach":
