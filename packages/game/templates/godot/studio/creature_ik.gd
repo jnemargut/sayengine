@@ -126,12 +126,11 @@ func ground_at(x: float, z: float, from_y := 50.0) -> float:
 	return float(hit["position"].y) if hit else 0.0
 
 func c_world(p: Vector3) -> Vector3:
-	var t := creature.global_transform
-	return Vector3(t.origin.x, 0.0, t.origin.z) + Basis(Vector3.UP, creature.rotation.y) * p
+	# the creature's own frame: where it stands and which way it faces (the body's bob and tilt are ours)
+	return creature.global_position + Basis(Vector3.UP, creature.rotation.y) * p
 
 func c_local(p: Vector3) -> Vector3:
-	var o := creature.global_transform.origin
-	return Basis(Vector3.UP, -creature.rotation.y) * (p - Vector3(o.x, 0.0, o.z))
+	return Basis(Vector3.UP, -creature.rotation.y) * (p - creature.global_position)
 
 ## Send a chain's tip after a world point (null lets it go back to its clip).
 func reach(chain: String, goal) -> void:
