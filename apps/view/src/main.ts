@@ -10,6 +10,7 @@ import { focusOnState, validFocus } from './focus.ts';
 import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
 import { installGradePass, lutTexture, type GradePass } from '../../../packages/game/templates/web/studio/look.ts';
 import { buildLut, parseLook } from '../../../packages/core/src/look/look.ts';
+import { initTimeline } from './timeline/index.ts';
 import { notesPanelHtml, cardHtml, statsHtml, pointingWords, type ViewNote, type Card, type ReviewStats } from './collab.ts';
 
 type V3 = [number, number, number];
@@ -119,7 +120,9 @@ function resize() {
 }
 new ResizeObserver(resize).observe(vpEl);
 resize();
-(function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+// Phase 10: the timeline dock poses everything that moves before each render (and measures the frame)
+let timeline: ReturnType<typeof initTimeline> | null = null;
+(function loop(now?: number) { controls.update(); timeline?.begin(now ?? performance.now()); renderer.render(scene, camera); timeline?.end(); requestAnimationFrame(loop); })();
 
 // ── decoding & meshes ─────────────────────────────────────────────────
 function b64(s: string): ArrayBuffer {
@@ -542,6 +545,8 @@ function pickAt(cx: number, cy: number): { obj: string; part: string | null } | 
   const r = renderer.domElement.getBoundingClientRect();
   const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
+  const moving = timeline?.pick(ray); // a bone or part on something playing on the timeline
+  if (moving) return moving;
   const hit = ray.intersectObjects(objGroup.children, true).find((h) => (h.object as THREE.Mesh).userData?.id && (Array.isArray((h.object as THREE.Mesh).material) ? ((h.object as THREE.Mesh).material as THREE.Material[])[h.face?.materialIndex ?? 0]?.visible !== false : true));
   if (!hit) return null;
   const m = hit.object as THREE.Mesh;
@@ -552,8 +557,9 @@ function pickAt(cx: number, cy: number): { obj: string; part: string | null } | 
 }
 function select(obj: string | null, part: string | null) {
   selectedObj = obj; selectedPart = part;
-  ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object: obj, part }));
+  ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object: obj, part, ...(timeline?.selectExtra(obj, part) ?? {}) }));
   render();
+  timeline?.onSelect();
 }
 renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
 renderer.domElement.addEventListener('pointerup', (e) => {
@@ -589,9 +595,9 @@ function toast(msg: string) {
   setTimeout(() => t!.classList.remove('on'), 2600);
 }
 
-function call(tool: string, args: object) {
+function call(tool: string, args: object, why?: string) {
   if (!ws || ws.readyState !== 1) { toast('Not connected to the engine'); return; }
-  ws.send(JSON.stringify({ type: 'call', id: ++callSeq, tool, args }));
+  ws.send(JSON.stringify({ type: 'call', id: ++callSeq, tool, args, ...(why ? { why } : {}) }));
 }
 
 function setGizmoMode(m: 'translate' | 'rotate') {
@@ -980,6 +986,7 @@ function connect() {
       preview = null;
       for (const o of [...state!.main, ...state!.proposals.flatMap((p) => p.objects)]) if (o.reference?.kind === 'image') void textureFor(o.reference.asset);
       render();
+      timeline?.onState();
     } else if (m.type === 'preview') {
       previewPending = false;
       if (!m.error && Object.keys(scrubValues).length) { preview = { objects: m.objects, obj: selectedObj! }; rebuildScene(); }
@@ -990,6 +997,12 @@ function connect() {
     else if (m.type === 'call-result' && !m.result.ok) toast(m.result.error ?? 'error');
   };
 }
+timeline = initTimeline({
+  scene, camera, controls, renderer, vpEl, holders: () => holders, call, toast, select,
+  view: () => ({ focus, before, selectedObj, selectedPart, state }),
+  setBefore(on) { before = on; if (!on) compareStep = null; renderReview(); rebuildScene(); timeline?.onState(); },
+  renderNow() { controls.update(); timeline?.begin(performance.now()); renderer.render(scene, camera); timeline?.end(); },
+});
 connect();
 
 // Automation hook (headless tests drive real pointer events; this only reports where things are).

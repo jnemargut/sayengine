@@ -37,7 +37,8 @@ export function renderSceneSound(s: SoundDef): RenderedSound {
 export class TimelineService {
   private memo = new Map<string, { timeline: SceneTimeline; assets: Record<string, { type: string; make: () => Uint8Array }> }>();
   private makers = new Map<string, { type: string; make: () => Uint8Array }>();
-  constructor(private studio: any, private cache: RenderCache) {}
+  private studio: any; private cache: RenderCache;
+  constructor(studio: any, cache: RenderCache) { this.studio = studio; this.cache = cache; }
 
   docOf(branch: string) {
     const h = this.studio.history;

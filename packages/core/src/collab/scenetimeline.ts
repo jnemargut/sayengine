@@ -95,6 +95,7 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
         for (const k of clip.keys ?? []) if (!/\(held\)/.test(k.label)) tr.markers.push({ name: k.label, at: toTicks(k.t), kind: 'moment' });
         tr.version = stamp({ def: o.creature.def, m: motions[mid] });
         tr.place = { position: o.position, rotation: o.rotation ?? 0 };
+        tr.covers = [id];
         const key = `creature-${stamp(o.creature)}`;
         tr.glb = key;
         assets[key] ??= { type: 'model/gltf-binary', make: () => creatureGLB(c, clips, {}) };
@@ -110,6 +111,7 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
         const items = selectForExport(studio, doc, { object: id });
         const key = `character-${stamp(items.map((i) => i.obj))}`;
         tr.glb = key;
+        tr.covers = items.map((i) => i.obj.id);
         assets[key] ??= { type: 'model/gltf-binary', make: () => toGLB(items, {}) };
       }
     } catch (e: any) { tr.error = e.message; }
