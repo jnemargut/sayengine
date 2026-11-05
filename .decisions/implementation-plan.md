@@ -621,3 +621,61 @@ Anything you ask for moves. Skeletons are built from rig parts, and each part br
 | Claude's key poses read well | Common human actions take 3+ rounds of notes → a small CC0 clip library as starting points | D53 |
 | General checks catch most problems | You spot a problem the checks passed → add the rule to that part | D54 |
 | The framework is done in 2 weeks | Not done by the end of week 14 → start Pocket Raleigh anyway | D55 |
+
+
+# Phase 9: Effects, UI Art, and a Tiny Real Game (decisions 56–59, decided 2026-11-04)
+
+## The test that decides what gets a tool
+A tool is needed only when Claude can't tell whether something is right by reading what it wrote. Gameplay logic, menu logic, saving and shipping builds are ordinary code and checklists that Claude handles directly. Effects and how UI looks only show on screen, so they get studio modules.
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 56 | Effects | A studio effect file: shape-based effects first, plus particles. It compiles to Godot particles (with a CPU fallback) and to three.quarks. Colours come from the look lab, and effects can be triggered by motion events. | Strong | One-way |
+| 57 | Effect checks | Per profile: overdraw estimate, peak particles, fallback, colours. Plus a Godot vs web frame diff and automatic warm-up. Review is side by side, in the scene. | Strong | Two-way |
+| 58 | UI art | A kit generated from look tokens, output as a Godot Theme plus web CSS. SVG icons in a house style, rendered and scored. OFL fonts. Checks for contrast, text overflow, tap size and safe area. | Strong | One-way |
+| 59 | Order | A tiny real game now. Effects and UI shaped by what it lacks. Then a tool freeze until it's shared. | Strong | Two-way |
+
+## Order from here
+1. **Now:** the face appeal round (running).
+2. **Weeks 13–14:** the tiny game (one room, about 5 minutes of play, existing characters, motion and cutscenes), alongside the rig-part framework (Phase 8 core).
+3. **Weeks 15–16:** effects and the UI kit, built to what the tiny game was missing. Then tiny game v1.1, shared with a few people.
+4. **Weeks 17–22:** Pocket Raleigh, the rest of animate anything, and the game skills.
+5. **Rule:** no new tool modules are decided or started until the tiny game is shared.
+
+## Implementation Steps
+### Tiny game (weeks 13–14)
+- [ ] You pick the idea, or take the suggestion: "the apprentice fetches tools for the smith before the fire dies".
+- [ ] Engine: Godot or web, your choice.
+- [ ] Gameplay is plain code with tests.
+- [ ] Uses the recast characters, motion, a cutscene intro and voices.
+- [ ] Record every point where a missing tool hurt. That list drives weeks 15–16.
+
+### Effects (weeks 15–16)
+- [ ] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.
+- [ ] Effect format: emitters, lifetime behaviours, bursts, and shape effects (flame meshes, arcs, rings) with scrolling noise.
+- [ ] Compile to Godot `.tres` plus the CPU fallback, and to three.quarks JSON (pinned version, round-trip test).
+- [ ] Look-lab colours, and triggers from motion events.
+- [ ] Checks:
+  - overdraw estimate
+  - peak particle count
+  - fallback present
+  - palette
+  - Godot vs web frame diff
+  - warm-up at load
+- [ ] Side-by-side review card.
+
+### UI kit (weeks 15–16)
+- [ ] UI tokens derived from the look lab: palette, OFL font, border/corner style, shadows.
+- [ ] Parts: panel, button, bar, slot, tooltip, dialogue box. Output as a Godot Theme `.tres` (StyleBoxFlat and 9-slice) plus a web CSS overlay.
+- [ ] SVG icons in a house style, linted to SVG Tiny, rendered and scored. CC0 pack fallback, with credits.
+- [ ] Checks: contrast (4.5:1 and 3:1), pseudolocalised text overflow, tap targets of 44 px or more, safe area.
+- [ ] Review: a UI sheet, plus the UI over game screenshots.
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| The tiny game fits in 2 weeks | Not playable by the end of week 14 → cut scope | D59 |
+| Effects look the same in both engines | They drift visibly → try Effekseer for that type | D56 |
+| AI icons are consistent | They're inconsistent after scoring → use a recoloured CC0 pack | D58 |
+| The tool freeze holds | A new tool idea comes up → note it, decide after the tiny game ships | D59 |

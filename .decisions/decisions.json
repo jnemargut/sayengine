@@ -1842,6 +1842,107 @@
    "chosenOption": "A",
    "chosenTitle": "Core parts first, the rest alongside Pocket Raleigh",
    "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 56,
+   "slug": "effects-how",
+   "title": "How effects are made",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-056-effects-how.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Studio-owned effect description (shape effects first + particles), compiled to Godot .tres (+CPU fallback) and three.quarks JSON; look-lab colours; motion-event triggers; flipbooks only for smoke/explosions",
+    "B": "Each engine's own particles",
+    "C": "Pre-rendered sprite sheets",
+    "D": "Effekseer cross-engine runtime"
+   },
+   "caseAgainst": "Two compilers; quarks schema undocumented; Godot web GPU particle support unsettled; Effekseer solves parity if plugin builds.",
+   "tripwires": [
+    "Compilers drift visibly -> try Effekseer for that type"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Effects as studio assets, compiled to both engines",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 57,
+   "slug": "effects-checks",
+   "title": "Checking and reviewing effects",
+   "category": "technical",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-057-effects-checks.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Per-effect checks vs game profile (overdraw estimate, peak particles, fallback, look colours), Godot vs web frame diff, auto warm-up; side-by-side in-scene review",
+    "B": "Clips only",
+    "C": "Frame time in running game",
+    "D": "Particle limits only"
+   },
+   "caseAgainst": "Overdraw is an estimate; Mac-only proof; parity diffs may nag; desktop-first may only need clips.",
+   "tripwires": [
+    "Parity flags >1 harmless diff per effect -> loosen per type"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Checks for cost and parity, side-by-side review",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 58,
+   "slug": "ui-art",
+   "title": "How 2D and UI art is made",
+   "category": "visual",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-058-ui-art.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "UI kit generated from look-lab tokens: panels, buttons, bars, slots, tooltip, dialogue box -> Godot Theme + web CSS overlay; Claude-drawn SVG icons in a house style, rendered and scored, CC0 fallback; OFL fonts; checks for contrast, overflow, tap size, safe area",
+    "B": "Free UI packs recoloured",
+    "C": "Claude writes UI styles per engine, no tool",
+    "D": "UI inside the 3D world"
+   },
+   "caseAgainst": "AI SVG icons weak beyond simple styles; small compiler for two outputs; B suffices for little UI.",
+   "tripwires": [
+    "Icons inconsistent after scoring -> CC0 pack recoloured"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A UI kit generated from the look, for both engines",
+   "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 59,
+   "slug": "effects-ui-order",
+   "title": "When to build it, and a first small game",
+   "category": "interaction",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-059-effects-ui-order.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Tiny real game now (wk 13-14, alongside rig-part framework), effects + UI kit wk 15-16 shaped by it, v1.1 shared wk 16, then Pocket Raleigh etc; no new tool modules until shared",
+    "B": "Effects/UI after Pocket Raleigh, no small game (first game wk 23)",
+    "C": "Effects/UI before Pocket Raleigh, no small game",
+    "D": "Stop tools, make a game until it ships"
+   },
+   "caseAgainst": "Tiny game predates game skills (ad hoc); two builds again; Pocket Raleigh moves a third time; B keeps plan steady.",
+   "tripwires": [
+    "Not playable by end wk 14 -> cut scope",
+    "Freeze: no new tool modules until shared"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A tiny game now, effects and UI next, then a tool freeze",
+   "decidedAt": "2026-11-04"
   }
  ],
  "phases": [
@@ -1886,6 +1987,12 @@
    "decisions": "52-55",
    "startedAt": "2026-11-04",
    "why": "User: \"anything that I say I want animated I'd hope you'd be able to do it\""
+  },
+  {
+   "name": "Effects and 2D/UI art",
+   "decisions": "56-59",
+   "startedAt": "2026-11-04",
+   "why": "Test: needs a tool if Claude cannot tell it is right by reading it"
   }
  ]
 }
