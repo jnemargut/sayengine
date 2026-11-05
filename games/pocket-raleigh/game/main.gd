@@ -9,11 +9,13 @@ const CHARS := preload("res://studio/characters.gd")
 const PLAYER := preload("res://studio/player.gd")
 const EFFECTS := preload("res://studio/effects.gd")
 const UI := preload("res://studio/ui.gd")
+const LIFE := preload("res://studio/life_view.gd")
 const SKY := Color(0.80, 0.86, 0.90)
 var effects: Node
 var ui: CanvasLayer
 var player: CharacterBody3D
 var cam: Camera3D
+var life: Node3D
 
 func _ready() -> void:
 	_add_environment()
@@ -22,6 +24,8 @@ func _ready() -> void:
 		studio.name = "Studio"
 		add_child(studio)
 		CHARS.animate(studio)
+	# town life (studio life-bake): a seeded Saturday of folk, a dog walker, cars and a bus
+	life = LIFE.start(self)
 	effects = EFFECTS.start(self)
 	ui = UI.start(self)
 	var info = CHARS.manifest().get("player")

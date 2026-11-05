@@ -351,7 +351,7 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
     }
     const dir: P2 = [(B[0] - A[0]) / (len || 1), (B[1] - A[1]) / (len || 1)];
     const hw = cross ? 1.3 : Math.min(...[0, 0.17, 0.33, 0.5, 0.67, 0.83, 1].map((t) => ws.freeHalf([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t], dir)));
-    if (hw < 0.55) return false;
+    if (hw < 0.45) return false;
     edges.push({ a, b, len, hw, ...(cross ? { cross } : {}) });
     return true;
   };
@@ -362,7 +362,7 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
     const sides = isPed(s) ? [0] : [-1, 1];
     for (const side of sides) {
       let prev = -1;
-      const n = Math.max(2, Math.ceil(L / 5) + 1);
+      const n = Math.max(2, Math.ceil(L / 3.5) + 1);
       for (let q = 0; q < n; q++) {
         const { p, dir } = alongLine(s.points, (L * q) / (n - 1));
         // the middle of the walkable run across the sidewalk (buildings can stand on its outer half)
@@ -378,7 +378,7 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
         }
         if (!at) { prev = -1; continue; }
         const id = add(at, chain);
-        if (prev >= 0 && ws.segWalkable(nodes[prev].p, at)) link(prev, id);
+        if (prev >= 0 && !(ws.segWalkable(nodes[prev].p, at) && link(prev, id))) { chain++; nodes[id].chain = chain; }   // broken: a new chain, so the stitch can bridge it
         prev = id;
       }
       chain++;
@@ -407,6 +407,26 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
       chain++;
       link(a, b, J.sig >= 0 ? { sig: J.sig, group: J.groups[ai] } : { sig: -1, group: 0 });
     });
+  }
+  // mid-block crossings where a street runs through a plaza (folk cross the plaza, not just at corners)
+  for (const pk of ws.parks) {
+    for (const s of ws.cars) {
+      if (s.sidewalk < 1.2) continue;
+      const L = lineLength(s.points);
+      const inside: number[] = [];
+      for (let d = 0; d <= L; d += 2) if (pointInPoly(alongLine(s.points, d).p, pk.poly)) inside.push(d);
+      if (inside.length < 5) continue;
+      const { p: c, dir } = alongLine(s.points, inside[Math.floor(inside.length / 2)]);
+      if (ws.crossings.some((r) => Math.hypot(r.c[0] - c[0], r.c[1] - c[1]) < 12)) continue;
+      const o = s.width / 2 + Math.min(1.4, s.sidewalk / 2);
+      const e1: P2 = [c[0] - dir[1] * o, c[1] + dir[0] * o], e2: P2 = [c[0] + dir[1] * o, c[1] - dir[0] * o];
+      ws.crossings.push({ c, dir: [-dir[1], dir[0]], len: s.width + 0.6, wid: 2.8 });
+      ws.crossInfo.push({ sig: -1, group: 0 });
+      if (!ws.walkable(e1) || !ws.walkable(e2)) { ws.crossings.pop(); ws.crossInfo.pop(); continue; }
+      const a = add(e1, chain), b = add(e2, chain);
+      chain++;
+      link(a, b, { sig: -1, group: 0 });
+    }
   }
   // plazas and parks: a loose grid
   for (const pk of ws.parks) {
