@@ -53,7 +53,7 @@ test('pinned web views: new → approved → same, and a different town is flagg
     assert.deepEqual(first.problems, []);
     assert.deepEqual(first.new.sort(), ['web/aerial', 'web/street']);
     assert.ok(first.budgets.every((b: any) => b.pass), JSON.stringify(first.budgets));
-    assert.ok(first.views.every((v: any) => v.drawCalls > 0 && v.drawCalls < 60), 'chunked towns draw in a few dozen calls');
+    assert.ok(first.views.every((v: any) => v.drawCalls > 0 && v.drawCalls < 80), `chunked towns draw in a few dozen calls (the night classes shop, led and the light pools add a few): ${first.views.map((v: any) => v.drawCalls)}`);
     const second = await proofViews(studio, 'town');
     assert.ok(second.ok, JSON.stringify(second.changed));
     assert.ok(second.views.every((v: any) => v.status === 'same' && v.flip.mean < 0.005), JSON.stringify(second.views.map((v: any) => v.flip)));
