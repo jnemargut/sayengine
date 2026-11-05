@@ -10,6 +10,7 @@
 export const LIFE_DT = 0.1;
 export const SIT_BLEND = 0.8;                         // s to settle into (or rise from) a seat or a spot
 export const LEASH = { max: 2.0, min: 0.55, trail: 1.1 };
+export const FRIENDS = 0.42;                          // m between two friends' centres (they walk close)
 export const IDM = { T: 1.2, s0: 2.2, a: 1.6, b: 2.6 };
 
 // ── data (life.json, written by the bake) ───────────────────────────────────
@@ -456,8 +457,10 @@ export class LifeRuntime {
       const o = this.agents[j];
       // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
       if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5 && A.owner === undefined && this.data.agents[j].owner === undefined) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
-      if (st.slip > this.t && o.slip > this.t) continue;
-      const r = squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
+      // slipping past: shoulders turned, but never through each other (0.15 m between centres)
+      // friends out together walk close (arms brushing: 0.42 m between centres)
+      const friends = j === A.pal || j === A.owner;
+      const r = st.slip > this.t && o.slip > this.t ? 0.15 : friends ? FRIENDS : squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
       // current positions: earlier folk this tick have already moved (no two step into one spot)
       const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
       const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
@@ -491,7 +494,7 @@ export class LifeRuntime {
     if (g && g.k === 'move') {
       const P = this.paths[g.p];
       let s = w.s, lat = w.lat - 0.68;
-      if (lat < -pointAt(P, 4, s)[3] + A.r) { s = Math.max(0, w.s - 0.95); lat = w.lat; }   // too narrow side by side: fall in behind
+      if (lat < 0.05) { s = Math.max(0, w.s - 0.95); lat = w.lat; }   // side by side would take the oncoming side: fall in behind
       const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);
       lat = clamp(lat, -Q[3] + A.r, Q[3] - A.r);
       tx = Q[0] - E[1] * lat; tz = Q[2] + E[0] * lat; ty = Q[1]; face = Math.atan2(E[0], E[1]);
@@ -704,16 +707,26 @@ export class LifeRuntime {
         // a bus swings wide: don't start the turn while any vehicle stands where its body will go
         if (V.len > 6) {
           const tl = this.edges[trip.edges[nextLeg]].len, toEnd = EP.len - st.s;
-          for (let q = 0; q * 2 <= tl + 4 && !yieldTo; q++) {
-            const pa = this.poseAhead(i, toEnd + q * 2);
+          for (let q = 0; q <= tl + 4 && !yieldTo; q++) {
+            const pa = this.poseAhead(i, toEnd + q);
             for (let j = 0; j < this.vehicles.length; j++) {
               const o = this.vehicles[j];
               if (j === i || !o.visible) continue;
               const ox = o.x - pa[0], oz = o.z - pa[1];
-              if (ox * ox + oz * oz > 625) continue;
-              // where the other could still be by the time it stops
-              const ext = o.v * o.v / (2 * IDM.b) + o.v, hx = Math.sin(o.yaw) * ext / 2, hz = Math.cos(o.yaw) * ext / 2;
-              if (boxesTouch(pa[0], pa[1], pa[2], V.len + 0.4, V.wid + 0.4, o.x + hx, o.z + hz, o.yaw, this.data.vehicles[j].len + ext, this.data.vehicles[j].wid)) { yieldTo = true; break; }
+              if (ox * ox + oz * oz > 3600) continue;
+              const otj = this.tripOf(j)!;
+              if (otj.edges[o.leg] === trip.edges[st.leg] && o.s < st.s) continue;      // queued behind us
+              // where the other could still be by the time it stops (one coming up to this junction: up to its line)
+              let ext = o.v * o.v / (2 * IDM.b) + o.v;
+              const ot = this.tripOf(j)!, onx = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : -1;
+              if (onx >= 0 && this.data.edges[onx].jn !== undefined && this.data.edges[onx].jn === this.data.edges[trip.edges[nextLeg]].jn) {
+                const ol = this.edges[ot.edges[o.leg]].len - o.s - this.data.vehicles[j].len / 2, os = this.data.edges[ot.edges[o.leg]].stop;
+                // on green it may come on to its line; on red it stops before it
+                if (!os || this.signal(os.sig, os.group, this.t) === GREEN) ext = Math.max(ext, ol + 1); else ext = Math.min(ext, Math.max(0, ol - 0.3));
+              }
+              if (Math.sqrt(ox * ox + oz * oz) > 25 + ext) continue;
+              const hx = Math.sin(o.yaw) * ext / 2, hz = Math.cos(o.yaw) * ext / 2;
+              if (boxesTouch(pa[0], pa[1], pa[2], V.len + 1.0, V.wid + 0.6, o.x + hx, o.z + hz, o.yaw, this.data.vehicles[j].len + ext, this.data.vehicles[j].wid)) { yieldTo = true; break; }
             }
           }
         }

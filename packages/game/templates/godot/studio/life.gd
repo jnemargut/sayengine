@@ -10,6 +10,7 @@ const SIT_BLEND := 0.8
 const LEASH_MAX := 2.0
 const LEASH_MIN := 0.55
 const LEASH_TRAIL := 1.1
+const FRIENDS := 0.42
 const IDM_T := 1.2
 const IDM_S0 := 2.2
 const IDM_A := 1.6
@@ -644,9 +645,11 @@ func _free(i: int, cx: float, cz: float) -> bool:
 		if st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5 and not A.has("owner") and not A_[j].has("owner"):
 			st["slip"] = t + 2.5
 			o["slip"] = t + 2.5
-		if st["slip"] > t and o["slip"] > t:
-			continue
 		var r: float = (min(squeeze, ar + float(A_[j]["r"]))) if squeeze > 0.0 else ar + float(A_[j]["r"])
+		if j == int(A.get("pal", -1)) or j == int(A.get("owner", -1)):
+			r = FRIENDS
+		if st["slip"] > t and o["slip"] > t:
+			r = 0.15
 		var dx: float = o["x"] - cx
 		var dz: float = o["z"] - cz
 		var d2 := dx * dx + dz * dz
@@ -698,7 +701,7 @@ func _step_buddy(i: int, dt: float) -> void:
 		var P: Dictionary = paths[int(g["p"])]
 		var s: float = w["s"]
 		var lat: float = float(w["lat"]) - 0.68
-		if lat < -float(_point_at(P, 4, s)[3]) + ar:
+		if lat < 0.05:
 			s = max(0.0, float(w["s"]) - 0.95)
 			lat = w["lat"]
 		var Q := _point_at(P, 4, s)
@@ -1037,20 +1040,35 @@ func _step_vehicle(i: int, dt: float) -> void:
 				var tl: float = edges[int(tedges[next_leg])]["len"]
 				var to_end: float = eplen - st["s"]
 				var q2 := 0
-				while q2 * 2 <= tl + 4.0 and not yield_to:
-					var pa := pose_ahead(i, to_end + q2 * 2)
+				while q2 <= tl + 4.0 and not yield_to:
+					var pa := pose_ahead(i, to_end + q2)
 					for j in vehicles.size():
 						var o: Dictionary = vehicles[j]
 						if j == i or not o["visible"]:
 							continue
 						var ox: float = o["x"] - pa[0]
 						var oz: float = o["z"] - pa[1]
-						if ox * ox + oz * oz > 625.0:
+						if ox * ox + oz * oz > 3600.0:
+							continue
+						var otj: Dictionary = trip_of(j)
+						if int(otj["edges"][o["leg"]]) == int(tedges[st["leg"]]) and float(o["s"]) < float(st["s"]):
 							continue
 						var ext: float = float(o["v"]) * float(o["v"]) / (2.0 * IDM_B) + float(o["v"])
+						var ot2: Dictionary = trip_of(j)
+						var oe2: Array = ot2["edges"]
+						var onx2: int = int(oe2[o["leg"] + 1]) if o["leg"] + 1 < oe2.size() else -1
+						if onx2 >= 0 and E_[onx2].has("jn") and E_[int(tedges[next_leg])].has("jn") and int(E_[onx2]["jn"]) == int(E_[int(tedges[next_leg])]["jn"]):
+							var ol3: float = float(edges[int(oe2[o["leg"]])]["len"]) - float(o["s"]) - float(V_[j]["len"]) / 2.0
+							var e3: Dictionary = E_[int(oe2[o["leg"]])]
+							if not e3.has("stop") or signal_state(int(e3["stop"]["sig"]), int(e3["stop"]["group"]), t) == GREEN:
+								ext = max(ext, ol3 + 1.0)
+							else:
+								ext = min(ext, max(0.0, ol3 - 0.3))
+						if sqrt(ox * ox + oz * oz) > 25.0 + ext:
+							continue
 						var hx: float = sin(float(o["yaw"])) * ext / 2.0
 						var hz: float = cos(float(o["yaw"])) * ext / 2.0
-						if boxes_touch(pa[0], pa[1], pa[2], vlen + 0.4, float(V["wid"]) + 0.4, o["x"] + hx, o["z"] + hz, o["yaw"], float(V_[j]["len"]) + ext, float(V_[j]["wid"])):
+						if boxes_touch(pa[0], pa[1], pa[2], vlen + 1.0, float(V["wid"]) + 0.6, o["x"] + hx, o["z"] + hz, o["yaw"], float(V_[j]["len"]) + ext, float(V_[j]["wid"])):
 							yield_to = true
 							break
 					q2 += 1

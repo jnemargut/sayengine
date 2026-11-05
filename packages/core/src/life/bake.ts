@@ -603,6 +603,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       if (role === 'folk' && R() < (o.pairs ?? 0.22)) {
         const fm = folkModels.filter((x) => x.id !== member.model && !/kid/.test(x.id));
         const pm = fm.length ? pick(fm) : M;
+        agents[idx].lane = r2(between(0.75, 0.9));         // keep well right, so the two fit side by side
         agents[idx].pal = addAgent({ id: `${member.id}-pal`, town: ti, kind: 'person', r: 0.26, speed: member.speed, owner: idx, model: pm.id, scale: r2(between(0.94, 1.06)), plan: [] });
         stats.folk++; stats.pairs = (stats.pairs ?? 0) + 1;
       }

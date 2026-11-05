@@ -4,7 +4,7 @@
 // player bumping into everything (folk step aside, cars brake).
 import type { P2 } from '../world/geo.ts';
 import type { LifeBake } from './bake.ts';
-import { LifeRuntime, LEASH, LIFE_DT, RED } from './runtime.ts';
+import { LifeRuntime, LEASH, LIFE_DT, RED, FRIENDS } from './runtime.ts';
 
 export interface DayCheck { name: string; pass: boolean; count: number; worst: number; limit: number; unit: string; detail: string; at?: number[] }
 export interface DayReport { from: number; to: number; ticks: number; ms: number; checks: DayCheck[]; peak: { folk: number; cars: number }; byHour: number[]; brakesForPlayer: number }
@@ -136,7 +136,9 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
         // a dog may brush its walker (friends walking together may not)
         if (!A[j].visible || (D.agents[j].owner === i && D.agents[j].kind === 'dog') || (D.agents[i].owner === j && D.agents[i].kind === 'dog')) continue;
         if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) { cnt.slip++; if (process.env.LIFE_DEBUG) { const key = `slip ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10}`; hot.set(key, (hot.get(key) ?? 0) + 1); } } continue; }
-        const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = D.agents[i].r + D.agents[j].r - 0.08;
+        // two friends out together walk close: their limit is FRIENDS (arms brushing), not two radii
+        const pals = D.agents[i].pal === j || D.agents[j].pal === i;
+        const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = (pals ? FRIENDS : D.agents[i].r + D.agents[j].r) - 0.08;
         if (d < lim) {
           cnt.overlap++; worst.overlap = Math.max(worst.overlap, lim - d); note('overlap', t);
           if (process.env.LIFE_DEBUG) { const key = `overlap ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10} ${i}/${j}`; hot.set(key, (hot.get(key) ?? 0) + 1); }

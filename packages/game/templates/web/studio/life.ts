@@ -10,6 +10,7 @@
 export const LIFE_DT = 0.1;
 export const SIT_BLEND = 0.8;                         // s to settle into (or rise from) a seat or a spot
 export const LEASH = { max: 2.0, min: 0.55, trail: 1.1 };
+export const FRIENDS = 0.42;                          // m between two friends' centres (they walk close)
 export const IDM = { T: 1.2, s0: 2.2, a: 1.6, b: 2.6 };
 
 // ── data (life.json, written by the bake) ───────────────────────────────────
@@ -17,9 +18,9 @@ export interface LifeSignal { id: string; at: [number, number]; cycle: number; o
 export interface LifeEdge { id: string; pts: number[]; speed: number; stop?: { sig: number; group: number }; bus?: number[]; turn?: boolean; conf?: number[]; jn?: number }
 export interface LifeCross { s0: number; s1: number; sig: number; group: number }
 export interface LifeMove { k: 'move'; t: number; p: number; cross?: LifeCross[] }
-export interface LifeAct { k: 'act'; t: number; t1: number; at: [number, number, number]; face: number; pose: string; slot: number; place?: string }
+export interface LifeAct { k: 'act'; t: number; t1: number; at: [number, number, number]; face: number; pose: string; slot: number; place?: string; pal?: [number, number, number] }
 export type LifeSeg = LifeMove | LifeAct;
-export interface LifeAgent { id: string; town?: number; kind: 'person' | 'dog'; r: number; speed: number; owner?: number; model: string; tint?: string; scale?: number; plan: LifeSeg[] }
+export interface LifeAgent { id: string; town?: number; kind: 'person' | 'dog'; r: number; speed: number; owner?: number; lane?: number; pal?: number; model: string; tint?: string; scale?: number; plan: LifeSeg[] }
 export interface LifeTrip { t: number; edges: number[] }
 export interface LifeVehicle { id: string; town?: number; kind: 'car' | 'bus'; len: number; wid: number; model: string; tint?: string; loop?: boolean; trips: LifeTrip[] }
 export interface LifeData {
@@ -36,6 +37,7 @@ export interface AgentState {
   slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
   fx: number; fz: number;                 // the walking frame: turns smoothly, so a sharp corner never flips our side
   slip: number;                           // until then, a head-on pair stuck in a pinch may slip past each other
+  bl: number;                             // seconds to blend into (or out of) a spot: longer for a longer step, so nobody pops
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
 
@@ -107,6 +109,19 @@ export function inBox(px: number, pz: number, r: number, x: number, z: number, y
   const cu = clamp(u, -len / 2, len / 2), cw = clamp(w, -wid / 2, wid / 2);
   return (u - cu) * (u - cu) + (w - cw) * (w - cw) < r * r;
 }
+/** Do two vehicle footprints (centre, yaw, length, width) overlap? (separating axes) */
+export function boxesTouch(ax: number, az: number, ay: number, al: number, aw: number, bx: number, bz: number, by: number, bl: number, bw: number): boolean {
+  const A = [Math.sin(ay), Math.cos(ay)], B = [Math.sin(by), Math.cos(by)];
+  const axes = [A[0], A[1], A[1], -A[0], B[0], B[1], B[1], -B[0]];
+  const dx = bx - ax, dz = bz - az;
+  for (let k = 0; k < 8; k += 2) {
+    const ux = axes[k], uz = axes[k + 1];
+    const ra = Math.abs(A[0] * ux + A[1] * uz) * al / 2 + Math.abs(A[1] * ux - A[0] * uz) * aw / 2;
+    const rb = Math.abs(B[0] * ux + B[1] * uz) * bl / 2 + Math.abs(B[1] * ux - B[0] * uz) * bw / 2;
+    if (Math.abs(dx * ux + dz * uz) > ra + rb) return false;
+  }
+  return true;
+}
 function angleTo(from: number, to: number, maxStep: number): number {
   let d = to - from;
   while (d > Math.PI) d -= 2 * Math.PI;
@@ -170,7 +185,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0 };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0, bl: SIT_BLEND };
   }
 
   firstTrip(i: number, t: number): number {
@@ -184,9 +199,11 @@ export class LifeRuntime {
     const A = this.data.agents[i], st = this.agents[i];
     if (A.kind === 'dog') return;                         // dogs follow their walker (placed in step)
     st.seg = -1; st.visible = false;
+    let last = -1;
     for (let k = 0; k < A.plan.length; k++) {
       const g = A.plan[k];
       if (g.t > t) break;
+      last = k;
       const end = g.k === 'act' ? g.t1 : g.t + this.paths[g.p].len / A.speed;
       if (t < end) {
         st.seg = k; st.visible = true;
@@ -196,16 +213,28 @@ export class LifeRuntime {
           st.lat = Math.min(0.4, P[3] * 0.4);
           this.placeOnPath(i, g.p);
           st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
-        } else {
-          st.actStart = g.t - 10; st.actEnd = g.t1; st.visible = g.pose !== 'inside';
-          st.x = g.at[0]; st.y = g.at[1]; st.z = g.at[2]; st.yaw = g.face; st.pose = g.pose;
-          st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
-          if (g.slot >= 0) { if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; } else { st.pose = 'idle'; } }
-        }
+        } else this.placeAct(i, g);
         return;
       }
-      if (k === A.plan.length - 1) return;                  // the plan is over: indoors
     }
+    if (last < 0) return;                                   // not out yet
+    if (last === A.plan.length - 1) { st.seg = A.plan.length; return; }   // the day is over: indoors
+    // between two segments (a walk that ended early): stand where the last one left us
+    const g = A.plan[last];
+    st.seg = last; st.visible = true;
+    if (g.k === 'move') {
+      st.s = this.paths[g.p].len; st.moveStart = g.t - 10; st.lat = 0;
+      this.placeOnPath(i, g.p);
+      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
+    } else this.placeAct(i, g);
+  }
+
+  placeAct(i: number, g: LifeAct) {
+    const st = this.agents[i];
+    st.actStart = g.t - 10; st.actEnd = g.t1; st.visible = g.pose !== 'inside';
+    st.x = g.at[0]; st.y = g.at[1]; st.z = g.at[2]; st.yaw = g.face; st.pose = g.pose;
+    st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
+    if (g.slot >= 0) { if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; } else { st.pose = 'idle'; } }
   }
 
   placeOnPath(i: number, p: number) {
@@ -220,7 +249,8 @@ export class LifeRuntime {
     const dt = LIFE_DT;
     this.prevX = []; this.prevZ = [];
     for (let i = 0; i < this.agents.length; i++) { this.prevX.push(this.agents[i].x); this.prevZ.push(this.agents[i].z); }
-    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person') this.stepPerson(i, dt);
+    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person' && this.data.agents[i].owner === undefined) this.stepPerson(i, dt);
+    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person' && this.data.agents[i].owner !== undefined) this.stepBuddy(i, dt);
     for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'dog') this.stepDog(i, dt);
     for (let i = 0; i < this.vehicles.length; i++) this.stepVehicle(i, dt);
     this.t += dt;
@@ -238,15 +268,24 @@ export class LifeRuntime {
     if (g.k === 'move') {
       st.s = 0; st.blocked = 0; st.wait = false;
       // walking on from one leg into the next: carry on where we are (no blend, keep our side)
+      st.bl = SIT_BLEND;
       if (wasMove) {
         st.moveStart = this.t - 10;
         const P0 = pointAt(this.paths[g.p], 4, 0);
         st.lat = clamp((st.x - P0[0]) * -st.fz + (st.z - P0[2]) * st.fx, -P0[3] + A.r, P0[3] - A.r);
-      } else { st.moveStart = this.t; st.lat = 0; const D0 = dirAt(this.paths[g.p], 4, 0); st.fx = D0[0]; st.fz = D0[1]; }
+        // a narrower walk ahead: ease over to our new side instead of jumping there
+        const bx = P0[0] - st.fz * st.lat - st.x, bz = P0[2] + st.fx * st.lat - st.z, bd = Math.sqrt(bx * bx + bz * bz);
+        if (bd > 0.15) { st.moveStart = this.t; st.bl = Math.max(0.4, bd / 1.1); }
+      } else {
+        st.moveStart = this.t; st.lat = 0; const D0 = dirAt(this.paths[g.p], 4, 0); st.fx = D0[0]; st.fz = D0[1];
+        const P0 = pointAt(this.paths[g.p], 4, 0), bx = P0[0] - st.x, bz = P0[2] - st.z;
+        st.bl = Math.max(SIT_BLEND, Math.sqrt(bx * bx + bz * bz) / 1.1);
+      }
     }
     else {
       st.actStart = this.t; st.actEnd = Math.max(g.t1, this.t + 3);
       st.pose = g.pose;
+      { const bx = g.at[0] - st.x, bz = g.at[2] - st.z; st.bl = Math.max(SIT_BLEND, Math.sqrt(bx * bx + bz * bz) / 1.1); }
       if (g.pose === 'inside') { st.visible = false; st.actEnd = g.t1; }
       if (g.slot >= 0) {
         if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; }
@@ -274,23 +313,23 @@ export class LifeRuntime {
       }
       st.visible = true; st.s = 0; st.lat = 0; st.v = 0;
       this.placeOnPath(i, g.p);
-      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.moveStart = this.t - 10; st.yaw = this.headingOf(g.p, 0);
+      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.moveStart = this.t - 10; st.bl = SIT_BLEND; st.yaw = this.headingOf(g.p, 0);
       return;
     }
     if (g.k === 'act') {
       if (g.pose === 'inside') { st.v = 0; if (this.t >= st.actEnd) this.nextSeg(i); return; }
-      let k = st.stay ? 0 : clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
-      if (k > 0 && k < 1 + dt / SIT_BLEND) {
+      let k = st.stay ? 0 : clamp((this.t - st.actStart) / st.bl, 0, 1);
+      if (k > 0 && k < 1 + dt / st.bl) {
         // settling into the spot: wait while someone stands in it
         const cx = st.fromX + (g.at[0] - st.fromX) * k, cz = st.fromZ + (g.at[2] - st.fromZ) * k;
         for (let j = 0; j < this.agents.length; j++) {
-          if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
+          if (j === i || !this.agents[j].visible || (this.data.agents[j].owner === i && this.data.agents[j].kind === 'dog')) continue;
           const r = A.r + this.data.agents[j].r;
           const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
           if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) {
             st.actStart += dt; st.actEnd += dt; st.blocked += dt;
-            k = clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
-            if (st.blocked > 4) { st.actEnd = this.t; st.stay = true; k = 0; }
+            k = clamp((this.t - st.actStart) / st.bl, 0, 1);
+            if (st.blocked > 4) { st.actEnd = this.t; st.stay = true; k = 0; st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; }   // give up where we stand
             break;
           }
         }
@@ -304,10 +343,11 @@ export class LifeRuntime {
       }
       return;
     }
-    if (this.t < g.t) { st.v = 0; return; }               // not time yet (waiting where we are)
+    if (this.t < g.t) { st.v = 0; if (this.t - st.moveStart < st.bl) st.moveStart += dt; return; }   // not time yet (waiting where we are; a blend waits too)
     const P = this.paths[g.p];
     const pt = pointAt(P, 4, st.s), Dp = dirAt(P, 4, st.s);
     // turn the walking frame toward the path at most 2.6 rad/s
+    const fx0 = st.fx, fz0 = st.fz;
     {
       const a0 = Math.atan2(st.fx, st.fz), a1 = Math.atan2(Dp[0], Dp[1]);
       const a = angleTo(a0, a1, 2.6 * dt);
@@ -315,7 +355,7 @@ export class LifeRuntime {
     }
     const D = [st.fx, st.fz];
     const hw = pt[3];
-    let want = A.speed, latT = Math.min(0.45, hw - A.r);           // keep right: the two directions use their own sides
+    let want = A.speed, latT = Math.min(A.lane ?? 0.45, hw - A.r);  // keep right (each at their own distance from the middle): the two directions use their own sides
     // crossings: wait at the curb for the walk signal
     st.wait = false; st.onCross = false;
     if (g.cross) for (const c of g.cross) {
@@ -332,11 +372,19 @@ export class LifeRuntime {
           const Vd = this.data.vehicles[j];
           if (d < 30) anyNear = true;
           const coming = vv.v > 0.5 && d < 7 + vv.v * 2.5 && dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2;
-          if (coming || (vv.v > 0.05 && boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid) < 2.2)) { go = false; break; }
+          // one in the junction, turning (even if it's stopped for someone): it goes first
+          const vt = this.tripOf(j), turning = vt !== null && this.data.edges[vt.edges[vv.leg]].turn === true;
+          const bd = boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
+          if (coming || ((vv.v > 0.05 || turning) && bd < 2.2) || (turning && bd < 6)) { go = false; break; }
         }
         if (!signalOk && anyNear) go = false;
         if (!go) { want = Math.min(want, Math.max(0, (c.s0 - 0.35 - st.s) * 2)); st.wait = true; }
       }
+    }
+    // out with a friend: wait for them if they've fallen behind
+    if (A.pal !== undefined) {
+      const b = this.agents[A.pal];
+      if (b.visible && b.blocked < 1.5) { const bx = b.x - st.x, bz = b.z - st.z; if (bx * bx + bz * bz > 1.8 * 1.8) want = 0; }
     }
     // others: keep right of oncoming folk, follow slower ones, give the player room
     const rx = -D[1], rz = D[0];
@@ -376,7 +424,7 @@ export class LifeRuntime {
     // where that puts us (rising from a seat or a spot: blended from where the act left us)
     const P2 = pointAt(P, 4, ns);
     let cx = P2[0] - D[1] * st.lat, cz = P2[2] + D[0] * st.lat;
-    const k = clamp((this.t - st.moveStart) / SIT_BLEND, 0, 1);
+    const k = clamp((this.t - st.moveStart) / st.bl, 0, 1);
     if (k < 1) { cx = st.fromX + (cx - st.fromX) * k; cz = st.fromZ + (cz - st.fromZ) * k; }
     // never step into someone (or the player): stay put this tick instead
     let ok = this.free(i, cx, cz);
@@ -391,7 +439,7 @@ export class LifeRuntime {
       const Q = pointAt(P, 4, st.s);
       const sx = Q[0] - D[1] * st.lat, sz = Q[2] + D[0] * st.lat;
       if (k >= 1 && st.lat !== lat0 && this.free(i, sx, sz)) { st.x = sx; st.z = sz; }
-      else st.lat = lat0;
+      else { st.lat = lat0; st.fx = fx0; st.fz = fz0; }   // held where we stand: so is our frame (no jump when we go on)
       E = dirAt(P, 4, st.s);
     }
     if (st.v > 0.05) st.yaw = angleTo(st.yaw, Math.atan2(E[0], E[1]), 5 * dt);
@@ -405,12 +453,14 @@ export class LifeRuntime {
     // held up a while: squeeze past, shoulders brushing (never closer than 0.46 m between centres)
     const squeeze = st.blocked > 2.5 ? 0.46 : -1;
     for (let j = 0; j < this.agents.length; j++) {
-      if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
+      if (j === i || !this.agents[j].visible || (this.data.agents[j].owner === i && this.data.agents[j].kind === 'dog')) continue;
       const o = this.agents[j];
       // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
-      if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
-      if (st.slip > this.t && o.slip > this.t) continue;
-      const r = squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
+      if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5 && A.owner === undefined && this.data.agents[j].owner === undefined) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
+      // slipping past: shoulders turned, but never through each other (0.15 m between centres)
+      // friends out together walk close (arms brushing: 0.42 m between centres)
+      const friends = j === A.pal || j === A.owner;
+      const r = st.slip > this.t && o.slip > this.t ? 0.15 : friends ? FRIENDS : squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
       // current positions: earlier folk this tick have already moved (no two step into one spot)
       const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
       const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
@@ -421,7 +471,8 @@ export class LifeRuntime {
       if (!vv.visible) continue;
       const Vd = this.data.vehicles[j];
       const dn = boxDist(cx, cz, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
-      if (dn < A.r + 0.2 && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) return false;
+      // a stopped car may be passed close (a car stopped for us at the crosswalk: walk on past its nose)
+      if (dn < A.r + (vv.v < 0.05 ? 0.06 : 0.2) && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) return false;
     }
     if (this.player.on) {
       const r = A.r + this.player.r + 0.05;
@@ -430,6 +481,53 @@ export class LifeRuntime {
       if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) return false;
     }
     return true;
+  }
+
+  // ── companions: walk beside their friend (or just behind where it's narrow), stand by them and chat ──
+  stepBuddy(i: number, dt: number) {
+    const A = this.data.agents[i], st = this.agents[i];
+    const w = this.agents[A.owner!], W = this.data.agents[A.owner!];
+    st.wait = w.wait; st.onCross = w.onCross;
+    if (!w.visible) { st.visible = false; st.seg = -1; st.v = 0; return; }
+    const g = w.seg >= 0 && w.seg < W.plan.length ? W.plan[w.seg] : null;
+    let tx = st.x, tz = st.z, ty = st.y, face = st.yaw, pose = 'idle';
+    if (g && g.k === 'move') {
+      const P = this.paths[g.p];
+      let s = w.s, lat = w.lat - 0.68;
+      if (lat < 0.05) { s = Math.max(0, w.s - 0.95); lat = w.lat; }   // side by side would take the oncoming side: fall in behind
+      const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);
+      lat = clamp(lat, -Q[3] + A.r, Q[3] - A.r);
+      tx = Q[0] - E[1] * lat; tz = Q[2] + E[0] * lat; ty = Q[1]; face = Math.atan2(E[0], E[1]);
+    } else if (g && g.k === 'act' && g.pal) {
+      // they've stopped (a seat, a stall, a stop, a window): stand at the friend's spot, turned to them, and chat
+      tx = g.pal[0]; ty = g.pal[1]; tz = g.pal[2];
+      face = Math.atan2(g.at[0] - tx, g.at[2] - tz);
+      pose = g.pose === 'fish' ? 'idle' : g.pose === 'browse' ? 'browse' : 'chat';
+    }
+    if (st.seg < 0) {
+      // out of the door with them, once there's room
+      for (let j = 0; j < this.agents.length; j++) {
+        if (j === i || !this.agents[j].visible) continue;
+        const ox = this.agents[j].x - tx, oz = this.agents[j].z - tz, r = A.r + this.data.agents[j].r + 0.05;
+        if (ox * ox + oz * oz < r * r) { st.visible = false; return; }
+      }
+      st.x = tx; st.y = ty; st.z = tz; st.yaw = face; st.seg = 0; st.fromX = tx; st.fromY = ty; st.fromZ = tz;
+    }
+    st.visible = true;
+    const dx = tx - st.x, dz = tz - st.z, d = Math.sqrt(dx * dx + dz * dz);
+    const stp = Math.min(d, A.speed * 1.35 * dt);
+    let moved = 0;
+    if (d > 1e-6) {
+      const nx = st.x + dx / d * stp, nz = st.z + dz / d * stp;
+      if (this.free(i, nx, nz)) { st.x = nx; st.z = nz; moved = stp; st.blocked = 0; } else st.blocked += dt;
+    }
+    // lost them in a crowd: slip away (the view fades us) and catch up with them out of sight
+    if (st.blocked > 8 && d > 3) { st.visible = false; st.seg = -1; st.blocked = 0; st.v = 0; return; }
+    st.y += clamp(ty - st.y, -1.5 * dt, 1.5 * dt);
+    st.v = moved / dt;
+    if (st.v > 0.1 && d > 0.05) st.yaw = angleTo(st.yaw, Math.atan2(dx, dz), 5 * dt); else st.yaw = angleTo(st.yaw, face, 3 * dt);
+    st.fx = Math.sin(st.yaw); st.fz = Math.cos(st.yaw);
+    st.pose = st.v > 0.05 ? 'walk' : d < 0.3 ? pose : 'idle';
   }
 
   headingOf(p: number, s: number): number { const D = dirAt(this.paths[p], 4, s); return Math.atan2(D[0], D[1]); }
@@ -546,8 +644,8 @@ export class LifeRuntime {
     if (nextLeg >= 0) {
       const ne = this.data.edges[trip.edges[nextLeg]];
       const toLine = EP.len - st.s - V.len / 2;
-      if (ne.conf && toLine < 12) {
-        let busy = false;
+      if ((ne.conf || ne.jn !== undefined) && toLine < 12) {
+        let busy = false, wide = false;
         for (let j = 0; j < this.vehicles.length && !busy; j++) {
           if (j === i) continue;
           const o = this.vehicles[j];
@@ -555,11 +653,21 @@ export class LifeRuntime {
           const ot = this.tripOf(j)!;
           const oe = ot.edges[o.leg];
           const oj = this.data.edges[oe].jn;
-          if ((V.len > 6 || this.data.vehicles[j].len > 6) && oj !== undefined && oj === ne.jn && this.data.edges[oe].turn) { busy = true; break; }
+          if ((V.len > 6 || this.data.vehicles[j].len > 6) && oj !== undefined && oj === ne.jn && this.data.edges[oe].turn) { busy = true; wide = this.data.vehicles[j].len > 6; break; }
+          if (V.len > 6 || this.data.vehicles[j].len > 6) {
+            // a bus and another about to enter the same junction at once: the one nearer its line goes (ties: lower index)
+            const onx = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : this.data.vehicles[j].loop ? ot.edges[0] : -1;
+            if (onx >= 0 && this.data.edges[onx].jn === ne.jn && ne.jn !== undefined) {
+              const ol = this.edges[oe].len - o.s - this.data.vehicles[j].len / 2;
+              const os = this.data.edges[oe].stop;
+              const canGo = !os || this.signal(os.sig, os.group, this.t) === GREEN;
+              if (canGo && ol < 3 && ol > -0.5 && (ol < toLine - 0.5 || (Math.abs(ol - toLine) <= 0.5 && j < i))) { busy = true; wide = this.data.vehicles[j].len > 6; break; }
+            }
+          }
           const half = this.data.vehicles[j].len / 2 + 0.5;
           const prevE = o.leg > 0 ? ot.edges[o.leg - 1] : this.data.vehicles[j].loop ? ot.edges[ot.edges.length - 1] : -1;
           const nextE = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : this.data.vehicles[j].loop ? ot.edges[0] : -1;
-          for (let c = 0; c < ne.conf.length; c++) {
+          for (let c = 0; ne.conf && c < ne.conf.length; c++) {
             // a body still in (or already nosing into) a conflicting turn holds the box
             if (oe === ne.conf[c] || (prevE === ne.conf[c] && o.s < half) || (nextE === ne.conf[c] && this.edges[oe].len - o.s < this.data.vehicles[j].len / 2 - 0.1)) { busy = true; break; }
             const onl = o.leg + 1 < ot.edges.length ? o.leg + 1 : this.data.vehicles[j].loop ? 0 : -1;
@@ -571,7 +679,58 @@ export class LifeRuntime {
             }
           }
         }
-        if (busy && toLine + IDM.s0 - 0.3 < gap) { gap = Math.max(0.01, toLine + IDM.s0 - 0.3); lv = 0; }
+        // a bus turning through the junction swings wide: hold well back from the line
+        const hold = wide ? toLine - 6 : toLine;
+        if (busy && hold + IDM.s0 - 0.3 < gap) { gap = Math.max(0.01, hold + IDM.s0 - 0.3); lv = 0; }
+      }
+    }
+    // turning: wait at the line while anyone is crossing where the turn goes (the body would sweep them)
+    if (nextLeg >= 0 && this.data.edges[trip.edges[nextLeg]].turn) {
+      const toLine = EP.len - st.s - V.len / 2;
+      if (toLine < 10 && toLine > -0.5) {
+        const reach = V.wid / 2 + (V.len > 6 ? 2.4 : 1.2);
+        let yieldTo = false;
+        for (let j = 0; j < this.agents.length && !yieldTo; j++) {
+          const o = this.agents[j];
+          if (!o.visible || !o.onCross) continue;
+          for (let k = 1; k <= 2 && !yieldTo; k++) {
+            const lg = st.leg + k < trip.edges.length ? st.leg + k : V.loop ? (st.leg + k) % trip.edges.length : -1;
+            if (lg < 0) break;
+            const NP = this.edges[trip.edges[lg]];
+            const lim = k === 1 ? NP.len : Math.min(NP.len, 9);
+            for (let q = 0; q < NP.cum.length && NP.cum[q] <= lim + 1; q++) {
+              const dx = NP.pts[q * 3] - o.x, dz = NP.pts[q * 3 + 2] - o.z;
+              if (dx * dx + dz * dz < (reach + 1.5) * (reach + 1.5)) { yieldTo = true; break; }
+            }
+          }
+        }
+        // a bus swings wide: don't start the turn while any vehicle stands where its body will go
+        if (V.len > 6) {
+          const tl = this.edges[trip.edges[nextLeg]].len, toEnd = EP.len - st.s;
+          for (let q = 0; q <= tl + 4 && !yieldTo; q++) {
+            const pa = this.poseAhead(i, toEnd + q);
+            for (let j = 0; j < this.vehicles.length; j++) {
+              const o = this.vehicles[j];
+              if (j === i || !o.visible) continue;
+              const ox = o.x - pa[0], oz = o.z - pa[1];
+              if (ox * ox + oz * oz > 3600) continue;
+              const otj = this.tripOf(j)!;
+              if (otj.edges[o.leg] === trip.edges[st.leg] && o.s < st.s) continue;      // queued behind us
+              // where the other could still be by the time it stops (one coming up to this junction: up to its line)
+              let ext = o.v * o.v / (2 * IDM.b) + o.v;
+              const ot = this.tripOf(j)!, onx = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : -1;
+              if (onx >= 0 && this.data.edges[onx].jn !== undefined && this.data.edges[onx].jn === this.data.edges[trip.edges[nextLeg]].jn) {
+                const ol = this.edges[ot.edges[o.leg]].len - o.s - this.data.vehicles[j].len / 2, os = this.data.edges[ot.edges[o.leg]].stop;
+                // on green it may come on to its line; on red it stops before it
+                if (!os || this.signal(os.sig, os.group, this.t) === GREEN) ext = Math.max(ext, ol + 1); else ext = Math.min(ext, Math.max(0, ol - 0.3));
+              }
+              if (Math.sqrt(ox * ox + oz * oz) > 25 + ext) continue;
+              const hx = Math.sin(o.yaw) * ext / 2, hz = Math.cos(o.yaw) * ext / 2;
+              if (boxesTouch(pa[0], pa[1], pa[2], V.len + 1.0, V.wid + 0.6, o.x + hx, o.z + hz, o.yaw, this.data.vehicles[j].len + ext, this.data.vehicles[j].wid)) { yieldTo = true; break; }
+            }
+          }
+        }
+        if (yieldTo && toLine + IDM.s0 - 0.3 < gap) { gap = Math.max(0.01, toLine + IDM.s0 - 0.3); lv = 0; st.brake = true; }
       }
     }
     // bus stops: pull in and dwell
@@ -593,6 +752,8 @@ export class LifeRuntime {
     let hard = false;
     const look = Math.max(10, st.v * 3.2 + 6);
     const half = V.wid / 2 + 0.25;
+    // where the body will be a moment from now (a long body swings wide in a turn)
+    const ah = this.poseAhead(i, st.v * dt + 0.6);
     for (let j = 0; j <= this.agents.length; j++) {
       let px: number, pz: number, pr: number;
       let moving = true;
@@ -605,6 +766,8 @@ export class LifeRuntime {
         if (o.wait && !o.onCross) continue;
         px = o.x; pz = o.z; pr = this.data.agents[j].r;
       }
+      // anyone the body would sweep into in the next moment: stop dead
+      if ((moving || j === this.agents.length || this.agents[j].onCross) && inBox(px, pz, pr + 0.1, ah[0], ah[1], ah[2], V.len, V.wid)) { hard = true; st.brake = true; continue; }
       const dx = px - st.x, dz = pz - st.z;
       if (dx * dx + dz * dz > (look + V.len) * (look + V.len)) continue;
       // someone at the front corners (stepping off a curb as we turn): stop dead; beside or behind: carry on
@@ -615,6 +778,14 @@ export class LifeRuntime {
         if (gp + 1.0 < gap) { gap = Math.max(0.01, gp + 1.0); lv = 0; st.brake = true; }
         if (gp < 1.2) hard = true;              // right in front: stop dead (cars never touch anyone)
       }
+    }
+    // never drive into another vehicle's body (one stopped across our way in a junction, say): stop dead
+    for (let j = 0; j < this.vehicles.length && !hard; j++) {
+      const o = this.vehicles[j];
+      if (j === i || !o.visible) continue;
+      const ox = o.x - st.x, oz = o.z - st.z, reach = (V.len + this.data.vehicles[j].len) / 2 + 3;
+      if (ox * ox + oz * oz > reach * reach || ox * Math.sin(st.yaw) + oz * Math.cos(st.yaw) <= 0) continue;
+      if (boxesTouch(ah[0], ah[1], ah[2], V.len + 0.4, V.wid + 0.2, o.x, o.z, o.yaw, this.data.vehicles[j].len, this.data.vehicles[j].wid)) { hard = true; st.brake = true; }
     }
     // IDM
     const ss = IDM.s0 + Math.max(0, st.v * IDM.T + st.v * (st.v - lv) / (2 * Math.sqrt(IDM.a * IDM.b)));
@@ -642,6 +813,22 @@ export class LifeRuntime {
     st.yaw = Math.atan2(D[0], D[1]);
   }
 
+  /** Vehicle i's pose d metres further along its route: [x, z, yaw]. */
+  poseAhead(i: number, d: number): number[] {
+    const st = this.vehicles[i], trip = this.tripOf(i)!, V = this.data.vehicles[i];
+    let leg = st.leg, s = st.s + d;
+    while (s > this.edges[trip.edges[leg]].len) {
+      s -= this.edges[trip.edges[leg]].len;
+      leg += 1;
+      if (leg >= trip.edges.length) {
+        if (V.loop) leg = 0;
+        else { leg = trip.edges.length - 1; s = this.edges[trip.edges[leg]].len; break; }
+      }
+    }
+    const EP = this.edges[trip.edges[leg]], P = pointAt(EP, 3, s), D = dirAt(EP, 3, s);
+    return [P[0], P[2], Math.atan2(D[0], D[1])];
+  }
+
   /** Arc distance ahead along vehicle i's route to the point nearest (px, pz) within `half` of the lane; -1 if none within `look`. */
   alongRoute(i: number, px: number, pz: number, look: number, half: number): number {
     const st = this.vehicles[i], trip = this.tripOf(i)!, V = this.data.vehicles[i];
@@ -651,6 +838,8 @@ export class LifeRuntime {
       if (leg >= trip.edges.length) { if (!V.loop) break; leg = leg % trip.edges.length; }
       const EP = this.edges[trip.edges[leg]];
       const n = EP.cum.length;
+      // through a turn the body swings wide of the lane's line (a bus most)
+      const hw = this.data.edges[trip.edges[leg]].turn ? half + (V.len > 6 ? 1.6 : 0.4) : half;
       for (let q = 0; q + 1 < n; q++) {
         const s0 = EP.cum[q], s1 = EP.cum[q + 1];
         if (base + s1 < 0) continue;
@@ -662,7 +851,7 @@ export class LifeRuntime {
         const cx = ax + ex * u, cz = az + ez * u;
         const dd = (px - cx) * (px - cx) + (pz - cz) * (pz - cz);
         const along = base + s0 + (s1 - s0) * u;
-        if (dd < half * half && along > 0 && along < look) return along;
+        if (dd < hw * hw && along > 0 && along < look) return along;
       }
       base += EP.len;
     }
