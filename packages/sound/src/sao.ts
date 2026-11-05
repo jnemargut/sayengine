@@ -31,14 +31,16 @@ function freeGb(dir: string): number | null {
 /** Can the model run here? Lists every blocker (weights, the Python package, disk, memory). */
 export function saoStatus() {
   const py = venvPython();
-  const weights = fs.existsSync(path.join(SAO_DIR, 'model.safetensors')) && fs.existsSync(path.join(SAO_DIR, 'model_config.json'));
+  const weights = (fs.existsSync(path.join(SAO_DIR, 'model.safetensors')) || fs.existsSync(path.join(SAO_DIR, 'model.ckpt'))) && fs.existsSync(path.join(SAO_DIR, 'model_config.json'));
   const pkg = py ? spawnSync(py, ['-I', '-c', 'import stable_audio_tools'], { encoding: 'utf8' }).status === 0 : false;
   const disk = freeGb(os.homedir());
   const memGb = +(os.totalmem() / 1073741824).toFixed(1);
   const blockers: string[] = [];
   if (!weights) blockers.push(`no weights in ${SAO_DIR}: they are gated — accept the ${SAO_LICENCE.name} at ${SAO_LICENCE.gated}, then \`hf auth login\` and \`hf download stabilityai/stable-audio-open-small --local-dir ${SAO_DIR}\``);
   if (!pkg) blockers.push('stable-audio-tools is not installed in ~/.studio-tools/venv (pip install stable-audio-tools; it pins older torch builds, so it may want its own venv)');
-  if (disk !== null && disk < 6) blockers.push(`only ${disk} GB free on the home disk (weights + T5 encoder + packages ≈ 3–4 GB)`);
+  // once the weights are here, only the T5 text encoder (~1 GB, fetched on first run) and outputs remain
+  const needGb = weights ? 2 : 6;
+  if (disk !== null && disk < needGb) blockers.push(`only ${disk} GB free on the home disk (need about ${needGb} GB${weights ? ' for the T5 text encoder and outputs' : ' for weights + T5 encoder + packages'})`);
   return {
     available: blockers.length === 0, blockers, weights, package: pkg, diskFreeGb: disk, memoryGb: memGb,
     // ~341M-parameter DiT + autoencoder + T5-base text encoder: ≈ 2 GB in fp32 — fits in 8 GB; Arm's

@@ -24,12 +24,31 @@ def main():
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     cfg = os.path.join(MODEL_DIR, "model_config.json")
-    ckpt = os.path.join(MODEL_DIR, "model.safetensors")
-    if not (os.path.exists(cfg) and os.path.exists(ckpt)):
+    ckpt = next((p for p in (os.path.join(MODEL_DIR, n) for n in ("model.safetensors", "model.ckpt")) if os.path.exists(p)), None)
+    if not (os.path.exists(cfg) and ckpt):
         print(json.dumps({"ok": False, "error": f"no weights in {MODEL_DIR}"}))
         sys.exit(2)
     import torch
-    import torchaudio
+    try:
+        import torchaudio  # noqa: F401
+    except ImportError:
+        # torchaudio has no build for every torch release. stable-audio-tools only uses it to resample
+        # input audio, which text-to-audio never does, so a stand-in for this process is enough.
+        import types
+        ta = types.ModuleType("torchaudio")
+        tf = types.ModuleType("torchaudio.transforms")
+
+        class Resample(torch.nn.Module):
+            def __init__(self, *a, **k):
+                raise RuntimeError("resampling needs torchaudio, which is not installed")
+        tf.Resample = Resample
+        ta.transforms = tf
+        import importlib.machinery
+        ta.__spec__ = importlib.machinery.ModuleSpec("torchaudio", None)
+        tf.__spec__ = importlib.machinery.ModuleSpec("torchaudio.transforms", None)
+        ta.__version__ = "0.0-stub"
+        sys.modules["torchaudio"], sys.modules["torchaudio.transforms"] = ta, tf
+    import soundfile
     from stable_audio_tools.models.factory import create_model_from_config
     from stable_audio_tools.models.utils import load_ckpt_state_dict
     from stable_audio_tools.inference.generation import generate_diffusion_cond
@@ -49,7 +68,7 @@ def main():
     )
     audio = out[0][:, : int(seconds * sr)].to(torch.float32).cpu()
     audio = audio / max(1e-6, float(audio.abs().max())) * 0.9
-    torchaudio.save(a.out, audio, sr)
+    soundfile.write(a.out, audio.numpy().T, sr, subtype="PCM_16")
     print(json.dumps({"ok": True, "file": a.out, "seconds": seconds, "device": device, "sampleRate": sr}))
 
 
