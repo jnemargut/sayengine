@@ -191,7 +191,7 @@ await scene('reel', PORT0 + 1, (ok) => {
   let thumbs = false;
   for (let k = 0; k < 40 && !thumbs; k++) {
     await wait(3000);
-    try { thumbs = await page.eval(`document.querySelectorAll('.tl-three .img img').length === 3`, 20000); } catch (e: any) { console.log('  (the view is busy)', e.message); }
+    try { thumbs = await page.eval(`document.querySelectorAll('.tl-three .img img').length === 6`, 20000); } catch (e: any) { console.log('  (the view is busy)', e.message); }
     if (process.env.DEBUG) console.log('  three?', k, await page.eval(`JSON.stringify({ three: !!document.querySelector('.tl-three'), imgs: document.querySelectorAll('.tl-three .img img').length, groups: Object.keys(window.__timeline.timeline() ?? {}).length })`, 20000).catch(() => 'busy'), Object.values(studio.history.data.takes ?? {}).map((x: any) => x.status));
   }
   await wait(1200);
