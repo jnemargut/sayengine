@@ -46,3 +46,24 @@ What got built while you slept, what I checked myself, and anything that went wr
     - It's too easy and repetitive, with only 5 items.
     - The fire is placeholder cones and the HUD is plain HTML.
   - **Problem log:** `games/fires-dying/PAIN.md` lists 14 places where the tools fell short. That's exactly what the effects and UI kit build is fixing now. The biggest was that three.js quietly renamed "Big hammer" to "Big_hammer", so the stations didn't exist.
+
+- **Effects, UI kit and /game fixes** (merged; 131 tests pass).
+  - **Effects:** one effect file plays in both Godot and the web. It can follow a game value (fire size) or fire on a motion moment (sparks on each hammer strike).
+    - **What's built:** forge fire, sparks, chimney smoke, embers and rain.
+    - **Matching between engines:** fire and embers match well. Sparks, smoke and rain still look different in each engine. Rain is the worst: it's weak on the web.
+    - **Comparison images:** `checkpoint-effects-ui/all-cards.png`.
+  - **UI kit:** a forge-style theme for both engines.
+    - **What's built:** bars, item slots, buttons, title cards, and a speech bubble that follows a character.
+    - **Icons:** six for tools (tongs, charcoal, hammer, file, bucket, blade).
+    - **Checks:** contrast, text overflow when translated, and tap size.
+    - **Pictures:** `checkpoint-effects-ui/ui-over-forge-web.png` and the `ui-sheet` folder.
+  - **/game fixes:** all eight from the Fire's Dying log.
+    - Object names survive export.
+    - The player can be customised.
+    - `say()` for voiced lines.
+    - `hold()` for props.
+    - Hand props need no collider.
+    - Placing on furniture picks its flat top.
+    - Screenshots include the HUD.
+    - All voice audio is exported.
+  - **Fire's Dying v1.1** (adopts all of this, plus harder and more varied play, plus effect tuning) is building now.
