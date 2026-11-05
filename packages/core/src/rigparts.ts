@@ -323,7 +323,7 @@ export function buildCreature(def: CreatureDef): Creature {
             const dn: V3 = [0, -1, 0];
             pieces.push({ bone: name, shape: { kind: 'seg', a: add(a, mul(dn, r1 * 0.42)), b: add(add(b, mul(dir, Math.min(r2, seg * 0.3))), mul(dn, r2 * 0.42)), r1: r1 * 0.68, r2: r2 * 0.68, sides: 10, round: true, squash: [1, 0.75] }, color: spec.under, part: spec.id });
             // suckers: a pair of small discs on the underside of each segment
-            if (spec.shrink) for (const u of [0.3, 0.75]) pieces.push({ bone: name, shape: { kind: 'ball', c: add(lerp3(a, b, u), mul(dn, lerp(r1, r2, u) * 0.86)), r: lerp(r1, r2, u) * 0.36, scale: [1, 0.45, 1], sides: 10 }, color: spec.under, part: spec.id });
+            if (spec.shrink && i >= spec.segments / 2) for (const u of [0.5]) pieces.push({ bone: name, shape: { kind: 'ball', c: add(lerp3(a, b, u), mul(dn, lerp(r1, r2, u) * 0.86)), r: lerp(r1, r2, u) * 0.36, scale: [1, 0.45, 1], sides: 10 }, color: spec.under, part: spec.id });
           }
           limits[name] = { kind: 'cone', maxDeg: spec.limit ?? (spec.motion === 'coil' || spec.motion === 'curl' ? 70 : 55) };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
@@ -1144,6 +1144,13 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     const wbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
     let ww = 0, sw = 0, pair = '';
     const isContactBone = new Set(c.contacts.map((cd) => c.index.get(cd.bone)!));
+    // pieces grouped by bone, each group with a radius that holds its pieces whatever the pose
+    const byBone = new Map<number, number[]>();
+    spheres.forEach((sp, i) => { if (!byBone.has(sp.b)) byBone.set(sp.b, []); byBone.get(sp.b)!.push(i); });
+    const boneGroups = [...byBone.values()].map((idx) => {
+      const m = idx.reduce((acc, i) => add(acc, spheres[i].c), [0, 0, 0] as V3).map((v) => v / idx.length) as V3;
+      return { idx, r: Math.max(...idx.map((i) => len(sub(spheres[i].c, m)) + spheres[i].r)) };
+    });
     // a held prop touches the chain holding it: that pair is not a collision
     const holders = new Map<number, Set<number>>();
     for (const h of clip.held ?? []) for (const [prop, chain] of Object.entries(h)) {
@@ -1161,7 +1168,14 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         const depth = ground(centres[i]) - (centres[i][1] - s.r);
         if (depth > s.r * CHECK_LIMITS.penetrate) { wbad[f] = true; ww = Math.max(ww, depth); }
       });
-      for (let i = 0; i < spheres.length; i++) for (let j = i + 1; j < spheres.length; j++) {
+      // broad phase: a sphere round each bone's pieces; only pieces of bones whose spheres meet are paired
+      const bc = boneGroups.map((g) => { let x = 0, y = 0, z = 0; for (const i of g.idx) { x += centres[i][0]; y += centres[i][1]; z += centres[i][2]; } const n = g.idx.length; return [x / n, y / n, z / n] as V3; });
+      for (let gi = 0; gi < boneGroups.length; gi++) for (let gj = gi; gj < boneGroups.length; gj++) {
+        const A = boneGroups[gi], Bg = boneGroups[gj];
+        if (gi === gj) continue;                                            // a bone's own pieces never collide (near)
+        if (near(spheres[A.idx[0]].b, spheres[Bg.idx[0]].b) || len(sub(bc[gi], bc[gj])) > A.r + Bg.r) continue;
+        for (const i of A.idx) for (const j of Bg.idx) {
+        if (gi === gj && j <= i) continue;
         if (near(spheres[i].b, spheres[j].b) || exempt(spheres[i].b, spheres[j].b)) continue;
         if (c.fx.has(c.bones[spheres[i].b].name) || c.fx.has(c.bones[spheres[j].b].name)) continue;
         if (spheres[i].pc.part === spheres[j].pc.part && spheres[i].pc.part.startsWith('sway')) continue;
@@ -1172,6 +1186,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         const restD = len(sub(spheres[i].c, spheres[j].c));
         const restOverlap = spheres[i].r + spheres[j].r - restD;
         if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; if (overlap > sw) { sw = overlap; pair = `${c.bones[spheres[i].b].name} × ${c.bones[spheres[j].b].name}`; } }
+      }
       }
     }
     out.push(mk('nothing sinks into the ground', wbad, ww, CHECK_LIMITS.penetrate, '× piece radius', 'body pieces stay above the ground'));

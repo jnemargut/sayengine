@@ -52,9 +52,10 @@ export function mixHex(a: string, b: string, t: number): string {
 }
 
 /** A feather as pieces: three bands from a lighter root to a darker tip (a gradient in bands). */
-export function featherPieces(bone: string, part: string, f: { a: V3; b: V3; w: number; normal: V3; curve?: number; camber?: number; asym?: number; point?: boolean }, root: string, tip: string): PartPiece[] {
-  const cuts = [0, 0.45, 0.78, 1];
-  return [0, 1, 2].map((i) => ({ bone, part, color: mixHex(root, tip, i / 2), shape: { kind: 'feather' as const, ...f, from: cuts[i], to: cuts[i + 1] } }));
+export function featherPieces(bone: string, part: string, f: { a: V3; b: V3; w: number; normal: V3; curve?: number; camber?: number; asym?: number; point?: boolean }, root: string, tip: string, bands = 2): PartPiece[] {
+  if (bands < 2) return [{ bone, part, color: mixHex(root, tip, 0.5), shape: { kind: 'feather' as const, ...f } }];
+  const cuts = bands === 2 ? [0, 0.58, 1] : [0, 0.45, 0.78, 1];
+  return cuts.slice(0, -1).map((c0, i) => ({ bone, part, color: mixHex(root, tip, i / (bands - 1)), shape: { kind: 'feather' as const, ...f, from: c0, to: cuts[i + 1] } }));
 }
 
 export function wingBuild(spec: WingPartSpec) {
@@ -113,9 +114,9 @@ export function wingBuild(spec: WingPartSpec) {
       pieces.push(...featherPieces(b, spec.id, { a: root, b: add(root, mul(dir, lenF)), w, normal: up, curve: 0.06, camber: 0.1, asym: 0.25 }, spec.color, mixHex(spec.color, dark, 0.65)));
       // greater coverts over the roots (half length), then lesser coverts nearer the edge
       const gr = add(root, [0, 0.0045, c * 0.035]);
-      pieces.push(...featherPieces(b, spec.id, { a: gr, b: add(gr, mul(dirAt(2 + 2 * g), lenF * 0.5)), w: w * 0.95, normal: up, curve: 0.05, camber: 0.14, asym: 0.15 }, light, spec.color));
+      pieces.push(...featherPieces(b, spec.id, { a: gr, b: add(gr, mul(dirAt(2 + 2 * g), lenF * 0.5)), w: w * 0.95, normal: up, curve: 0.05, camber: 0.14, asym: 0.15 }, light, spec.color, 1));
       const lr = add(root, [0, 0.008, c * 0.07]);
-      pieces.push(...featherPieces(b, spec.id, { a: lr, b: add(lr, mul(dirAt(2 * g), lenF * 0.27)), w: w * 0.85, normal: up, curve: 0.04, camber: 0.18 }, light, light));
+      pieces.push(...featherPieces(b, spec.id, { a: lr, b: add(lr, mul(dirAt(2 * g), lenF * 0.27)), w: w * 0.85, normal: up, curve: 0.04, camber: 0.18 }, light, light, 1));
     }
     // primaries: a fan of long feathers from the hand, the outer ones longer and darker, each on its
     // own bone: folded, the fan closes into a stack along the hand
@@ -130,11 +131,11 @@ export function wingBuild(spec: WingPartSpec) {
       pieces.push(...featherPieces(b, spec.id, { a: root, b: add(root, mul(dir, lenF)), w: c * (0.3 - 0.06 * u), normal: up, curve: 0.07, camber: 0.1, asym: 0.35 }, mixHex(spec.color, dark, 0.2 + 0.4 * u), dark));
       // primary coverts
       const cr = add(root, [0, 0.005, c * 0.03]);
-      pieces.push(...featherPieces(b, spec.id, { a: cr, b: add(cr, mul(dir, lenF * 0.38)), w: c * 0.24, normal: up, curve: 0.04, camber: 0.15 }, light, spec.color));
+      pieces.push(...featherPieces(b, spec.id, { a: cr, b: add(cr, mul(dir, lenF * 0.38)), w: c * 0.24, normal: up, curve: 0.04, camber: 0.15 }, light, spec.color, 1));
     }
     // the alula: a small feather at the wrist
     const al = add(heads[2], [sx * c * 0.08, -0.003, c * 0.02]);
-    pieces.push(...featherPieces(names[2], spec.id, { a: al, b: add(al, mul(dirAt(70), c * 0.32)), w: c * 0.12, normal: up, curve: 0.05, point: true }, spec.color, dark));
+    pieces.push(...featherPieces(names[2], spec.id, { a: al, b: add(al, mul(dirAt(70), c * 0.32)), w: c * 0.12, normal: up, curve: 0.05, point: true }, spec.color, dark, 1));
     limits[names[0]] = { kind: 'cone', maxDeg: 150 };
     limits[names[1]] = { kind: 'cone', maxDeg: 172 };
     limits[names[2]] = { kind: 'cone', maxDeg: 172 };

@@ -97,7 +97,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     const skin = '#c7563f', under = '#efb79a';
     const arms: PartSpec[] = Array.from({ length: 8 }, (_, i) => {
       const a = ((i + 0.5) * 45 * Math.PI) / 180;
-      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.7, segments: 16, shrink: 0.88, r0: 0.042, r1: 0.006, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
+      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.7, segments: 14, shrink: 0.86, r0: 0.042, r1: 0.006, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 90 } as PartSpec;
     });
     const potC: V3 = [0.13, 0.2 + 0.052, 0.71];
     const grip: V3 = [0.13, 0.255, 0.635];
