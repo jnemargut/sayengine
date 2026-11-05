@@ -1,0 +1,8 @@
+{
+  "_about": "Release word lists (Decision 31). A game can add to or allow words in proof/release-lists.json. Matching is case-insensitive on whole words. brands/teams: names whose owners may object (check use is nominative or licensed); wording: claims a game can't back up; required: credit lines that must appear somewhere in the checked media.",
+  "brands": ["Wells Fargo", "PNC", "Duke Energy", "Bank of America", "Truist", "Red Hat", "Coca-Cola", "Coke", "Pepsi", "Starbucks", "McDonald's", "Nike", "Apple", "Google", "Disney", "Nintendo", "Pokemon", "Pokémon", "Lego", "Marvel", "Uber", "Lyft", "Amazon", "Tesla"],
+  "teams": ["Hurricanes", "Canes", "Wolfpack", "NC State", "Tar Heels", "UNC", "Blue Devils", "Panthers", "Durham Bulls", "North Carolina FC", "NC Courage"],
+  "wording": ["accurate", "accurately", "exact", "exactly", "official", "officially", "real-time", "real time", "to scale", "replica", "true to life", "photorealistic", "guaranteed", "the real Raleigh", "every building"],
+  "required": [],
+  "allow": []
+}

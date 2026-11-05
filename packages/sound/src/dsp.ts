@@ -217,6 +217,28 @@ export function seamJump(ch: Channels): number {
   }
   return worst;
 }
+/** Windowed-sinc resampling. `loop` wraps around the ends (a loop stays seamless at the new rate);
+ *  otherwise the ends see silence. The new length is rounded, so loop lengths drift by < 1 sample. */
+export function resample(ch: Channels, from: number, to: number, loop = false): Channels {
+  if (from === to) return ch;
+  const ratio = from / to, taps = 16, cut = Math.min(1, to / from) * 0.92;
+  return ch.map((x) => {
+    const n = x.length, m = Math.round(n / ratio), y = new Float32Array(m);
+    for (let i = 0; i < m; i++) {
+      const t = i * ratio, c = Math.floor(t);
+      let s = 0, w = 0;
+      for (let k = -taps + 1; k <= taps; k++) {
+        const j = c + k, d = t - j;
+        const sinc = d === 0 ? 1 : Math.sin(Math.PI * d * cut) / (Math.PI * d * cut);
+        const win = 0.5 + 0.5 * Math.cos(Math.PI * d / taps);
+        const v = loop ? x[((j % n) + n) % n] : j >= 0 && j < n ? x[j] : 0;
+        s += v * sinc * win; w += sinc * win;
+      }
+      y[i] = s / (w || 1);
+    }
+    return y;
+  });
+}
 export function fade(ch: Channels, inS = 0.005, outS = 0.01, sr = SR) {
   for (const c of ch) { const a = Math.min(c.length, secs(inS, sr)), b = Math.min(c.length, secs(outS, sr));
     for (let i = 0; i < a; i++) c[i] *= i / a; for (let i = 0; i < b; i++) c[c.length - 1 - i] *= i / b; }

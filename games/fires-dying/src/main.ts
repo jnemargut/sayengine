@@ -12,6 +12,7 @@ import { addStaticColliders, installHarness, startCharacters, named, hold, type 
 import { startEffects } from '../studio/effects.ts';
 import { startUI, say } from '../studio/ui.ts';
 import { CutscenePlayer } from '../studio/cutscene.ts';
+import { startSound } from '../studio/sound.ts';
 import { CALLS, ITEMS, JOBS, LINES, type Item, type Line } from './lines.ts';
 import { newGame, step as stepRules, pickUp, deliver, feed, quench, pump, patience, GOAL, QUENCH_EVERY, CARRY_SPEED, type Event, type State } from './rules.ts';
 
@@ -70,6 +71,9 @@ async function start(): Promise<StudioGame> {
   const START = sc.manifest.player!.start as V3;
   const smith = sc.actors.Blacksmith;
   const fx = await startEffects(game);
+  // the studio sound pack (sound/sound-spec.json → assets/studio/sound/): forge roar + crackle follow the
+  // fire, clinks on the hammer's impact, the yard's wind, music whose intensity follows the pressure
+  const snd = await startSound(game);
   const ui = await startUI(game);
   const lineInfo: Record<string, { duration: number; text: string }> = (await (await fetch('assets/studio/lines/lines.json')).json()).Blacksmith ?? {};
 
@@ -100,6 +104,7 @@ async function start(): Promise<StudioGame> {
   // ── the smith: hammering between calls, his voiced lines (say(): voice + mouth + body) ──
   const strikeDur = smith.clip('strike')?.duration ?? 1.8;
   let smithBusy = 0;
+  let clinks = 0;
   const bubbleOver = smith.root.getObjectByProperty('isSkinnedMesh', true) ?? smith.root;
   const clearBubbles = () => { for (const b of ui.bubbles) b.el.remove(); ui.bubbles = []; };
   const speak = (l: Line, icon?: string) => {
@@ -178,13 +183,13 @@ async function start(): Promise<StudioGame> {
   const handle = (ev: Event[]) => {
     for (const e of ev) {
       if (e.kind === 'call') speak(CALLS[e.job], JOBS[e.job].icon);
-      else if (e.kind === 'good') speak(e.job === 'quench' ? LINES.hiss : LINES.good);
-      else if (e.kind === 'wrong') speak(LINES.wrong, JOBS[e.wanted]?.icon);
+      else if (e.kind === 'good') { speak(e.job === 'quench' ? LINES.hiss : LINES.good); snd?.event(e.job === 'quench' ? 'quench' : 'deliver'); }
+      else if (e.kind === 'wrong') { speak(LINES.wrong, JOBS[e.wanted]?.icon); snd?.event('wrong'); }
       else if (e.kind === 'impatient') speak(LINES.late, JOBS[e.job].icon);
       else if (e.kind === 'low-fire') speak(CALLS.charcoal, 'charcoal');
-      else if (e.kind === 'fed') fx.event('fed');
-      else if (e.kind === 'pumped') { fx.event('pumped'); pumpT = 0.6; }
-      else if (e.kind === 'won' || e.kind === 'lost') finish(e.kind === 'won');
+      else if (e.kind === 'fed') { fx.event('fed'); snd?.event('fed'); }
+      else if (e.kind === 'pumped') { fx.event('pumped'); snd?.event('pumped'); pumpT = 0.6; }
+      else if (e.kind === 'won' || e.kind === 'lost') { snd?.endMusic(e.kind); finish(e.kind === 'won'); }
     }
   };
   /** what using a station does now, or null when it does nothing (the hint shows this) */
@@ -205,7 +210,7 @@ async function start(): Promise<StudioGame> {
     else if (s.key === 'forge') { reach(); handle(feed(state)); setHeld(state.carrying); }
     else if (s.key === 'tub') { reach(); handle(quench(state)); setHeld(state.carrying); }
     else if (s.key === 'bellows') handle(pump(state));
-    else { reach(); pickUp(state, s.key); setHeld(s.key); }
+    else { reach(); pickUp(state, s.key); setHeld(s.key); snd?.event('pickup'); }
   }
 
   // tap / click: on a thing → walk there and use it; on the ground → walk there
@@ -231,6 +236,7 @@ async function start(): Promise<StudioGame> {
     player.body.setTranslation({ x: START[0], y: START[1] + player.half + player.radius + 0.02, z: START[2] }, true);
     player.heading = Math.PI;
     fx.setValue('fire', state.fire);
+    snd?.restartMusic();
     if (withIntro) {
       const tl = await (await fetch('assets/studio/cutscenes/intro.json')).json();
       intro = new CutscenePlayer(studio, game.animations!, tl, camera, 'assets/studio/cutscenes/audio/');
@@ -322,6 +328,14 @@ async function start(): Promise<StudioGame> {
     pumpT = Math.max(0, pumpT - dt);
     const shown = Math.min(1, lvl + pumpT * 0.3);
     if (Math.abs(shown - shownFire) > 0.005) { fx.setValue('fire', shown); shownFire = shown; }
+    // sound: the roar follows the fire; a clink on every hammer impact (the sparks' strike trigger);
+    // the music's intensity follows the pressure (a low fire, a waiting smith, the blade nearly done)
+    snd?.setValue('fire', shown);
+    const strikes = fx.fired['sparks:burst'] ?? 0;
+    if (strikes > clinks) { clinks = strikes; snd?.event('strike'); }
+    if (snd) snd.setValue('intensity', state?.phase === 'play' && mode === 'play'
+      ? +Math.min(1, 0.2 + 0.5 * Math.max(0, 1 - lvl / 0.7) + (state.request ? 0.35 * Math.min(1, state.waited / patience(state.done)) : 0) + 0.25 * (state.done / GOAL)).toFixed(2)
+      : 0.1);
     glow.intensity = shown > 0.005 ? 0.4 + shown * 5 + Math.sin(game.time * 13) * 0.3 * shown : 0;
     if (bladeMat && state) bladeMat.emissiveIntensity = state.phase === 'won' ? 0 : ((state.done % QUENCH_EVERY) / (QUENCH_EVERY - 1)) * 1.3;
     // camera: the whole yard, drifting a little with the apprentice
@@ -351,6 +365,8 @@ async function start(): Promise<StudioGame> {
   // scripted play for headless tests and capture: window.__fires
   (window as any).__fires = {
     get state() { return state; }, get mode() { return mode; }, get carrying() { return heldKey; },
+    /** the sound pack's live state: layer gains, music stems, events fired */
+    get sound() { return snd?.state() ?? null; },
     /** the card on screen (its title), or null */
     get card() { return cardEl?.querySelector('h1')?.textContent ?? null; },
     /** press the card's button (Start / Play again), as a player would */

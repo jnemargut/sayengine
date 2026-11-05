@@ -1,0 +1,21 @@
+{
+  "title": "Fire's Dying",
+  "owner": "Fire's Dying authors",
+  "licence": "CC0-1.0",
+  "values": { "fire": 0.8, "intensity": 0.2 },
+  "layers": [
+    { "id": "forge-roar", "bed": "forge-roar", "seed": "fires-dying", "seconds": 8, "gain": 0.9, "follow": { "value": "fire", "gain": [0.04, 1], "lowpass": [260, 2600] } },
+    { "id": "fire-crackle", "library": "fireplace-loop", "seconds": 10, "gain": 0.55, "follow": { "value": "fire", "gain": [0, 1], "lowpass": [900, 9000] } },
+    { "id": "yard", "library": "park-wind", "seconds": 10, "gain": 0.22 }
+  ],
+  "events": {
+    "strike": { "sounds": [ { "kind": "clink", "seed": "strike-1" }, { "kind": "clink", "seed": "strike-2" }, { "kind": "clink", "seed": "strike-3" }, { "kind": "clink", "seed": "strike-4" } ], "gain": 0.75, "pitch": [0.97, 1.03] },
+    "pickup": { "sounds": [ { "kind": "pickup", "seed": "pickup-1" } ], "gain": 0.3 },
+    "deliver": { "sounds": [ { "kind": "chime", "seed": "good-1" }, { "kind": "chime", "seed": "good-2" } ], "gain": 0.45 },
+    "wrong": { "sounds": [ { "kind": "buzz", "seed": "wrong-1" } ], "gain": 0.35 },
+    "fed": { "sounds": [ { "kind": "thud", "seed": "fed-1" }, { "kind": "thud", "seed": "fed-2" } ], "gain": 0.7 },
+    "pumped": { "sounds": [ { "kind": "puff", "seed": "puff-1" }, { "kind": "puff", "seed": "puff-2" } ], "gain": 0.8 },
+    "quench": { "sounds": [ { "kind": "hiss", "seed": "quench-1" } ], "gain": 0.6 }
+  },
+  "music": { "seed": "fires-dying", "mood": "forge", "bars": 8, "value": "intensity", "gain": 0.55, "stings": ["won", "lost"] }
+}
