@@ -44,9 +44,9 @@ export function buildYard(call: typeof ok) {
   call('set-profile', { profile: 'godot-desktop' });
   // bumpy ground beside the stairs: low domes (caps of big spheres) and a few rocks
   const bumps: Array<[number, number, number, number]> = [ // x, z, sphere radius, cap height
-    [-0.9, -0.9, 0.9, 0.12], [0.6, -1.1, 0.7, 0.09], [-0.2, 0.2, 1.0, 0.14], [1.1, 0.5, 0.8, 0.1], [-1.2, 0.9, 0.7, 0.08], [0.3, 1.3, 0.9, 0.11], [1.4, -0.2, 0.6, 0.07],
+    [-0.9, -0.8, 0.6, 0.15], [0.5, -1.0, 0.55, 0.12], [-0.3, 0.1, 0.7, 0.17], [0.9, 0.4, 0.6, 0.14], [-1.3, 0.8, 0.5, 0.1], [0.3, 1.2, 0.6, 0.13], [1.5, -0.3, 0.45, 0.1], [-0.5, -1.7, 0.5, 0.11], [1.6, 1.4, 0.5, 0.12],
   ];
-  call('new-object', { name: 'Bumpy ground', type: 'terrain', material: 'concrete', color: '#9c8f74', position: [3.6, 0, 0] });
+  call('new-object', { name: 'Bumpy ground', type: 'terrain', material: 'concrete', color: '#8f7a55', position: [3.6, 0, 0] });
   bumps.forEach(([x, z, r, h], i) => call('add-op', { id: `b${i}`, op: 'sphere', part: 'ground', output: false, args: { r, at: [x, h - r, z] } }));
   call('add-op', { id: 'domes', op: 'union', inputs: bumps.map((_, i) => `b${i}`), output: false });
   call('add-op', { id: 'below', op: 'box', part: 'ground', output: false, args: { size: [6, 2, 6], at: [0, -1, 0] } });

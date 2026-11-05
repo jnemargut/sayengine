@@ -25,10 +25,10 @@ func _ready() -> void:
 		add_child(studio)
 		CHARS.animate(studio)
 		# IK Yard: the crab and the spider roam the bumpy ground (their legs plant live on it by themselves)
-		for c in [["Crab", 0.9], ["Spider", 0.9]]:
+		for c in [["Crab", Vector3(3.2, 0, -0.5)], ["Spider", Vector3(4.3, 0, 0.7)]]:
 			var ik = CHARS.creature(studio, c[0])
 			if ik:
-				ik.wander(Vector3(3.6, 0, 0), c[1])
+				ik.wander(c[1], 0.7)
 	# studio effects and the UI kit's HUD (empty until the studio has some)
 	# the studio look (look.json: sky, fog, light, grade); without one, the game's own environment
 	if not LOOK.apply(self):

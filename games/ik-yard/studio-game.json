@@ -7,11 +7,11 @@
   },
   "player": "Apprentice",
   "lastImport": {
-    "at": "2026-11-05T17:15:27.218Z",
+    "at": "2026-11-05T17:24:45.017Z",
     "file": "assets/studio/scene.glb",
     "source": "studio scene",
     "ok": true,
-    "triangles": 2450,
+    "triangles": 3582,
     "meshes": 6,
     "warnings": 0
   }
