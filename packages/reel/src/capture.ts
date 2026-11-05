@@ -86,13 +86,13 @@ export async function captureWeb(reel: Reel, gameDir: string, work: string, only
   fs.writeFileSync(path.join(stage, 'entry.ts'), `import '../../src/main.ts';\nimport { applyLook } from '../../studio/look.ts';\n(window as any).__reelApplyLook = applyLook;\n`);
   const b = await bundle(gameDir, '.studio/reel/entry.ts', 'dist/reel.js');
   if (!b.ok) throw new Error(`web build failed: ${b.errors.join('; ')}`);
-  const html = fs.readFileSync(path.join(gameDir, 'index.html'), 'utf8').replace('dist/game.js', 'dist/reel.js');
+  const html = fs.readFileSync(path.join(gameDir, 'index.html'), 'utf8').replaceAll('dist/game.js', 'dist/reel.js');
   const page = path.join(gameDir, 'reel-capture.html');
   fs.writeFileSync(page, html);
   const out: Record<string, any> = {};
   try {
     await serve(gameDir, (url) => withPage(url + 'reel-capture.html', { width: 640, height: 400 }, async (p) => {
-      const ready = await p.eval(`Promise.race([window.__studio.ready.then(() => true), new Promise((_, j) => setTimeout(() => j('not ready'), 90000))])`, 120000);
+      const ready = await p.eval(`new Promise((res) => { const t0 = Date.now(); const tick = () => { if (window.__studio && window.__reelApplyLook) window.__studio.ready.then(() => res(true), (e) => res(String(e))); else if (Date.now() - t0 > 90000) res('the game did not load (reel-capture.html)'); else setTimeout(tick, 100); }; tick(); })`, 120000);
       if (ready !== true) throw new Error(String(ready));
       for (const take of reel.takes.filter((t) => !only || only.includes(t.id))) {
         const t0 = Date.now();

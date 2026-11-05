@@ -1,0 +1,125 @@
+{
+  "key": "A minor",
+  "bpm": 128,
+  "progression": [
+    "i",
+    "III",
+    "VII",
+    "VI"
+  ],
+  "sections": [
+    {
+      "bars": 4,
+      "mix": {
+        "pad": 0.9,
+        "arp": 0.55
+      },
+      "label": "intro"
+    },
+    {
+      "bars": 4,
+      "mix": {
+        "pad": 0.85,
+        "arp": 0.75,
+        "bass": 0.9,
+        "hats": 0.7
+      },
+      "label": "build"
+    },
+    {
+      "bars": 6,
+      "mix": {
+        "pad": 0.75,
+        "arp": 0.7,
+        "bass": 1,
+        "hats": 0.85,
+        "beat": 1,
+        "lead": 0.85
+      },
+      "riser": true,
+      "hit": true,
+      "label": "drop"
+    },
+    {
+      "bars": 2,
+      "mix": {
+        "pad": 0.85,
+        "arp": 0.35,
+        "bass": 0.6
+      },
+      "hit": true,
+      "label": "end"
+    }
+  ],
+  "bars": [
+    {
+      "bar": 0,
+      "t": 0,
+      "label": "intro"
+    },
+    {
+      "bar": 1,
+      "t": 1.875
+    },
+    {
+      "bar": 2,
+      "t": 3.75
+    },
+    {
+      "bar": 3,
+      "t": 5.625
+    },
+    {
+      "bar": 4,
+      "t": 7.5,
+      "label": "build"
+    },
+    {
+      "bar": 5,
+      "t": 9.375
+    },
+    {
+      "bar": 6,
+      "t": 11.25
+    },
+    {
+      "bar": 7,
+      "t": 13.125
+    },
+    {
+      "bar": 8,
+      "t": 15,
+      "label": "drop"
+    },
+    {
+      "bar": 9,
+      "t": 16.875
+    },
+    {
+      "bar": 10,
+      "t": 18.75
+    },
+    {
+      "bar": 11,
+      "t": 20.625
+    },
+    {
+      "bar": 12,
+      "t": 22.5
+    },
+    {
+      "bar": 13,
+      "t": 24.375
+    },
+    {
+      "bar": 14,
+      "t": 26.25,
+      "label": "end"
+    },
+    {
+      "bar": 15,
+      "t": 28.125
+    }
+  ],
+  "seconds": 30
+}

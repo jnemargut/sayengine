@@ -1,0 +1,8 @@
+version = 1
+
+[[annotations]]
+path = "trailer-*.mp4"
+precedence = "aggregate"
+SPDX-FileCopyrightText = ["2026 pocket-raleigh authors", "OpenStreetMap contributors", "Overture Maps Foundation"]
+SPDX-License-Identifier = "LicenseRef-Produced-Work-ODbL"
+# a Produced Work from ODbL databases (OSM, Overture): the end card carries the attribution; music CC0-1.0 (generated)

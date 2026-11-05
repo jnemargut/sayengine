@@ -1,0 +1,185 @@
+{
+  "reel": "trailer",
+  "engine": "godot",
+  "duration": 30.0279,
+  "bpm": 128.08,
+  "shots": [
+    {
+      "n": 1,
+      "take": "day-street",
+      "start": 0,
+      "end": 3.794,
+      "in": 0.3,
+      "out": 4.094,
+      "beats": 8,
+      "caption": "Pocket Raleigh"
+    },
+    {
+      "n": 2,
+      "take": "day-plaza",
+      "start": 3.794,
+      "end": 7.5417,
+      "in": 0.5,
+      "out": 4.2477,
+      "beats": 8,
+      "caption": "City Plaza, from open map data"
+    },
+    {
+      "n": 3,
+      "take": "day-aerial",
+      "start": 7.5417,
+      "end": 11.2894,
+      "in": 0.5,
+      "out": 4.2477,
+      "beats": 8,
+      "caption": "Fayetteville Street, block by block"
+    },
+    {
+      "n": 4,
+      "take": "twin-river",
+      "start": 11.2894,
+      "end": 13.1632,
+      "in": 0.5,
+      "out": 2.3738,
+      "beats": 4,
+      "caption": "…and an invented river town"
+    },
+    {
+      "n": 5,
+      "take": "twin-aerial",
+      "start": 13.1632,
+      "end": 15.0371,
+      "in": 0.5,
+      "out": 2.3739,
+      "beats": 4
+    },
+    {
+      "n": 6,
+      "take": "night-crown",
+      "start": 15.0371,
+      "end": 16.9109,
+      "in": 0.6,
+      "out": 2.4738,
+      "beats": 4,
+      "caption": "Day toy. Neon night."
+    },
+    {
+      "n": 7,
+      "take": "night-street",
+      "start": 16.9109,
+      "end": 18.7848,
+      "in": 0.6,
+      "out": 2.4739,
+      "beats": 4
+    },
+    {
+      "n": 8,
+      "take": "night-plaza",
+      "start": 18.7848,
+      "end": 20.6586,
+      "in": 0.6,
+      "out": 2.4738,
+      "beats": 4
+    },
+    {
+      "n": 9,
+      "take": "night-skyline",
+      "start": 20.6586,
+      "end": 22.5325,
+      "in": 0.6,
+      "out": 2.4739,
+      "beats": 4,
+      "caption": "Walk it in Godot and on the web"
+    },
+    {
+      "n": 10,
+      "take": "night-aerial",
+      "start": 22.5325,
+      "end": 26.2802,
+      "in": 0.3,
+      "out": 4.0477,
+      "beats": 8
+    }
+  ],
+  "endCard": {
+    "start": 26.2802,
+    "end": 30.0279,
+    "title": "Pocket Raleigh",
+    "sub": "a studio proof · Phase 4",
+    "credit": "Map data © OpenStreetMap contributors (ODbL) · Overture Maps Foundation · USGS 3DEP"
+  },
+  "cutsVsDetectedBeatsMs": {
+    "cuts": 10,
+    "nearADetectedBeat": 9,
+    "max": 14.1,
+    "median": 4.8
+  },
+  "warnings": [],
+  "videos": [
+    {
+      "aspect": "16:9",
+      "video": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/trailer-16x9.mp4",
+      "recipe": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/recipe-16x9.sh",
+      "filter": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/filter-16x9.txt",
+      "seconds": 116.7,
+      "overlays": 7
+    },
+    {
+      "aspect": "1:1",
+      "video": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/trailer-1x1.mp4",
+      "recipe": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/recipe-1x1.sh",
+      "filter": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/filter-1x1.txt",
+      "seconds": 65.2,
+      "overlays": 7
+    },
+    {
+      "aspect": "9:16",
+      "video": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/trailer-9x16.mp4",
+      "recipe": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/recipe-9x16.sh",
+      "filter": "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/filter-9x16.txt",
+      "seconds": 128.9,
+      "overlays": 7
+    }
+  ],
+  "stills": {
+    "16x9": [
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/01.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/02.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/03.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/04.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/05.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/06.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/07.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/08.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/09.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/10.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/16x9/11.jpg"
+    ],
+    "1x1": [
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/01.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/02.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/03.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/04.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/05.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/06.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/07.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/08.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/09.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/10.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/1x1/11.jpg"
+    ],
+    "9x16": [
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/01.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/02.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/03.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/04.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/05.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/06.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/07.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/08.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/09.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/10.jpg",
+      "~/AI3DModel/.claude/worktrees/agent-ae41840c7931a8d06/checkpoint-pocket-raleigh/reel/stills/9x16/11.jpg"
+    ]
+  }
+}

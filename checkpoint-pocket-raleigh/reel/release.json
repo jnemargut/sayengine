@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "images": 66,
+  "ocrErrors": [],
+  "textsSeen": [
+    "Pocket Räleigh",
+    "three real blocks of downtown",
+    "Pocket Raleigh",
+    "City Plaza, from open map data",
+    "• =",
+    "Fayetteville Street, block by block",
+    "•.and an invented river town",
+    "a studio proof • Phase 4",
+    "Map data © OpenStreetMap contributors (ODbL) • Overture Maps Foundation • USGS 3DEP",
+    "...and an invented river town",
+    "Day toy. Neon night.",
+    "Walk it in Godot and on the web",
+    "a studio proof • Phase 4 F",
+    "three real",
+    "I blocks of downtown",
+    "…and an invented river town",
+    "a studio proof · Phase 4",
+    "Map data © OpenStreetMap contributors (ODbL) · Overture Maps Foundation · USGS 3DEP"
+  ],
+  "findings": [],
+  "licences": {
+    "files": 1,
+    "missing": 0
+  }
+}

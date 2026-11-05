@@ -62,11 +62,12 @@ await serve(GAME, (url) => withPage(url + 'index.html', { width: 960, height: 54
   }
 }));
 
-const wav = path.join(OUT, 'session.wav');
+const wav = path.join(FRAMES, '..', 'session.wav');
 writeWav(wav, renderTrace(path.join(GAME, 'assets', 'studio', 'sound'), trace));
 const mp4 = path.join(OUT, 'fires-dying-sound-pass.mp4');
 execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(1 / (DT * EVERY)), '-i', path.join(FRAMES, '%05d.jpg'), '-i', wav, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '22', '-c:a', 'aac', '-b:a', '192k', '-shortest', mp4]);
 const report = listen(wav, { picture: path.join(OUT, 'session.png') });
+execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wav, '-c:a', 'aac', '-b:a', '160k', path.join(OUT, 'session.m4a')]);
 const counts: Record<string, number> = {};
 for (const e of trace.events) counts[e.name] = (counts[e.name] ?? 0) + 1;
 fs.writeFileSync(path.join(OUT, 'session.json'), JSON.stringify({ seconds: SECONDS, events: counts, musicEnd: trace.musicEnd ?? null, log, listen: report, trace }, null, 2));

@@ -1,0 +1,5 @@
+{
+  "_about": "Pocket Raleigh's additions to the studio release lists. The real landmarks are named only as places (nominative use); the ODbL produced-work notice must be readable in every shape.",
+  "required": ["OpenStreetMap", "Overture"],
+  "allow": ["Wells Fargo Capitol Center", "PNC Plaza", "City Plaza"]
+}

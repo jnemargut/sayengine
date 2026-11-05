@@ -338,21 +338,32 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - [ ] A sped-up headless day checks overlaps, wall crossings, pops and player collision.
 
 ### Week 13: life, vehicles + sound
-- [ ] Cars and a bus on lanes: car following, stop lines, braking for the player.
-- [ ] sound:
-  - synth for game sounds
-  - Stable Audio Open Small and CC0 libraries for foley and ambience
-  - seeded stems that adapt to the action (Godot interactive streams and a web version)
-  - beat-cut loops
-  - a licence on every file, feeding the credits
+- [ ] Cars and a bus on lanes: car following, stop lines, braking for the player. *(the life module, built in parallel)*
+- [x] sound *(`packages/sound/`, `studio sound …`, skill `/sound`)*:
+  - synth for game sounds *(jsfxr-style sfxr port + physical kinds: clink, hiss, puff, chime, buzz, thud, riser, impact, whoosh; `kind + seed`)*
+  - Stable Audio Open Small and CC0 libraries for foley and ambience *(SAO: runner + licence recorded, **not run** — gated weights need your HF acceptance, and 4 GB disk free; memory is fine. Fallback: CC0 OpenGameArt catalogue cached in `~/.studio-tools/sound-library` + procedural beds)*
+  - seeded stems that adapt to the action (Godot interactive streams and a web version) *(pad/arp/bass/hats/beat/lead, an intensity ladder; Godot: AudioStreamSynchronized inside AudioStreamInteractive with stings; web: `studio/sound.ts`; both read one `sound.json`)*
+  - beat-cut loops *(stems cut exactly on the bar with tails folded in; `studio sound loop` cuts recordings on librosa's grid)*
+  - a licence on every file, feeding the credits *(REUSE `.license` sidecars → `CREDITS.md`; `sound credits` fails on a missing one)*
 
 ### Week 14: reel + milestone
-- [ ] Reel: a cutscene file plus an edit track.
-  - Godot movie mode and web fixed-step capture.
-  - Beat cuts, with beat detection by librosa as a separate tool.
+- [x] Reel: a cutscene file plus an edit track. *(`packages/reel/`, `studio reel …`, skill `/reel`; `games/pocket-raleigh/reel/trailer.json`)*
+  - Godot movie mode and web fixed-step capture. *(square 1920² frames via a temporary override.cfg; web through a reel page that reuses the game + look module)*
+  - Beat cuts, with beat detection by librosa as a separate tool. *(`~/.studio-tools/venv`; regularised to a steady grid; 9/10 cuts within 14 ms of a detected beat)*
   - A crop box per shot for 16:9, 1:1 and 9:16.
-  - The final edit written as an ffmpeg recipe.
-- [ ] Release checks: on-Mac OCR against brand and team lists, a wording list, and REUSE credits.
+  - The final edit written as an ffmpeg recipe. *(`recipe-*.sh` + filter scripts; titles as Chrome-drawn PNGs since this ffmpeg has no drawtext)*
+- [x] Release checks: on-Mac OCR against brand and team lists, a wording list, and REUSE credits. *(`packages/proof/src/release.ts`: Apple Vision via a Swift helper, lists + per-game allow/required, `CREDITS.md`, `REUSE.toml`; run by `studio reel release`)*
+
+### Status (2026-11-05): weeks 13–14 (sound + reel, not vehicles) built on `phase4/sound-reel`
+**Proof:** Fire's Dying has a sound pass in its web build (forge roar + CC0 crackle follow the fire, clinks on hammer impacts, a CC0 yard bed, event sounds, adaptive seeded music with won/lost stings): `checkpoint-pocket-raleigh/sound/`. The 30 s Pocket Raleigh trailer (day toy + neon night + landmarks, cut to a generated 128 bpm track) in 16:9, 1:1 and 9:16: `checkpoint-pocket-raleigh/reel/`; re-run with `sh checkpoint-pocket-raleigh/reel/recut.sh` after the life module merges.
+
+**Weak (honest):**
+- **Music (D33's lean half):** correct and tidy (in key, voice-led, seamless, a monotonic ladder) but it is generic synth — expect "pleasant background loop", repetitive within minutes. Not listened to by a human yet: that listen settles D33.
+- Stable Audio Open Small never ran here (gated + disk), so the "model" layer is unproven.
+- The trailer is a flyover of an empty town (no folk, cars, gameplay); night has no bloom; a couple of shots show the world's edge.
+- Web capture runs on software GL: minutes per take at 480 px, so the trailer is captured in Godot.
+- The Fire's Dying listening video is an offline mix of the runtime's trace (headless Chrome can't record its audio), not a recording of the browser.
+- Sound packs ship 16-bit WAV (exact loops in both engines): Fire's Dying's is 15 MB at 32 kHz.
 - [ ] **Milestone, Pocket Raleigh:**
   - three real blocks plus an invented twin, walkable in Godot and web
   - two looks
