@@ -97,7 +97,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     const skin = '#c7563f', under = '#efb79a';
     const arms: PartSpec[] = Array.from({ length: 8 }, (_, i) => {
       const a = ((i + 0.5) * 45 * Math.PI) / 180;
-      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.6, segments: 10, r0: 0.04, r1: 0.007, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
+      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.7, segments: 16, shrink: 0.88, r0: 0.042, r1: 0.006, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
     });
     const potC: V3 = [0.13, 0.2 + 0.052, 0.71];
     const grip: V3 = [0.13, 0.255, 0.635];
@@ -122,7 +122,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
             { shape: { kind: 'box', c: [0, 0.185, 0.75], size: [0.6, 0.03, 0.34] }, color: '#8a6a4a' },
             ...[[0.15, 0.62], [-0.15, 0.62], [0.15, 0.88], [-0.15, 0.88]].map(([x, z]) => ({ shape: { kind: 'seg' as const, a: [x, 0, z] as V3, b: [x, 0.172, z] as V3, r1: 0.016, r2: 0.016, sides: 10 }, color: '#6f533a' })),
           ] },
-          { kind: 'prop', id: 'teapot', at: grip, shapes: [
+          { kind: 'prop', id: 'teapot', at: grip, wrap: { axis: [0, 1, -0.12], r: 0.008 }, shapes: [
             { shape: { kind: 'ball', c: potC, r: 0.062, scale: [1, 0.84, 1], sides: 22 }, color: '#4f8a8b' },
             { shape: { kind: 'ball', c: add(potC, [0, 0.05, 0]), r: 0.03, scale: [1, 0.45, 1], sides: 16 }, color: '#4f8a8b' },
             { shape: { kind: 'ball', c: add(potC, [0, 0.068, 0]), r: 0.009, sides: 10 }, color: '#e9dfc9' },

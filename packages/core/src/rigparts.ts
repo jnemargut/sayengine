@@ -106,6 +106,7 @@ export interface ChainPartSpec {
   limit?: number;                                      // bend limit per joint (deg)
   tip?: Array<{ shape: PartShape; color: string }>;    // shapes riding the last segment (a claw, a sucker pad), object space
   under?: string;                                      // a lighter strip along the underside, this colour (an octopus's suckers, a belly)
+  shrink?: number;                                     // each segment this × the one before (0.85: short segments at the tip, so it can coil)
 }
 /** A pair of wings (left given, right mirrored): arm, forearm and hand bones with feathers. Flap, glide,
  *  fold and hover poses, and a flight cycle, are computed from the wing's proportions (wings.ts). */
@@ -141,6 +142,7 @@ export interface PropPartSpec {
   shapes: Array<{ shape: PartShape; color: string }>;
   surface?: number;                                    // height of its top, when things can stand on it (a table)
   fx?: { hide: V3 };                                   // an effect (a stream of tea): hidden by this offset unless an action shows it
+  wrap?: { axis: V3; r: number };                      // what a holding chain coils round at the grip point: the handle's axis (rest) and its radius
 }
 export interface WheelsPartSpec {
   kind: 'wheels'; id: string;
@@ -297,21 +299,31 @@ export function buildCreature(def: CreatureDef): Creature {
       case 'chain': {
         const parent = spec.parent ?? 'Body';
         const dir = norm(spec.dir);
-        const seg = spec.length / spec.segments;
+        // segment lengths: equal, or shrinking toward the tip (a tentacle)
+        const q = spec.shrink ?? 1;
+        const w = Array.from({ length: spec.segments }, (_, i) => q ** i), wSum = w.reduce((x, y) => x + y, 0);
+        const cum = [0];
+        for (const x of w) cum.push(cum[cum.length - 1] + (x / wSum) * spec.length);
         let prev = parent;
         for (let i = 0; i < spec.segments; i++) {
-          const a = add(spec.at, mul(dir, seg * i)), b = add(spec.at, mul(dir, seg * (i + 1)));
+          const seg = cum[i + 1] - cum[i];
+          const a = add(spec.at, mul(dir, cum[i])), b = add(spec.at, mul(dir, cum[i + 1]));
           const name = `${spec.id}.${i + 1}`;
           addBone(C, name, prev, a, b);
-          const r1 = lerp(spec.r0, spec.r1, i / spec.segments), r2 = lerp(spec.r0, spec.r1, (i + 1) / spec.segments);
-          // each segment overlaps the next a little, so bends don't open gaps
+          const r1 = lerp(spec.r0, spec.r1, cum[i] / spec.length), r2 = lerp(spec.r0, spec.r1, cum[i + 1] / spec.length);
+          // each segment overlaps the next a little, so bends don't open gaps; the overlap carries on
+          // the taper (no ridge where the next segment starts), and the joint ball matches the surface
           const sq = spec.squash ? { squash: spec.squash } : {};
-          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
-          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
+          const ext = i === spec.segments - 1 ? 0 : Math.min(r2, seg * 0.35);
+          const rExt = Math.max(r2 * 0.6, r2 - ((r1 - r2) / seg) * ext);
+          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, ext)), r1, r2: ext ? rExt : r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
+          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 0.995, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
           if (i === spec.segments - 1) for (const x of spec.tip ?? []) pieces.push({ bone: name, shape: x.shape, color: x.color, part: spec.id });
           if (spec.under) {
             const dn: V3 = [0, -1, 0];
             pieces.push({ bone: name, shape: { kind: 'seg', a: add(a, mul(dn, r1 * 0.42)), b: add(add(b, mul(dir, Math.min(r2, seg * 0.3))), mul(dn, r2 * 0.42)), r1: r1 * 0.68, r2: r2 * 0.68, sides: 10, round: true, squash: [1, 0.75] }, color: spec.under, part: spec.id });
+            // suckers: a pair of small discs on the underside of each segment
+            if (spec.shrink) for (const u of [0.3, 0.75]) pieces.push({ bone: name, shape: { kind: 'ball', c: add(lerp3(a, b, u), mul(dn, lerp(r1, r2, u) * 0.86)), r: lerp(r1, r2, u) * 0.36, scale: [1, 0.45, 1], sides: 10 }, color: spec.under, part: spec.id });
           }
           limits[name] = { kind: 'cone', maxDeg: spec.limit ?? (spec.motion === 'coil' || spec.motion === 'curl' ? 70 : 55) };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
