@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 63: The Notes Inbox and the Taste File — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fdf6e9; color:#8a5208; }
+.panel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; font-size:0.7rem; color:#334155; }
+.panel-h { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a; font-size:0.7rem; }
+.panel-h span { font-weight:600; color:#64748b; font-size:0.62rem; }
+.note { display:grid; grid-template-columns: auto 1fr; gap:8px; padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+.note:last-child { border-bottom:none; }
+.st { font-size:0.56rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:2px 6px; border-radius:999px; align-self:start; margin-top:1px; }
+.st.open { background:#fdf6e9; color:#8a5208; } .st.doing { background:#e8eef6; color:#23466f; } .st.done { background:#edf6f0; color:#2c6e48; } .st.stale { background:#f1f5f9; color:#64748b; }
+.note b { color:#0f172a; font-weight:600; }
+.note small { display:block; color:#64748b; font-size:0.62rem; }
+.file { font-family:'SF Mono', Menlo, monospace; font-size:0.64rem; line-height:1.55; background:#fffdf7; color:#3b3222; border:1px solid #eadfc8; border-radius:8px; padding:9px 11px; white-space:pre-wrap; }
+.file .h { color:#8a5208; font-weight:700; }
+.file .c { color:#9a8a6a; }
+.thread { padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+.msg { font-size:0.64rem; padding:4px 7px; border-radius:7px; margin:3px 0; max-width:85%; }
+.msg.you { background:#e8eef6; color:#23466f; }
+.msg.me { background:#f1f5f9; color:#334155; margin-left:auto; }
+.meter { padding:8px 10px; }
+.bar { display:grid; grid-template-columns: 86px 1fr 30px; gap:6px; align-items:center; font-size:0.62rem; margin:3px 0; }
+.track { height:7px; background:#f1f5f9; border-radius:4px; overflow:hidden; }
+.fill { display:block; height:100%; background:#94a3b8; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.stack { display:flex; flex-direction:column; gap:8px; width:100%; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 63 of 65 · Working together</span>
+  <h1>The Notes Inbox and the Taste File</h1>
+  <span class="category-badge">Interaction</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    With decision 61 you can point at anything at any moment, and with decision 62 every change is a step you keep or undo. Two things are still missing. First, a place where your notes live ("foot slides here", "too loud", "shot 3 drags") so none get lost between sessions. Second, a way for what you've told me to stick: today your verdict on sounds ("generated ones are about equal to free recordings") lives in my memory notes, where you can't see or edit it. This decides both, and what stays private once the studio repo is public.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: inbox + a taste file you can read</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Inbox per Project, Plus a Taste File in Plain Words</h2>
+    </div>
+    <div class="visual-preview"><div class="stack">
+      <div class="panel">
+        <div class="panel-h">Notes · Forge game <span>2 open · 1 stale</span></div>
+        <div class="note"><span class="st open">Open</span><div><b>"Foot slides here"</b><small>Smith · left foot · swing at the "strike" moment</small></div></div>
+        <div class="note"><span class="st doing">On it</span><div><b>"The clink is too sharp"</b><small>sound "strike" · 0.08 s · proposal p9</small></div></div>
+        <div class="note"><span class="st stale">Stale</span><div><b>"Hold this pose longer"</b><small>the "lift" moment was removed in step 14: still want it?</small></div></div>
+      </div>
+<div class="file"><span class="h">taste.md</span> <span class="c">(you can edit this)</span>
+- Sounds: free recordings first; generated only
+  to fill gaps. <span class="c">(you, 5 Nov)</span>
+- Motion: you keep "more weight" 4 of 5 times.
+  Lean heavier by default. <span class="c">(from 5 picks)</span>
+- Looks: you chose warm over cool at night 3/3.
+- Faces: smile is "good enough": don't revisit.</div>
+    </div>
+      <div class="proof"><b>What it feels like:</b> notes sit in a panel in the view and in one file, each pinned to its moment, moving from open to "on it" to done. You never retype a note between sessions. Picks, undos and things you've said get summed up as short rules in a file you can read and edit, and I read it before proposing anything.</div>
+    </div>
+    <div class="option-summary">
+      Each project (your game, Pocket Raleigh) gets one notes inbox: pinned notes with their address from decision 61 and a status (open, on it, done, stale). Your picks, undos and verdicts are boiled down into a short taste file in plain words, with a reason or count beside each rule. You can edit or delete any line. I read it before every proposal, and a rule only appears after a pattern repeats or you say it outright. Studio-wide taste (like sounds) lives in one shared file, and game-specific taste stays with the game. Both stay out of the public repo unless you choose to share them.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want to see and fix what I've learned</li>
+        <li>Notes should outlive a session</li>
+        <li>Taste should travel to your next game</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>A wrong rule could steer proposals until you spot it</li>
+        <li>Two files to keep tidy</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">An Inbox, and Taste Stays in My Memory</h2>
+    </div>
+    <div class="visual-preview"><div class="stack">
+      <div class="panel">
+        <div class="panel-h">Notes · Forge game <span>2 open</span></div>
+        <div class="note"><span class="st open">Open</span><div><b>"Foot slides here"</b><small>Smith · left foot · at "strike"</small></div></div>
+        <div class="note"><span class="st doing">On it</span><div><b>"The clink is too sharp"</b><small>sound "strike" · 0.08 s</small></div></div>
+      </div>
+<div class="file"><span class="h">~/.claude/…/memory/</span> <span class="c">(Claude's own notes)</span>
+- user found generated sounds about
+  equal to CC0; prefer CC0, SAO for gaps</div>
+    </div>
+      <div class="proof"><b>What it feels like:</b> the same inbox, but taste is whatever I remember in my memory files: the way it works today. Less to build, but you have to ask me what I've learned, and it lives outside the project.</div>
+    </div>
+    <div class="option-summary">
+      The same notes inbox as A, but no taste file. What I learn about your taste goes into my memory notes, the way your sound verdict and printer setup are kept today. Nothing new to build for taste. But you can't easily see or correct it, it lives outside the project (another tool or person on the repo wouldn't have it), and it records only what I happened to write down, not the pattern of your picks.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Only you and I ever work on it</li>
+        <li>Taste rarely matters</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Hard to see or correct</li>
+        <li>Picks aren't counted</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Notes as Conversations, Like Issue Threads</h2>
+    </div>
+    <div class="visual-preview"><div class="stack">
+      <div class="panel">
+        <div class="panel-h">Note #12 · "The clink is too sharp" <span>sound "strike" · 0.08 s</span></div>
+        <div class="thread">
+          <div class="msg you">The clink is too sharp</div>
+          <div class="msg me">Softer attack, or a heavier, lower hit?</div>
+          <div class="msg you">Heavier</div>
+          <div class="msg me">Proposal p9 has two heavier takes. Linked here.</div>
+        </div>
+        <div class="note"><span class="st doing">On it</span><div><b>Labels:</b> sound, forge<small>Linked: p9 · step 21</small></div></div>
+      </div>
+    </div>
+      <div class="proof"><b>What it feels like:</b> every note is a little thread, like a GitHub issue: we can talk it through, link proposals and close it when done. Rich, but it turns a quick "too sharp" into a conversation to manage.</div>
+    </div>
+    <div class="option-summary">
+      Each note becomes a thread we both reply in, with labels and links to proposals, like GitHub issues or Figma comment threads. Great when a note needs discussion. But most notes don't ("foot slides here" just needs fixing), threads add reading for both of us, and it still leaves taste unrecorded unless we also add A's file.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Notes often need back-and-forth</li>
+        <li>Others join the project</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Heavy for one-line notes</li>
+        <li>No taste memory by itself</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Taste Learned Automatically from Every Pick</h2>
+    </div>
+    <div class="visual-preview"><div class="stack">
+      <div class="panel">
+        <div class="panel-h">Learned preference scores <span>from 41 picks</span></div>
+        <div class="meter">
+          <div class="bar"><span>warm light</span><span class="track"><span class="fill" style="width:78%"></span></span><span>0.78</span></div>
+          <div class="bar"><span>heavy motion</span><span class="track"><span class="fill" style="width:71%"></span></span><span>0.71</span></div>
+          <div class="bar"><span>busy UI</span><span class="track"><span class="fill" style="width:22%"></span></span><span>0.22</span></div>
+          <div class="bar"><span>synth sounds</span><span class="track"><span class="fill" style="width:40%"></span></span><span>0.40</span></div>
+        </div>
+      </div>
+    </div>
+      <div class="proof"><b>What it feels like:</b> every pick and undo quietly updates scores that nudge future proposals, like Midjourney's personalization. No writing anything down, but you can't easily tell why a proposal leaned one way, and it can drift on a handful of picks.</div>
+    </div>
+    <div class="option-summary">
+      Log every pick, keep and undo, and turn them into preference scores that automatically steer what I propose, the way image tools personalize after a few dozen ratings. Effortless, and it does help after tens to hundreds of picks. But the scores are opaque ("why did it pick warm?"), a few picks early on can over-steer, and pick-based steering is known to narrow variety over time.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You make many picks and never want to write rules</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Opaque: hard to see why</li>
+        <li>Narrows variety over time</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A taste file can be confidently wrong. If I write "lean heavier by default" after five picks, every proposal tilts that way until you notice, and you may not read the file often. D's scores at least keep updating by themselves, and B adds nothing new to maintain. A only works if rules stay few, carry their evidence, and show up in the proposal ("leaning heavier because of your taste file") so you can catch a bad one in the moment.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>A rule appears only after you say it outright or a pattern repeats (about 3+ times), and every rule shows its source.</li>
+    <li>When a proposal leans on a taste rule, it says so ("heavier, per your taste file"), so a wrong rule gets caught.</li>
+    <li>Notes and taste for your games stay out of the public studio repo unless you opt in.</li>
+    <li>Tripwire: if the taste file grows past about 30 rules, prune or merge. Long rule lists stop being read.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick col-chosen">A · Inbox + taste file</th><th class="col-b">B · Inbox + my memory</th><th class="col-c">C · Conversation threads</th><th class="col-d">D · Automatic scores</th></tr></thead>
+    <tbody>
+      <tr><td>Notes survive between sessions</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>Not by itself</td></tr>
+      <tr><td>You can see what I've learned</td><td class="col-pick">Yes, in plain words</td><td>Only by asking</td><td>No taste record</td><td>Scores only</td></tr>
+      <tr><td>You can correct it</td><td class="col-pick">Edit a line</td><td>Ask me</td><td>n/a</td><td>Hard</td></tr>
+      <tr><td>Uses the pattern of your picks</td><td class="col-pick">Yes, summed into rules</td><td>No</td><td>No</td><td>Yes, automatically</td></tr>
+      <tr><td>Travels to your next game</td><td class="col-pick">Studio-wide file</td><td>Yes (my memory)</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: delete the files</td><td>Low</td><td>Medium</td><td>Medium: scores baked into habits</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Logged picks do improve later generations, and quickly: Midjourney personalization works from about 40 ratings and is stable around 200, with little gain past about 400.<a class="cite" href="https://docs.midjourney.com/docs/personalization">Midjourney docs</a></li>
+    <li>Preference memory can work without any training: FABRIC steers image generation from liked and disliked examples alone. That suits an 8 GB laptop.<a class="cite" href="https://arxiv.org/abs/2307.10159">FABRIC (arXiv)</a></li>
+    <li>Pick-based feedback cuts variety within a batch, and seeing AI examples narrowed people's ideas. That's a reason to keep taste visible and to make "show me three" deliberately varied.<a class="cite" href="https://arxiv.org/html/2403.11164v1">CHI 2024</a></li>
+    <li>Figma comments pinned to a layer detach when the layer is cut and pasted, with no way to reattach them. That's why notes here carry the decision-61 address and go stale visibly.<a class="cite" href="https://forum.figma.com/t/make-it-possible-to-reattach-unattached-comments/4931">Figma forum</a></li>
+  </ul>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 64, "only you can judge" checklists.</p>
+</div>
+</body>
+</html>

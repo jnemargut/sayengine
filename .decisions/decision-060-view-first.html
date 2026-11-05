@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 60: Which Systems Join the Live View First — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.confidence-badge.lean { background:#b86e0a; }
+.app { width:100%; background:#1d2430; border-radius:10px; overflow:hidden; border:1px solid #0f172a; font-size:0.62rem; color:#cbd5e1; }
+.app-bar { display:flex; gap:6px; align-items:center; padding:6px 8px; background:#141a23; border-bottom:1px solid #2b3442; }
+.dot { width:7px; height:7px; border-radius:50%; background:#3b4656; }
+.app-url { margin-left:6px; color:#8391a5; font-family:'SF Mono', monospace; font-size:0.58rem; }
+.app-body { display:grid; grid-template-columns: 1fr 112px; min-height:150px; }
+.stage { position:relative; background:#2a3342; min-height:150px; overflow:hidden; }
+.floor { position:absolute; left:0; right:0; bottom:0; height:42%; background:#344052; }
+.side { background:#18202b; border-left:1px solid #2b3442; padding:7px; display:flex; flex-direction:column; gap:5px; }
+.side h4 { font-size:0.55rem; letter-spacing:.08em; text-transform:uppercase; color:#8391a5; font-weight:800; }
+.chip { display:block; padding:3px 6px; border-radius:5px; background:#243041; color:#dbe4f0; font-size:0.58rem; line-height:1.3; }
+.chip.ok { border-left:3px solid #4fa775; }
+.chip.bad { border-left:3px solid #e0675d; }
+.chip.ask { border-left:3px solid #e0a43b; }
+.dock { background:#141a23; border-top:1px solid #2b3442; padding:6px 8px; display:flex; flex-direction:column; gap:3px; }
+.trk { display:grid; grid-template-columns: 54px 1fr; gap:6px; align-items:center; }
+.trk-n { color:#8391a5; font-size:0.55rem; font-weight:700; }
+.lane { position:relative; height:11px; background:#202937; border-radius:3px; }
+.seg { position:absolute; top:1px; bottom:1px; border-radius:2px; }
+.s-mot { background:#6d8fd6; } .s-fx { background:#e08a3b; } .s-snd { background:#56b7a6; } .s-shot { background:#a083d8; } .s-bad { background:#e0675d; }
+.wave { position:absolute; inset:2px 0; background: repeating-linear-gradient(90deg, #56b7a6 0 2px, transparent 2px 4px); opacity:.6; border-radius:2px; }
+.playhead { position:absolute; top:-2px; bottom:-2px; width:2px; background:#f5d76e; }
+.fig { position:absolute; bottom:30%; width:14px; height:40px; background:#d9b38c; border-radius:6px 6px 3px 3px; }
+.fig::before { content:""; position:absolute; top:-12px; left:1px; width:12px; height:12px; border-radius:50%; background:#e8c9a6; }
+.box3d { position:absolute; background:#8a6a4f; border-radius:3px; }
+.flame { position:absolute; width:16px; height:22px; border-radius:50% 50% 40% 40%; background:#e08a3b; border:3px solid #f5c26b; }
+.bldg { position:absolute; bottom:42%; background:#56657c; border:1px solid #6c7d96; }
+.ped { position:absolute; width:5px; height:12px; background:#e8c9a6; border-radius:2px; }
+.pin { position:absolute; background:#f5d76e; color:#1d2430; font-weight:800; font-size:0.55rem; padding:1px 5px; border-radius:8px; }
+.tabs { display:flex; gap:3px; padding:5px 8px 0; background:#141a23; }
+.tab { padding:3px 7px; border-radius:5px 5px 0 0; background:#202937; color:#8391a5; font-size:0.55rem; font-weight:700; }
+.tab.on { background:#2a3342; color:#f1f5f9; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.today { max-width:1200px; margin:0 auto 2.5rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.today h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.6rem; }
+.today table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+.today td, .today th { text-align:left; padding:0.4rem 0.6rem; border-bottom:1px solid #f1f5f9; color:#334155; vertical-align:top; }
+.today th { font-size:0.68rem; letter-spacing:.06em; text-transform:uppercase; color:#64748b; }
+.y { color:#2c6e48; font-weight:700; } .n { color:#a83a32; font-weight:700; } .p { color:#b86e0a; font-weight:700; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 60 of 65 · Working together</span>
+  <h1>Which Systems Join the Live View First</h1>
+  <span class="category-badge">Information architecture</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    Modelling works so well together because we both look at one live view (localhost:4517), you click a part to say "this", and every change I make is a step you keep or undo. Everything else lives somewhere else. Motion, creatures, cast, cutscenes and voice lines each have their own separate player page, effects and UI are still pictures, sound is numbers, and town life has no view at all. Bringing all of them into the live view at once is too much, so this picks which group goes first, while your own game is the next thing you build.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<section class="today">
+  <h2>Where each system stands today, against the five things that make modelling work</h2>
+  <table>
+    <thead><tr><th>System</th><th>In the live view</th><th>You can point at it</th><th>Keep / undo each change</th><th>Checks</th><th>Knobs</th></tr></thead>
+    <tbody>
+      <tr><td>3D modelling, printing</td><td class="y">Yes</td><td class="y">Click a part</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Params</td></tr>
+      <tr><td>Looks</td><td class="y">Yes</td><td class="n">No</td><td class="p">A/B picks</td><td class="y">Gates</td><td class="p">In the record, no sliders</td></tr>
+      <tr><td>Characters and faces</td><td class="p">As objects</td><td class="p">Body only</td><td class="p">Partly</td><td class="y">Yes</td><td class="y">Proportions</td></tr>
+      <tr><td>Motion, rig parts, actions</td><td class="n">Own player page</td><td class="n">No</td><td class="n">No</td><td class="y">With a timeline</td><td class="p">Word notes</td></tr>
+      <tr><td>Voice lines, cutscenes</td><td class="n">Own player pages</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="n">No</td></tr>
+      <tr><td>Effects, UI kit</td><td class="n">Still sheets</td><td class="n">No</td><td class="n">No</td><td class="y">Yes</td><td class="n">No</td></tr>
+      <tr><td>Sound, trailers</td><td class="n">Numbers, files</td><td class="n">No</td><td class="n">No</td><td class="p">Loudness, beats</td><td class="n">No</td></tr>
+      <tr><td>Towns, town life</td><td class="n">Game builds only</td><td class="p">By ID</td><td class="p">Fix layer</td><td class="y">Headless day</td><td class="n">No</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: everything that moves</span>
+          <span class="chosen-badge">Chosen</span>
+          <span class="confidence-badge lean">Lean</span>
+                  </div>
+      </div>
+      <h2 class="option-title">Everything That Moves, on One Timeline</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="app">
+        <div class="app-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="app-url">localhost:4517 · Forge scene</span></div>
+        <div class="app-body">
+          <div class="stage"><div class="floor"></div>
+            <div class="box3d" style="left:30%;bottom:30%;width:44px;height:26px"></div>
+            <div class="flame" style="left:36%;bottom:52%"></div>
+            <div class="fig" style="left:62%"></div>
+            <span class="pin" style="left:58%;bottom:22%">1.4 s · left foot</span>
+          </div>
+          <div class="side"><h4>Checks at 1.4 s</h4>
+            <span class="chip bad">Feet planted: slides 3 cm</span>
+            <span class="chip ok">Joints in limits</span>
+            <span class="chip ok">Fire matches value</span>
+            <h4>Proposal p4</h4>
+            <span class="chip ask">Swing: more weight · keep / undo</span>
+          </div>
+        </div>
+        <div class="dock">
+          <div class="trk"><span class="trk-n">Smith · swing</span><span class="lane"><span class="seg s-mot" style="left:4%;width:58%"></span><span class="seg s-bad" style="left:30%;width:8%"></span><span class="playhead" style="left:34%"></span></span></div>
+          <div class="trk"><span class="trk-n">Sparks</span><span class="lane"><span class="seg s-fx" style="left:33%;width:6%"></span><span class="seg s-fx" style="left:55%;width:6%"></span></span></div>
+          <div class="trk"><span class="trk-n">Line + clink</span><span class="lane"><span class="wave" style="left:10%;right:30%"></span></span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> you scrub to the frame where the smith's foot slides and type "fix this". Sparks, the voice line and the clink sit on the same timeline, so "the sparks are late" points at a real moment. One timeline serves motion, actions, voice lines, cutscenes, effects and sound.</div>
+    </div>
+    <div class="option-summary">
+      Bring every system that plays over time into the live view, sharing one scrub timeline at the bottom: motion clips and actions, voice lines and cutscenes, effects, and sound as a waveform track. Check failures show as red stretches on the timeline. The five separate player pages retire. Almost every game uses these systems, so your game benefits whatever it turns out to be. Towns, town life, UI and trailers come next.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Your game has characters, effects and sound (nearly any game)</li>
+        <li>One timeline is built once and serves six systems</li>
+        <li>Animation is what you care most about ("anything I say animated")</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Built before knowing your game</li>
+        <li>Towns and town life stay outside a while longer</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Whatever Your Game Needs, Pulled by Your Game</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="app">
+        <div class="app-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="app-url">localhost:4517 · your game</span></div>
+        <div class="app-body">
+          <div class="stage"><div class="floor"></div>
+            <div class="fig" style="left:44%"></div>
+            <span class="pin" style="left:30%;top:14%">your game's first scene</span>
+          </div>
+          <div class="side"><h4>Game spec says</h4>
+            <span class="chip ask">Characters: yes</span>
+            <span class="chip ask">Town life: no</span>
+            <span class="chip ask">Effects: 2</span>
+            <span class="chip ask">Sound: adaptive</span>
+            <h4>Joins the view</h4>
+            <span class="chip ok">Only those</span>
+          </div>
+        </div>
+        <div class="dock">
+          <div class="trk"><span class="trk-n">decided later</span><span class="lane"></span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> no view work yet. You start your game with <code>/x-decide-gaming</code>, its spec names the systems it uses, and only those join the view, in the order the game first needs them.</div>
+    </div>
+    <div class="option-summary">
+      Wait for your game. Its planning decides which systems it uses, and only those join the live view, in the order the game reaches them. It follows the lesson from decision 59 exactly (tools pulled by a real game), and nothing is built that the game doesn't touch. But your first weeks on the game use today's separate pages, and the shared timeline gets designed for one game instead of all of them.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want zero tool work before your game starts</li>
+        <li>Your game turns out narrow (e.g. no characters)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Your first weeks use the old pages</li>
+        <li>Built piecemeal, under deadline pressure</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Places First: Towns and the People in Them</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="app">
+        <div class="app-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="app-url">localhost:4517 · Pocket Raleigh</span></div>
+        <div class="app-body">
+          <div class="stage"><div class="floor"></div>
+            <div class="bldg" style="left:6%;width:40px;height:70px"></div>
+            <div class="bldg" style="left:28%;width:30px;height:50px"></div>
+            <div class="bldg" style="left:70%;width:44px;height:80px"></div>
+            <div class="ped" style="left:52%;bottom:28%"></div><div class="ped" style="left:58%;bottom:24%"></div><div class="ped" style="left:44%;bottom:20%"></div>
+            <span class="pin" style="left:50%;bottom:36%">Ada · 10:32</span>
+          </div>
+          <div class="side"><h4>Ada at 10:32</h4>
+            <span class="chip">Going: market stall</span>
+            <span class="chip ask">"She should sit on this bench"</span>
+            <h4>Building ov:08b2…</h4>
+            <span class="chip ok">Fix: roof flat → hip</span>
+          </div>
+        </div>
+        <div class="dock">
+          <div class="trk"><span class="trk-n">Saturday</span><span class="lane"><span class="seg s-mot" style="left:20%;width:40%"></span><span class="playhead" style="left:42%"></span></span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> click a building to fix its roof without hunting for IDs, click a person to see where they're going, and drag the clock through the day. The town finally gets the modelling treatment.</div>
+    </div>
+    <div class="option-summary">
+      Bring towns and town life in first: click a building to fix it, click a person to see their plans and redirect them, and scrub the clock through a day. It's where pointing by clicking saves the most fiddling today (fixes still go through IDs). But it mostly serves Pocket Raleigh-style games, and your next game may not have a town at all.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Your game is a place full of people</li>
+        <li>Pocket Raleigh keeps growing</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Narrow: many games have no town</li>
+        <li>Motion and effects stay on separate pages</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Plug-in Frame First, Then Every System at Once</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="app">
+        <div class="tabs"><span class="tab on">Model</span><span class="tab">Motion</span><span class="tab">Effects</span><span class="tab">Sound</span><span class="tab">Town</span><span class="tab">UI</span><span class="tab">Reel</span></div>
+        <div class="app-body">
+          <div class="stage"><div class="floor"></div>
+            <div class="box3d" style="left:40%;bottom:30%;width:50px;height:34px"></div>
+          </div>
+          <div class="side"><h4>Each system plugs in</h4>
+            <span class="chip">its viewer</span>
+            <span class="chip">its timeline tracks</span>
+            <span class="chip">its knobs</span>
+            <span class="chip">its checks</span>
+          </div>
+        </div>
+        <div class="dock">
+          <div class="trk"><span class="trk-n">any system</span><span class="lane"><span class="seg s-mot" style="left:5%;width:20%"></span><span class="seg s-fx" style="left:30%;width:10%"></span><span class="seg s-snd" style="left:45%;width:30%"></span><span class="seg s-shot" style="left:80%;width:15%"></span></span></div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the tidiest end state: one view with a tab per system, all sharing selection, timeline, proposals and notes. But nothing new is usable until the frame and several systems are done.</div>
+    </div>
+    <div class="option-summary">
+      Build a general plug-in frame first (each system registers its viewer, timeline tracks, knobs and checks), then move all nine systems in. It's the cleanest architecture and treats every system equally. But it's the longest wait before anything feels different, the frame gets designed without a real system pushing on it, and it's the most likely to delay your game.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want one consistent design everywhere</li>
+        <li>The public repo should look complete</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Longest before it helps</li>
+        <li>Frame designed in the abstract</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Decision 59 taught us that tools pulled by a real game beat tools built ahead of one, and A builds ahead. If your game turns out to be a calm town builder or a puzzle game with little animation, the moving-things timeline is the wrong first investment, and B would have found that out for free. It's a lean, not a strong pick, because nearly every game has characters, effects and sound, but "nearly" is a bet.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>The live view stays the one place we both look at (localhost:4517). The five separate player pages retire once their system is in.</li>
+    <li>Whatever goes first, the pieces are built so later systems plug in the same way (a light version of D's frame, grown from a real system rather than designed up front).</li>
+    <li>Tripwire: if your game's spec (from <code>/x-decide-gaming</code>) uses none of the chosen group, switch to B for the rest.</li>
+    <li>Tripwire: if the first group takes more than about two weeks, ship what's working and start your game anyway.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick col-chosen">A · Everything that moves</th><th class="col-b">B · Pulled by your game</th><th class="col-c">C · Towns and people</th><th class="col-d">D · Plug-in frame, all at once</th></tr></thead>
+    <tbody>
+      <tr><td>Systems in the view first</td><td class="col-pick">Motion, actions, voice, cutscenes, effects, sound</td><td>Whatever your game uses</td><td>Towns, town life</td><td>All nine</td></tr>
+      <tr><td>Helps your game if it has...</td><td class="col-pick">Characters, effects or sound (most games)</td><td>Anything (by design)</td><td>A town or crowd</td><td>Anything, but late</td></tr>
+      <tr><td>Time before it feels different</td><td class="col-pick">About 1–2 weeks</td><td>When your game reaches it</td><td>About 1–2 weeks</td><td>About 4+ weeks</td></tr>
+      <tr><td>Separate pages retired</td><td class="col-pick">5 of 5 players</td><td>Only the ones used</td><td>None</td><td>All, at the end</td></tr>
+      <tr><td>Risk of delaying your game</td><td class="col-pick">Low to medium</td><td>Lowest</td><td>Medium</td><td>Highest</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: the timeline is reused by everything later</td><td>Low</td><td>Medium: built for one kind of game</td><td>High: a big frame to rework</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 61, how pointing at a moment in time works.</p>
+</div>
+</body>
+</html>

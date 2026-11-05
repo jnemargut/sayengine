@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 64: "Only You Can Judge" Checklists — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fdf6e9; color:#8a5208; }
+.panel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; font-size:0.7rem; color:#334155; }
+.panel-h { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a; font-size:0.7rem; }
+.panel-h span { font-weight:600; color:#64748b; font-size:0.62rem; }
+.sec { padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+.sec:last-child { border-bottom:none; }
+.lbl { font-size:0.56rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#64748b; margin-bottom:3px; }
+.ck { display:flex; gap:6px; align-items:baseline; font-size:0.66rem; color:#334155; padding:1px 0; }
+.ck .m { color:#2c6e48; font-weight:800; }
+.ask { display:grid; grid-template-columns:1fr auto; gap:6px; align-items:center; padding:5px 0; border-top:1px dashed #e2e8f0; }
+.ask:first-of-type { border-top:none; }
+.ask b { color:#0f172a; font-weight:600; font-size:0.68rem; }
+.ask small { display:block; color:#64748b; font-size:0.6rem; }
+.opts { display:flex; gap:3px; }
+.o { font-size:0.58rem; font-weight:700; padding:2px 6px; border-radius:5px; border:1px solid #cbd5e1; color:#334155; background:white; white-space:nowrap; }
+.o.p { border-color:#23466f; color:#23466f; background:#e8eef6; }
+.later { font-size:0.58rem; color:#64748b; }
+.lock { font-size:0.64rem; font-weight:700; color:#a83a32; background:#fbecea; padding:5px 10px; }
+.sum { font-size:0.66rem; line-height:1.5; padding:8px 10px; }
+.sum em { font-style:normal; color:#64748b; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.cal { display:grid; grid-template-columns:repeat(5,1fr); gap:4px; padding:8px 10px; }
+.day { border:1px solid #e2e8f0; border-radius:5px; padding:4px; font-size:0.56rem; text-align:center; color:#64748b; min-height:34px; }
+.day.on { border-color:#23466f; background:#e8eef6; color:#23466f; font-weight:700; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 64 of 65 · Working together</span>
+  <h1>"Only You Can Judge" Checklists</h1>
+  <span class="category-badge">Interaction</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    Checks settle what can be measured: feet planted, contrast, loudness, Godot and the web matching. But I can't hear, I can't feel whether a game drags, and "does this look like Raleigh" is a judgement, not a number. Today those judgements happen by luck: you mention the walk looks crouched, or that the sounds seem about equal. This decides how the studio asks for them on purpose, when it asks, and how little each answer costs you. Your answers feed the taste file from decision 63.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: a "your call" card on each proposal</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">A Short "Your Call" Card on Each Proposal</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Proposal p9 · heavier strike <span>3 steps</span></div>
+        <div class="sec"><div class="lbl">I checked</div>
+          <div class="ck"><span class="m">✓</span>Feet planted, joints in limits, no pops (9 of 9)</div>
+          <div class="ck"><span class="m">✓</span>Clink loudness −18 LUFS, no clipping, lands on the strike frame</div>
+        </div>
+        <div class="sec"><div class="lbl">Your call (about 20 seconds)</div>
+          <div class="ask"><div><b>Listen: which clink fits the forge?</b><small>3 takes, each 1 s</small></div><div class="opts"><span class="o">1</span><span class="o p">2</span><span class="o">3</span></div></div>
+          <div class="ask"><div><b>Watch the swing once: does it feel heavy?</b><small>5 s clip</small></div><div class="opts"><span class="o p">Yes</span><span class="o">Not yet</span></div></div>
+          <div class="later">Not now → it waits in your notes inbox</div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> every proposal splits what I verified from what only you can tell. At most about three asks, each a tap: pick one, yes or not yet. You can skip, and skipped asks wait in the inbox. Answers go into the taste file, so the same question isn't asked forever.</div>
+    </div>
+    <div class="option-summary">
+      Each proposal carries a short card in two parts. "I checked" lists what the checks proved. "Your call" asks only what needs your eyes, ears or hands: listen and pick, watch once, or play 60 seconds. Each ask is a tap or a short typed note, there are at most about three, and you can skip any of them; skipped ones wait in the notes inbox. Your answers become taste rules, so once you've said "free recordings first", sound questions get fewer.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Judgements are small and come up often</li>
+        <li>You want it clear what I did and didn't verify</li>
+        <li>You review between other things</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Many small interruptions on busy days</li>
+        <li>Quick taps can become rubber stamps</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Saved Up for a Review Session at Milestones</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Review session · end of week 2 <span>14 items · ~15 min</span></div>
+        <div class="cal"><span class="day">Mon</span><span class="day">Tue</span><span class="day">Wed</span><span class="day">Thu</span><span class="day on">Fri: review</span></div>
+        <div class="sec"><div class="lbl">Saved up this week</div>
+          <div class="ck">· 4 sound picks</div>
+          <div class="ck">· 3 "does this feel right" watches</div>
+          <div class="ck">· 1 play-for-60-seconds</div>
+          <div class="ck">· 6 looks and faces</div>
+        </div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> no interruptions during the week. At a milestone you sit down for 15 minutes and go through everything at once, like a playtest day. Calm, but anything waiting on your ears waits days, and work built on a guess may need redoing.</div>
+    </div>
+    <div class="option-summary">
+      Collect every "only you can judge" item and present them together at milestones, in one review page of about 15 minutes, like a playtest day. Fewer interruptions, and judging things side by side helps comparison. But work that depends on your answer either waits days or goes ahead on my guess and may be redone, and a long batch invites quick clicking toward the end.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You prefer focused review blocks</li>
+        <li>Work can carry on without your answers</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Days of waiting, or building on guesses</li>
+        <li>Long batches get rushed</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">I Say What I Couldn't Check, You Choose to Look</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">My summary <span>proposal p9</span></div>
+        <div class="sum">Heavier strike is ready: 9 of 9 checks pass and the clink is −18 LUFS. <em>I couldn't hear the three clinks, so I picked take 2 by the numbers. Worth a listen if you have a moment.</em></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> how it works today, made consistent: every summary says plainly what I couldn't verify. Nothing to build, and nothing interrupts you. But "worth a listen" is easy to skip, and nothing records whether you did.</div>
+    </div>
+    <div class="option-summary">
+      No checklist: my summaries always name what I couldn't verify ("I couldn't hear these, I picked by the numbers"), and you look when you want to. Nothing new to build, and nothing interrupts you. But it's how the crouched walk slipped through: things only you can judge get judged only when you happen to look, and nothing feeds the taste file.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You'd rather never be asked</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Easy to skip; misses slip through</li>
+        <li>No answers to learn from</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Gate: Nothing Is Done Until You've Judged It</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Proposal p9 · heavier strike <span>blocked</span></div>
+        <div class="sec"><div class="lbl">Required before commit</div>
+          <div class="ask"><div><b>Listen and pick a clink</b><small>not answered</small></div><div class="opts"><span class="o">1</span><span class="o">2</span><span class="o">3</span></div></div>
+          <div class="ask"><div><b>Play 60 s with the new swing</b><small>not answered</small></div><div class="opts"><span class="o">Done</span></div></div>
+        </div>
+        <div class="lock">Can't commit or merge until both are answered</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> nothing a person should judge ever slips through. But overnight builds stall at the first sound pick, and you become the bottleneck for every merge.</div>
+    </div>
+    <div class="option-summary">
+      Make human judgement a hard gate: a proposal can't be committed or merged until its "your call" items are answered. Nothing a person should judge slips through unseen. But it stops overnight and unattended work cold (like the build you slept through), puts you in the path of every merge, and a gate people must click through is the most likely to be clicked through without looking.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Quality must never slip</li>
+        <li>You're always around</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Blocks overnight work</li>
+        <li>Forced clicks become rubber stamps</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Small, frequent asks add up. On a day with ten proposals, three asks each is thirty taps, and quick yes-or-no taps are exactly how review turns into rubber-stamping (the research behind decision 62). B's single milestone session respects your attention more and lets you compare like with like. A only holds up if the cap stays low, asks that taste already answers are dropped, and anything skipped waits quietly instead of nagging.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>Asks are capped at about three per proposal, and any ask the taste file already answers is skipped.</li>
+    <li>Overnight or unattended work never waits on an ask. It proceeds on my best guess, marked as a guess.</li>
+    <li>"Play 60 seconds" asks come at most once per playable change, not per step.</li>
+    <li>Tripwire: if you skip more than about half the asks for a week, there are too many. Fold them into a milestone session (B).</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick col-chosen">A · Card on each proposal</th><th class="col-b">B · Milestone session</th><th class="col-c">C · I say, you choose</th><th class="col-d">D · Hard gate</th></tr></thead>
+    <tbody>
+      <tr><td>When you're asked</td><td class="col-pick">With the work, skippable</td><td>At milestones</td><td>Never directly</td><td>Before every commit</td></tr>
+      <tr><td>Wait for your answer</td><td class="col-pick">Minutes to hours</td><td>Days</td><td>Whenever</td><td>Blocks until answered</td></tr>
+      <tr><td>Overnight work</td><td class="col-pick">Carries on, guesses marked</td><td>Carries on</td><td>Carries on</td><td>Stops</td></tr>
+      <tr><td>Clear what I verified</td><td class="col-pick">Yes, two-part card</td><td>Yes</td><td>In prose</td><td>Yes</td></tr>
+      <tr><td>Feeds the taste file</td><td class="col-pick">Yes</td><td>Yes</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low</td><td>Low</td><td>Low</td><td>Low</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 65, build order around your game.</p>
+</div>
+</body>
+</html>

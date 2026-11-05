@@ -987,3 +987,96 @@ Built in main's codebase for Fire's Dying to adopt in its v1.1 pass (the game br
 | Effects look the same in both engines | They drift visibly → try Effekseer for that type | D56 |
 | AI icons are consistent | They're inconsistent after scoring → use a recoloured CC0 pack | D58 |
 | The tool freeze holds | A new tool idea comes up → note it, decide after the tiny game ships | D59 |
+
+
+# Phase 10: Working Together (decisions 60–65, decided 2026-11-05)
+
+## What We're Building
+Every AI-first system should work with you the way 3D modelling already does:
+- one live view we both look at
+- pointing at anything, including a moment in time
+- every change as a step you keep or undo
+- notes that stick, and taste that carries over between sessions
+- a clear split between what I checked and what only you can judge
+
+All of it gets built before your own game starts. **See it: `.decisions/preview.html`** (the ledger for decisions 60–65).
+
+## Decisions Made
+| # | Decision | Choice | Confidence | Reversibility |
+|---|---|---|---|---|
+| 60 | Which systems join the live view first | A: everything that moves, on one timeline, then the rest. Changed from B when 65 became D | Lean | Two-way |
+| 61 | How pointing at a moment works | A: the thing, its own clock (clip, game, beats, sound or shot) and whole ticks at 24,000/s. Anchored to named moments, stamped with a version; marked stale rather than moved | Strong | One-way |
+| 62 | What counts as a reviewable step outside modelling | A: one step is about one word note's worth of change, on the shared history. Recipes are stored; renders are caches. Keep or undo only after seeing the before and after. "Show me three" on request: deliberately distinct, compared per section, unpicked takes discarded | Strong | One-way |
+| 63 | Notes inbox and taste file | A: one inbox per project (open / on it / done / stale), plus `taste.md` in plain words with evidence. Editable, read before proposals, studio-wide plus per game, private by default | Strong | Two-way |
+| 64 | Judgements only you can make | A: a two-part card on each proposal ("I checked" / "Your call"). At most about 3 skippable taps; skipped items wait in the inbox; answers feed the taste file; overnight work never waits on you | Strong | Two-way |
+| 65 | Build order | D: build all of it first, then your game (your call over the lean A) | Your call | Two-way |
+
+## Implementation Steps
+
+### 0. Before anything: finish the repo slimming and the backup
+- [ ] Merge the running jobs: the town-life polish, and live IK in Godot games plus the effects re-score.
+- [ ] Make the release zip of demo media, and a full-history backup bundle.
+- [ ] Rewrite history, keeping the 11 commits already on GitHub:
+  - checkpoint media comes out
+  - game assets move to LFS
+  - `/Users/jonnemargut` becomes `~`
+- [ ] Re-run the full test suite on a quiet machine, push to the private repo, and upload the release.
+
+### 1. Shared core (about 1 week), proven on models
+- [ ] **Moment address (D61):**
+  - `{thing, clock, at, len, near, of}` with integer ticks at 24,000 a second
+  - clocks for clip, game (tick + seed + build), beats, sound and shot
+  - named moments re-resolve after re-timing; ones that can't are marked stale
+  - the view shows readable times; ticks stay in the files
+- [ ] **Steps for any asset (D62):**
+  - recipe steps on the shared branching history
+  - renders are caches keyed by their recipe
+  - proposals keep or undo each step, and "keep" counts only after the before/after is seen
+  - the studio tracks how many steps are kept without being opened
+  - "show me three" makes three distinct takes, compared per section, and logs your pick
+- [ ] **Notes inbox and taste (D63):**
+  - a notes panel in the view, plus `notes.json` per project
+  - `taste.md`, studio-wide and per game, with each rule's source
+  - proposals say when they lean on a taste rule
+  - kept out of the public repo unless you opt in
+- [ ] **"Your call" card (D64):**
+  - "I checked" comes from the checks
+  - "Your call" covers listen and pick, watch once, play 60 s
+  - capped at about 3 asks; skipped asks go to the inbox; answers become taste rules
+- [ ] All four are proven on models first, since models already have steps and proposals.
+
+### 2. Everything that moves, on one timeline (about 1.5–2 weeks)
+- [ ] A shared scrub timeline docked in the live view, with tracks per system and failed checks shown as red stretches.
+- [ ] **Motion:** rig parts, actions and character clips in the view. You can point at a bone at a moment, and word notes become steps.
+- [ ] **Voice lines and cutscenes:** in the view.
+- [ ] **Effects:** on the same timeline, with knobs as sliders that become labelled steps.
+- [ ] **Sound:** waveform tracks, with "show me three" plus the listen-and-pick card.
+- [ ] Retire the five separate players: motion, creature, cast, cutscene and line.
+
+### 3. The rest (about 1.5–2 weeks)
+- [ ] **Looks:** sliders for grade, fog and light; point at a region.
+- [ ] **Towns:** click a building to fix it; no IDs.
+- [ ] **Town life:** in the view with a day clock; click a person to see and redirect their plans.
+- [ ] **UI kit:** live in the view over the scene; point at an element.
+- [ ] **Trailers:** shots on the timeline, keep or redo per shot, "show me three" per shot.
+
+### 4. Then your game
+- [ ] `/x-decide-gaming`, with the whole working-together layer on from day one.
+
+## Assumptions & Tripwires
+| Assumption | Revisit if... | Affects |
+|---|---|---|
+| Ticks and named moments keep notes on target | More than 1 in 10 notes go stale after ordinary edits → anchor to named moments more often | D61 |
+| Steps are the right size | More than 9 in 10 are kept without opening → group them | D62 |
+| Taste rules help | Over about 30 rules, or a wrong rule steers proposals → prune, and show sources | D63 |
+| Asks are welcome | You skip more than half for a week → switch to milestone review sessions | D64 |
+| Building everything first is worth the wait | Your game hasn't started after about 5 weeks → stop and start it with what works (decision 59's lesson) | D65 |
+
+## Pre-Mortem
+1. **The game never starts.** The layer keeps growing, the way the first game drifted from week 15 to 21. *Early warning:* step 3 hasn't started by week 3.
+2. **The timeline is too heavy for an 8 GB Mac.** Clips, effects and sound together stutter in the view. *Early warning:* view frame time over 30 ms with the forge scene and three tracks.
+3. **Review becomes rubber-stamping.** Cards and steps get tapped through without looking. *Early warning:* the share of steps kept without opening rises week over week.
+
+## Low-Confidence Picks Worth Revisiting
+- **D60 (Lean; changed alongside D65):** if one system turns out to need the view more urgently once building starts, swap the order inside steps 2–3.
+- **D65 (your call over the lean A):** the 5-week tripwire above guards the game's start.

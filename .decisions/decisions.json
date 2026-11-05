@@ -1943,6 +1943,181 @@
    "chosenOption": "A",
    "chosenTitle": "A tiny game now, effects and UI next, then a tool freeze",
    "decidedAt": "2026-11-04"
+  },
+  {
+   "id": 60,
+   "slug": "view-first",
+   "title": "Which systems join the live view first",
+   "category": "ia",
+   "stakes": "high",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-060-view-first.html",
+   "recommended": "A",
+   "confidence": "lean",
+   "options": {
+    "A": "Everything that moves, on one timeline: motion, actions, voice, cutscenes, effects, sound",
+    "B": "Pulled by your game: only the systems its spec uses",
+    "C": "Places first: towns and town life",
+    "D": "Plug-in frame first, then all nine systems"
+   },
+   "caseAgainst": "Builds ahead of a real game (D59 lesson); B finds out for free if the game is a town builder or puzzle game.",
+   "assumptions": [
+    "The live view stays the one shared place; separate players retire",
+    "Later systems plug in the same way"
+   ],
+   "tripwires": [
+    "Game spec uses none of the first group -> switch to B",
+    "First group > ~2 weeks -> ship what works, start the game"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "Everything that moves, on one timeline (then the rest, all before your game)",
+   "decidedAt": "2026-11-05",
+   "reasoning": "User picked B over the lean A: no view work ahead of the game; systems join in the order the game reaches them.",
+   "history": [
+    {
+     "from": "B",
+     "to": "A",
+     "date": "2026-11-05",
+     "why": "D65 = D (build all before the game) contradicted B; user switched 60 to A so everything that moves goes first, then the rest, all before the game."
+    }
+   ]
+  },
+  {
+   "id": 61,
+   "slug": "pointing-at-time",
+   "title": "How pointing at a moment works",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-061-pointing-at-time.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Thing + its own clock + whole ticks (24000/s), anchored to named moments, version-stamped, stale not moved",
+    "B": "Thing + decimal seconds",
+    "C": "Frame numbers at one project rate",
+    "D": "Spot on a rendered picture at a timecode"
+   },
+   "caseAgainst": "Most machinery before payoff; with D60=B maybe one system for a while, seconds would do.",
+   "tripwires": [
+    ">1 in 10 notes go stale after ordinary edits -> anchor to named moments more often"
+   ],
+   "sources": [
+    "https://docs.unrealengine.com/4.26/AnimatingObjects/Sequencer/Workflow/TimeRefactorNotes",
+    "https://opentimelineio.readthedocs.io/en/latest/tutorials/time-ranges.html",
+    "https://help.frame.io/en/articles/1711085-how-to-copy-and-paste-comments-legacy"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "The thing, its own clock, whole-number ticks",
+   "decidedAt": "2026-11-05"
+  },
+  {
+   "id": 62,
+   "slug": "reviewable-steps",
+   "title": "What counts as a reviewable step outside modelling",
+   "category": "technical",
+   "stakes": "high",
+   "reversibility": "one-way",
+   "status": "chosen",
+   "htmlFile": "decision-062-reviewable-steps.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "One word note's worth = one step on the shared history; recipes stored, renders are caches; keep/undo with seen before/after; show-me-three on request, distinct, per section, losers discarded",
+    "B": "Whole versions compared side by side",
+    "C": "Every tiny edit is a step",
+    "D": "Always three, pick and iterate"
+   },
+   "caseAgainst": "Each system must name its steps; renders re-made on demand; B is far less work for one game with few changes in flight.",
+   "tripwires": [
+    ">9 in 10 steps kept without opening -> group steps"
+   ],
+   "sources": [
+    "https://forum.figma.com/suggest-a-feature-11/merge-only-select-elements-2255/index3.html",
+    "https://www.sidefx.com/docs/houdini/tops/pdg/workItemCacheState.html",
+    "https://hci.stanford.edu/publications/2010/parallel-prototyping/ParallelPrototyping2010-submitted.pdf"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "One note's worth of change is one step, three on request",
+   "decidedAt": "2026-11-05"
+  },
+  {
+   "id": 63,
+   "slug": "notes-taste",
+   "title": "The notes inbox and the taste file",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-063-notes-taste.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "One notes inbox per project (D61 addresses, open/on it/done/stale) + taste.md in plain words with evidence, editable, read before proposals; studio-wide + per-game; private by default",
+    "B": "Inbox; taste stays in Claude's memory",
+    "C": "Notes as conversation threads",
+    "D": "Automatic preference scores from picks"
+   },
+   "caseAgainst": "A taste file can be confidently wrong and steer proposals until noticed; D self-updates, B adds nothing.",
+   "tripwires": [
+    "Taste file > ~30 rules -> prune"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "One inbox per project, plus a taste file in plain words",
+   "decidedAt": "2026-11-05"
+  },
+  {
+   "id": 64,
+   "slug": "your-call",
+   "title": "\"Only you can judge\" checklists",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-064-your-call.html",
+   "recommended": "A",
+   "confidence": "strong",
+   "options": {
+    "A": "Two-part card per proposal: 'I checked' + 'Your call' (<=3 skippable taps; skipped wait in inbox; answers feed taste)",
+    "B": "Saved up for milestone review sessions",
+    "C": "Summaries say what Claude couldn't check; user chooses",
+    "D": "Hard gate before commit"
+   },
+   "caseAgainst": "Many small asks add up and invite rubber-stamping; B respects attention more.",
+   "tripwires": [
+    "User skips > half the asks for a week -> fold into milestone sessions (B)"
+   ],
+   "chosenOption": "A",
+   "chosenTitle": "A short \"your call\" card on each proposal",
+   "decidedAt": "2026-11-05"
+  },
+  {
+   "id": 65,
+   "slug": "build-order",
+   "title": "Build order around your game",
+   "category": "interaction",
+   "stakes": "medium",
+   "reversibility": "two-way",
+   "status": "chosen",
+   "htmlFile": "decision-065-build-order.html",
+   "recommended": "A",
+   "confidence": "lean",
+   "options": {
+    "A": "Thin shared core first (~1 week, proven on models), then your game pulls systems in",
+    "B": "Game now, every piece built inside it",
+    "C": "Game first with today's tools + pain log, then core from the pain",
+    "D": "Everything first, then the game (conflicts with D60)"
+   },
+   "caseAgainst": "C repeats the Fire's Dying method that worked; A delays the game a week for plumbing untested by a second system.",
+   "tripwires": [
+    "Core not usable within ~7 working days -> start the game anyway (C)"
+   ],
+   "chosenOption": "D",
+   "chosenTitle": "Build it all first, then your game",
+   "decidedAt": "2026-11-05",
+   "reasoning": "User chose to build the whole working-together layer before their own game."
   }
  ],
  "phases": [
@@ -1993,6 +2168,12 @@
    "decisions": "56-59",
    "startedAt": "2026-11-04",
    "why": "Test: needs a tool if Claude cannot tell it is right by reading it"
+  },
+  {
+   "name": "Working together",
+   "decisions": "60-65",
+   "startedAt": "2026-11-05",
+   "why": "User: make the AI-first game tools work with a person as well as the 3D modelling system does"
   }
  ]
 }

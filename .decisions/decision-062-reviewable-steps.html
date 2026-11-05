@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 62: What Counts as a Reviewable Step Outside Modelling — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.panel { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; font-size:0.7rem; color:#334155; }
+.panel-h { display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#f8fafc; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a; font-size:0.7rem; }
+.panel-h span { font-weight:600; color:#64748b; font-size:0.62rem; }
+.row { display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+.row:last-child { border-bottom:none; }
+.row b { color:#0f172a; font-weight:600; }
+.row small { display:block; color:#64748b; font-size:0.62rem; }
+.btns { display:flex; gap:4px; }
+.bt { font-size:0.6rem; font-weight:700; padding:2px 7px; border-radius:5px; border:1px solid #cbd5e1; color:#334155; background:white; }
+.bt.keep { border-color:#2c6e48; color:#2c6e48; }
+.bt.undo { border-color:#a83a32; color:#a83a32; }
+.ba { display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-top:4px; }
+.thumb { height:30px; border-radius:4px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; font-size:0.56rem; color:#475569; font-weight:700; }
+.thumb.after { background:#dbe9f7; color:#23466f; }
+.tri { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:8px 10px; }
+.alt { border:2px solid #e2e8f0; border-radius:8px; padding:6px; text-align:center; font-size:0.62rem; }
+.alt .sw { height:38px; border-radius:5px; margin-bottom:4px; }
+.alt.pick { border-color:#2c6e48; }
+.vers { display:flex; gap:6px; padding:8px 10px; }
+.ver { flex:1; border:1px solid #e2e8f0; border-radius:6px; padding:5px; text-align:center; font-size:0.62rem; }
+.ver .sw { height:30px; border-radius:4px; background:#e2e8f0; margin-bottom:3px; }
+.tiny { font-family:'SF Mono', monospace; font-size:0.6rem; color:#475569; padding:3px 10px; border-bottom:1px solid #f1f5f9; }
+.count { font-size:0.62rem; font-weight:700; color:#a83a32; padding:5px 10px; background:#fbecea; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 62 of 65 · Working together</span>
+  <h1>What Counts as a Reviewable Step Outside Modelling</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    In modelling, each change I make is one step on a branching history. A proposal is a set of steps you keep or undo one by one, and nothing is ever lost. Clips, looks, effects, sounds, music, trailer cuts and town schedules don't work that way yet: I just write a new version. This decides what a "step" is for those things, how big it is, and how far "show me three" goes. It's a one-way door because the history format and every saved proposal depend on it.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: one note, one step</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">One Note's Worth of Change Is One Step, Three on Request</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Proposal p7 · the smith's swing <span>3 steps</span></div>
+        <div class="row"><div><b>Slower: swing 20% longer</b><small>1.6 s → 1.9 s · the "strike" moment moved to 1.12 s · all 9 checks pass</small>
+          <div class="ba"><span class="thumb">before ▶</span><span class="thumb after">after ▶</span></div></div>
+          <div class="btns"><span class="bt keep">Keep</span><span class="bt undo">Undo</span></div></div>
+        <div class="row"><div><b>More weight: deeper knee on the strike</b><small>knee bend 18° → 31° at "strike"</small></div><div class="btns"><span class="bt keep">Keep</span><span class="bt undo">Undo</span></div></div>
+        <div class="row"><div><b>Clink: swapped for a heavier hit</b><small>sound "strike" · synth → recording</small></div><div class="btns"><span class="bt keep">Keep</span><span class="bt undo">Undo</span></div></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> exactly like reviewing a model change, for any asset. Each step says in plain words what changed and shows a before and after you have to play. Ask "show me three" and you get three clearly different takes side by side, pick one per shot or per bar, and the rest are thrown away. Only the recipe (the small text file) is kept; the videos and sounds are re-made from it when needed.</div>
+    </div>
+    <div class="option-summary">
+      Every non-model asset joins the same branching history as models. A step is about one word note's worth of change ("slower", "warmer", "swap the clink"), not every key and not a whole new version. Steps store the recipe, not the rendered output, which is re-made on demand, so the repo stays small. Proposals work exactly as they do for models. "Show me three" works on any asset: three takes, made to be clearly different, with your pick logged. They're compared per section (a shot, a bar), and the losers are discarded, never merged.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want the modelling feel everywhere</li>
+        <li>You review in small bites, between other work</li>
+        <li>The public repo should stay lean</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Each system needs its changes written as named steps</li>
+        <li>Re-making a render takes a few seconds</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Whole Versions, Compared Side by Side</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">The smith's swing <span>version stack</span></div>
+        <div class="vers">
+          <div class="ver"><div class="sw"></div>v1</div>
+          <div class="ver"><div class="sw"></div>v2</div>
+          <div class="ver"><div class="sw" style="background:#dbe9f7"></div><b>v3 (new)</b></div>
+        </div>
+        <div class="row"><div><b>Compare v2 and v3</b><small>3 changes inside: slower, deeper knee, new clink</small></div><div class="btns"><span class="bt keep">Use v3</span><span class="bt">Back to v2</span></div></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> Frame.io's version stacks. Each time I change an asset, it gets a new version. You compare two side by side and choose. Simple and familiar, but if you like the slower swing and hate the new clink, you can't keep one without the other.</div>
+    </div>
+    <div class="option-summary">
+      Each asset gets numbered versions, and review means comparing two of them side by side and choosing one, the way video review tools work. It's the least to build and easy to understand. But it's all-or-nothing per version (Figma users have asked for years to merge only parts of a branch), and several changes ride together, so a good change can't be kept without a bad one.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Changes come one at a time</li>
+        <li>You want the simplest thing</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Can't keep part of a version</li>
+        <li>Different from how models work</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Every Tiny Edit Is a Step</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Proposal p7 · the smith's swing <span>41 steps</span></div>
+        <div class="tiny">set key hip.y @ 0.40 s: 0.92 → 0.88 · keep · undo</div>
+        <div class="tiny">set key hip.y @ 0.80 s: 0.90 → 0.85 · keep · undo</div>
+        <div class="tiny">set key knee.L @ 1.12 s: 18° → 24° · keep · undo</div>
+        <div class="tiny">set key knee.L @ 1.20 s: 16° → 31° · keep · undo</div>
+        <div class="tiny">set key knee.R @ 1.12 s: 12° → 15° · keep · undo</div>
+        <div class="count">… 36 more steps to review</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the finest control possible, and the quickest way to stop reading. A single "more weight" note becomes dozens of key changes, and reviewers in every field start clicking "keep" without looking once the list gets long.</div>
+    </div>
+    <div class="option-summary">
+      Every individual edit (one key, one colour value, one cut point) is its own step, the way Unreal's multi-user editing syncs every change. Nothing could be finer-grained. But one word note turns into dozens of steps, the list stops being readable, and the research is blunt: people review well in small batches and rubber-stamp long lists.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want to tune single values by hand</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Review fatigue, then rubber-stamping</li>
+        <li>Steps don't match how you think ("slower")</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">Always Three, Pick and Go Again</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="panel">
+        <div class="panel-h">Night look · round 2 <span>pick one</span></div>
+        <div class="tri">
+          <div class="alt"><div class="sw" style="background:#1f2a44"></div>Cool</div>
+          <div class="alt pick"><div class="sw" style="background:#3a2a24"></div>Warm ✓</div>
+          <div class="alt"><div class="sw" style="background:#26332b"></div>Green</div>
+        </div>
+        <div class="row"><div><b>Round 3 starts from "Warm"</b><small>3 new takes around your pick</small></div><div class="btns"><span class="bt">More like this</span></div></div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> image-generator style. Every request returns three takes, you pick, and the next round grows from your pick. Lovely for looks and sounds, but there's no step history to undo, and studies find this style narrows ideas round after round.</div>
+    </div>
+    <div class="option-summary">
+      Make "show me three" the only way of working: every request returns three takes, you pick one, and the next round starts from your pick, like Midjourney or Photoshop's generative fill. Great for taste-driven things (looks, sounds, music). But it triples the work for simple fixes like "foot slides here", there's no keep-or-undo history, and research finds pick-and-iterate loops converge and lose variety.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Most choices are about taste</li>
+        <li>You'd rather react than describe</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>3× the work for plain fixes</li>
+        <li>No undo history; variety narrows</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A asks every system to describe its changes as named, recipe-level steps, which is real work per system: motion must say "swing 20% longer", not just write a new clip. And re-making renders on demand means waiting a few seconds when you open an old step. B is far less to build, and for one game with few changes in flight, version stacks might be all you ever need. The keep-part-of-it problem only bites when several changes land together.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>A step's before and after must be seen (played or viewed) before "keep" counts, and the studio notes when steps are kept without being opened.</li>
+    <li>"Show me three" makes the three clearly different on purpose, because AI alternatives and pick loops tend to converge.</li>
+    <li>Renders are caches tied to the recipe that made them, re-made when the recipe changes, not stored in history.</li>
+    <li>Tripwire: if you keep more than about 9 in 10 steps without opening them, steps are too small or too many. Group them.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick col-chosen">A · One note, one step</th><th class="col-b">B · Whole versions</th><th class="col-c">C · Every tiny edit</th><th class="col-d">D · Always three</th></tr></thead>
+    <tbody>
+      <tr><td>Keep one change, undo another</td><td class="col-pick">Yes</td><td>No</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Steps per word note</td><td class="col-pick">1</td><td>Part of a version</td><td>Dozens</td><td>A round of 3</td></tr>
+      <tr><td>Same as modelling</td><td class="col-pick">Yes</td><td>No</td><td>Finer than modelling</td><td>No</td></tr>
+      <tr><td>"Show me three"</td><td class="col-pick">On request, any asset</td><td>No</td><td>No</td><td>Always</td></tr>
+      <tr><td>Repo size</td><td class="col-pick">Small: recipes only</td><td>Grows with every render</td><td>Small</td><td>Grows with every take</td></tr>
+      <tr><td>Work per system</td><td class="col-pick">Medium: name its steps</td><td>Low</td><td>Medium</td><td>Medium</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Medium: history format</td><td>Medium</td><td>Medium</td><td>High: no history to build on</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Figma's merge is all-or-nothing per branch, and users have asked for years to merge only selected changes.<a class="cite" href="https://forum.figma.com/suggest-a-feature-11/merge-only-select-elements-2255/index3.html">Figma forum</a></li>
+    <li>Frame.io review works on whole versions: drop v2 on v1, compare side by side, with audio switchable between them.<a class="cite" href="https://help.frame.io/en/articles/9952618-comparison-viewer">Frame.io comparison viewer</a></li>
+    <li>Ableton's comping keeps every take on its own lane and picks the best per section. Nothing is destroyed.<a class="cite" href="https://www.ableton.com/en/live-manual/12/comping/">Ableton Live 12 manual</a></li>
+    <li>Houdini treats outputs as caches tied to their inputs, marked stale when an input changes. Keep the recipe, re-make the output.<a class="cite" href="https://www.sidefx.com/docs/houdini/tops/pdg/workItemCacheState.html">SideFX PDG docs</a></li>
+    <li>Procedural isn't automatically reviewable: Substance graphs are opaque containers with no diff tool, so the recipe has to be plain text you own.<a class="cite" href="https://community.adobe.com/questions-50/version-control-and-diff-tool-for-substance-graphs-and-or-painter-projects-625728">Adobe Community</a></li>
+    <li>Google's median code change is about 24 lines, and review quality falls off on big batches. People review small steps well.<a class="cite" href="https://research.google/pubs/modern-code-review-a-case-study-at-google/">Google Research</a></li>
+    <li>When an AI suggestion was wrong, radiologists' accuracy fell from about 80% to 20–45%, even for veterans. That's why a step's before and after must be seen.<a class="cite" href="https://www.auntminnie.com/clinical-news/womens-imaging/breast/article/15633344/breast-radiologists-impacted-by-automation-bias-when-using-ai">Dratsch et al., Radiology 2023</a></li>
+    <li>Making several options in parallel beat making them one after another: better results, more variety, less defensiveness about critique.<a class="cite" href="https://hci.stanford.edu/publications/2010/parallel-prototyping/ParallelPrototyping2010-submitted.pdf">Dow et al., Stanford</a></li>
+    <li>Seeing AI examples narrowed people's ideas, and pick-based feedback cuts variety within a batch. Make the three deliberately different.<a class="cite" href="https://arxiv.org/html/2403.11164v1">CHI 2024</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where experts disagree</h3>
+    <p>On how many options to show: the famous jam study found 6 choices sold far more than 24, but later meta-analyses found the effect near zero on average, real only for complex, hard or rushed choices. Three is the industry default (Photoshop, Midjourney) and sits safely below where overload shows up.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 63, the notes inbox and the taste file.</p>
+</div>
+</body>
+</html>

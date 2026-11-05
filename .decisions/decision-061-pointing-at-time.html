@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 61: How Pointing at a Moment Works — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.code { font-family:'SF Mono', Menlo, monospace; font-size:0.66rem; line-height:1.55; background:#1d2430; color:#dbe4f0; border-radius:8px; padding:10px 12px; white-space:pre; overflow-x:auto; }
+.code .k { color:#8fb3ef; } .code .s { color:#a7d6a0; } .code .n { color:#f5c26b; } .code .c { color:#7d8a9c; }
+.said { font-size:0.72rem; color:#334155; background:white; border:1px solid #e2e8f0; border-radius:8px; padding:7px 10px; }
+.said b { color:#0f172a; }
+.outcome { font-size:0.7rem; border-radius:8px; padding:7px 10px; line-height:1.45; }
+.outcome.good { background:#edf6f0; color:#1f4d33; border-left:3px solid #2c6e48; }
+.outcome.bad { background:#fbecea; color:#7a2a24; border-left:3px solid #a83a32; }
+.outcome.meh { background:#fdf6e9; color:#6b4207; border-left:3px solid #b86e0a; }
+.stepcap { font-size:0.6rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#64748b; }
+.examples { max-width:1200px; margin:0 auto 2.5rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.examples h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.6rem; }
+.ex-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+.ex { background:#f8fafc; border-radius:8px; padding:9px 11px; font-size:0.8rem; color:#334155; }
+.ex b { display:block; color:#0f172a; font-size:0.78rem; margin-bottom:2px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 61 of 65 · Working together</span>
+  <h1>How Pointing at a Moment Works</h1>
+  <span class="category-badge">Technical</span>
+  <span class="triage-badge one-way">🚪 One-way door</span>
+  <span class="triage-badge stakes-high">High stakes</span>
+  <p class="decision-description">
+    In modelling, "this" means the part you clicked. Once motion, sound or a town joins the view (as your game pulls them in, decision 60), "this" also needs a when: the smith's left foot at 1.4 s, the clink at 0:12, Ada at 10:32 on Saturday, shot 3. Every note you pin, every failed check ("foot slides from 1.2 to 1.5 s") and every proposal will store that address in a file, so once hundreds exist, changing how they're written is painful. That's what makes this the one-way door.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<section class="examples">
+  <h2>The moments it has to handle</h2>
+  <div class="ex-grid">
+    <div class="ex"><b>A body part in a clip</b>"His left foot slides here" at 1.4 s of the swing</div>
+    <div class="ex"><b>A stretch, not a point</b>A check fails from 1.2 to 1.5 s</div>
+    <div class="ex"><b>A person in a running world</b>Ada at 10:32 game time, Saturday, seed 7</div>
+    <div class="ex"><b>A beat in music</b>"Bring the drums in here": bar 9, not a number of seconds</div>
+    <div class="ex"><b>A moment in a sound</b>"That clink is too sharp" 0.08 s in</div>
+    <div class="ex"><b>A shot in a trailer</b>"Shot 3 is too long"</div>
+  </div>
+</section>
+
+<main class="options-grid">
+
+  <article class="option-card option-a chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: thing + clock + whole ticks</span>
+          <span class="confidence-badge strong">Strong pick</span>
+          <span class="chosen-badge">Chosen</span>
+        </div>
+      </div>
+      <h2 class="option-title">The Thing, Its Own Clock, Whole-Number Ticks</h2>
+    </div>
+    <div class="visual-preview">
+      <span class="stepcap">What's stored when you pin "foot slides here"</span>
+<div class="code"><span class="k">thing</span>: <span class="s">"Smith/foot.L"</span>
+<span class="k">clock</span>: <span class="s">"clip:swing"</span>   <span class="c">// or game, beats, sound, shot</span>
+<span class="k">at</span>:    <span class="n">33600</span>   <span class="c">// ticks: 24000 a second = 1.4 s</span>
+<span class="k">near</span>:  <span class="s">"key:strike"</span>  <span class="c">// the named moment it sits by</span>
+<span class="k">len</span>:   <span class="n">7200</span>    <span class="c">// a stretch: 1.4 to 1.7 s</span>
+<span class="k">of</span>:    <span class="s">"swing@v3"</span>   <span class="c">// which version you were looking at</span></div>
+      <div class="said"><b>Then you say "slower"</b>, and the swing gets 20% longer.</div>
+      <div class="outcome good">The note follows the "strike" moment to its new time and still points at the slide. If the clip changes so much that the moment no longer exists, the note is marked stale and shown to you, never silently moved.</div>
+    </div>
+    <div class="option-summary">
+      Every address is a thing (a bone, a person, a shot) plus a time measured in that thing's own clock: clip time, game time (with the seed), musical beats, sound time or shot order. Times are stored as whole numbers of ticks (24,000 a second), never as decimals, and can hang off a named moment like "strike" or "grab the handle", so they survive re-timing. A stretch is a start plus a length. This is what Unreal moved to in 2018, after decimal seconds caused drift, and what the film industry's timeline format uses.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Clips get re-timed ("slower", "hold longer") all the time</li>
+        <li>Music needs beats and the town needs game time</li>
+        <li>Notes should never quietly point at the wrong moment</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>The most fields to get right</li>
+        <li>Ticks aren't human-readable (the view shows seconds)</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">The Thing Plus Seconds</h2>
+    </div>
+    <div class="visual-preview">
+      <span class="stepcap">What's stored</span>
+<div class="code"><span class="k">thing</span>: <span class="s">"Smith/foot.L"</span>
+<span class="k">t</span>:     <span class="n">1.4</span>
+<span class="k">until</span>: <span class="n">1.7</span></div>
+      <div class="said"><b>Then you say "slower"</b>, and the swing gets 20% longer.</div>
+      <div class="outcome bad">The note still says 1.4 s, which is now earlier in the swing, before the foot slides. Nothing tells you it moved. Music has the same problem when the tempo changes, and "10:32 on Saturday" can't be written as seconds without the seed and step.</div>
+    </div>
+    <div class="option-summary">
+      The simplest form: what you pointed at plus a time in seconds, the way Godot stores animation keys. Easy to read and write, and it covers most single clips. But seconds are decimals (1.4 isn't exact in a computer, and long game sessions drift), every kind of time gets squashed into one, and a note can't follow its moment when the clip is re-timed, which our word notes do constantly.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Clips rarely change once made</li>
+        <li>You want addresses a person can read at a glance</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Notes point at the wrong moment after re-timing</li>
+        <li>No room for beats or game time</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Frame Numbers at One Project Frame Rate</h2>
+    </div>
+    <div class="visual-preview">
+      <span class="stepcap">What's stored</span>
+<div class="code"><span class="k">thing</span>: <span class="s">"Smith/foot.L"</span>
+<span class="k">frame</span>: <span class="n">42</span>      <span class="c">// at 30 fps</span>
+<span class="k">to</span>:    <span class="n">51</span></div>
+      <div class="said"><b>Then you switch the project to 60 fps</b> for a smoother capture.</div>
+      <div class="outcome bad">Frame 42 now means 0.7 s, not 1.4 s. Every note, check and proposal moves to the wrong place at once. Blender works this way, and changing frame rate there changes how long animations play. Sound and music have no frames at all.</div>
+    </div>
+    <div class="option-summary">
+      Count frames at one project-wide rate (30 fps), the way Blender and most animators think. Whole numbers, so no decimal drift, and frames match what you scrub through. But the meaning of every address depends on the frame rate staying fixed, sound and music don't come in frames, and re-timing still leaves notes behind.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Everything is animation at one rate</li>
+        <li>You think in frames</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Frame-rate changes move every note</li>
+        <li>Doesn't fit sound, music or game time</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+      </div>
+      <h2 class="option-title">A Spot on the Picture, at a Timecode</h2>
+    </div>
+    <div class="visual-preview">
+      <span class="stepcap">What's stored</span>
+<div class="code"><span class="k">video</span>: <span class="s">"swing-preview.mp4"</span>
+<span class="k">tc</span>:    <span class="s">"00:00:01:12"</span>
+<span class="k">x</span>: <span class="n">0.42</span>  <span class="k">y</span>: <span class="n">0.61</span>   <span class="c">// where you clicked</span></div>
+      <div class="said"><b>Then I re-render the preview</b> after a fix.</div>
+      <div class="outcome meh">The note is a dot on an old video. I have to work out which body part was under the dot (it could be the foot or the anvil behind it). The new render has different framing, so the dot no longer lines up. It works for anything visible, including trailers, without any per-system code.</div>
+    </div>
+    <div class="option-summary">
+      Pin notes to a spot on a rendered video at a timecode, the way Frame.io review works. It needs nothing from each system, so every visible thing gets notes on day one. But the note doesn't know what you meant (I'd guess from pixels), it's lost when the picture is re-rendered, and checks and proposals can't use it, because they need the real thing and time, not a dot.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Reviewing finished renders like trailers</li>
+        <li>You want notes everywhere with no work</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>I have to guess what the dot meant</li>
+        <li>Notes break on every re-render</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>A is the most machinery to build before it pays off: a clock for each kind of time, named moments, version stamps and a stale-note flow. With decision 60's "pulled by your game", maybe only one system joins the view for a while, and plain seconds (B) would serve one clip-based game fine until the second system arrives. If your game is short and its clips rarely change after they're made, B's simplicity wins and the migration later is a script, not a rewrite.</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>The view always shows people-friendly times (1.4 s, bar 9, 10:32); ticks live only in the files.</li>
+    <li>Each system adds only its own clock when your game pulls it in (clip first, others as needed).</li>
+    <li>A note whose moment no longer exists is shown to you as stale, never moved silently.</li>
+    <li>Tripwire: if more than about 1 in 10 notes go stale after ordinary edits, anchor to named moments more often.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick col-chosen">A · Thing + clock + ticks</th><th class="col-b">B · Thing + seconds</th><th class="col-c">C · Frame numbers</th><th class="col-d">D · Picture + timecode</th></tr></thead>
+    <tbody>
+      <tr><td>Survives "slower" / re-timing</td><td class="col-pick">Yes, follows the named moment</td><td>No, silently wrong</td><td>No, silently wrong</td><td>No, the picture changes</td></tr>
+      <tr><td>Handles music beats and game time</td><td class="col-pick">Yes, each has its own clock</td><td>Badly</td><td>No</td><td>Only as video</td></tr>
+      <tr><td>Checks and proposals can use it</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Exact (no decimal drift)</td><td class="col-pick">Yes</td><td>No</td><td>Yes</td><td>Roughly</td></tr>
+      <tr><td>Work before the first note works</td><td class="col-pick">Most (a few days)</td><td>Least</td><td>Little</td><td>Little</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low: richer than needed is easy to keep</td><td>High: every stored note rewritten</td><td>High: tied to a frame rate</td><td>High: notes have no meaning to convert</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="research-context">
+  <h2>Research context</h2>
+  <ul class="findings">
+    <li>Unreal switched its Sequencer from decimal seconds to whole-number ticks (24,000 a second) in 4.20. Scripts that mix display frames and ticks are still a common source of errors.<a class="cite" href="https://docs.unrealengine.com/4.26/AnimatingObjects/Sequencer/Workflow/TimeRefactorNotes">Epic: Time Refactor</a></li>
+    <li>The film industry's timeline format (OpenTimelineIO) stores a moment as a value at a rate, and a stretch as a start plus a length with an exclusive end. A zero-length marker is an instant.<a class="cite" href="https://opentimelineio.readthedocs.io/en/latest/tutorials/time-ranges.html">OTIO time ranges</a></li>
+    <li>Even OTIO hit a rate bug: one hour of timecode came out the same at 24 and 23.976 fps.<a class="cite" href="https://github.com/AcademySoftwareFoundation/OpenTimelineIO/issues/1452">OTIO issue #1452</a></li>
+    <li>In Blender, changing the frame rate keeps frame numbers and changes how long clips play. Users have asked since 2021 for an option to keep the timing.<a class="cite" href="https://devtalk.blender.org/t/animating-in-blender-changing-the-frame-rate-should-have-the-option-to-preserve-animation-timing/21629">Blender DevTalk</a></li>
+    <li>Godot animation tracks are a node path plus a property or bone, with time in decimal seconds. Paths break when nodes are renamed.<a class="cite" href="https://docs.godotengine.org/en/stable/classes/class_animation.html">Godot Animation docs</a></li>
+    <li>Frame.io doesn't carry comments to new versions. Pasted comments land at the same timecode even if the cut was re-timed.<a class="cite" href="https://help.frame.io/en/articles/1711085-how-to-copy-and-paste-comments-legacy">Frame.io Help</a></li>
+    <li>Figma detaches a comment when its layer is cut and pasted, and there's still no way to reattach it.<a class="cite" href="https://forum.figma.com/t/make-it-possible-to-reattach-unattached-comments/4931">Figma forum</a></li>
+    <li>REAPER lets each item follow clock time or musical beats, because tempo changes move them differently.<a class="cite" href="https://reaper.blog/2016/04/how-to-change-project-tempo-after-recording">reaper.blog</a></li>
+    <li>A 32-bit decimal timer is only accurate to 0.24 ms after an hour and 7.8 ms after a day.<a class="cite" href="https://randomascii.wordpress.com/2012/02/13/dont-store-that-in-a-float">Bruce Dawson</a></li>
+  </ul>
+  <div class="experts-box">
+    <h3>Where tools disagree</h3>
+    <p>Animation tools (Blender, Godot) favour frames or seconds for simplicity, while editing and engine tools (Unreal, OTIO, USD) learned the hard way to store a rate or clock with every time. Nobody re-anchors notes well after edits. Frame.io and Figma both lose or misplace comments, which is why A anchors to named moments and marks notes stale instead of guessing.</p>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option B but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Next: decision 62, what counts as a reviewable step outside modelling.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decision 65: Build Order Around Your Game — AI-First 3D Studio</title>
+<style>
+/* Decision hub palette: blueprint ink #23466f + drafting paper (same as decisions 1–10) */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #1a1a2e; min-height: 100vh; padding: 2rem; line-height: 1.6; }
+header.page { text-align: center; margin: 0 auto 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; max-width: 1200px; }
+.decision-number { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #64748b; }
+header.page h1 { font-size: 1.6rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin-top: 0.25rem; }
+.category-badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-top: 0.5rem; background: #efeaf8; color: #4b3a8c; }
+.triage-badge { display:inline-block; padding:4px 12px; border-radius:999px; font-size:0.7rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:0.5rem; margin-left:6px; }
+.triage-badge.one-way { background:#fbecea; color:#a83a32; }
+.triage-badge.stakes-high { background:#fff7ed; color:#a8481a; }
+.decision-description { font-size: 1rem; color: #475569; margin: 0.75rem auto 0; max-width: 800px; line-height: 1.7; }
+.preview-link { display:inline-block; margin-top:0.75rem; font-size:0.8rem; font-weight:600; color:#2c6e48; text-decoration:none; border:1px solid #b9dcc6; background:#edf6f0; padding:0.4rem 0.9rem; border-radius:999px; }
+.instruction { margin-top: 1rem; font-size: 0.85rem; background: #e8eef6; color: #23466f; padding: 0.6rem 1.25rem; border-radius: 8px; display: inline-block; border: 1px solid #b7c7dc; }
+.options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem; }
+.option-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04); border: 2px solid #e2e8f0; display: flex; flex-direction: column; }
+.option-card:hover { border-color: #23466f; }
+.card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 0.2rem; }
+.card-header-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.option-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+.option-a .option-label { color: #4b3a8c; } .option-b .option-label { color: #1d6f80; } .option-c .option-label { color: #2c6e48; } .option-d .option-label { color: #a83a32; }
+.option-title { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+.card-badges { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.pick-badge { background: #b86e0a; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.confidence-badge { padding:3px 10px; border-radius:999px; font-size:0.65rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; white-space:nowrap; color:white; }
+.confidence-badge.strong { background:#2c6e48; }
+.chosen-badge { background: #2c6e48; color: white; padding: 3px 10px; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; display: none; }
+.option-card.chosen { border: 3px solid #2c6e48; }
+.option-card.chosen .chosen-badge { display: inline-block; }
+.option-card.not-chosen { opacity: 0.55; filter: grayscale(20%); }
+.visual-preview { padding: 1.25rem; background: #f8fafc; display: flex; flex-direction: column; gap: 10px; justify-content: center; flex: 1; min-height: 300px; }
+.option-summary { padding: 1rem 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.65; border-top: 1px solid #f1f5f9; }
+.verdict { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid #f1f5f9; }
+.pros, .cons { padding: 1rem 1.25rem; }
+.pros { border-right: 1px solid #f1f5f9; }
+.pros h3, .cons h3 { font-size: 0.65rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.5rem; }
+.pros h3 { color: #2c6e48; } .cons h3 { color: #b42323; }
+.verdict ul { list-style: none; }
+.verdict li { font-size: 0.8rem; color: #475569; line-height: 1.5; padding: 0.15rem 0 0.15rem 1rem; position: relative; }
+.pros li::before { content: "✓ "; color: #2c6e48; font-weight: 700; position: absolute; left: 0; }
+.cons li::before { content: "! "; color: #b42323; font-weight: 700; position: absolute; left: 0; }
+.card-footer { padding: 0.75rem 1.25rem; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+.tell-ai { font-size: 0.75rem; color: #64748b; background: #f1f5f9; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; font-family: 'SF Mono', monospace; }
+.case-against { max-width:1200px; margin:0 auto 3rem; background:white; border-left:4px solid #b42323; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.case-against h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#b42323; margin-bottom:0.5rem; }
+.case-against p { font-size:0.9rem; color:#334155; line-height:1.65; }
+.assumptions { max-width:1200px; margin:0 auto 3rem; font-size:0.85rem; color:#475569; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:12px; padding:1rem 1.5rem; }
+.assumptions h2 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; margin-bottom:0.4rem; }
+.assumptions ul { padding-left:1.1rem; }
+.research-context { max-width:1200px; margin:0 auto 3rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.research-context h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.75rem; }
+.findings { list-style:none; padding:0; }
+.findings li { font-size:0.875rem; color:#334155; line-height:1.6; padding:0.35rem 0 0.35rem 1.1rem; position:relative; }
+.findings li::before { content:"→"; position:absolute; left:0; color:#23466f; font-weight:700; }
+.cite { color:#23466f; font-size:0.8rem; text-decoration:none; border-bottom:1px dotted #23466f; margin-left:4px; }
+.experts-box { margin-top:1rem; border-left:4px solid #b86e0a; background:#fdf6e9; border-radius:0 12px 12px 0; padding:1rem 1.25rem; }
+.experts-box h3 { font-size:0.7rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#8a5208; margin-bottom:0.35rem; }
+.experts-box p { font-size:0.85rem; color:#451a03; line-height:1.6; }
+.comparison-section { max-width: 1200px; margin: 0 auto 3rem; }
+.comparison-section h2 { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-bottom: 1rem; }
+.comparison-table-wrapper { overflow-x: auto; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.comparison-table { width: 100%; border-collapse: collapse; background: white; font-size: 0.85rem; }
+.comparison-table th { padding: 0.85rem 1rem; text-align: left; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+.comparison-table th:first-child { background: #f8fafc; color: #64748b; }
+.comparison-table th.col-a { color: #4b3a8c; } .comparison-table th.col-b { color: #1d6f80; } .comparison-table th.col-c { color: #2c6e48; } .comparison-table th.col-d { color: #a83a32; }
+.comparison-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; vertical-align: top; }
+.comparison-table td:first-child { font-weight: 600; color: #475569; background: #f8fafc; white-space: nowrap; }
+.comparison-table .col-pick { background: #fdf6e9 !important; }
+.comparison-table .col-chosen { background: #edf6f0 !important; }
+.page-footer { max-width: 1200px; margin: 0 auto; text-align: center; padding: 1.5rem; background: white; border-radius: 12px; }
+.page-footer p { font-size: 0.85rem; color: #64748b; margin: 0.3rem 0; }
+.back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; color: #23466f; text-decoration: none; }
+
+.triage-badge.two-way { background:#e6f3f6; color:#1d6f80; }
+.triage-badge.stakes-med { background:#fdf6e9; color:#8a5208; }
+.confidence-badge.lean { background:#b86e0a; }
+.tl { width:100%; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; }
+.tl-row { display:grid; grid-template-columns: 70px 1fr; gap:8px; align-items:center; padding:3px 0; }
+.tl-w { font-size:0.6rem; font-weight:800; color:#64748b; letter-spacing:.05em; }
+.tl-bar { display:block; font-size:0.64rem; color:#0f172a; border-radius:6px; padding:4px 8px; line-height:1.35; }
+.l-game { background:#edf6f0; border-left:3px solid #2c6e48; }
+.l-tool { background:#efeaf8; border-left:3px solid #4b3a8c; }
+.l-pull { background:#e6f3f6; border-left:3px solid #1d6f80; }
+.l-stop { background:#fbecea; border-left:3px solid #a83a32; }
+.tl-milestone { font-size:0.64rem; font-weight:700; color:#2c6e48; text-align:center; padding-top:4px; }
+.tl-milestone.late { color:#a83a32; }
+.proof { margin-top:8px; font-size:0.72rem; color:#334155; background:#f8fafc; border-radius:8px; padding:8px 10px; }
+.core { max-width:1200px; margin:0 auto 2.5rem; background:white; border-radius:12px; padding:1.25rem 1.5rem; box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+.core h2 { font-size:0.8rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#23466f; margin-bottom:0.6rem; }
+.core-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+.core-item { background:#f8fafc; border-radius:8px; padding:9px 11px; font-size:0.8rem; color:#334155; }
+.core-item b { display:block; color:#0f172a; font-size:0.78rem; margin-bottom:2px; }
+.core-item span { display:block; font-size:0.68rem; color:#64748b; margin-top:3px; }
+</style>
+</head>
+<body>
+<a href="index.html" class="back-link">← All Decisions</a>
+
+<header class="page">
+  <span class="decision-number">Decision 65 of 65 · Working together</span>
+  <h1>Build Order Around Your Game</h1>
+  <span class="category-badge">Planning</span>
+  <span class="triage-badge two-way">🔁 Two-way door</span>
+  <span class="triage-badge stakes-med">Medium stakes</span>
+  <p class="decision-description">
+    You chose to let your game pull systems into the live view (decision 60). The other three choices aren't tied to any one system, and every system will use them: the moment address (61), steps you keep or undo for any asset (62), the notes inbox and taste file (63), and the "your call" card (64). Your own game, made with <code>/x-decide-gaming</code>, is next. This decides whether that shared core gets built before the game, inside it, or after it.
+  </p>
+  <a class="preview-link" href="preview.html">See the studio preview so far →</a><br>
+  <p class="instruction">Respond with: <strong>"Option A"</strong> · <strong>"Option A but [change]"</strong> · <strong>"more options"</strong></p>
+</header>
+
+<section class="core">
+  <h2>The shared core (decisions 61–64), roughly sized</h2>
+  <div class="core-grid">
+    <div class="core-item"><b>Moment address</b>Thing + clock + ticks, named moments, stale marking<span>~1 day, plus a clock per system later</span></div>
+    <div class="core-item"><b>Steps for any asset</b>Recipe steps on the shared history, keep/undo, "show me three"<span>~2 days for the frame, ~1 day per system</span></div>
+    <div class="core-item"><b>Notes inbox + taste file</b>Panel in the view, notes file, taste.md read before proposals<span>~1 day</span></div>
+    <div class="core-item"><b>"Your call" card</b>I-checked vs your-call, taps, skip to inbox<span>~1 day</span></div>
+  </div>
+</section>
+
+<main class="options-grid">
+
+  <article class="option-card option-a not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option A</span>
+        <div class="card-badges">
+          <span class="pick-badge">My pick: thin core first, then your game</span>
+          <span class="confidence-badge lean">Lean</span>
+                  </div>
+      </div>
+      <h2 class="option-title">A Thin Shared Core First, Then Your Game Pulls the Rest</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">~1 week</span><span class="tl-bar l-tool">Shared core: address, steps frame, notes inbox + taste file, "your call" card. Proven on models (already in the view)</span></div>
+        <div class="tl-row"><span class="tl-w">then</span><span class="tl-bar l-game">Your game starts with <code>/x-decide-gaming</code>. Notes, taste and your-call cards work from day one</span></div>
+        <div class="tl-row"><span class="tl-w">as needed</span><span class="tl-bar l-pull">Each system your game uses joins the view with its clock and steps (~1–2 days each, inside the game's weeks)</span></div>
+        <div class="tl-milestone">Game starts in about a week, with the new way of working already on</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> one week of plumbing nobody can see, then your game starts and the way we work is already different: your notes stick, I show what I checked against what's your call, and taste carries between sessions. Each system the game touches gets the full treatment when it first matters.</div>
+    </div>
+    <div class="option-summary">
+      Build only the parts every system shares (the address, the steps frame, the notes inbox, the taste file and the "your call" card), proven first on models, which are already in the view. That takes about a week. Then start your game. Each system it uses joins the view (with its clock and named steps) when the game first needs it, inside the game's own schedule. Your game gets the better way of working from day one, without waiting for every system.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You want the new way of working in your game from the start</li>
+        <li>Systems should still be pulled, not pushed (decision 60)</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Your game waits about a week</li>
+        <li>The core gets designed before a second system tests it</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option A"</code></div>
+  </article>
+
+  <article class="option-card option-b not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option B</span>
+      </div>
+      <h2 class="option-title">Your Game Now, Everything Built Inside It</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">now</span><span class="tl-bar l-game">Your game starts today with <code>/x-decide-gaming</code></span></div>
+        <div class="tl-row"><span class="tl-w">as needed</span><span class="tl-bar l-pull">The first time a note needs pinning, the inbox gets built; the first clip review builds steps; and so on</span></div>
+        <div class="tl-milestone">Game starts now · the core arrives piece by piece</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> no waiting at all. The core grows exactly where the game pushes on it. But the first few weeks are interrupted by plumbing work at random moments, and pieces built under game pressure tend to be built narrowly.</div>
+    </div>
+    <div class="option-summary">
+      Start your game today, and build each core piece the first time the game needs it: the inbox when you first pin a note, steps when the first clip needs review. Purest "pulled by the game", with nothing built ahead. But the game's early weeks get interrupted by plumbing at unpredictable moments, and core pieces built in a hurry for one case tend to need rework when the next system arrives.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>Starting the game today matters most</li>
+        <li>You don't mind interruptions</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Plumbing interrupts the game</li>
+        <li>Narrow first versions, reworked later</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option B"</code></div>
+  </article>
+
+  <article class="option-card option-c not-chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option C</span>
+      </div>
+      <h2 class="option-title">Your Game First With Today's Tools, Then Build From Its Pain</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">2–3 weeks</span><span class="tl-bar l-game">Your game to a first playable with today's tools; a PAIN.md logs every "I wish I could point at this" moment</span></div>
+        <div class="tl-row"><span class="tl-w">then</span><span class="tl-bar l-tool">Build the core, shaped by the logged pain</span></div>
+        <div class="tl-row"><span class="tl-w">then</span><span class="tl-bar l-pull">Systems join the view as the game continues</span></div>
+        <div class="tl-milestone">Game starts now · new way of working in about 3–4 weeks</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the Fire's Dying method again: make the game first, write down every friction, then build tools from the list. It worked well last time. But you'd spend the game's first weeks in the old way of working that this phase exists to fix.</div>
+    </div>
+    <div class="option-summary">
+      Repeat what worked for Fire's Dying: take your game to a first playable with today's tools while logging every friction ("I wanted to point at that frame", "lost that note"), then build the core shaped by that log. The most evidence-driven option, and it starts the game today. But your game's first weeks use the very workflow these decisions set out to fix, and we've already gathered much of that evidence from Fire's Dying and today's builds.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>You trust the pain-log method most</li>
+        <li>You want the game started today</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Weeks in the old way of working</li>
+        <li>Some pain is already known</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option C"</code></div>
+  </article>
+
+  <article class="option-card option-d chosen">
+    <div class="card-header">
+      <div class="card-header-top">
+        <span class="option-label">Option D</span>
+        <div class="card-badges"><span class="chosen-badge">Chosen</span></div>
+      </div>
+      <h2 class="option-title">Build It All First, Then Your Game</h2>
+    </div>
+    <div class="visual-preview">
+      <div class="tl">
+        <div class="tl-row"><span class="tl-w">~1 week</span><span class="tl-bar l-tool">Shared core</span></div>
+        <div class="tl-row"><span class="tl-w">~2–3 weeks</span><span class="tl-bar l-tool">Motion, effects, sound, towns, UI and trailers all join the view</span></div>
+        <div class="tl-row"><span class="tl-w">then</span><span class="tl-bar l-game">Your game starts</span></div>
+        <div class="tl-row"><span class="tl-w">note</span><span class="tl-bar l-stop">Goes against decision 60 (pulled by your game)</span></div>
+        <div class="tl-milestone late">Game starts in about 3–4 weeks</div>
+      </div>
+      <div class="proof"><b>What it feels like:</b> the complete studio before any game, every system working like modelling. It conflicts with what you chose in decision 60, and it's the tool drift decision 59 warned about.</div>
+    </div>
+    <div class="option-summary">
+      Build the core and bring every system into the view before starting your game, so the game begins with everything working like modelling. The most complete result. But it contradicts decision 60, delays your game by about a month, and repeats the drift where your first own game kept moving later as tools were added.
+    </div>
+    <div class="verdict">
+      <div class="pros"><h3>Works well when</h3><ul>
+        <li>The studio itself is the product right now</li>
+      </ul></div>
+      <div class="cons"><h3>Watch out for</h3><ul>
+        <li>Conflicts with decision 60</li>
+        <li>Game slips about a month</li>
+      </ul></div>
+    </div>
+    <div class="card-footer"><code class="tell-ai">Respond with: "Option D"</code></div>
+  </article>
+
+</main>
+
+<section class="case-against">
+  <h2>The case against my pick</h2>
+  <p>Fire's Dying showed that tools built from a real game's pain log land better than tools built ahead, and C repeats that method exactly. A asks you to wait a week for plumbing designed before a second system tests it. If starting your game today matters more than having the new way of working from its first session, C (or B) is the better call. The tiebreaker: how much do you mind a week before your game starts?</p>
+</section>
+
+<section class="assumptions">
+  <h2>Assumptions and tripwires</h2>
+  <ul>
+    <li>The core is proven on models first, since they're already in the view with steps and proposals.</li>
+    <li>Systems your game uses join the view inside the game's schedule, about 1–2 days each.</li>
+    <li>Tripwire: if the core isn't usable within about 7 working days, stop and start your game anyway (C), finishing the core from its pain log.</li>
+    <li>The repo slimming and backup push finish first, independent of this choice.</li>
+  </ul>
+</section>
+
+<section class="comparison-section">
+  <h2>Side by side</h2>
+  <div class="comparison-table-wrapper">
+  <table class="comparison-table">
+    <thead><tr><th></th><th class="col-a col-pick">A · Thin core, then game</th><th class="col-b">B · Game now, built inside</th><th class="col-c">C · Game first, then from pain</th><th class="col-d col-chosen">D · Everything first</th></tr></thead>
+    <tbody>
+      <tr><td>Your game starts</td><td class="col-pick">In about a week</td><td>Today</td><td>Today</td><td>In 3–4 weeks</td></tr>
+      <tr><td>New way of working in the game</td><td class="col-pick">From day one</td><td>Piece by piece</td><td>After 3–4 weeks</td><td>From day one, everywhere</td></tr>
+      <tr><td>Fits decision 60</td><td class="col-pick">Yes</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+      <tr><td>Built from real pain</td><td class="col-pick">Partly (Fire's Dying + today)</td><td>Yes, live</td><td>Yes, logged</td><td>No</td></tr>
+      <tr><td>Undo cost</td><td class="col-pick">Low</td><td>Medium: hurried pieces reworked</td><td>Low</td><td>Medium: unused systems built</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Respond with: <strong>"Option A"</strong>, <strong>"Option C but [your change]"</strong>, or <strong>"more options"</strong></p>
+  <p>Last decision in this group; the plan gets written after it.</p>
+</div>
+</body>
+</html>
