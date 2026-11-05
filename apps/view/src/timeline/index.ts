@@ -143,7 +143,10 @@ export function initTimeline(d: TimelineDeps) {
     pose();
     draw();
     sideKey = '';
+    // a preview link (?focus=<object>) frames what it is about, once
+    if (!capture && params.get('focus') && !framedLink) { framedLink = true; frameFocus({ focus: params.get('focus') }); }
   }
+  let framedLink = false;
   const toS = (ticks: number) => ticks / TL_TICKS;
 
   // ── posing everything at t ─────────────────────────────────────────────────────────────────────────
