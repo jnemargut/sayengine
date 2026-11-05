@@ -1,0 +1,170 @@
+{
+  "player": {
+    "name": "Apprentice",
+    "prefix": "",
+    "height": 1.965,
+    "clips": {
+      "pose": {
+        "line": false,
+        "loop": false
+      },
+      "idle": {
+        "motion": "idle",
+        "loop": true,
+        "speed": 0,
+        "duration": 6
+      },
+      "walk": {
+        "motion": "walk",
+        "loop": true,
+        "speed": 1.2419,
+        "duration": 1.1333
+      },
+      "start": {
+        "motion": "start",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.8,
+        "travel": [
+          0,
+          0,
+          0.3873
+        ],
+        "then": "walk",
+        "phase": 0.5
+      },
+      "stop": {
+        "motion": "stop",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.9,
+        "travel": [
+          -0.0215,
+          0,
+          0.3165
+        ],
+        "then": "idle"
+      },
+      "wave": {
+        "motion": "action",
+        "loop": false,
+        "speed": 0,
+        "duration": 2.2
+      },
+      "pickup": {
+        "motion": "action",
+        "loop": false,
+        "speed": 0,
+        "duration": 2.4
+      }
+    },
+    "play": "idle",
+    "id": "apprentice",
+    "file": "player.glb",
+    "start": [
+      0.6,
+      0,
+      2.5
+    ],
+    "rotation": 180,
+    "walkSpeed": 1.2419,
+    "runSpeed": null
+  },
+  "characters": [
+    {
+      "name": "Blacksmith",
+      "prefix": "",
+      "height": 1.42,
+      "clips": {
+        "pose": {
+          "line": false,
+          "loop": false
+        },
+        "line:call-tongs": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-charcoal": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-hammer": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-bucket": {
+          "line": true,
+          "loop": false
+        },
+        "line:call-file": {
+          "line": true,
+          "loop": false
+        },
+        "line:intro": {
+          "line": true,
+          "loop": false
+        },
+        "line:good": {
+          "line": true,
+          "loop": false
+        },
+        "line:wrong": {
+          "line": true,
+          "loop": false
+        },
+        "line:win": {
+          "line": true,
+          "loop": false
+        },
+        "line:lose": {
+          "line": true,
+          "loop": false
+        },
+        "idle": {
+          "motion": "idle",
+          "loop": true,
+          "speed": 0,
+          "duration": 6
+        },
+        "walk": {
+          "motion": "walk",
+          "loop": true,
+          "speed": 0.9074,
+          "duration": 0.7667
+        },
+        "start": {
+          "motion": "start",
+          "loop": false,
+          "speed": 0,
+          "duration": 0.8,
+          "travel": [
+            0,
+            0,
+            0.2148
+          ],
+          "then": "walk",
+          "phase": 0.5
+        },
+        "stop": {
+          "motion": "stop",
+          "loop": false,
+          "speed": 0,
+          "duration": 0.9,
+          "travel": [
+            -0.018,
+            0,
+            0.1482
+          ],
+          "then": "idle"
+        },
+        "strike": {
+          "motion": "action",
+          "loop": false,
+          "speed": 0,
+          "duration": 1.8
+        }
+      },
+      "play": "idle"
+    }
+  ]
+}

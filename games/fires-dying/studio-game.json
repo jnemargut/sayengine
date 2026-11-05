@@ -1,0 +1,18 @@
+{
+  "name": "Fire's Dying",
+  "engine": "web",
+  "created": "2026-11-05T00:36:56.726Z",
+  "studio": {
+    "configVersion": 1
+  },
+  "player": "Apprentice",
+  "lastImport": {
+    "at": "2026-11-05T00:40:22.702Z",
+    "file": "assets/studio/scene.glb",
+    "source": "studio scene",
+    "ok": true,
+    "triangles": 32412,
+    "meshes": 35,
+    "warnings": 0
+  }
+}

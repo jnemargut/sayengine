@@ -1,0 +1,12 @@
+{
+  "name": "fires-dying",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.ts",
+    "play": "node build.ts && node serve.ts",
+    "test": "node --test test/*.test.ts",
+    "assets": "node build-assets.ts",
+    "playtest": "node play.ts"
+  }
+}
