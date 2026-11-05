@@ -4,6 +4,17 @@ Every point where a missing or weak studio tool hurt while making this tiny game
 
 ## v1.1 (5 November 2026): what the new tools fixed, and what they showed
 
+### Playtest (bot, stepped capture, whole-page frames: `playtest/`)
+- **Win:** 20 jobs in 4:01. Fed 8 times, pumped the bellows 3 times, kept him waiting 5 times. The fire dipped to about 0.35.
+- **Lose** (fetches everything, never feeds): out at 85 s with 9 of 20 done.
+- **Idle:** out at 62 s.
+- "Play again" works in all three captures, and the intro cutscene plays from the title card.
+- The rules' model player (`test/rules.test.ts`): a brisk player wins in about 4.5 minutes, one 20% slower wins in about 5.5 minutes with almost no fire left, and one 40% slower loses.
+
+**Verdict:** a real 4–5 minute game now, but a short one you'd play twice, not ten times.
+- **What works:** the fire you watch and the voiced, iconed calls make it readable at a glance. The quench beat every fifth job and the bellows break the fetch rhythm. Patience adds pressure: a good run feels tight in the last third.
+- **What's still thin:** every job is still "walk somewhere, press E", and the camera is far enough out that the carried tools are hard to see. A first-time human will probably lose once before winning, which is about right. There is no scoring or reason to replay beyond the time on the end card.
+
 ### Status of the v1 list
 | # | Pain | Now |
 |---|------|-----|
