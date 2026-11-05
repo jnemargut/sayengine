@@ -14,7 +14,7 @@ interface Segment {
   id: string; label: string; show: number;
   motion?: string; duration?: number; frames?: number; loop?: boolean; speed?: number; dir?: [number, number, number]; travelScale?: number;
   cam?: Array<[number, number, number]>; fps?: number; keys?: Array<{ t: number; label: string }>;
-  live?: { input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec };
+  live?: { input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec; reach?: { chain: string; centre: [number, number, number]; radius: number } };
   checks: CheckRow[];
 }
 interface Config { name: string; glb: string; def: CreatureDef; motions: Record<string, CreatureMotion>; terrain?: TerrainSpec; segments: Segment[]; view?: { dist?: number; height?: number; side?: number } }
@@ -123,6 +123,9 @@ function groundFor(t: TerrainSpec | undefined, centre: [number, number], extent:
   return m;
 }
 
+const goalMark = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 12), new THREE.MeshStandardMaterial({ color: '#f2c14e', emissive: '#6b4a00' }));
+goalMark.visible = false;
+scene.add(goalMark);
 const camera = new THREE.PerspectiveCamera(30, W / H, 0.05, 120);
 const live = new Map<string, { rt: CreatureRuntime; t: number }>();
 const liveDir = new THREE.Vector3(0, 0, 1);
@@ -144,9 +147,20 @@ function place(s: Segment, t: number): THREE.Vector3 {
     const inp = s.live.input;
     while (st.t < t || !pose) {
       const turn = (inp.turn ?? 0) * (inp.turnWave ? Math.sin((2 * Math.PI * st.t) / inp.turnWave) : 1);
+      const rc = s.live.reach;
+      if (rc) {
+        // the goal circles in front of the creature; the chain follows it live (FABRIK in the runtime)
+        const on = st.t > 0.6 && st.t < s.show - 1.6;
+        st.rt.reach(rc.chain, on ? [rc.centre[0] + rc.radius * Math.cos(0.9 * st.t), rc.centre[1] + 0.06 * Math.sin(1.7 * st.t), rc.centre[2] + rc.radius * Math.sin(0.9 * st.t)] : null);
+      }
       pose = st.rt.step(dt, { speed: inp.speed, turn, strafe: inp.strafe });
       st.t += dt;
     }
+    if (s.live.reach) {
+      const rc = s.live.reach, tt = st.t, on = tt > 0.6 && tt < s.show - 1.6;
+      goalMark.visible = on;
+      goalMark.position.set(rc.centre[0] + rc.radius * Math.cos(0.9 * tt), rc.centre[1] + 0.06 * Math.sin(1.7 * tt), rc.centre[2] + rc.radius * Math.sin(0.9 * tt));
+    } else goalMark.visible = false;
     for (const a of actions.values()) a.enabled = false;
     boneObj.forEach((o, i) => { o.quaternion.set(...pose!.rot[i]); o.position.copy(restPos[i]).add(new THREE.Vector3(...pose!.off[i])); });
     holder.position.set(pose.pos[0], 0, pose.pos[2]);

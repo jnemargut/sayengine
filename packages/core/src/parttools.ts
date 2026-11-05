@@ -216,7 +216,7 @@ export const PART_TOOLS: ToolDef[] = [
   },
   {
     name: 'action-note', mode: 'modify', mutates: true,
-    description: 'Steer an action in words (Decision 53): "slower", "much faster", "more weight" (more lag, overshoot and settle), "lighter", "bigger", "subtler", "snappier", "hold the pour longer", "pause before the lift". Notes stack in order and re-solve the action; the checks run again. --clear true drops every note. Kit characters: slower/faster change the duration, hold/pause stretch the keys.',
+    description: 'Steer an action in words (Decision 53): "slower", "much faster", "more weight" (more lag, overshoot and settle), "lighter", "bigger", "subtler", "snappier", "hold the pour longer", "pause before the lift". Notes stack in order and re-solve the action; the checks run again. --clear true drops every note. Kit characters: slower / faster (and much …) change the duration.',
     input: z.object({ object: ObjRef, motion: z.string(), note: z.string().optional(), clear: z.boolean().optional() }),
     example: `studio action-note --object octopus --motion octopus-pours-tea --note "slower, more weight"`,
     run(ctx, a) {

@@ -306,6 +306,12 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const live: any[] = [];
         if (args.live !== false && legs) live.push({ id: 'live-walk', label: `${def.name}: live, steered in a curve over bumps (runtime)`, show: 8, input: { speed: walk?.[1].speed ?? 0.3, strafe: walk?.[1].dir ?? [0, 0, 1], turn: 16 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), terrain: bumpy });
         if (args.live !== false && wheels) live.push({ id: 'live-drive', label: `${def.name}: live, steering over bumps (runtime)`, show: 8, input: { speed: 1.4, turn: 18, turnWave: 8 }, terrain: { ...bumpy, bumps: bumpy.bumps.map((b) => ({ ...b, amp: b.amp * 1.4 })) } });
+        // a reaching chain (a tentacle, a trunk): a live segment where it follows a moving goal
+        const reacher = !legs && !wheels ? def.parts.find((p: any) => p.kind === 'chain' && p.motion !== 'swim' && p.motion !== 'serpent' && p.segments >= 4) as any : null;
+        if (args.live !== false && reacher) {
+          const tipRest = [reacher.at[0] + reacher.dir[0] * reacher.length * 0.6, reacher.at[1] + 0.3, reacher.at[2] + reacher.dir[2] * reacher.length * 0.6];
+          live.push({ id: 'live-reach', label: `${def.name}: live, ${reacher.id} follows the yellow goal (runtime)`, show: 8, input: { speed: 0 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), reach: { chain: reacher.id, centre: tipRest, radius: reacher.length * 0.18 } });
+        }
         const broken = args.demoFailure && walk ? [{ id: 'broken-walk', motion: walk[0], label: `${def.name}: ${walk[0]} replayed 1.6× too fast (feet slide: the checks catch it)`, travelScale: 1.6 }] : [];
         const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-creature`);
         try {

@@ -14,7 +14,7 @@ import { creatureGLB, swayGodotShader } from '../../../core/src/creatures.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-export interface LiveSegment { id: string; label: string; show: number; input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec }
+export interface LiveSegment { id: string; label: string; show: number; input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec; reach?: { chain: string; centre: [number, number, number]; radius: number } }
 export interface CreaturePreviewOpts {
   motions?: string[];                                  // which baked motions (default: all)
   live?: LiveSegment[];                                // runtime segments
@@ -54,7 +54,7 @@ export async function buildCreaturePreview(outDir: string, def: CreatureDef, mot
     const k = creatureChecks(c, { ...cl, speed: cl.speed * b.travelScale });
     segments.push({ id: b.id, motion: cl.id, label: b.label, show: showOf(cl.duration) * 0.6, duration: cl.duration, frames: cl.frames, loop: true, speed: cl.speed, dir: cl.dir, travelScale: b.travelScale, checks: k });
   }
-  for (const l of opts.live ?? []) segments.push({ id: l.id, label: l.label, show: l.show, live: { input: l.input, layer: l.layer, terrain: l.terrain }, checks: [] });
+  for (const l of opts.live ?? []) segments.push({ id: l.id, label: l.label, show: l.show, live: { input: l.input, layer: l.layer, terrain: l.terrain, ...(l.reach ? { reach: l.reach } : {}) }, checks: [] });
   fs.writeFileSync(path.join(outDir, 'creature.json'), JSON.stringify({ name: def.name, glb: 'creature.glb', def, motions, terrain: def.terrain, segments, view: opts.view }, null, 1));
   fs.copyFileSync(path.join(HERE, 'index.html'), path.join(outDir, 'index.html'));
   // shader sway parts: the Godot shader beside the GLB (the web player applies the same formula)
