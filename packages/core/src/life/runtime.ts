@@ -477,7 +477,8 @@ export class LifeRuntime {
       // current positions: earlier folk this tick have already moved (no two step into one spot)
       const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
       const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
-      if (d2 < r * r && d2 < ex * ex + ez * ez) return false;
+      // (two slipping past who are already shoulder in shoulder just carry on through)
+      if (d2 < r * r && d2 < ex * ex + ez * ez && !(r < 0.2 && ex * ex + ez * ez < 0.04)) return false;
     }
     for (let j = 0; j < this.vehicles.length; j++) {
       const vv = this.vehicles[j];
@@ -511,6 +512,8 @@ export class LifeRuntime {
       const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);
       lat = clamp(lat, -Q[3] + A.r, Q[3] - A.r);
       tx = Q[0] - E[1] * lat; tz = Q[2] + E[0] * lat; ty = Q[1]; face = Math.atan2(E[0], E[1]);
+      // just setting off (less than a step along): behind them where they stand
+      if (s !== w.s && w.s < 0.95) { tx = w.x - w.fx * 0.95; tz = w.z - w.fz * 0.95; ty = w.y; }
     } else if (g && g.k === 'act' && g.pal) {
       // they've stopped (a seat, a stall, a stop, a window): stand at the friend's spot, turned to them, and chat
       tx = g.pal[0]; ty = g.pal[1]; tz = g.pal[2];

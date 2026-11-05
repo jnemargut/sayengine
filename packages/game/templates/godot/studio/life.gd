@@ -668,7 +668,7 @@ func _free(i: int, cx: float, cz: float) -> bool:
 		var d2 := dx * dx + dz * dz
 		var ex: float = o["x"] - st["x"]
 		var ez: float = o["z"] - st["z"]
-		if d2 < r * r and d2 < ex * ex + ez * ez:
+		if d2 < r * r and d2 < ex * ex + ez * ez and not (r < 0.2 and ex * ex + ez * ez < 0.04):
 			return false
 	for j in vehicles.size():
 		var vv: Dictionary = vehicles[j]
@@ -724,6 +724,10 @@ func _step_buddy(i: int, dt: float) -> void:
 		tz = Q[2] + E[0] * lat
 		ty = Q[1]
 		face = atan2(float(E[0]), float(E[1]))
+		if s != float(w["s"]) and float(w["s"]) < 0.95:
+			tx = float(w["x"]) - float(w["fx"]) * 0.95
+			tz = float(w["z"]) - float(w["fz"]) * 0.95
+			ty = w["y"]
 	elif g != null and g["k"] == "act" and g.has("pal"):
 		var pa: Array = g["pal"]
 		var at: Array = g["at"]
