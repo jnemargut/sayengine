@@ -7,6 +7,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { addStaticColliders, installHarness, startCharacters, type StudioGame } from '../studio/harness.ts';
 import { startEffects } from '../studio/effects.ts';
 import { startUI } from '../studio/ui.ts';
+import { applyLook } from '../studio/look.ts';
 
 const STUDIO_SCENE = 'assets/studio/scene.glb';
 const SKY = '#cddbe5';
@@ -68,6 +69,7 @@ async function start(): Promise<StudioGame> {
   });
   world.step();   // colliders into the query pipeline, so the player can find the street under its start
   await startCharacters(game, { controls: true });
+  await applyLook(game);   // the studio look (look.json): sky, fog, light, grade — or keep the lights above
   await startEffects(game);
   await startUI(game);
   renderer.setAnimationLoop(() => {

@@ -9,6 +9,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import { addStaticColliders, installHarness, startCharacters, type StudioGame } from '../studio/harness.ts';
 import { startEffects } from '../studio/effects.ts';
 import { startUI } from '../studio/ui.ts';
+import { applyLook } from '../studio/look.ts';
 
 const STUDIO_SCENE = 'assets/studio/scene.glb';
 
@@ -77,6 +78,7 @@ async function start(): Promise<StudioGame> {
   await startCharacters(game, { controls: true });
   // studio effects (game.effects.setValue / .event) and the UI kit's HUD (game.ui.setBar / say()) — both
   // are empty until the studio has some
+  await applyLook(game);   // the studio look (look.json): sky, fog, light, grade — or keep the lights above
   await startEffects(game);
   await startUI(game);
   renderer.setAnimationLoop(() => {
