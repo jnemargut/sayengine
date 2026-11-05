@@ -121,7 +121,7 @@ func show_walk(on: bool) -> void:
 				for k in [0, i, i + 1]:
 					st.add_vertex(Vector3(p[k * 3], float(p[k * 3 + 1]) + 0.03, p[k * 3 + 2]))
 		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.21, 0.77, 1.0, 0.35)
+		m.albedo_color = Color(0.1, 0.55, 1.0, 0.6)
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED

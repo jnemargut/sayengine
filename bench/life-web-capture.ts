@@ -38,7 +38,7 @@ await page.evaluate(() => {
   if (p?.body) p.body.setTranslation({ x: 0, y: -400, z: 0 }, true);
 });
 for (const s of shots) {
-  await page.evaluate((s) => { (window as any).life.seek(s.t, s.warm ?? 60); (window as any).life.showWalk(!!s.walk); (window as any).__cam = null; }, s);
+  await page.evaluate((s) => { (window as any).life.seek(s.t, s.warm ?? 60); (window as any).life.showWalk(!!s.walk); for (let k = 0; k < (s.ff ?? 0); k++) (window as any).life.rt.step(); (window as any).life.update(0); (window as any).__cam = null; }, s);
   const frames = s.frames ?? 1;
   for (let f = -6; f < frames; f++) {
     const url = await page.evaluate(({ s, f }) => {

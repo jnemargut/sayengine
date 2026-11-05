@@ -286,6 +286,18 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - No per-building nodes in the engines: buildings are merged into ~110 m chunks with vertex colours (≈ 90 draw calls in Godot, ≈ 180 on the web with shadows, down from 1,700); the per-building ids ride in the chunk's extras.
 - Fetching needs the network and the free `overturemaps` CLI (`~/.studio-tools/venv`); USGS ground is US only.
 
+### Status (2026-11-05): weeks 12–13 (life: people, then vehicles) built on `phase4/life`
+**Built:** the life module (`packages/core/src/life/`, tools `life-bake` + `life-day`, skill `/life`). From the town plans it bakes one walk mesh (sidewalks, pedestrian streets, plazas, crosswalks at junctions and mid-plaza, piers) and one lane graph (walking lanes; right-hand car lanes split at junctions with stop lines, 21 signals, turn curves, a junction box), smart places that say what they offer (113 benches, 10 market stalls, 2 piers, 3 bus stops, 2 parks, ~90 doors), a seeded cast drawn from the studio's characters (8 folk on 5 body plans, a dog, 4 cars and a bus from the wheel rig parts) and their Saturday (170 folk, 2 dog walkers, ~425 outings, 17 cars on ~2,700 trips, the bus on a loop with stops). One `life.json` + `life-props.glb` feed both engines. Runtimes: `runtime.ts` (= the web's `studio/life.ts`) and `templates/godot/studio/life.gd`, plus the views (`lifeview.ts`, `life_view.gd`) with colliders so the player bumps into folk and vehicles and the runtime sees the player. Pocket Raleigh plays it in both engines: `checkpoint-pocket-raleigh/life/`.
+
+**D30 tripwire:** the GDScript and TypeScript runtimes agree to **5.6e-13 m** (1,307 positions over 120 s + 60 s warm-up, no visibility mismatch; `node bench/life.ts`), and a parity test runs in `npm test`. No shared core needed.
+
+**Weak (honest):**
+- **The headless day is not green.** One hour of the Saturday (9:30–10:30, both towns, scripted player) passes 9 of 13 checks; it fails *folk stay on the walk* (corner grazes and folk held up at a crossing on the road), *no gridlock* (9 vehicles held > 150 s, mostly behind a stopped car at a junction box), one pop (0.59 m) and *folk make room for the player* (2 samples). A full 24-hour run has been worse earlier: crowd knots in narrow sidewalk pinches were the big one and are mostly fixed (keep-right lanes, sidestep, a face-to-face pair "slips past" after 3 s and is counted), but I haven't re-run 24 h on the final code.
+- **It reads as a quiet toy town, not a lively one.** ~50 folk out at 10:36 across two towns is thin on screen; vendors and anglers hold still poses; walkers follow sidewalk centre lines with little idle variety; folk appear and vanish at building doors.
+- Vehicles are static meshes (the creature export at the origin carries no wheel animation), and the studio evaluator caches creature meshes by op, so each vehicle has to be exported from a fresh daemon (`bench/life-export-vehicles.sh`).
+- Cast GLBs are ~5–7 MB each (face shapes and clips ride along): ~49 MB per game, heavy for the phone.
+- The bake takes ~40 s for both towns; the Godot runtime costs ~10 ms per 0.1 s tick for 190 agents (dictionaries; not optimised).
+
 ### Week 9: world, real
 - [x] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature. *(`world/plan.ts`; ids `ov:<GERS>`, `osm:w<id>`, `inv:<seed>:<lot>`)*
 - [x] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area. *(`studio world-fetch`; overturemaps CLI, the 3DEP ImageServer as raw float32, Overpass; cached in `.studio/cache/world/<area>`; a 56 KB offline test fixture)*

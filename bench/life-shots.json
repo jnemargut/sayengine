@@ -157,14 +157,14 @@
   "name": "walk-mesh-raleigh",
   "t": 38160,
   "cam": [
-   60,
-   95,
-   150
+   20,
+   130,
+   290
   ],
   "look": [
    0,
    0,
-   60
+   170
   ],
   "fov": 50,
   "walk": true
@@ -187,7 +187,8 @@
  },
  {
   "name": "video-raleigh-dog",
-  "t": 38715,
+  "t": 38160,
+  "ff": 6148,
   "cam": [
    0,
    0,
@@ -226,7 +227,7 @@
   "frames": 240
  },
  {
-  "name": "video-twin-market",
+  "name": "video-twin-street",
   "t": 38160,
   "cam": [
    0,
@@ -238,11 +239,11 @@
    0,
    0
   ],
-  "follow": 121,
-  "dist": 22,
-  "height": 11,
-  "angle": 170,
-  "fov": 45,
+  "follow": 151,
+  "dist": 8,
+  "height": 3.5,
+  "angle": 30,
+  "fov": 50,
   "frames": 240
  },
  {

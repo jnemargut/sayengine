@@ -28,19 +28,20 @@ if (bus >= 0 && rt.vehicles[bus].visible) shots.push({ name: 'raleigh-bus', t, c
 const car = rt.vehicles.findIndex((v, i) => v.visible && D.vehicles[i].kind === 'car' && D.vehicles[i].town === 0);
 if (car >= 0) shots.push({ name: 'raleigh-car', t, cam: [0, 0, 0], look: [0, 0, 0], followVehicle: car, dist: 10, height: 3.5, angle: 25, fov: 50 });
 // the walk mesh both engines share, from above
-shots.push({ name: 'walk-mesh-raleigh', t, cam: [60, 95, 150], look: [0, 0, 60], fov: 50, walk: true });
+shots.push({ name: 'walk-mesh-raleigh', t, cam: [20, 130, 290], look: [0, 0, 170], fov: 50, walk: true });
 shots.push({ name: 'walk-mesh-twin', t, cam: [440, 110, 120], look: [380, 0, 0], fov: 50, walk: true });
 // the videos: a dog walker on the move (the first moment one is walking after the start), a street, the market
 for (const o of dogs) {
   const r2 = new LifeRuntime(D);
   r2.init(t, 60);
   let tw = -1;
-  for (let k = 0; k < 18000 && tw < 0; k++) { r2.step(); const a = r2.agents[o], g = D.agents[o].plan[a.seg]; if (a.visible && g?.k === 'move' && a.v > 0.8 && k % 10 === 0) tw = Math.round(r2.t - 60); }
-  if (tw > 0) { shots.push({ name: `video-${D.agents[o].town === 0 ? 'raleigh' : 'twin'}-dog`, t: tw, cam: [0, 0, 0], look: [0, 0, 0], follow: o, dist: 6.5, height: 2.6, angle: 25, fov: 50, frames: 240 }); break; }
+  for (let k = 0; k < 18000 && tw < 0; k++) { r2.step(); const a = r2.agents[o], g = D.agents[o].plan[a.seg]; if (a.visible && g?.k === 'move' && a.v > 0.8) tw = k + 1; }
+  // ff: the engines fast-forward this many ticks after the seek (the same history as this run)
+  if (tw > 0) { shots.push({ name: `video-${D.agents[o].town === 0 ? 'raleigh' : 'twin'}-dog`, t, ff: tw, cam: [0, 0, 0], look: [0, 0, 0], follow: o, dist: 6.5, height: 2.6, angle: 25, fov: 50, frames: 240 }); break; }
 }
 const walker = pick((i, g) => town(i) === 0 && g?.k === 'move' && rt.agents[i].v > 0.8);
 if (walker >= 0) shots.push({ name: 'video-raleigh-street', t, cam: [0, 0, 0], look: [0, 0, 0], follow: walker, dist: 9, height: 3.2, angle: 20, fov: 50, frames: 240 });
-const tm = pick((i, g) => town(i) === 1 && g?.k === 'act' && (g.pose === 'browse' || g.pose === 'tend'));
-if (tm >= 0) shots.push({ name: 'video-twin-market', t, cam: [0, 0, 0], look: [0, 0, 0], follow: tm, dist: 22, height: 11, angle: 170, fov: 45, frames: 240 });
+const tw2 = pick((i, g) => town(i) === 1 && g?.k === 'move' && rt.agents[i].v > 0.8);
+if (tw2 >= 0) shots.push({ name: 'video-twin-street', t, cam: [0, 0, 0], look: [0, 0, 0], follow: tw2, dist: 8, height: 3.5, angle: 30, fov: 50, frames: 240 });
 if (bus >= 0 && rt.vehicles[bus].visible) shots.push({ name: 'video-raleigh-bus', t, cam: [0, 0, 0], look: [0, 0, 0], followVehicle: bus, dist: 18, height: 7, angle: 150, lookUp: 1.5, fov: 50, frames: 180 });
 process.stdout.write(JSON.stringify(shots, null, 1) + '\n');

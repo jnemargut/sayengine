@@ -65,6 +65,9 @@ func _next() -> void:
 	var s: Dictionary = shots[shot]
 	life.seek(float(s["t"]), float(s.get("warm", 60)))
 	life.show_walk(bool(s.get("walk", false)))
+	for k in int(s.get("ff", 0)):
+		life.rt.step()
+	life._snap()
 	cam.fov = float(s.get("fov", 50))
 	cam.current = true
 	settle = 6

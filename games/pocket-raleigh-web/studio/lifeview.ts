@@ -139,7 +139,7 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
         }
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        walkOverlay = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#35c4ff', transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
+        walkOverlay = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#1a8cff', transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }));
         walkOverlay.name = 'Walk mesh';
         g.scene.add(walkOverlay);
       }
