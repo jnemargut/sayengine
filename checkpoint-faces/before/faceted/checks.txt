@@ -1,0 +1,9 @@
+Blacksmith (faceted): 20/20 checks pass, 17308 triangles
+Apprentice (faceted): 16/16 checks pass, 13322 triangles
+Goblin Shopkeeper (faceted): 20/20 checks pass, 16850 triangles
+Robot Porter (faceted): 16/16 checks pass, 16632 triangles
+Marsh Bird (faceted): 16/16 checks pass, 18426 triangles
+Kid (faceted): 16/16 checks pass, 17708 triangles
+Elder (faceted): 16/16 checks pass, 13756 triangles
+Dog (faceted): 16/16 checks pass, 18046 triangles
+Heron Courier (faceted): 16/16 checks pass, 16372 triangles

@@ -178,7 +178,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   const dims: QuadDims = { wither, hipY, chestY, zRump, zChest, bodyR, legX, legLen: hipY - pawY };
   const spec: CharSpec = {
     params: p, s, bones, pieces,
-    head: { pts: faceSpec.head.pts.map(mv), refine: faceSpec.head.refine, part: 'Head' },
+    head: { pts: faceSpec.head.pts.map(mv), ...(faceSpec.head.extra ? { extra: faceSpec.head.extra.map((h) => h.map(mv)) } : {}), refine: faceSpec.head.refine, part: 'Head' },
     cuts: faceSpec.cuts.map((c) => (c.kind === 'hull' ? { ...c, pts: c.pts.map(mv) } : { ...c, c: mv(c.c) })) as CharSpec['cuts'],
     mouth: faceSpec.mouth.map(mvPiece), eyes: faceSpec.eyes.map(mvPiece),
     lids: faceSpec.lids.map((l) => ({ ...l, c: mv(l.c) })),
