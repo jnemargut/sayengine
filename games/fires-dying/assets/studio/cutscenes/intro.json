@@ -1,0 +1,107 @@
+{
+  "id": "intro",
+  "title": "Fire's Dying",
+  "duration": 8.57,
+  "shots": [
+    {
+      "id": "strike",
+      "start": 0,
+      "end": 2.6,
+      "from": {
+        "position": [
+          8.7876,
+          1.5627,
+          2.7218
+        ],
+        "target": [
+          0.01,
+          1.0127,
+          0.71
+        ],
+        "fov": 40
+      },
+      "to": {
+        "position": [
+          7.3832,
+          1.4747,
+          2.3999
+        ],
+        "target": [
+          0.01,
+          1.0127,
+          0.71
+        ],
+        "fov": 40
+      },
+      "framing": "wide"
+    },
+    {
+      "id": "job",
+      "start": 2.6,
+      "end": 8.57,
+      "from": {
+        "position": [
+          -0.1718,
+          1.0466,
+          0.5099
+        ],
+        "target": [
+          -0.5637,
+          0.9494,
+          -1.0619
+        ],
+        "fov": 33
+      },
+      "to": {
+        "position": [
+          -0.2345,
+          1.031,
+          0.2584
+        ],
+        "target": [
+          -0.5637,
+          0.9494,
+          -1.0619
+        ],
+        "fov": 33
+      },
+      "framing": "medium"
+    }
+  ],
+  "cues": [
+    {
+      "t": 0.3,
+      "end": 2.1,
+      "character": "blacksmith",
+      "name": "Blacksmith",
+      "clip": "strike",
+      "kind": "motion",
+      "shot": "strike"
+    },
+    {
+      "t": 2.85,
+      "end": 8.07,
+      "character": "blacksmith",
+      "name": "Blacksmith",
+      "clip": "line:intro",
+      "kind": "line",
+      "audio": "af70a6f03f127ff7.wav",
+      "text": "The fire's dying, lad. Keep it fed, and fetch whatever I call for.",
+      "shot": "job"
+    }
+  ],
+  "characters": [
+    {
+      "id": "blacksmith",
+      "name": "Blacksmith",
+      "idle": "idle"
+    },
+    {
+      "id": "apprentice",
+      "name": "Apprentice",
+      "idle": "idle"
+    }
+  ],
+  "events": [],
+  "engine": []
+}
