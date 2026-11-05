@@ -50,7 +50,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const t0 = Date.now();
   rt.init(from, 0);
   const every = o.sampleEvery ?? 10;
-  const cnt = { overlap: 0, carHit: 0, carCar: 0, wall: 0, offWalk: 0, pop: 0, red: 0, leash: 0, seat: 0, player: 0, playerCar: 0, stuck: 0 };
+  const cnt = { slip: 0, overlap: 0, carHit: 0, carCar: 0, wall: 0, offWalk: 0, pop: 0, red: 0, leash: 0, seat: 0, player: 0, playerCar: 0, stuck: 0 };
   const worst = { overlap: 0, pop: 0, leash: 0, player: 0 };
   const at: Record<string, number[]> = {};
   const note = (k: string, t: number) => { (at[k] ??= []).length < 5 && at[k].push(Math.round(t)); };
@@ -116,6 +116,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       if (D.agents[i].kind === 'person') nf++;
       for (let j = i + 1; j < A.length; j++) {
         if (!A[j].visible || D.agents[j].owner === i || D.agents[i].owner === j) continue;
+        if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) cnt.slip++; continue; }
         const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = D.agents[i].r + D.agents[j].r - 0.08;
         if (d < lim) {
           cnt.overlap++; worst.overlap = Math.max(worst.overlap, lim - d); note('overlap', t);
@@ -165,6 +166,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const mk = (name: string, k: keyof typeof cnt, limit: number, unit: string, detail: string, w?: number): DayCheck => ({ name, pass: cnt[k] <= limit, count: cnt[k], worst: +(w ?? 0).toFixed(3), limit, unit, detail, ...(at[k] ? { at: at[k] } : {}) });
   const checks: DayCheck[] = [
     mk('no two folk in one spot', 'overlap', 0, 'samples', 'people closer than their two radii', worst.overlap),
+    mk('few squeeze-pasts', 'slip', Math.ceil(ticks / every / 60), 'samples', 'two folk face to face in a pinch slipping past each other (shoulders through shoulders for a moment; at most one sample a minute)'),
     mk('nobody inside a building', 'wall', 0, 'samples', 'a walking person (or a dog) inside a footprint'),
     mk('folk stay on the walk', 'offWalk', Math.ceil(walkSamples * 0.0003), 'samples', 'a walking person off the sidewalks, plazas and crossings (a few grazes at corners allowed)'),
     mk('no pops', 'pop', 0, 'ticks', 'no jump beyond the body\'s speed + 0.3 m in a 0.1 s tick', worst.pop),

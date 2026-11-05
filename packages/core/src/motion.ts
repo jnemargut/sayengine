@@ -145,6 +145,15 @@ export const ACTIONS: Record<string, ActionDef> = {
       { at: 1 },
     ],
   },
+  // held poses for town life (Decision 30): every key is the same pose, so the clip loops as a hold
+  sit: {
+    label: 'Sit on a bench, a seat 0.45 m high behind you (held)', duration: 4,
+    keys: [0, 0.5, 1].map((at) => ({ at, drop: 0.43, shift: [0, -0.1] as [number, number], feet: { left: [0.03, 0, 0.16] as V3, right: [-0.03, 0, 0.2] as V3 }, bones: { Spine: [['x', -6]] as Step, Chest: [['x', 4]] as Step, Neck: [['x', 4]] as Step, LeftUpperArm: armUp('Left', 34, -62), RightUpperArm: armUp('Right', 30, -62), LeftLowerArm: [['y', -38]] as Step, RightLowerArm: [['y', 38]] as Step }, hands: { left: 'relaxed', right: 'relaxed' } })),
+  },
+  fish: {
+    label: 'Hold a fishing rod out over the water (held)', duration: 4,
+    keys: [0, 0.5, 1].map((at) => ({ at, bones: { RightUpperArm: armUp('Right', 58, 6), LeftUpperArm: armUp('Left', 46, 2), RightLowerArm: [['y', 20]] as Step, LeftLowerArm: [['y', -32]] as Step, Chest: [['y', -4]] as Step, Head: [['x', 8]] as Step }, hands: { left: 'fist', right: 'fist' } })),
+  },
   'look-around': {
     label: 'Look left, then right', duration: 3,
     keys: [{ at: 0 }, { at: 0.25, bones: { Neck: [['y', 18]], Head: [['y', 22]], Chest: [['y', 6]] } }, { at: 0.45, bones: { Neck: [['y', 18]], Head: [['y', 22]], Chest: [['y', 6]] } }, { at: 0.7, bones: { Neck: [['y', -18]], Head: [['y', -22]], Chest: [['y', -6]] } }, { at: 0.85, bones: { Neck: [['y', -18]], Head: [['y', -22]], Chest: [['y', -6]] } }, { at: 1 }],

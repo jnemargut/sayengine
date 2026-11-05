@@ -35,6 +35,7 @@ export interface AgentState {
   actStart: number; actEnd: number; moveStart: number; fromX: number; fromY: number; fromZ: number;
   slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
   fx: number; fz: number;                 // the walking frame: turns smoothly, so a sharp corner never flips our side
+  slip: number;                           // until then, a head-on pair stuck in a pinch may slip past each other
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
 
@@ -169,7 +170,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1 };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0 };
   }
 
   firstTrip(i: number, t: number): number {
@@ -233,7 +234,7 @@ export class LifeRuntime {
     st.seg += 1;
     if (st.seg >= A.plan.length) { st.visible = false; st.seg = A.plan.length; return; }
     const g = A.plan[st.seg];
-    st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.stay = false;
+    st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.stay = false; st.blocked = 0;
     if (g.k === 'move') {
       st.s = 0; st.blocked = 0; st.wait = false;
       // walking on from one leg into the next: carry on where we are (no blend, keep our side)
@@ -286,7 +287,12 @@ export class LifeRuntime {
           if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
           const r = A.r + this.data.agents[j].r;
           const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
-          if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) { st.actStart += dt; st.actEnd += dt; k = clamp((this.t - st.actStart) / SIT_BLEND, 0, 1); break; }
+          if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) {
+            st.actStart += dt; st.actEnd += dt; st.blocked += dt;
+            k = clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
+            if (st.blocked > 4) { st.actEnd = this.t; st.stay = true; k = 0; }
+            break;
+          }
         }
       }
       st.x = st.fromX + (g.at[0] - st.fromX) * k; st.y = st.fromY + (g.at[1] - st.fromY) * k; st.z = st.fromZ + (g.at[2] - st.fromZ) * k;
@@ -309,25 +315,26 @@ export class LifeRuntime {
     }
     const D = [st.fx, st.fz];
     const hw = pt[3];
-    let want = A.speed, latT = Math.min(0.4, hw * 0.4);
+    let want = A.speed, latT = Math.min(0.45, hw - A.r);           // keep right: the two directions use their own sides
     // crossings: wait at the curb for the walk signal
     st.wait = false; st.onCross = false;
     if (g.cross) for (const c of g.cross) {
       if (st.s > c.s0 - 0.2 && st.s < c.s1 + 0.2) st.onCross = true;
       if (st.s < c.s0 - 0.25 && st.s > c.s0 - 2.5) {
-        let go = this.walkOk(c.sig, c.group, this.t);
-        // and look both ways: no car coming at the crossing
-        if (go) {
-          const M = pointAt(P, 4, (c.s0 + c.s1) / 2);
-          for (let j = 0; j < this.vehicles.length; j++) {
-            const vv = this.vehicles[j];
-            if (!vv.visible) continue;
-            const dx = M[0] - vv.x, dz = M[2] - vv.z, d = Math.sqrt(dx * dx + dz * dz);
-            const Vd = this.data.vehicles[j];
-            const coming = vv.v > 0.5 && d < 7 + vv.v * 2.5 && dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2;
-            if (coming || boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid) < 2.2) { go = false; break; }
-          }
+        // the walk signal, or (like everyone does) an empty street; and always look both ways
+        const signalOk = this.walkOk(c.sig, c.group, this.t);
+        let go = true, anyNear = false;
+        const M = pointAt(P, 4, (c.s0 + c.s1) / 2);
+        for (let j = 0; j < this.vehicles.length; j++) {
+          const vv = this.vehicles[j];
+          if (!vv.visible) continue;
+          const dx = M[0] - vv.x, dz = M[2] - vv.z, d = Math.sqrt(dx * dx + dz * dz);
+          const Vd = this.data.vehicles[j];
+          if (d < 30) anyNear = true;
+          const coming = vv.v > 0.5 && d < 7 + vv.v * 2.5 && dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2;
+          if (coming || (vv.v > 0.05 && boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid) < 2.2)) { go = false; break; }
         }
+        if (!signalOk && anyNear) go = false;
         if (!go) { want = Math.min(want, Math.max(0, (c.s0 - 0.35 - st.s) * 2)); st.wait = true; }
       }
     }
@@ -342,10 +349,11 @@ export class LifeRuntime {
       if (ahead < -0.3 || ahead > 4) continue;
       const r = A.r + this.data.agents[j].r;
       if (Math.abs(side) < r + 0.35) {
-        // the other is on my left (or dead ahead): step right; on my right: step left of them
+        // the other is on my left (or dead ahead): step right; on my right: pass on their left only where the
+        // walk is wide (on a narrow one we queue behind, so the two directions keep to their own sides)
         if (side <= 0.05) latT = Math.max(latT, st.lat + side + r + 0.35);
-        else latT = Math.min(latT, st.lat + side - r - 0.35);
-        if (ahead < r + 0.45) want = Math.min(want, this.agents[j].v * 0.9);
+        else if (hw > 1.2 || st.blocked > 2) latT = Math.min(latT, st.lat + side - r - 0.35);
+        if (ahead < r + 0.45 && this.agents[j].v > 0.05) want = Math.min(want, this.agents[j].v * 0.9);
       }
     }
     if (this.player.on) {
@@ -371,39 +379,57 @@ export class LifeRuntime {
     const k = clamp((this.t - st.moveStart) / SIT_BLEND, 0, 1);
     if (k < 1) { cx = st.fromX + (cx - st.fromX) * k; cz = st.fromZ + (cz - st.fromZ) * k; }
     // never step into someone (or the player): stay put this tick instead
-    let ok = true;
-    for (let j = 0; j < this.agents.length; j++) {
-      if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
-      const r = A.r + this.data.agents[j].r;
-      // current positions: earlier folk this tick have already moved (no two step into one spot)
-      const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
-      const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
-      if (d2 < r * r && d2 < ex * ex + ez * ez) { ok = false; break; }
-    }
-    for (let j = 0; ok && j < this.vehicles.length; j++) {
-      const vv = this.vehicles[j];
-      if (!vv.visible) continue;
-      const Vd = this.data.vehicles[j];
-      const dn = boxDist(cx, cz, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
-      if (dn < A.r + 0.2 && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) ok = false;
-    }
-    if (ok && this.player.on) {
-      const r = A.r + this.player.r + 0.05;
-      const dx = this.player.x - cx, dz = this.player.z - cz;
-      const ex = this.player.x - st.x, ez = this.player.z - st.z;
-      if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) ok = false;
-    }
-    const E = dirAt(P, 4, ok ? ns : st.s);
+    let ok = this.free(i, cx, cz);
+    let E = dirAt(P, 4, ok ? ns : st.s);
     if (ok) {
       st.s = ns; st.blocked = 0;
       st.x = cx; st.z = cz; st.y = k < 1 ? st.fromY + (P2[1] - st.fromY) * k : P2[1];
     } else {
-      st.v = 0; st.lat = lat0; st.blocked += dt;
+      st.v = 0; st.blocked += dt;
       if (k < 1) st.moveStart += dt;           // hold the blend too
+      // a sidestep on the spot, if that bumps nobody
+      const Q = pointAt(P, 4, st.s);
+      const sx = Q[0] - D[1] * st.lat, sz = Q[2] + D[0] * st.lat;
+      if (k >= 1 && st.lat !== lat0 && this.free(i, sx, sz)) { st.x = sx; st.z = sz; }
+      else st.lat = lat0;
+      E = dirAt(P, 4, st.s);
     }
     if (st.v > 0.05) st.yaw = angleTo(st.yaw, Math.atan2(E[0], E[1]), 5 * dt);
     st.pose = st.v > 0.05 ? 'walk' : 'idle';
     if (st.s >= P.len - 1e-6) this.nextSeg(i);
+  }
+
+  /** May person i stand at (cx, cz)? Nobody (folk, car, player) is closer there than now and inside reach. */
+  free(i: number, cx: number, cz: number): boolean {
+    const A = this.data.agents[i], st = this.agents[i];
+    // held up a while: squeeze past, shoulders brushing (never closer than 0.46 m between centres)
+    const squeeze = st.blocked > 2.5 ? 0.46 : -1;
+    for (let j = 0; j < this.agents.length; j++) {
+      if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
+      const o = this.agents[j];
+      // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
+      if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
+      if (st.slip > this.t && o.slip > this.t) continue;
+      const r = squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
+      // current positions: earlier folk this tick have already moved (no two step into one spot)
+      const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
+      const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
+      if (d2 < r * r && d2 < ex * ex + ez * ez) return false;
+    }
+    for (let j = 0; j < this.vehicles.length; j++) {
+      const vv = this.vehicles[j];
+      if (!vv.visible) continue;
+      const Vd = this.data.vehicles[j];
+      const dn = boxDist(cx, cz, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
+      if (dn < A.r + 0.2 && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) return false;
+    }
+    if (this.player.on) {
+      const r = A.r + this.player.r + 0.05;
+      const dx = this.player.x - cx, dz = this.player.z - cz;
+      const ex = this.player.x - st.x, ez = this.player.z - st.z;
+      if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) return false;
+    }
+    return true;
   }
 
   headingOf(p: number, s: number): number { const D = dirAt(this.paths[p], 4, s); return Math.atan2(D[0], D[1]); }

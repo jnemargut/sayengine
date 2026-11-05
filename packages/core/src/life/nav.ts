@@ -493,7 +493,8 @@ export function shortestWalk(g: WalkGraph, from: number, to: number): number[] |
     if (u === to) break;
     for (const ei of g.adj[u]) {
       const e = g.edges[ei], v = e.a === u ? e.b : e.a;
-      const nd = d + e.len + (e.cross ? 12 : 0);
+      // narrow spots cost more (folk spread over the wide sidewalks instead of knotting in a pinch)
+      const nd = d + e.len * (1 + 0.5 / (e.hw * e.hw)) + (e.cross ? 12 : 0);
       if (nd < dist[v]) { dist[v] = nd; prev[v] = u; push(nd, v); }
     }
   }
