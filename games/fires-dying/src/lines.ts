@@ -24,8 +24,8 @@ export const JOBS: Record<Job, { icon: string; want: string }> = {
   file: { icon: 'file', want: 'File' },
   chisel: { icon: 'chisel', want: 'Chisel' },
   whetstone: { icon: 'whetstone', want: 'Whetstone' },
-  bellows: { icon: 'bellows', want: 'Pump the bellows' },
-  quench: { icon: 'water-bucket', want: 'Water in the tub' },
+  bellows: { icon: 'bellows', want: 'The bellows' },
+  quench: { icon: 'water-bucket', want: 'Fill the tub' },
 };
 
 export const CALLS: Record<Job | 'charcoal', Line> = {

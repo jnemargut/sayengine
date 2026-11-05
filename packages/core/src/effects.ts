@@ -113,7 +113,7 @@ export const EFFECT_PRESETS: Record<string, { label: string; make(): Omit<Effect
     label: 'Light rain over a 6 m square: thin stretched drops falling fast',
     make: () => ({
       loop: true,
-      layers: [P({ id: 'drops', shape: { type: 'box', size: [6, 0.1, 6] }, rate: 260, life: [0.7, 0.9], speed: [6, 7], size: [0.012, 0.016], colour: ['rain', 'rain'], alpha: [0.7, 0.5], direction: [0, -1, 0], spread: 3, gravity: 0, stretch: 0.05, blend: 'alpha', offset: [0, 4.5, 0] })],
+      layers: [P({ id: 'drops', shape: { type: 'box', size: [6, 0.1, 6] }, rate: 260, life: [0.7, 0.9], speed: [6, 7], size: [0.018, 0.024], colour: ['rain', 'rain'], alpha: [0.85, 0.6], direction: [0, -1, 0], spread: 3, gravity: 0, stretch: 0.05, blend: 'alpha', offset: [0, 4.5, 0] })],
     }),
   },
 };

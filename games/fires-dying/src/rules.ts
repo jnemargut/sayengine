@@ -41,11 +41,11 @@ export interface State {
   request: Job | null; waited: number;   // seconds the current job has waited
   working: number;                       // seconds left before the next call
   carrying: Item | null; wrongs: number; fed: number; pumped: number; late: number; pumpCool: number;
-  warned: boolean; seed: number; lastCall?: Job;
+  warned: boolean; seed: number; lastCall?: Job; bag: Job[];
 }
 
 export function newGame(seed = 1): State {
-  return { phase: 'play', t: 0, fire: 0.8, done: 0, request: null, waited: 0, working: 1.5, carrying: null, wrongs: 0, fed: 0, pumped: 0, late: 0, pumpCool: 0, warned: false, seed: seed >>> 0 || 1 };
+  return { phase: 'play', t: 0, fire: 0.8, done: 0, request: null, waited: 0, working: 1.5, carrying: null, wrongs: 0, fed: 0, pumped: 0, late: 0, pumpCool: 0, warned: false, seed: seed >>> 0 || 1, bag: [] };
 }
 
 function rand(s: State): number { // xorshift32, deterministic per seed
@@ -53,11 +53,16 @@ function rand(s: State): number { // xorshift32, deterministic per seed
   return s.seed / 4294967296;
 }
 
-/** The job the next call will be: quench on its beat, otherwise random (never the last one again). */
+/** The job the next call will be: quench on its beat, otherwise the next from a shuffled bag of every
+ *  other job (so each comes up every few calls — the bellows included), never the last one again. */
 export function nextJob(s: State): Job {
   if ((s.done + 1) % QUENCH_EVERY === 0) return 'quench';
-  const pool = RANDOM_JOBS.filter((j) => j !== s.lastCall);
-  return pool[Math.floor(rand(s) * pool.length)];
+  if (!s.bag.length) {
+    s.bag = [...RANDOM_JOBS];
+    for (let i = s.bag.length - 1; i > 0; i--) { const j = Math.floor(rand(s) * (i + 1)); [s.bag[i], s.bag[j]] = [s.bag[j], s.bag[i]]; }
+  }
+  if (s.bag[0] === s.lastCall && s.bag.length > 1) s.bag.push(s.bag.shift()!);
+  return s.bag.shift()!;
 }
 
 const burn = (s: State, cost: number, ev: Event[]) => {

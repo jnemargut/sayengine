@@ -39,8 +39,11 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
     if (l.kind !== 'particles') continue;
     const L = l as ParticleLayer;
     // Godot blends see-through layers in linear light, three in the sRGB canvas: there a half-clear dark
-    // puff over a light sky reads denser than in Godot, so alpha-blended layers carry alpha^ALPHA_GAMMA
-    const a = (L.alpha ?? [1, 1]).map((x) => (L.blend === 'alpha' ? Math.pow(x, ALPHA_GAMMA) : x));
+    // puff reads denser than in Godot and a pale drop fainter, so alpha-blended layers carry
+    // alpha^ALPHA_GAMMA when dark and alpha^(1/ALPHA_GAMMA) when pale
+    const lum = (() => { const c = new THREE.Color().setStyle(b.colours[L.colour[0]], THREE.LinearSRGBColorSpace); return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; })();
+    const gam = lum < 0.5 ? ALPHA_GAMMA : 1 / ALPHA_GAMMA;
+    const a = (L.alpha ?? [1, 1]).map((x) => (L.blend === 'alpha' ? Math.pow(x, gam) : x));
     const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: L.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending });
     const spread = THREE.MathUtils.degToRad(Math.min(89, L.spread ?? 0));
     const shape = L.shape.type === 'sphere' ? new Q.SphereEmitter({ radius: L.shape.radius ?? 0.1 })

@@ -26,15 +26,18 @@ test('left alone, the fire dies in about a minute (and he shouts for charcoal fi
 test('he calls a job after a short wait, never the same twice running, and quench every fifth', () => {
   const s = newGame(3);
   let last: Job | null = null;
+  const seen = new Set<Job>();
   for (let i = 0; i < GOAL - 1; i++) {
     const call = callWithin(s, 6);
     assert.ok(call && call.kind === 'call', 'a call within 6 s');
     assert.notEqual(call.job, last);
     assert.equal(call.job === 'quench', (i + 1) % QUENCH_EVERY === 0, `job ${i + 1} is ${call.job}`);
     last = call.job;
+    seen.add(call.job);
     doJob(s);
     s.fire = 1; // keep it alive for the test
   }
+  assert.equal(seen.size, 7, `every job comes up in a run (saw ${[...seen].join(', ')})`);
 });
 
 test('the right tool counts towards the blade; the wrong one costs fire and keeps the call', () => {

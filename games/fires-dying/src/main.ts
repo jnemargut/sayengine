@@ -129,7 +129,9 @@ async function start(): Promise<StudioGame> {
   const hideCard = () => { cardEl?.remove(); cardEl = null; delete ui.els.card; };
   const showCard = (title: string, body: string[], button: string, onClick: () => void) => {
     hideCard(); clearBubbles();
-    cardEl = ui.add({ id: 'card', part: 'card', x: 260, y: 120, w: 760, h: 480, text: title, anchor: 'center' });
+    const lines = body.reduce((n, t) => n + Math.ceil(t.length / 56), 0);   // ~56 characters a line at 760 wide
+    const h = Math.min(640, 240 + 31 * lines);
+    cardEl = ui.add({ id: 'card', part: 'card', x: 260, y: 360 - h / 2, w: 760, h, text: title, anchor: 'center' });
     for (const t of body) { const p = document.createElement('p'); p.textContent = t; p.style.marginTop = '0.6em'; cardEl.appendChild(p); }
     const b = document.createElement('button');
     b.className = 'ui-button'; b.textContent = button;
@@ -327,7 +329,7 @@ async function start(): Promise<StudioGame> {
     camPos.set(f[0] * 0.3, 6.4, 5.8 + f[2] * 0.2); camAt.set(f[0] * 0.3, 0.2, -0.6 + f[2] * 0.15);
     camera.position.lerp(camPos, Math.min(1, dt * 2.5)); camera.lookAt(camAt);
     // HUD
-    showHud(mode === 'play' || mode === 'end');
+    showHud((mode === 'play' || mode === 'end') && !cardEl);
     if (state) {
       ui.setBar('fire', lvl); ui.setText('fire', lvl < 0.3 ? 'Fire: low!' : 'Fire');
       ui.setBar('blade', state.done / GOAL); ui.setText('blade', `Blade ${state.done} / ${GOAL}`);
