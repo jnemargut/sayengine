@@ -94,6 +94,9 @@ test('a moment on the timeline becomes a full address on the right clock, anchor
   assert.equal(m.clock, 'beats:tune');
   assert.equal(m.near, undefined, 'bars are markers, not anchors');
   assert.equal(timelineFor(s.doc(), 'sound:tune', 'beats:tune')!.markers['bar 2'].at, 2 * TICKS);
+  const fxAt = momentAt(tl, Math.round(1.2 * TICKS), { track: 'effect:sparks' })!;
+  assert.deepEqual([fxAt.thing, fxAt.clock, fxAt.at], ['effect:sparks', 'none', undefined], 'an effect is pointed at as a thing (its bursts follow the strike)');
+  parseAddress(fxAt as any);
   // nothing selected, cutscene-less: no track → null; a timeless part stays timeless
   assert.equal(momentAt({ tracks: [] }, 0, {}), null);
   assert.deepEqual(momentAt({ tracks: [] }, 0, { object: 'anvil' }), { thing: 'anvil', clock: 'none' });

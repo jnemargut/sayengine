@@ -142,6 +142,8 @@ export function momentAt(tl: Pick<SceneTimeline, 'tracks'>, master: number, sel:
   const tr = trackFor(tl, master, sel);
   const thingOf = (t?: TlTrack) => sel.object ? (sel.part ? `${sel.object}/${sel.part}` : sel.object) : t?.thing ?? '';
   if (!tr) return sel.object ? { thing: thingOf(), clock: 'none' } : null;
+  // a timeless track (a looping effect): the thing itself, no moment (D61: clock none carries no time)
+  if (tr.clock === 'none') return { thing: thingOf(tr), clock: 'none', of: tr.version };
   const at = localTicks(tr, master);
   if (at === null) return { thing: thingOf(tr), clock: tr.clock, of: tr.version };
   const m = nearestMarker(tr, at);
