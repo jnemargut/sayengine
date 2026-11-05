@@ -4,14 +4,21 @@ extends CharacterBody3D
 ## or a plain capsule when there is none. Gravity and collision come from move_and_slide.
 ## `studio game walk-to` steers it toward `goal`; with `controlled` the arrow keys / WASD drive it
 ## (main.gd turns that on for the game). Your own controller can live in res://game/ instead.
+## Live feet by default: a kit humanoid gets studio/foot_ik.gd (`feet`), so its feet land on steps, slopes
+## and props under it. The body steps up ledges up to `step_height` (stairs), and the model eases up after
+## it, so a step reads as a step, not a pop.
 
 const CHARS := preload("res://studio/characters.gd")
 const PLAYER_GLB := "res://assets/studio/player.glb"
+const FOOT_IK := preload("res://studio/foot_ik.gd")
 
 @export var speed := 1.4          # m/s (the walk clip's speed when there is a character)
 @export var radius := 0.3
 @export var height := 1.7
 @export var controlled := false
+@export var step_height := 0.32   # m: ledges up to this high are climbed (stairs, curbs)
+var feet: Node                    # studio/foot_ik.gd on the avatar (null for a capsule)
+var _lift := 0.0                  # the model's lag behind a step up (eased back to 0)
 var goal := Vector3.ZERO
 var active := false
 var avatar: Node3D
@@ -52,6 +59,8 @@ func _ready() -> void:
 			clips_info = info.get("clips", {})
 			if idle_clip != "":
 				anim.play(idle_clip)
+		if info.get("footIk", false) or not avatar.find_children("*", "Skeleton3D", true, false).is_empty():
+			feet = FOOT_IK.attach(avatar)
 	var shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = radius
@@ -109,8 +118,38 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 0.0:
 		look_at(global_position + Vector3(dir.x, 0, dir.z), Vector3.UP)
 	velocity = v
+	if is_on_floor() and Vector2(v.x, v.z).length() > 0.01:
+		_step_up(Vector3(v.x, 0, v.z) * delta)
 	move_and_slide()
+	if avatar:
+		_lift = lerpf(_lift, 0.0, 1.0 - exp(-delta * 14.0))
+		avatar.position.y = -_lift
 	_animate(delta)
+
+## Climb a ledge the capsule walks into (a stair, a curb): when the way ahead is blocked by something
+## steep but clear from step_height up, stand on top of it. The model stays where it was and eases up.
+func _step_up(motion: Vector3) -> void:
+	var col := KinematicCollision3D.new()
+	if not test_move(global_transform, motion, col):
+		return
+	if col.get_normal().angle_to(Vector3.UP) <= floor_max_angle + 0.01:
+		return
+	var up := Vector3(0, step_height, 0)
+	if test_move(global_transform, up):
+		return
+	var raised := global_transform.translated(up)
+	var ahead := motion.normalized() * max(motion.length(), radius * 0.5)
+	if test_move(raised, ahead):
+		return
+	var over := raised.translated(ahead)
+	var down := KinematicCollision3D.new()
+	if not test_move(over, -up, down):
+		return
+	var rise := step_height + down.get_travel().y
+	if rise <= 0.01 or down.get_normal().angle_to(Vector3.UP) > floor_max_angle:
+		return
+	global_position.y += rise
+	_lift += rise
 
 func _travel(clip: String) -> Vector3:
 	var t = clips_info.get(clip, {}).get("travel", null)

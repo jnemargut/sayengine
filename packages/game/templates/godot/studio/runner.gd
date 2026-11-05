@@ -1,7 +1,7 @@
 extends Node
 ## Managed by the studio — overwritten by `studio game init/import`. Loads the game's main scene,
 ## runs ONE command passed as a JSON file (`-- --studio-cmd=<file>`), prints
-## `STUDIO_RESULT {json}` and quits. Commands: info, run, screenshot, walk, cutscene, effect, page, test.
+## `STUDIO_RESULT {json}` and quits. Commands: info, run, screenshot, walk, cutscene, effect, page, test, feet.
 
 const PLAYER := preload("res://studio/player.gd")
 const CHARS := preload("res://studio/characters.gd")
@@ -502,6 +502,103 @@ func _cmd_cutscene(c: Dictionary) -> Dictionary:
 			break
 	return {"ok": true, "cutscene": id, "seconds": length, "framesRecorded": n, "warnings": warnings}
 
+# ── feet on the ground (live IK) ─────────────────────────────────────────────
+
+## Watch every live foot in the game (kit humanoids' studio/foot_ik.gd, creatures' studio/creature_ik.gd)
+## for `seconds`, or while the player walks to `walk` (an object name or [x, z]). Each physics frame, a
+## planted foot's gap to the ground under it (a ray onto the game's colliders) is measured. A subject
+## fails when its planted feet float or sink past the limit at the 95th percentile: humanoids 2.5 cm up /
+## 2 cm down, creatures the motion checks' limits (4 % / 2 % of their size). "ik": false turns the live
+## IK off (the baked clips alone), to see what the fallback does on the same ground. "frames" records
+## every 2nd frame (a following camera on a walk, else "look": {center, radius, dir}).
+func _cmd_feet(c: Dictionary) -> Dictionary:
+	var acc := {}
+	var state := {"t": 0.0, "off": c.get("ik", true) == false}
+	var settle: float = c.get("settle", 0.5)
+	var sample := func() -> void:
+		var dt := get_physics_process_delta_time()
+		state.t += dt
+		for n in get_tree().get_nodes_in_group("studio_live_feet"):
+			if state.off and n.enabled:
+				n.enabled = false
+			if state.t < settle or not n.has_method("contacts"):
+				continue
+			var who := _feet_subject(n)
+			if not acc.has(who.name):
+				acc[who.name] = {"kind": who.kind, "size": who.size, "gaps": [], "frames": 0, "feet": {}}
+			var a: Dictionary = acc[who.name]
+			a.frames += 1
+			for k in n.contacts(dt):
+				a.feet[k.name] = true
+				if k.planted:
+					a.gaps.append(float(k.gap))
+	get_tree().physics_frame.connect(sample)
+	var result := {"ok": true}
+	if c.get("walk") != null:
+		var w: Dictionary = await _cmd_walk({"target": c["walk"], "from": c.get("from"), "reach": c.get("reach", 0.45), "timeout": c.get("seconds", 20.0), "frames": c.get("frames"), "frameEvery": 2})
+		result["walk"] = {"reached": w.get("reached", false), "seconds": w.get("seconds"), "final": w.get("final"), "distanceToTarget": w.get("distanceToTarget"), "framesRecorded": w.get("framesRecorded", 0)}
+	else:
+		var cam: Camera3D = null
+		if c.get("frames") is String and c.get("look") is Dictionary:
+			cam = Camera3D.new()
+			cam.fov = 38.0
+			add_child(cam)
+			cam.current = true
+			_frame_camera(cam, c["look"])
+		var t := 0.0
+		var i := 0
+		var n := 0
+		while t < float(c.get("seconds", 6.0)):
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			i += 1
+			if cam and i % 2 == 0:
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("%s/%05d.png" % [c["frames"], n])
+				n += 1
+		result["framesRecorded"] = n
+	get_tree().physics_frame.disconnect(sample)
+	var subjects := []
+	var failed := 0
+	for name in acc:
+		var a: Dictionary = acc[name]
+		var gaps: Array = a.gaps
+		var up: Array = gaps.map(func(g): return maxf(0.0, g))
+		var dn: Array = gaps.map(func(g): return maxf(0.0, -g))
+		up.sort()
+		dn.sort()
+		var p95 := func(xs: Array) -> float: return xs[min(xs.size() - 1, int(0.95 * xs.size()))] if xs.size() else 0.0
+		var lim_up: float = 0.025 if a.kind == "humanoid" else 0.04 * float(a.size)
+		var lim_dn: float = 0.02 if a.kind == "humanoid" else 0.02 * float(a.size)
+		var f95: float = p95.call(up)
+		var s95: float = p95.call(dn)
+		var ok: bool = gaps.size() > 0 and f95 <= lim_up and s95 <= lim_dn
+		if not ok:
+			failed += 1
+		subjects.append({"name": name, "kind": a.kind, "pass": ok, "feet": a.feet.size(), "plantedSamples": gaps.size(),
+			"floatP95Cm": snappedf(f95 * 100.0, 0.01), "sinkP95Cm": snappedf(s95 * 100.0, 0.01),
+			"floatMaxCm": snappedf((up[-1] if up.size() else 0.0) * 100.0, 0.01), "sinkMaxCm": snappedf((dn[-1] if dn.size() else 0.0) * 100.0, 0.01),
+			"limitCm": [snappedf(lim_up * 100.0, 0.01), snappedf(lim_dn * 100.0, 0.01)],
+			"detail": ("no planted feet seen" if gaps.is_empty() else "planted feet within %.1f cm up / %.1f cm down (p95)" % [f95 * 100.0, s95 * 100.0])})
+	result["subjects"] = subjects
+	result["passed"] = subjects.size() - failed
+	result["failed"] = failed if subjects.size() else 1
+	result["ik"] = not state.off
+	if subjects.is_empty():
+		result["detail"] = "no live feet in the game (no kit humanoid player and no skinned creature)"
+	return result
+
+func _feet_subject(n: Node) -> Dictionary:
+	if n.get("creature") != null and n.creature is Node3D:
+		var meta = n.creature.get_meta("studio_creature") if n.creature.has_meta("studio_creature") else {}
+		return {"name": String(meta.get("name", n.creature.name)) if meta is Dictionary else String(n.creature.name), "kind": "creature", "size": float(meta.get("size", 1.0)) if meta is Dictionary else 1.0}
+	var m: Node = n.get("mover")
+	var who := m
+	while who != null and not (who is CharacterBody3D) and who.get_parent() != null and who.get_parent() != main:
+		who = who.get_parent()
+	var nm := "player" if who is CharacterBody3D else String(m.name if m else n.name)
+	return {"name": nm, "kind": "humanoid", "size": 1.0}
+
 # ── assertions ───────────────────────────────────────────────────────────────
 
 func _cmd_test(c: Dictionary) -> Dictionary:
@@ -561,6 +658,11 @@ func _assert(a: Dictionary) -> Dictionary:
 			var w: Dictionary = await _cmd_walk({"target": a.get("target"), "from": a.get("from"), "reach": a.get("reach", 0.45), "timeout": a.get("timeout", 20.0)})
 			r.pass = w.get("reached", false)
 			r.detail = w.get("error", "reached in %ss" % w.get("seconds") if r.pass else "stopped %.2f m short at %s" % [w.get("distanceToTarget", -1.0), str(w.get("final"))])
+		"feet":
+			var f: Dictionary = await _cmd_feet(a)
+			r.pass = f.get("failed", 1) == 0
+			r.detail = f.get("detail", "; ".join(f.get("subjects", []).map(func(x): return "%s %s: %s" % [x.name, "ok" if x.pass else "FAILS", x.detail])))
+			r["subjects"] = f.get("subjects", [])
 		_:
-			r.detail = "unknown assertion kind (exists, grounded, on, count, reachable)"
+			r.detail = "unknown assertion kind (exists, grounded, on, count, reachable, feet)"
 	return r

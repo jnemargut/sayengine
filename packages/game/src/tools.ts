@@ -57,8 +57,14 @@ export const GAME_TOOLS: GameTool[] = [
     example: 'studio game ui-sheet',
   },
   {
+    name: 'game-feet',
+    description: 'Check that feet stay on the ground in the running game (Godot, Decision 52): watches every live foot (kit humanoids with studio/foot_ik.gd, creatures with studio/creature_ik.gd) for --seconds, or while the player walks to --walk (object or [x,z]), and measures each planted foot against the ground under it (rays onto the game\'s own colliders: steps, slopes, props). Fails when planted feet float or sink past the limit at the 95th percentile (humanoids 2.5 cm up / 2 cm down; creatures 4 % / 2 % of their size). --ik false turns the live IK off (baked clips only) to see the fallback on the same ground; --video true records it (a following camera on a walk, else --look {center, radius, dir}).',
+    flags: { type: 'object', properties: { project, seconds: { type: 'number', default: 6 }, walk: { anyOf: [{ type: 'string' }, vec], description: 'the player walks here while feet are measured' }, from: vec, ik: { type: 'boolean', default: true }, video: { type: 'boolean', default: false }, look: { type: 'object', description: '{center:[x,y,z], radius, dir:[x,y,z]}: the camera for --video without --walk' } } },
+    example: 'studio game feet --project ik-yard --walk Landing --video true',
+  },
+  {
     name: 'game-test',
-    description: 'Run engine-side assertions and return pass/fail JSON. --assertions is a JSON array of {kind, …}: exists {node}, grounded {node, tolerance}, on {node, target, tolerance} (node rests on target), count {pattern, min, max}, reachable {target, from}. Godot also runs res://tests/test_*.gd (static func run(root) -> {pass, detail}); web runs tests registered with registerTest(name, fn) from studio/harness.ts.',
+    description: 'Run engine-side assertions and return pass/fail JSON. --assertions is a JSON array of {kind, …}: exists {node}, grounded {node, tolerance}, on {node, target, tolerance} (node rests on target), count {pattern, min, max}, reachable {target, from}, feet {seconds | walk, ik} (Godot: planted feet on the ground, as game feet). Godot also runs res://tests/test_*.gd (static func run(root) -> {pass, detail}); web runs tests registered with registerTest(name, fn) from studio/harness.ts.',
     flags: { type: 'object', properties: { project, assertions: { type: 'array', items: { type: 'object' } }, scripts: { type: 'boolean', default: true } } },
     example: 'studio game test --project forge --assertions \'[{"kind":"on","node":"Vase","target":"Walnut stool"},{"kind":"reachable","target":"Walnut stool"}]\'',
   },

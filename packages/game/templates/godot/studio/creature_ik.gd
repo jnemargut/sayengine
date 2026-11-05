@@ -13,6 +13,12 @@ extends SkeletonModifier3D
 ##   var ik = preload("res://studio/creature_ik.gd").attach($Crab)       # reads the GLB's extras.ik
 ##   ik.speed = 0.3; ik.strafe = Vector3(1, 0, 0)                         # it walks; you steer
 ##   ik.reach("arm3", $Cup.global_position)                              # or null to let go
+##   ik.wander(ik.creature.global_position, 1.5)                          # or let it roam a circle
+##   ik.enabled = false                                                   # the baked clip only (the fallback)
+##
+## studio/characters.gd attaches it to every skinned studio creature by itself (`studio game import`
+## writes them to assets/studio/creatures/). contacts() says, per foot, whether it is planted and how far
+## it is from the ground (the studio's "feet" check reads it).
 ##
 ## The numbers (step trigger, step time, lift, body spring 3.2 Hz / 0.9) are the TypeScript runtime's.
 
@@ -40,6 +46,19 @@ var drawn_tips := {}            ## chain id → its tip as drawn (after the IK),
 var drawn_feet: Array = []      ## leg tips as drawn, world
 var _bi := {}
 var _started := false
+var walk_speed := 0.3           ## the walk clip's speed (characters.gd sets it from the import)
+var wander_radius := 0.0        ## > 0: roam a circle of this radius round wander_center
+var wander_center := Vector3.ZERO
+var max_turn := 25.0            ## deg/s while wandering
+var exclude: Array[RID] = []    ## bodies the ground rays skip
+var enabled := true:            ## false: the baked clip alone (no stepping or planting), for comparison
+	set(v):
+		enabled = v
+		if two_bone:
+			two_bone.active = v
+var _goal = null
+var _rng := RandomNumberGenerator.new()
+var _prev_feet: Array = []
 
 static func _bone(sk: Skeleton3D, n: String) -> int:
 	var i := sk.find_bone(n)
@@ -73,7 +92,21 @@ static func attach(root: Node3D, ik_info = null, ground = null) -> Node:
 	skel.add_child(me)
 	skel.move_child(me, 0)
 	me._build(skel)
+	me.add_to_group("studio_live_feet")
 	return me
+
+## Roam a circle: walk (at the walk clip's speed) toward a random point in it, turning at most
+## max_turn deg/s, then pick the next. Radius 0 stops.
+func wander(center: Vector3, radius: float, at_speed := -1.0) -> void:
+	wander_center = center
+	wander_radius = radius
+	if at_speed >= 0.0:
+		walk_speed = at_speed
+	_rng.seed = hash(String(creature.name)) if creature else 1
+	_goal = null
+	if radius <= 0.0:
+		speed = 0.0
+		turn = 0.0
 
 func _build(sk: Skeleton3D) -> void:
 	var all_names: Array = [String(info.get("body", "Body"))]
@@ -117,11 +150,15 @@ func _build(sk: Skeleton3D) -> void:
 func _v(a) -> Vector3:
 	return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
-func ground_at(x: float, z: float, from_y := 50.0) -> float:
+func ground_at(x: float, z: float, from_y := NAN) -> float:
 	if ground_fn.is_valid():
 		return float(ground_fn.call(x, z))
+	# from a little above the creature (not the sky: roofs and branches overhead aren't its ground)
+	if is_nan(from_y):
+		from_y = (creature.global_position.y if creature else 0.0) + float(info.get("bodyHeight", 0.5)) + 1.5
 	var space := get_world_3d().direct_space_state
-	var q := PhysicsRayQueryParameters3D.create(Vector3(x, from_y, z), Vector3(x, -50.0, z))
+	var q := PhysicsRayQueryParameters3D.create(Vector3(x, from_y, z), Vector3(x, from_y - 12.0, z))
+	q.exclude = exclude
 	var hit := space.intersect_ray(q)
 	return float(hit["position"].y) if hit else 0.0
 
@@ -182,6 +219,18 @@ func _start() -> void:
 func _process(delta: float) -> void:
 	if phase != PHASE_SOLVE or creature == null:
 		return
+	if wander_radius > 0.0:
+		var here := creature.global_position
+		if _goal == null or Vector2(here.x - _goal.x, here.z - _goal.z).length() < 0.25:
+			var a := _rng.randf() * TAU
+			var r := sqrt(_rng.randf()) * wander_radius
+			_goal = wander_center + Vector3(cos(a) * r, 0.0, sin(a) * r)
+		var sd := strafe.normalized() if strafe.length() > 0.001 else Vector3(0, 0, 1)
+		var to: Vector3 = _goal - here
+		# the creature's travel is strafe turned by its yaw: face so that it points at the goal
+		var err := wrapf(atan2(to.x, to.z) - atan2(sd.x, sd.z) - creature.rotation.y, -PI, PI)
+		turn = clampf(rad_to_deg(err) * 1.2, -max_turn, max_turn)
+		speed = walk_speed * clampf(cos(err), 0.2, 1.0)
 	creature.rotation.y += deg_to_rad(turn) * delta
 	var d := strafe.normalized() if strafe.length() > 0.001 else Vector3(0, 0, 1)
 	creature.global_position += Basis(Vector3.UP, creature.rotation.y) * (d * speed * delta)
@@ -202,7 +251,7 @@ func _process_modification_with_delta(delta: float) -> void:
 		_record()
 		return
 	var sk := get_skeleton()
-	if sk == null or creature == null:
+	if sk == null or creature == null or not enabled:
 		return
 	if not _started:
 		_start()
@@ -344,3 +393,18 @@ func _record() -> void:
 	for f in feet:
 		ft.append([f.x, f.y, f.z])
 	owner_ik.frames.append({"feet": ft, "targets": tg, "rot": rot, "pos": pos, "down": down, "root": [o.x, o.y, o.z], "yaw": owner_ik.creature.rotation.y})
+
+## Per foot as drawn last frame: {name, planted, gap}. Planted: the runtime's own plant (live), or a tip
+## that barely moves (< 0.05 m/s, the baked clip); gap: the tip's height over the ground under it (+ floats,
+## - sinks). Call once per physics frame.
+func contacts(dt: float) -> Array:
+	var out := []
+	for i in drawn_feet.size():
+		var f: Vector3 = drawn_feet[i]
+		var g := ground_at(f.x, f.z, f.y + 1.0)
+		var prev: Vector3 = _prev_feet[i] if i < _prev_feet.size() else f
+		var v := Vector2(f.x - prev.x, f.z - prev.z).length() / maxf(dt, 0.0001)
+		var planted: bool = bool(legs[i]["down"]) if enabled and i < legs.size() else v < 0.05
+		out.append({"name": "%s leg %d" % [String(creature.name), i], "planted": planted, "gap": f.y - g})
+	_prev_feet = drawn_feet.duplicate()
+	return out

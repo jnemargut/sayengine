@@ -33,6 +33,12 @@ export async function gameContext() {
       const r: any = await callTool(tool, args);
       return { ok: !!r.ok, error: r.error, result: r.result };
     },
+    async creatures(outDir: string, opts: { baked?: boolean } = {}) {
+      if (!DAEMON_TOOLS.some((t) => t.name === 'game-creatures')) return [];
+      const r: any = await callTool('game-creatures', { outDir, ...(opts.baked ? { baked: true } : {}) });
+      if (!r.ok) throw new Error(`creatures: ${r.error}`);
+      return r.result?.creatures ?? [];
+    },
     async gameData() {
       if (!DAEMON_TOOLS.some((t) => t.name === 'game-data')) return null;
       const r: any = await callTool('game-data', {});

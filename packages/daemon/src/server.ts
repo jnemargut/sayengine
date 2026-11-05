@@ -346,6 +346,38 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         }
         return errors.length ? { ok: false, tool: name, error: errors.join('; ') } : { ok: true, tool: name, result: { cutscenes: bundles } };
       }
+      case 'game-creatures': {
+        // creatures into a game (Decision 52, live IK by default): skinned + extras.ik, else baked clips
+        const { buildCreature, bakeCreature } = await import('../../core/src/rigparts.ts');
+        const { creatureGLB } = await import('../../core/src/creatures.ts');
+        const { creatureSkinnedGLB, creatureGamePath, creatureIkInfo } = await import('../../core/src/creatureskin.ts');
+        const doc = studio.doc();
+        const outDir = path.resolve(dir, String(args.outDir));
+        fs.mkdirSync(outDir, { recursive: true });
+        const list: any[] = [];
+        for (const id of doc.objectOrder) {
+          const obj: any = doc.objects[id];
+          if (!obj?.creature || obj.role === 'reference') continue;
+          try {
+            const c = buildCreature(obj.creature.def);
+            const clips = Object.entries(obj.creature.motions as Record<string, any>).map(([mid, m]) => bakeCreature(c, mid, m));
+            let pick = args.baked ? { path: 'baked' as const, reason: 'forced (--baked true)' } : creatureGamePath(c);
+            let glb: Uint8Array | null = null;
+            if (pick.path === 'skinned-live') {
+              glb = creatureSkinnedGLB(c, clips);
+              const v = await validateGlb(glb);
+              if (!v.ok) { pick = { path: 'baked', reason: `the skinned GLB failed the glTF validator (${v.errors} error(s))` }; glb = null; }
+            }
+            if (!glb) glb = creatureGLB(c, clips);
+            const file = path.join(outDir, `${id}.glb`);
+            fs.writeFileSync(file, glb);
+            const ik = creatureIkInfo(c);
+            const motions = Object.fromEntries(clips.map((cl) => [cl.id, { kind: (obj.creature.motions[cl.id] as any).kind, loop: cl.loop, speed: +cl.speed.toFixed(4), dir: cl.dir, duration: +cl.duration.toFixed(3) }]));
+            list.push({ id, name: obj.name, file: path.basename(file), path: pick.path, reason: pick.reason, position: obj.position ?? [0, 0, 0], rotation: obj.rotation ?? 0, motions, legs: ik.legs.length, chains: ik.chains.map((ch) => ch.id), size: +c.size.toFixed(4), bytes: glb.length });
+          } catch (e: any) { list.push({ id, name: obj.name, error: e.message }); }
+        }
+        return { ok: true, tool: name, result: { creatures: list } };
+      }
       case 'game-data': {
         const { gameData } = await import('../../core/src/gamedata.ts');
         try { return { ok: true, tool: name, result: gameData(studio) }; } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
