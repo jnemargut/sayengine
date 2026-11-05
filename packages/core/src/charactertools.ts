@@ -47,7 +47,7 @@ const LOOKS: Record<string, Look> = {
   // four legs: the coat is skin, shirt and trousers at once; boots are the paws, a dark nose pad
   dog: { paint: { lashes: '#2a1a10', markings: 'dog', mark: '#f1dfbf', mark2: '#5a3a22' }, skin: '#c08a52', hair: '#6a4026', shirt: '#c08a52', sleeves: 'shirt', trousers: '#c08a52', boots: '#a87444', lips: '#2a1e19', iris: '#3a2616', nosePad: '#1e1715', accent: '#c94a3a' },
   birdfolk: { paint: { lashes: null, markings: 'heron', mark: '#ffffff', mark2: '#262d3a' }, skin: '#f1f2f4', hair: '#2f3a4c', shirt: '#9aa8b8', sleeves: 'skin', trousers: '#c3ccd6', boots: '#e0a83a', lips: '#e3a72c', iris: '#141210', wing: '#5f7189', belt: '#4a5568', accent: '#e0a83a', shank: '#e0a83a' },
-  kid: { paint: { lashes: '#26263a', smile: 0.9, blush: '#f08a8a', blushAmt: 0.5, freckles: '#c48466', frecklesAmt: 0.3 }, skin: '#f2cba8', hair: '#26263a', shirt: '#f0b62e', sleeves: 'shirt', trousers: '#3567a8', boots: '#d24a36', lips: '#d98474', iris: '#2f2620', belt: '#26263a', accent: '#d24a36' },
+  kid: { paint: { lashes: '#26263a', smile: 0.9, blush: '#f08a8a', blushAmt: 0.5, freckles: '#c48466', frecklesAmt: 0.3 }, skin: '#f2cba8', hair: '#26263a', shirt: '#f0b62e', sleeves: 'shirt', trousers: '#3567a8', boots: '#d24a36', lips: '#e3a08c', iris: '#2f2620', belt: '#26263a', accent: '#d24a36' },
   elder: { paint: { lashes: '#6a5a50', smile: 0.6, blush: '#d98a7a', blushAmt: 0.3, wrinkles: 0.8 }, skin: '#d9a681', hair: '#ece8df', shirt: '#6a4c7a', sleeves: 'shirt', trousers: '#3c3742', boots: '#2a2522', lips: '#a96858', iris: '#4c6278', belt: '#2a2522', accent: '#c9a45a' },
 };
 /** Presets: a body plan, proportions and face parts (Decision 47 A). Anything can be overridden. */

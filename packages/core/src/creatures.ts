@@ -73,16 +73,21 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     def: {
       name: 'Spider',
       parts: [
-        { kind: 'body', shape: 'ball', size: [0.15, 0.09, 0.17], height: 0.17, color: '#3d302a', style: { bob: 0.006 },
+        { kind: 'body', shape: 'ball', size: [0.15, 0.09, 0.17], height: 0.17, color: '#3a2b22', style: { bob: 0.006 },
           extras: [
-            { shape: { kind: 'ball', c: [0, 0.205, -0.175], r: 0.115, scale: [0.82, 0.72, 1], sides: 24 }, color: '#4a3a30' },
-            { shape: { kind: 'ball', c: [0, 0.26, -0.185], r: 0.052, scale: [0.6, 0.35, 1.3], sides: 16 }, color: '#a8794a' },
+            { shape: { kind: 'ball', c: [0, 0.205, -0.175], r: 0.115, scale: [0.82, 0.72, 1], sides: 24 }, color: '#4a3528' },
+            // the abdomen's pattern: a pale leaf-shaped band down the back, chevrons either side
+            { shape: { kind: 'ball', c: [0, 0.26, -0.185], r: 0.052, scale: [0.6, 0.35, 1.3], sides: 16 }, color: '#c89a62' },
+            ...[0, 1, 2].flatMap((k) => [1, -1].map((sd) => ({ shape: { kind: 'seg' as const, a: [sd * 0.03, 0.272 - 0.004 * k, -0.14 - 0.035 * k] as V3, b: [sd * 0.062, 0.25 - 0.006 * k, -0.155 - 0.035 * k] as V3, r1: 0.008, r2: 0.005, sides: 8, round: true }, color: '#d9b685' }))),
+            // the cephalothorax: a darker radiating groove pattern and a pale rim
+            { shape: { kind: 'ball', c: [0, 0.207, 0.01], r: 0.06, scale: [1, 0.32, 1.1], sides: 18 }, color: '#5b4331' },
             { shape: { kind: 'seg', a: [0, 0.18, -0.06], b: [0, 0.19, -0.1], r1: 0.03, r2: 0.035, sides: 10 }, color: '#2e2420' },
             ...[[0.025, 0.215, 0.08, 0.014], [-0.025, 0.215, 0.08, 0.014], [0.052, 0.207, 0.068, 0.009], [-0.052, 0.207, 0.068, 0.009]].map(([x, y, z, r]) => ({ shape: { kind: 'ball' as const, c: [x, y, z] as V3, r, sides: 10 }, color: '#0d0a09' })),
           ] },
-        { kind: 'legs', id: 'legs', count: 8, upper: 0.2, lower: 0.27, spread: 0.22, span: 1.1, fan: 2.1, kneeUp: 0.15, radius: 0.0125, taper: 0.35, color: '#3d302a', footColor: '#1c1512', hipX: 0.75, lift: 0.3 },
-        { kind: 'chain', id: 'palp.L', at: [0.025, 0.15, 0.085], dir: [0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1 },
-        { kind: 'chain', id: 'palp.R', at: [-0.025, 0.15, 0.085], dir: [-0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, phase: 0.5 },
+        // legs: banded brown (lighter than the body, darker than the floor), knees high above the body
+        { kind: 'legs', id: 'legs', count: 8, upper: 0.21, lower: 0.29, spread: 0.24, span: 1.1, fan: 2.1, kneeUp: 0.19, radius: 0.0135, taper: 0.4, color: '#7a5537', footColor: '#2b1d15', bands: '#d6b483', hair: '#2a1d16', arch: 0.13, pole: [0.45, 1.7, 0], hipX: 0.75, lift: 0.3 },
+        { kind: 'chain', id: 'palp.L', at: [0.025, 0.15, 0.085], dir: [0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.011, r1: 0.008, color: '#7a5537', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, tip: [{ shape: { kind: 'ball', c: [0.046, 0.115, 0.154], r: 0.011, sides: 10 }, color: '#2b1d15' }] },
+        { kind: 'chain', id: 'palp.R', at: [-0.025, 0.15, 0.085], dir: [-0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.011, r1: 0.008, color: '#7a5537', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, phase: 0.5, tip: [{ shape: { kind: 'ball', c: [-0.046, 0.115, 0.154], r: 0.011, sides: 10 }, color: '#2b1d15' }] },
       ],
     },
     motions: { walk: { kind: 'walk', speed: 0.3 }, idle: { kind: 'idle', duration: 3 } },
@@ -92,7 +97,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     const skin = '#c7563f', under = '#efb79a';
     const arms: PartSpec[] = Array.from({ length: 8 }, (_, i) => {
       const a = ((i + 0.5) * 45 * Math.PI) / 180;
-      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.6, segments: 10, r0: 0.04, r1: 0.007, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
+      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.7, segments: 14, shrink: 0.86, r0: 0.042, r1: 0.006, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 90 } as PartSpec;
     });
     const potC: V3 = [0.13, 0.2 + 0.052, 0.71];
     const grip: V3 = [0.13, 0.255, 0.635];
@@ -117,7 +122,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
             { shape: { kind: 'box', c: [0, 0.185, 0.75], size: [0.6, 0.03, 0.34] }, color: '#8a6a4a' },
             ...[[0.15, 0.62], [-0.15, 0.62], [0.15, 0.88], [-0.15, 0.88]].map(([x, z]) => ({ shape: { kind: 'seg' as const, a: [x, 0, z] as V3, b: [x, 0.172, z] as V3, r1: 0.016, r2: 0.016, sides: 10 }, color: '#6f533a' })),
           ] },
-          { kind: 'prop', id: 'teapot', at: grip, shapes: [
+          { kind: 'prop', id: 'teapot', at: grip, wrap: { axis: [0, 1, -0.12], r: 0.008 }, shapes: [
             { shape: { kind: 'ball', c: potC, r: 0.062, scale: [1, 0.84, 1], sides: 22 }, color: '#4f8a8b' },
             { shape: { kind: 'ball', c: add(potC, [0, 0.05, 0]), r: 0.03, scale: [1, 0.45, 1], sides: 16 }, color: '#4f8a8b' },
             { shape: { kind: 'ball', c: add(potC, [0, 0.068, 0]), r: 0.009, sides: 10 }, color: '#e9dfc9' },
@@ -154,8 +159,13 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
             { shape: { kind: 'ball', c: [-0.042, 0.38, 0.172], r: 0.012, sides: 10 }, color: '#16120f' },
             { shape: { kind: 'ball', c: [0.046, 0.384, 0.179], r: 0.0035, sides: 6 }, color: '#f4efe6' },
             { shape: { kind: 'ball', c: [-0.046, 0.384, 0.179], r: 0.0035, sides: 6 }, color: '#f4efe6' },
+            // scapulars: soft feathers over the shoulders, covering where the wings join
+            ...[1, -1].flatMap((sd) => [0, 1, 2].flatMap((k) => [0, 1].map((band) => ({
+              shape: { kind: 'feather' as const, a: [sd * (0.03 + 0.012 * k), 0.33 - 0.006 * k, 0.085 - 0.02 * k] as V3, b: [sd * (0.05 + 0.014 * k), 0.305 - 0.012 * k, -0.04 - 0.025 * k] as V3, w: 0.05, normal: [sd * 0.45, 1, 0] as V3, curve: 0.08, camber: 0.12, from: band ? 0.55 : 0, to: band ? 1 : 0.55 },
+              color: band ? '#4a5c78' : '#5b6f8a',
+            })))),
           ] },
-        { kind: 'fin', id: 'tail', at: [0, 0.27, -0.13], dir: [0, 0.18, -1], length: 0.15, width: 0.07, taper: 1.7, normal: [0, 1, 0.15], color: '#3f4f66', motion: 'still' },
+        { kind: 'fin', id: 'tail', at: [0, 0.27, -0.12], dir: [0, 0.15, -1], length: 0.16, width: 0.06, taper: 1.6, normal: [0, 1, 0.15], color: '#46597a', tipColor: '#232c3a', feathers: 7, motion: 'still' },
         { kind: 'legs', id: 'legs', count: 2, upper: 0.12, lower: 0.15, spread: -0.025, span: 0, radius: 0.011, taper: 0.7, color: '#c9893a', toes: '#b07a33', knee: [0.004, -0.085, -0.06], pole: [0, -0.2, -1], foot: 0.03, hipX: 0.6, lift: 0.4, bend: 100 },
         { kind: 'wing', id: 'wings', at: [0.068, 0.312, 0.05], length: 0.36, chord: 0.15, color: '#4d6080', tipColor: '#26303f', edgeColor: '#5b6f8a' },
       ],
@@ -338,8 +348,81 @@ function smoothSeg(s: Extract<PartShape, { kind: 'seg' }>): TriMesh {
   return { pos, idx, nrm };
 }
 
+/** Smooth vertex normals: the area-weighted face normals around each vertex. */
+function vertexNormals(pos: number[], idx: number[]): number[] {
+  const n = new Array(pos.length).fill(0);
+  for (let t = 0; t < idx.length; t += 3) {
+    const P = [0, 1, 2].map((k) => [pos[idx[t + k] * 3], pos[idx[t + k] * 3 + 1], pos[idx[t + k] * 3 + 2]] as V3);
+    const f = cross(sub(P[1], P[0]), sub(P[2], P[0]));
+    for (let k = 0; k < 3; k++) for (let d = 0; d < 3; d++) n[idx[t + k] * 3 + d] += f[d];
+  }
+  for (let i = 0; i < n.length; i += 3) { const v = norm([n[i], n[i + 1], n[i + 2]]); n[i] = v[0]; n[i + 1] = v[1]; n[i + 2] = v[2]; }
+  return n;
+}
+
+/** The outline of a feather at u (0 root … 1 tip): half width as a fraction of w/2. */
+export function featherWidth(u: number, point = false): number {
+  const base = 0.42 + 0.58 * Math.sin((Math.PI / 2) * Math.min(1, u / 0.3));
+  const tip = u < 0.55 ? 1 : point ? Math.max(0, (1 - u) / 0.45) ** 0.8 : Math.sqrt(Math.max(0, 1 - ((u - 0.55) / 0.45) ** 2));
+  return base * tip;
+}
+
+/** A feather (or a band of one): two smooth surfaces (top and underside) a shaft's thickness apart,
+ *  stitched round the outline. */
+function featherMesh(s: Extract<PartShape, { kind: 'feather' }>): TriMesh {
+  const d = sub(s.b, s.a), L = len(d) || 1e-6;
+  const z = norm(d);
+  const n0 = s.normal ? norm(s.normal) : basis(d)[1];
+  const y = norm(sub(n0, mul(z, n0[0] * z[0] + n0[1] * z[1] + n0[2] * z[2])));
+  const x = cross(y, z);
+  const u0 = s.from ?? 0, u1 = s.to ?? 1;
+  const rows = Math.max(2, Math.round(10 * (u1 - u0)) + 1), cols = 7;
+  const curve = s.curve ?? 0.08, camber = s.camber ?? 0.12, asym = s.asym ?? 0;
+  const th = Math.max(0.0012, s.w * 0.035);
+  const pos: number[] = [], idx: number[] = [];
+  const grid = (side: 1 | -1) => {
+    const g: number[][] = [];
+    for (let r = 0; r < rows; r++) {
+      const u = u0 + ((u1 - u0) * r) / (rows - 1);
+      const hw = (s.w / 2) * Math.max(0.03, featherWidth(Math.min(u, 0.985), s.point));
+      const c = add(add(s.a, mul(z, L * u)), mul(y, -curve * L * u * u));
+      const row: number[] = [];
+      for (let k = 0; k < cols; k++) {
+        const t = -1 + (2 * k) / (cols - 1);
+        const wv = hw * t * (t < 0 ? 1 - asym : 1 + asym);
+        // the shaft stands proud; the vanes fall away from it and thin toward their edges
+        const lift = camber * hw * (1 - t * t) + side * (th / 2) * (0.35 + 0.65 * (1 - Math.abs(t))) * (1 - 0.6 * u);
+        const p = add(add(c, mul(x, wv)), mul(y, lift));
+        pos.push(p[0], p[1], p[2]);
+        row.push(pos.length / 3 - 1);
+      }
+      g.push(row);
+    }
+    return g;
+  };
+  const T = grid(1), B = grid(-1);
+  for (let r = 0; r + 1 < rows; r++) for (let k = 0; k + 1 < cols; k++) {
+    // top faces +y, the underside faces −y
+    idx.push(T[r][k], T[r + 1][k], T[r + 1][k + 1], T[r][k], T[r + 1][k + 1], T[r][k + 1]);
+    idx.push(B[r][k], B[r + 1][k + 1], B[r + 1][k], B[r][k], B[r][k + 1], B[r + 1][k + 1]);
+  }
+  const nrm = vertexNormals(pos, idx);
+  // the rim: its own vertices (flat-ish edge normals), so the surfaces stay smooth
+  const rim = (a1: number, a2: number, b1: number, b2: number) => {
+    const P = [a1, a2, b2, b1].map((i) => [pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]] as V3);
+    const f = norm(cross(sub(P[1], P[0]), sub(P[2], P[0])));
+    const base = pos.length / 3;
+    for (const p of P) { pos.push(...p); nrm.push(...f); }
+    idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  };
+  for (let r = 0; r + 1 < rows; r++) { rim(T[r + 1][0], T[r][0], B[r + 1][0], B[r][0]); rim(T[r][cols - 1], T[r + 1][cols - 1], B[r][cols - 1], B[r + 1][cols - 1]); }
+  for (let k = 0; k + 1 < cols; k++) { rim(T[0][k], T[0][k + 1], B[0][k], B[0][k + 1]); rim(T[rows - 1][k + 1], T[rows - 1][k], B[rows - 1][k + 1], B[rows - 1][k]); }
+  return { pos, idx, nrm };
+}
+
 /** A closed triangle mesh for a shape (object space). */
 export function shapeMesh(s: PartShape): TriMesh {
+  if (s.kind === 'feather') return featherMesh(s);
   const pos: number[] = [], idx: number[] = [];
   const v = (p: V3) => { pos.push(p[0], p[1], p[2]); return pos.length / 3 - 1; };
   const tri = (a: number, b: number, c: number) => idx.push(a, b, c);

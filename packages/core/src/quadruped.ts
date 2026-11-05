@@ -31,6 +31,20 @@ export function qArcQ(a: V3, b: V3): Q {
   return [c[0] / l, c[1] / l, c[2] / l, w / l];
 }
 
+const lerpV = (a: V3, b: V3, t: number): V3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+/** A padded paw: broad and rounded, toes bunched at the front, the heel pad behind. */
+function pawPts(paw: V3, w: number, pawY: number, toeLen: number): V3[] {
+  const pts: V3[] = [];
+  for (let i = 0; i <= 6; i++) {
+    const a = Math.PI * (i / 6);                       // round the front of the paw
+    pts.push(add(paw, [Math.cos(a) * w * 0.62, -pawY, toeLen * 0.55 + Math.sin(a) * toeLen * 0.55]));
+    pts.push(add(paw, [Math.cos(a) * w * 0.5, -pawY + w * 0.36, toeLen * 0.45 + Math.sin(a) * toeLen * 0.45]));
+  }
+  pts.push(add(paw, [-w * 0.5, -pawY, -w * 0.3]), add(paw, [w * 0.5, -pawY, -w * 0.3]), add(paw, [0, -pawY, -w * 0.45]));
+  pts.push(add(paw, [-w * 0.32, w * 0.3, -w * 0.05]), add(paw, [w * 0.32, w * 0.3, -w * 0.05]), add(paw, [0, w * 0.5, toeLen * 0.2]));
+  return pts;
+}
+
 // ── the body ─────────────────────────────────────────────────────────────
 /** Tail and wing add-ons, for any body plan (bones + pieces). */
 export function addTail(bones: BoneDef[], pieces: Piece[], base: V3, dir: V3, length: number, r0: number, sides: number) {
@@ -153,16 +167,37 @@ export function quadrupedSpec(p: CharParams): CharSpec {
       let at: V3 = [x + sx * fz * 0.03 * wither, pawY, fpaw[2] + 0.01 * wither];
       fingerBones(side, f).forEach((n, i) => { const end = add(at, [0, 0, toeLen * 0.25]); bone(n, i === 0 ? `${side}Hand` : fingerBones(side, f)[i - 1], at, end); at = end; });
     }
-    const t = 0.105 * wither * (0.8 + 0.4 * b), LK = 0.5; // distal legs thickened by half the delta that still folds cleanly in "lie"
-    ball(hip, t * 1.3, `${side}UpperLeg`); seg(hip, stifle, t * 1.2, t * (0.62 + 0.08 * LK), `${side}UpperLeg`);
-    ball(stifle, t * (0.62 + 0.08 * LK), `${side}LowerLeg`); seg(stifle, hock, t * (0.58 + 0.1 * LK), t * (0.36 + 0.1 * LK), `${side}LowerLeg`);
-    ball(hock, t * (0.36 + 0.1 * LK), `${side}Foot`); seg(hock, paw, t * (0.34 + 0.1 * LK), t * (0.3 + 0.1 * LK), `${side}Foot`);
-    pieces.push({ kind: 'hull', part: `${side}Toes`, pts: [add(paw, [-t * 0.55, -pawY, -t * 0.4]), add(paw, [t * 0.55, -pawY, -t * 0.4]), add(paw, [-t * 0.6, -pawY, toeLen]), add(paw, [t * 0.6, -pawY, toeLen]), add(paw, [0, t * 0.48, toeLen * 0.4]), add(paw, [-t * 0.33, t * 0.33, 0]), add(paw, [t * 0.33, t * 0.33, 0])] });
-    const ft = t * 0.92;
-    ball(sh, ft * 1.05, `${side}UpperArm`); seg(sh, elbow, ft * 1.05, ft * (0.6 + 0.1 * LK), `${side}UpperArm`);
-    ball(elbow, ft * (0.6 + 0.1 * LK), `${side}LowerArm`); seg(elbow, wrist, ft * (0.56 + 0.1 * LK), ft * (0.44 + 0.1 * LK), `${side}LowerArm`);
-    ball(wrist, ft * (0.44 + 0.1 * LK), `${side}Hand`); seg(wrist, fpaw, ft * (0.43 + 0.1 * LK), ft * (0.4 + 0.08 * LK), `${side}Hand`);
-    pieces.push({ kind: 'hull', part: `${side}Hand`, pts: [add(fpaw, [-ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [ft * 0.55, -pawY, -ft * 0.4]), add(fpaw, [-ft * 0.6, -pawY, toeLen]), add(fpaw, [ft * 0.6, -pawY, toeLen]), add(fpaw, [0, ft * 0.48, toeLen * 0.4]), add(fpaw, [-ft * 0.33, ft * 0.33, 0]), add(fpaw, [ft * 0.33, ft * 0.33, 0])] });
+    // legs with mass: a muscled thigh (haunch) and upper arm that run up into the body, a gaskin and
+    // forearm that taper, slim pasterns, and broad padded paws
+    const t = 0.105 * wither * (0.8 + 0.4 * b), ft = t * 0.92;
+    // an ellipsoid's points (side rx, along the bone ry, front-back rz), for hulls that taper smoothly
+    const blob = (c: V3, along: V3, rx: number, ry: number, rz: number): V3[] => {
+      const yv = norm(along), xv: V3 = [1, 0, 0], zv = norm(cross(xv, yv));
+      const pts: V3[] = [];
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 8; j++) {
+        const th = (Math.PI * (i + 0.5)) / 4, ph = (Math.PI * 2 * j) / 8;
+        pts.push(add(c, add(add(mul(xv, rx * Math.sin(th) * Math.cos(ph)), mul(yv, ry * Math.cos(th))), mul(zv, rz * Math.sin(th) * Math.sin(ph)))));
+      }
+      return pts;
+    };
+    // the haunch: a broad, deep thigh (flattened side to side) that narrows into the stifle
+    const thigh = sub(stifle, hip);
+    pieces.push({ kind: 'hull', part: `${side}UpperLeg`, pts: [
+      ...blob(add(lerpV(hip, stifle, 0.3), [sx * t * 0.05, 0, -t * 0.25]), thigh, t * 1.0, len(thigh) * 0.42, t * 1.35),
+      ...blob(lerpV(hip, stifle, 0.86), thigh, t * 0.5, t * 0.45, t * 0.55),
+    ] });
+    ball(stifle, t * 0.62, `${side}LowerLeg`); seg(stifle, hock, t * 0.62, t * 0.41, `${side}LowerLeg`);
+    ball(hock, t * 0.42, `${side}Foot`); seg(hock, paw, t * 0.39, t * 0.35, `${side}Foot`);
+    pieces.push({ kind: 'hull', part: `${side}Toes`, pts: pawPts(paw, t * 1.05, pawY, toeLen * 1.15) });
+    // the upper arm: muscle from the shoulder down to the elbow
+    const arm = sub(elbow, sh);
+    pieces.push({ kind: 'hull', part: `${side}UpperArm`, pts: [
+      ...blob(lerpV(sh, elbow, 0.3), arm, ft * 0.9, len(arm) * 0.4, ft * 1.3),
+      ...blob(lerpV(sh, elbow, 0.92), arm, ft * 0.62, ft * 0.6, ft * 0.68),
+    ] });
+    ball(elbow, ft * 0.66, `${side}LowerArm`); seg(elbow, wrist, ft * 0.7, ft * 0.5, `${side}LowerArm`);
+    ball(wrist, ft * 0.5, `${side}Hand`); seg(wrist, fpaw, ft * 0.47, ft * 0.43, `${side}Hand`);
+    pieces.push({ kind: 'hull', part: `${side}Hand`, pts: pawPts(fpaw, ft * 1.05, pawY, toeLen * 1.15) });
   }
   // the barrel: elliptical rings along the spine (rump, loin, belly, deep chest, shoulders)
   const ringZ = (z: number, cy: number, rx: number, ryUp: number, ryDn: number, n = Math.max(10, SIDES + 2)): V3[] =>

@@ -10,7 +10,7 @@ import { qAxisAngle, qIdentity, qMul, qRot, type BoneDef, type Q, type V3 } from
 import { qAngle, qArc, qInv, qSlerp } from './motion.ts';
 import type { ActionSpec } from './actions.ts';
 import { bakeAction, propChecks } from './actions.ts';
-import { finAxis, finBuild, flightPlan, propBuild, swimChecks, swimJoints, swimPlan, wingBuild, wingChecks, wingPose, mirrorQ, legTuck, type WingPoseOut } from './wings.ts';
+import { finAxis, finBuild, flightPlan, propBuild, swimChecks, swimJoints, swimPlan, wingBuild, wingChecks, wingPose, mirrorQ, poseWings, legTuck, type WingPoseOut } from './wings.ts';
 
 const D2R = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -36,7 +36,12 @@ export type PartShape =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides?: number; squash?: [number, number]; round?: boolean; flat?: boolean }   // squash: cross-section scale (side, up); round: domed ends; flat: faceted (robots)
   | { kind: 'ball'; c: V3; r: number; sides?: number; scale?: V3; flat?: boolean }
   | { kind: 'wheel'; c: V3; r: number; w: number; spokes?: number }        // axle along X
-  | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number };   // a thin slab (grass, sails); taper = tip width ÷ base width
+  | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number }   // a thin slab (grass, sails); taper = tip width ÷ base width
+  // a feather: a thin vane from root a to tip b, widest a third of the way, a rounded (or pointed) tip,
+  // a raised shaft (camber) and a tip that curves toward −normal (curve × length); asym > 0 widens the
+  // trailing vane (+x side of normal × (b − a)). from/to cut out a band along it (0..1), so one feather
+  // can be two or three colours (a gradient in bands).
+  | { kind: 'feather'; a: V3; b: V3; w: number; normal?: V3; curve?: number; camber?: number; asym?: number; point?: boolean; from?: number; to?: number };
 
 /** One rigid piece of the body, riding one bone. */
 export interface PartPiece { bone: string; shape: PartShape; color: string; part: string }
@@ -80,6 +85,10 @@ export interface LegsPartSpec {
   pole?: V3;                                           // which way the knee bends (body space, left leg; default out and up). A bird's: [0, 0, -1]
   toes?: string;                                       // three toes at each foot, this colour (birds)
   foot?: number;                                       // feet's forward offset from the hip (m, birds stand with their feet under the body)
+  // arthropod legs (a spider's, an insect's): the lower bone draws as two segments (tibia, then a
+  // metatarsus down to the foot) bowed up and out by `arch` × lower, with knuckles at every joint,
+  // bands of `bands` colour at the joints and short bristles of `hair` colour
+  arch?: number; bands?: string; hair?: string;
 }
 export interface ChainPartSpec {
   kind: 'chain'; id: string; parent?: string;          // attach bone (default Body)
@@ -97,6 +106,7 @@ export interface ChainPartSpec {
   limit?: number;                                      // bend limit per joint (deg)
   tip?: Array<{ shape: PartShape; color: string }>;    // shapes riding the last segment (a claw, a sucker pad), object space
   under?: string;                                      // a lighter strip along the underside, this colour (an octopus's suckers, a belly)
+  shrink?: number;                                     // each segment this × the one before (0.85: short segments at the tip, so it can coil)
 }
 /** A pair of wings (left given, right mirrored): arm, forearm and hand bones with feathers. Flap, glide,
  *  fold and hover poses, and a flight cycle, are computed from the wing's proportions (wings.ts). */
@@ -121,6 +131,8 @@ export interface FinPartSpec {
   motion?: 'flutter' | 'still';
   amp?: number; freq?: number;                         // degrees; cycles per second (default: the swim's beat)
   axis?: V3;                                           // the axis it flutters about (default: along its root)
+  feathers?: number;                                   // a fan of this many feathers instead of a slab (a bird's tail)
+  tipColor?: string;                                   // feathers: the colour they darken to at the tip
 }
 /** A prop a creature can pick up (a teapot, a cup) or that stays put (a table). It has its own bone with
  *  no parent (it stays where it is in the world), unless a part holds it during an action. */
@@ -130,6 +142,7 @@ export interface PropPartSpec {
   shapes: Array<{ shape: PartShape; color: string }>;
   surface?: number;                                    // height of its top, when things can stand on it (a table)
   fx?: { hide: V3 };                                   // an effect (a stream of tea): hidden by this offset unless an action shows it
+  wrap?: { axis: V3; r: number };                      // what a holding chain coils round at the grip point: the handle's axis (rest) and its radius
 }
 export interface WheelsPartSpec {
   kind: 'wheels'; id: string;
@@ -195,7 +208,7 @@ export interface Creature {
   size: number;                    // the body's longest dimension (checks scale with it)
   legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number; pole: V3 }>;
   fast: Record<string, number>;    // bones allowed to turn faster than the pop limit (wings beat): °/s
-  wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string }>;
+  wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string; feathers?: Array<{ bone: string; fold: number }> }>;
   props: Set<string>;              // prop bones (no parent unless held)
   fx: Set<string>;                 // effect bones (a tea stream): left out of collision checks
 }
@@ -260,12 +273,14 @@ export function buildCreature(def: CreatureDef): Creature {
             const tp = spec.taper ?? 0.45, sq = spec.squash;
             pieces.push({ bone: upper, shape: { kind: 'seg', a: hip, b: knee, r1: spec.radius * 1.1, r2: spec.radius * 0.85, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
             const tipAt: V3 = [foot[0], foot[1] + spec.radius * 0.6, foot[2]];
-            if (spec.footColor) {
+            if (spec.arch !== undefined || spec.bands || spec.hair) {
+              pieces.push(...arthropodLeg(spec, upper, lower, hip, knee, tipAt, side));
+            } else if (spec.footColor) {
               const mid = lerp3(knee, tipAt, 0.72);
               pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: mid, r1: spec.radius * 0.85, r2: spec.radius * lerp(0.85, tp, 0.72), sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
               pieces.push({ bone: lower, shape: { kind: 'seg', a: mid, b: tipAt, r1: spec.radius * lerp(0.85, tp, 0.72) * 0.97, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.footColor, part: spec.id });
             } else pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: tipAt, r1: spec.radius * 0.85, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
-            if (spec.joints !== false) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
+            if (spec.joints !== false && spec.arch === undefined) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
             if (spec.toes) for (const a of [-32, 0, 32]) {
               const d: V3 = [Math.sin((a * Math.PI) / 180) * side, 0, Math.cos((a * Math.PI) / 180)];
               const tl = (spec.upper + spec.lower) * (a ? 0.16 : 0.2);
@@ -284,21 +299,31 @@ export function buildCreature(def: CreatureDef): Creature {
       case 'chain': {
         const parent = spec.parent ?? 'Body';
         const dir = norm(spec.dir);
-        const seg = spec.length / spec.segments;
+        // segment lengths: equal, or shrinking toward the tip (a tentacle)
+        const q = spec.shrink ?? 1;
+        const w = Array.from({ length: spec.segments }, (_, i) => q ** i), wSum = w.reduce((x, y) => x + y, 0);
+        const cum = [0];
+        for (const x of w) cum.push(cum[cum.length - 1] + (x / wSum) * spec.length);
         let prev = parent;
         for (let i = 0; i < spec.segments; i++) {
-          const a = add(spec.at, mul(dir, seg * i)), b = add(spec.at, mul(dir, seg * (i + 1)));
+          const seg = cum[i + 1] - cum[i];
+          const a = add(spec.at, mul(dir, cum[i])), b = add(spec.at, mul(dir, cum[i + 1]));
           const name = `${spec.id}.${i + 1}`;
           addBone(C, name, prev, a, b);
-          const r1 = lerp(spec.r0, spec.r1, i / spec.segments), r2 = lerp(spec.r0, spec.r1, (i + 1) / spec.segments);
-          // each segment overlaps the next a little, so bends don't open gaps
+          const r1 = lerp(spec.r0, spec.r1, cum[i] / spec.length), r2 = lerp(spec.r0, spec.r1, cum[i + 1] / spec.length);
+          // each segment overlaps the next a little, so bends don't open gaps; the overlap carries on
+          // the taper (no ridge where the next segment starts), and the joint ball matches the surface
           const sq = spec.squash ? { squash: spec.squash } : {};
-          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
-          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
+          const ext = i === spec.segments - 1 ? 0 : Math.min(r2, seg * 0.35);
+          const rExt = Math.max(r2 * 0.6, r2 - ((r1 - r2) / seg) * ext);
+          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, ext)), r1, r2: ext ? rExt : r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
+          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 0.995, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
           if (i === spec.segments - 1) for (const x of spec.tip ?? []) pieces.push({ bone: name, shape: x.shape, color: x.color, part: spec.id });
           if (spec.under) {
             const dn: V3 = [0, -1, 0];
             pieces.push({ bone: name, shape: { kind: 'seg', a: add(a, mul(dn, r1 * 0.42)), b: add(add(b, mul(dir, Math.min(r2, seg * 0.3))), mul(dn, r2 * 0.42)), r1: r1 * 0.68, r2: r2 * 0.68, sides: 10, round: true, squash: [1, 0.75] }, color: spec.under, part: spec.id });
+            // suckers: a pair of small discs on the underside of each segment
+            if (spec.shrink && i >= spec.segments / 2) for (const u of [0.5]) pieces.push({ bone: name, shape: { kind: 'ball', c: add(lerp3(a, b, u), mul(dn, lerp(r1, r2, u) * 0.86)), r: lerp(r1, r2, u) * 0.36, scale: [1, 0.45, 1], sides: 10 }, color: spec.under, part: spec.id });
           }
           limits[name] = { kind: 'cone', maxDeg: spec.limit ?? (spec.motion === 'coil' || spec.motion === 'curl' ? 70 : 55) };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
@@ -563,6 +588,50 @@ export function chainLocals(c: Creature, names: string[], joints: V3[], parentWo
   return out;
 }
 
+/** An arthropod leg's pieces: femur up to the knee, then a bowed tibia and metatarsus down to the
+ *  foot, each tapering, with knuckles, pale joint bands and bristles. */
+function arthropodLeg(spec: LegsPartSpec, upper: string, lower: string, hip: V3, knee: V3, tip: V3, side: 1 | -1): PartPiece[] {
+  const out: PartPiece[] = [];
+  const r = spec.radius, tp = spec.taper ?? 0.45, band = spec.bands ?? spec.color, dark = spec.footColor ?? spec.color;
+  const along = norm(sub(tip, knee));
+  // bow the lower leg up and outward (the tibia rises a little past the knee, then the metatarsus drops)
+  const outw = norm([side, 0, 0]);
+  const upish = norm(sub(add([0, 1, 0], mul(outw, 0.6)), mul(along, dot(add([0, 1, 0], mul(outw, 0.6)), along))));
+  const bend = add(lerp3(knee, tip, 0.42), mul(upish, (spec.arch ?? 0.12) * spec.lower));
+  const segs: Array<{ bone: string; a: V3; b: V3; r1: number; r2: number; color: string }> = [
+    { bone: upper, a: hip, b: knee, r1: r * 1.05, r2: r * 0.95, color: spec.color },
+    { bone: lower, a: knee, b: bend, r1: r * 0.88, r2: r * 0.72, color: spec.color },
+    { bone: lower, a: bend, b: tip, r1: r * 0.6, r2: r * tp, color: spec.color },
+  ];
+  let seed = Math.abs(Math.round(hip[0] * 9173 + hip[2] * 7919)) + 1;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (const [i, sg] of segs.entries()) {
+    const d = sub(sg.b, sg.a), L = len(d), z = norm(d);
+    // each segment swells a little in its middle (a muscle in a tube), and darkens toward the foot
+    const mid = lerp3(sg.a, sg.b, i === 2 ? 0.62 : 0.45), rm = Math.max(sg.r1, sg.r2) * 1.12;
+    out.push({ bone: sg.bone, shape: { kind: 'seg', a: sg.a, b: mid, r1: sg.r1, r2: rm, sides: 10 }, color: sg.color, part: spec.id });
+    out.push({ bone: sg.bone, shape: { kind: 'seg', a: mid, b: sg.b, r1: rm, r2: sg.r2, sides: 10, round: i === 2 }, color: i === 2 ? dark : sg.color, part: spec.id });
+    // the knuckle at its root, and a pale band just past it
+    out.push({ bone: sg.bone, shape: { kind: 'ball', c: sg.a, r: sg.r1 * (i === 0 ? 1.25 : 1.2), sides: 12 }, color: i === 0 ? spec.color : band, part: spec.id });
+    if (spec.bands) out.push({ bone: sg.bone, shape: { kind: 'seg', a: add(sg.a, mul(z, sg.r1 * 0.9)), b: add(sg.a, mul(z, sg.r1 * 0.9 + L * 0.12)), r1: sg.r1 * 1.07, r2: lerp(sg.r1, rm, 0.3) * 1.06, sides: 10 }, color: band, part: spec.id });
+    if (spec.bands && i < 2) out.push({ bone: sg.bone, shape: { kind: 'seg', a: add(sg.b, mul(z, -L * 0.1)), b: sg.b, r1: lerp(rm, sg.r2, 0.85) * 1.06, r2: sg.r2 * 1.07, sides: 10 }, color: band, part: spec.id });
+    // bristles: short hairs that lean toward the foot
+    if (spec.hair) {
+      const xx = norm(cross(Math.abs(z[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0], z)), yy = cross(z, xx);
+      const n = i === 0 ? 7 : 6;
+      for (let k = 0; k < n; k++) {
+        const u = 0.12 + 0.8 * ((k + rnd() * 0.6) / n), ang = rnd() * Math.PI * 2;
+        const rr = lerp(sg.r1, sg.r2, u) * 1.05;
+        const radial = add(mul(xx, Math.cos(ang)), mul(yy, Math.sin(ang)));
+        const root = add(lerp3(sg.a, sg.b, u), mul(radial, rr * 0.8));
+        const hl = r * (0.8 + 0.5 * rnd());
+        out.push({ bone: sg.bone, shape: { kind: 'seg', a: root, b: add(root, add(mul(radial, hl * 0.75), mul(z, hl * 0.66))), r1: r * 0.1, r2: r * 0.03, sides: 4 }, color: spec.hair, part: spec.id });
+      }
+    }
+  }
+  return out;
+}
+
 /** Bake a motion into a clip: every part runs its own procedural motion. */
 export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 30): CreatureClip {
   if (m.kind === 'action') return bakeAction(c, id, m, fps);
@@ -647,7 +716,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
     const top = wingPose(w, 'flap', 0, t), gl = wingPose(w, 'glide', 0, t);
     const into = smooth((tc - flapT) / 0.3), back = smooth((tc - (cycle - 0.28)) / 0.28);
     const k = into * (1 - back);
-    return { arm: qSlerp(top.arm, gl.arm, k), fore: qSlerp(top.fore, gl.fore, k), hand: qSlerp(top.hand, gl.hand, k), bob: top.bob * (1 - k) };
+    return { arm: qSlerp(top.arm, gl.arm, k), fore: qSlerp(top.fore, gl.fore, k), hand: qSlerp(top.hand, gl.hand, k), bob: top.bob * (1 - k), spread: lerp(top.spread, gl.spread, k) };
   };
   const swimP = m.kind === 'swim' ? swimPlan(c, swimmer!, speed) : null;
   if (swimP) swimP.freq = Math.max(1, Math.round(swimP.freq * duration)) / duration;
@@ -896,10 +965,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
         }
       }
       // ── wings (right mirrors left), fins, props ──
-      if (wq) for (const w of c.wings) {
-        const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
-        R[bi(w.arm)] = mq(wq.arm); R[bi(w.fore)] = mq(wq.fore); R[bi(w.hand)] = mq(wq.hand);
-      }
+      if (wq) poseWings(c, R, wq);
       for (const p of c.def.parts) {
         if (p.kind === 'fin' && p.motion === 'flutter') {
           const fz = p.freq ?? (swimP ? swimP.freq : 0.7 * (0.6 + energy));
@@ -1073,11 +1139,18 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
   if (c.legs.length) out.push(mk('leg reach', new Array(F).fill(clip.reachMiss > size * 0.01), clip.reachMiss, size * 0.01, 'm', 'every foot target is within its leg\'s reach'));
   // ── penetration: world (pieces below the ground) and self (pieces of non-neighbouring bones) ──
   {
-    const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
+    const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade' && pc.shape.kind !== 'feather').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
     const near = (a: number, b: number) => a === b || c.parents[a] === b || c.parents[b] === a || (c.parents[a] >= 0 && c.parents[a] === c.parents[b]) || (c.parents[a] >= 0 && c.parents[c.parents[a]] === b) || (c.parents[b] >= 0 && c.parents[c.parents[b]] === a);
     const wbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
     let ww = 0, sw = 0, pair = '';
     const isContactBone = new Set(c.contacts.map((cd) => c.index.get(cd.bone)!));
+    // pieces grouped by bone, each group with a radius that holds its pieces whatever the pose
+    const byBone = new Map<number, number[]>();
+    spheres.forEach((sp, i) => { if (!byBone.has(sp.b)) byBone.set(sp.b, []); byBone.get(sp.b)!.push(i); });
+    const boneGroups = [...byBone.values()].map((idx) => {
+      const m = idx.reduce((acc, i) => add(acc, spheres[i].c), [0, 0, 0] as V3).map((v) => v / idx.length) as V3;
+      return { idx, r: Math.max(...idx.map((i) => len(sub(spheres[i].c, m)) + spheres[i].r)) };
+    });
     // a held prop touches the chain holding it: that pair is not a collision
     const holders = new Map<number, Set<number>>();
     for (const h of clip.held ?? []) for (const [prop, chain] of Object.entries(h)) {
@@ -1095,7 +1168,14 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         const depth = ground(centres[i]) - (centres[i][1] - s.r);
         if (depth > s.r * CHECK_LIMITS.penetrate) { wbad[f] = true; ww = Math.max(ww, depth); }
       });
-      for (let i = 0; i < spheres.length; i++) for (let j = i + 1; j < spheres.length; j++) {
+      // broad phase: a sphere round each bone's pieces; only pieces of bones whose spheres meet are paired
+      const bc = boneGroups.map((g) => { let x = 0, y = 0, z = 0; for (const i of g.idx) { x += centres[i][0]; y += centres[i][1]; z += centres[i][2]; } const n = g.idx.length; return [x / n, y / n, z / n] as V3; });
+      for (let gi = 0; gi < boneGroups.length; gi++) for (let gj = gi; gj < boneGroups.length; gj++) {
+        const A = boneGroups[gi], Bg = boneGroups[gj];
+        if (gi === gj) continue;                                            // a bone's own pieces never collide (near)
+        if (near(spheres[A.idx[0]].b, spheres[Bg.idx[0]].b) || len(sub(bc[gi], bc[gj])) > A.r + Bg.r) continue;
+        for (const i of A.idx) for (const j of Bg.idx) {
+        if (gi === gj && j <= i) continue;
         if (near(spheres[i].b, spheres[j].b) || exempt(spheres[i].b, spheres[j].b)) continue;
         if (c.fx.has(c.bones[spheres[i].b].name) || c.fx.has(c.bones[spheres[j].b].name)) continue;
         if (spheres[i].pc.part === spheres[j].pc.part && spheres[i].pc.part.startsWith('sway')) continue;
@@ -1106,6 +1186,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         const restD = len(sub(spheres[i].c, spheres[j].c));
         const restOverlap = spheres[i].r + spheres[j].r - restD;
         if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; if (overlap > sw) { sw = overlap; pair = `${c.bones[spheres[i].b].name} × ${c.bones[spheres[j].b].name}`; } }
+      }
       }
     }
     out.push(mk('nothing sinks into the ground', wbad, ww, CHECK_LIMITS.penetrate, '× piece radius', 'body pieces stay above the ground'));
@@ -1209,7 +1290,7 @@ export function pieceSphere(s: PartShape): { c: V3; r: number } {
     case 'ball': return { c: s.c, r: s.r * Math.min(...(s.scale ?? [1, 1, 1])) };
     case 'seg': return { c: lerp3(s.a, s.b, 0.5), r: Math.max(s.r1, s.r2) };
     case 'wheel': return { c: s.c, r: s.r };
-    case 'blade': return { c: lerp3(s.a, s.b, 0.5), r: s.w / 2 };
+    case 'blade': case 'feather': return { c: lerp3(s.a, s.b, 0.5), r: s.w / 2 };
   }
 }
 
@@ -1219,7 +1300,7 @@ function pieceVolume(s: PartShape): number {
     case 'ball': { const k = s.scale ?? [1, 1, 1]; return (4 / 3) * Math.PI * s.r ** 3 * k[0] * k[1] * k[2]; }
     case 'seg': return Math.PI * ((s.r1 + s.r2) / 2) ** 2 * len(sub(s.b, s.a));
     case 'wheel': return Math.PI * s.r * s.r * s.w;
-    case 'blade': return 0;
+    case 'blade': case 'feather': return 0;
   }
 }
 

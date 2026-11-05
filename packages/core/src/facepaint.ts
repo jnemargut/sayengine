@@ -253,8 +253,10 @@ function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put:
             const up = smileK > 0 ? 1 : -1, k = Math.abs(smileK);
             // a crease that curls up (or down) out of the corner: the cartoon cue that reads as a smile
             const cx0 = mx + sx * 1.12 * mw, cy0 = my + up * 0.006 * H + cornerLift;
-            const pts: Array<[number, number]> = [[cx0, cy0 - up * 0.006 * H], [cx0 + sx * 0.08 * mw, cy0 + up * 0.012 * H], [cx0 + sx * 0.07 * mw, cy0 + up * 0.03 * H]];
-            c = mix(c, mix(lineC, skin, 0.3), Math.min(0.6, k * 0.6) * stroke(X, Y, pts, 0.005 * H));
+            // (a cartoon mouth gets a short, soft dimple: a long crease beside a wide mouth reads as a scar)
+            const cart = kind === 'cartoon' ? 0.55 : 1;
+            const pts: Array<[number, number]> = [[cx0, cy0 - up * 0.006 * H], [cx0 + sx * 0.08 * mw * cart, cy0 + up * 0.012 * H * cart], [cx0 + sx * 0.07 * mw * cart, cy0 + up * 0.03 * H * cart]];
+            c = mix(c, mix(lineC, skin, kind === 'cartoon' ? 0.55 : 0.3), Math.min(0.6, k * 0.6) * stroke(X, Y, pts, 0.005 * H));
             // and the cheek it pushes up: a soft highlight just above and outside the crease
             if (up > 0) c = mix(c, mix(skin, [1, 1, 1], 0.25), k * 0.35 * Math.exp(-(((X - cx0 - sx * 0.35 * mw) / (0.3 * mw)) ** 2 + ((Y - cy0 - 0.06 * H) / (0.035 * H)) ** 2)));
           }

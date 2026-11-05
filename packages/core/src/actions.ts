@@ -10,7 +10,7 @@
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qAngle, qInv, qSlerp, keyEase } from './motion.ts';
 import { bakeCreature, bonePoint, chainLocals, legPole, creatureFK, fabrik, sampleClip, terrainHeight, twoBoneKnee, type ChainPartSpec, type Creature, type CreatureClip, type CreatureMotion, type FK, type HingePartSpec, type LegsPartSpec, type MotionCheck, type PartShape, type PropPartSpec, type WingPartSpec } from './rigparts.ts';
-import { flightPlan, legTuck, mirrorQ, wingPose, type WingMode } from './wings.ts';
+import { flightPlan, legTuck, poseWings, wingPose, type WingMode } from './wings.ts';
 
 const TAU = Math.PI * 2;
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -18,6 +18,7 @@ const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const mul = (a: V3, s: number): V3 => [a[0] * s, a[1] * s, a[2] * s];
 const len = (a: V3) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a: V3): V3 => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const lerp3 = (a: V3, b: V3, t: number): V3 => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
 const clamp = (x: number, a = 0, b = 1) => Math.min(b, Math.max(a, x));
@@ -201,6 +202,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
   const spinAngle: Record<string, number> = {};
   const lastJoints = new Map<string, V3[]>();
   const holdState: Record<string, { chain: string; offset: V3 } | null> = {};
+  const wrapProp: Record<string, string> = {}, releaseT: Record<string, number> = {};
   const propWorld: Record<string, V3> = Object.fromEntries(props.map((p) => [p.id, [0, 0, 0] as V3]));
   const segOf = (t: number) => { let i = 0; while (i + 1 < states.length && states[i + 1].t <= t) i++; return i; };
   const ground = (x: number, z: number) => terrainHeight(c.def.terrain, x, z);
@@ -228,10 +230,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       // folding and unfolding lift the wing clear of the body on the way (birds raise them to unfold)
       const lift = (a.wings === 'fold') !== (b.wings === 'fold') ? 36 * Math.sqrt(Math.sin(Math.PI * k)) : 0;
       const arm = qMul(qAxisAngle([0, 0, 1], lift), qSlerp(pa.arm, pb.arm, k)), fore = qSlerp(pa.fore, pb.fore, k), hand = qSlerp(pa.hand, pb.hand, k);
-      for (const w of c.wings) {
-        const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
-        R[bi(w.arm)] = mq(arm); R[bi(w.fore)] = mq(fore); R[bi(w.hand)] = mq(hand);
-      }
+      poseWings(c, R, { arm, fore, hand, bob: 0, spread: lerp(pa.spread, pb.spread, k) });
       O[B][1] += 0.02 * (wingSpec.length * 2) * lerp(pa.bob, pb.bob, k);
     }
     const bHead = add(bodyRest, O[B]);
@@ -276,8 +275,16 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       spinAngle[h.id] = (spinAngle[h.id] ?? 0) + ((rpm * judder) / 60) * 360 * dt;
       R[bi(h.id)] = qAxisAngle(norm(h.axis), spinAngle[h.id]);
     }
+    // ── prop tilts (before the chains: a coil wraps the handle as it is tilted) ──
+    const tiltQ: Record<string, Q> = {};
+    for (const p of props) {
+      if (p.parent) continue;
+      const [tilt] = follow(`tilt.${p.id}`, [lerp(a.tilt[p.id]?.tilt ?? 0, b.tilt[p.id]?.tilt ?? 0, e)], dt);
+      tiltQ[p.id] = qAxisAngle(b.tilt[p.id]?.axis ?? a.tilt[p.id]?.axis ?? [0, 0, 1], tilt);
+    }
     // ── chains: reach for their goals from wherever their own motion has them ──
     let fk = creatureFK(c, R, O);
+    const gripAt: Record<string, V3> = {};
     for (const ch of chains) {
       const ga = a.reach[ch.id] ?? null, gb = b.reach[ch.id] ?? null;
       const names = Array.from({ length: ch.segments }, (_, k) => `${ch.id}.${k + 1}`);
@@ -298,8 +305,22 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       if (!Tf || wf < 1e-3) { followers.delete(tKey); lastJoints.delete(ch.id); continue; }
       const P = lerp3(idleTip, Tf, clamp(wf, 0, 1));
       const parentRot = c.parents[first] >= 0 ? fk.rot[c.parents[first]] : qIdentity();
-      const solved = reachJoints(joints, P);
+      let solved = reachJoints(joints, P);
       void lastJoints;
+      // a chain about to hold, or holding, a prop with a handle coils round it (and uncoils after it
+      // lets go); a held prop then rides the coil's centre
+      const gripped = props.find((p) => !p.parent && (a.hold[p.id] === ch.id || b.hold[p.id] === ch.id));
+      let wrapW = 0;
+      if (gripped) { wrapProp[ch.id] = gripped.id; wrapW = a.hold[gripped.id] === ch.id ? 1 : e; delete releaseT[ch.id]; }
+      else if (wrapProp[ch.id]) { releaseT[ch.id] ??= t; wrapW = 1 - keyEase('smooth', clamp((t - releaseT[ch.id]) / 0.4)); }
+      const wp = props.find((p) => p.id === wrapProp[ch.id]);
+      if (wp && wrapW > 1e-3) {
+        const tipR = ch.r1 + (ch.r0 - ch.r1) * 0.15;
+        const axis = qRot(tiltQ[wp.id] ?? qIdentity(), wp.wrap?.axis ?? norm(cross(sub(P, joints[0]), [0, 1, 0])));
+        const cj = coilJoints(solved, P, axis, (wp.wrap?.r ?? tipR) + tipR * 1.15, wrapW);
+        solved = cj.joints;
+        gripAt[ch.id] = cj.centre;
+      }
       const locals = chainLocals(c, names, solved, parentRot);
       names.forEach((nm, k) => { R[bi(nm)] = locals[k]; });
     }
@@ -310,13 +331,11 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
       if (p.parent) continue;
       const pi = bi(p.id);
       const holder = a.hold[p.id] ?? null;
-      const [tilt] = follow(`tilt.${p.id}`, [lerp(a.tilt[p.id]?.tilt ?? 0, b.tilt[p.id]?.tilt ?? 0, e)], dt);
-      const axis = b.tilt[p.id]?.axis ?? a.tilt[p.id]?.axis ?? [0, 0, 1];
-      R[pi] = qAxisAngle(axis, tilt);
+      R[pi] = tiltQ[p.id];
       if (holder) {
         const ch = chains.find((x) => x.id === holder)!;
         const tipB = bi(`${ch.id}.${ch.segments}`);
-        const tip = bonePoint(c, fk, tipB, c.bones[tipB].tail);
+        const tip = gripAt[ch.id] ?? bonePoint(c, fk, tipB, c.bones[tipB].tail);
         if (!holdState[p.id] || holdState[p.id]!.chain !== holder) holdState[p.id] = { chain: holder, offset: sub(add(c.bones[pi].head, propWorld[p.id]), tip) };
         O[pi] = sub(add(tip, holdState[p.id]!.offset), c.bones[pi].head);
         heldNow[p.id] = holder;
@@ -340,6 +359,68 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     id, kind: 'action', fps, frames, duration, loop: false, speed: 0, dir: [0, 0, 1], rot, off, contacts, notes, reachMiss, endPose, held, grip,
     keys: states.map((s) => ({ t: r3(s.t), label: s.label })),
   };
+}
+
+/** A wrap grip: the chain's tip curls round an axis through P (a handle) instead of touching it. The
+ *  last segments (as many as one turn takes, at least three) curl at a radius ≥ minR round the axis,
+ *  rising a little per turn so the coils don't touch; the rest of the chain reaches the curl's start
+ *  (FABRIK), and the curl carries on in the direction the chain arrives from (no kink). `amount` 0..1
+ *  tightens it from a straight tip (0) to the full coil (1), so a grip curls in and lets go by
+ *  uncurling. Returns the joints and the coil's centre (the grip point a held prop rides). Shared by
+ *  actions and anything else that grips. */
+export function coilJoints(joints: V3[], P: V3, axis: V3, minR: number, amount = 1, turns = 1.05): { joints: V3[]; centre: V3; coiled: number } {
+  const n = joints.length - 1;
+  const segL = joints.slice(1).map((q, k) => len(sub(q, joints[k])));
+  const ax = norm(axis);
+  const flat = (d: V3) => sub(d, mul(ax, d[0] * ax[0] + d[1] * ax[1] + d[2] * ax[2]));
+  // how many tip segments one turn at minR takes
+  let m = 0, acc = 0;
+  while (m < n - 2 && (acc < TAU * minR * turns || m < 3)) { acc += segL[n - 1 - m]; m++; }
+  const cs = segL.slice(n - m);
+  // the radius at which those chords wrap `turns` times (or minR, if they're short)
+  const angleAt = (r: number) => cs.reduce((t, c) => t + 2 * Math.asin(Math.min(1, c / (2 * r))), 0);
+  let lo = minR, hi = Math.max(minR * 4, acc);
+  if (angleAt(lo) > TAU * turns) { for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2; if (angleAt(mid) > TAU * turns) lo = mid; else hi = mid; } }
+  const rho = lo, total = angleAt(rho);
+  const alpha = cs.map((c) => 2 * Math.asin(Math.min(1, c / (2 * rho))));
+  const rise = Math.max(minR * 1.15, 0.6 * rho) / TAU;            // per radian: neighbouring turns don't touch
+  const tilt = Math.atan2(rise, rho);
+  // the curl: from `start`, entered along t0 (flattened onto the plane round the axis), turning about
+  // the axis by `amount` of the full coil's angles; E is where the full coil starts (centre P)
+  const frame = (t0: V3) => { const v = norm(flat(t0)); return { v, u: cross(v, ax) }; };
+  const entry = (t0: V3) => add(add(P, mul(frame(t0).u, rho)), mul(ax, -rise * total / 2));
+  const curl = (start: V3, t0: V3): V3[] => {
+    const { v, u } = frame(t0);
+    const pts: V3[] = [start];
+    let phi = amount * alpha[0] / 2;
+    for (let k = 0; k < m; k++) {
+      if (k > 0) phi += amount * (alpha[k - 1] + alpha[k]) / 2;
+      const dPerp = add(mul(v, Math.cos(phi)), mul(u, -Math.sin(phi)));
+      // at amount 0 the tip carries straight on along the way it arrived (t0, unflattened)
+      const d = norm(add(mul(norm(t0), 1 - amount), mul(add(mul(dPerp, Math.cos(tilt)), mul(ax, Math.sin(tilt))), amount)));
+      pts.push(add(pts[k], mul(d, cs[k])));
+    }
+    return pts;
+  };
+  // the start of the curl moves from where the plain reach has it to the full coil's entry; the curl
+  // carries on the way the chain arrives (solved twice so the entry matches the arrival)
+  let t0 = sub(joints[n - m], joints[n - m - 1]);
+  if (len(flat(t0)) < 1e-6) t0 = Math.abs(ax[1]) < 0.9 ? cross(ax, [0, 1, 0]) : cross(ax, [1, 0, 0]);
+  let reach = reachJoints(joints.slice(0, n - m + 1), lerp3(joints[n - m], entry(t0), amount));
+  const arrive = sub(reach[n - m], reach[n - m - 1]);
+  if (len(flat(arrive)) > 1e-6) { t0 = arrive; reach = reachJoints(joints.slice(0, n - m + 1), lerp3(joints[n - m], entry(t0), amount)); }
+  const E = lerp3(joints[n - m], entry(t0), amount);
+  const out = [...reach, ...curl(reach[n - m], sub(reach[n - m], reach[n - m - 1])).slice(1)];
+  const shift = sub(reach[n - m], E);
+  return { joints: out, centre: add(P, shift), coiled: m };
+}
+
+/** Blend two solutions of a chain joint by joint, then restore the segment lengths from the root. */
+function blendJoints(a: V3[], b: V3[], w: number): V3[] {
+  const segL = a.slice(1).map((q, k) => len(sub(q, a[k])));
+  const out = a.map((q, k) => lerp3(q, b[k], w));
+  for (let k = 1; k < out.length; k++) out[k] = add(out[k - 1], mul(norm(sub(out[k], out[k - 1])), segL[k - 1]));
+  return out;
 }
 
 /** Reach a chain's tip for P from its current joints: FABRIK, then relax the kinks (smoothing rounds,
@@ -369,7 +450,7 @@ function shapeBottom(s: PartShape): number {
       return Math.min(s.a[1] - s.r1 * k, s.b[1] - s.r2 * k);
     }
     case 'wheel': return s.c[1] - s.r;
-    case 'blade': return Math.min(s.a[1], s.b[1]);
+    case 'blade': case 'feather': return Math.min(s.a[1], s.b[1]);
   }
 }
 
