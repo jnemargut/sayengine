@@ -25,7 +25,7 @@ export interface LifeOptions {
 
 export interface Slot { id: number; at: P2; y: number; face: number; pose: string; approach: number; busy: Array<[number, number]> }
 export interface Place { id: string; town: number; kind: 'bench' | 'stall' | 'pier' | 'park' | 'busstop' | 'door'; at: P2; y: number; yaw: number; offers: Array<{ action: string; who: 'person' | 'dog' | 'pair'; slots: number }>; slots: Slot[]; node: number; nodes?: number[] }
-export interface Prop { kind: 'stall' | 'pier' | 'busstop' | 'signal'; at: [number, number, number]; yaw: number; size?: [number, number]; colour?: string; sig?: number; group?: number; town: number }
+export interface Prop { kind: 'stall' | 'pier' | 'busstop' | 'signal' | 'rod'; at: [number, number, number]; yaw: number; size?: [number, number]; colour?: string; sig?: number; group?: number; town: number }
 export interface CastMember { id: string; town: number; model: string; scale: number; speed: number; home: string; role: string; outings: number }
 
 export interface LifeBake {
@@ -200,12 +200,14 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
               slots: [-1, 1].map((k) => ({ at: [end[0] - n[1] * 0.55 * k, end[1] + n[0] * 0.55 * k] as P2, y: 0, face, pose: 'fish', appr: [appr[0] - n[1] * 0.55 * k, appr[1] + n[0] * 0.55 * k] as P2 })) },
           });
           props.push({ kind: 'pier', at: [c[0] + off[0], 0, c[1] + off[2]], yaw: face, size: [len + 0.6, 2.4], town: ti });
+          // a rod at each fishing spot, held out over the water
+          for (const k of [-1, 1]) props.push({ kind: 'rod', at: [end[0] - n[1] * 0.55 * k + n[0] * 0.3 + off[0], 0, end[1] + n[0] * 0.55 * k + n[1] * 0.3 + off[2]], yaw: face, town: ti });
           stats.piers++;
         }
         const ny = nearestOn(walkS.points, ws.piers[0].c);
         const hs = walkS.heights ?? walkS.points.map(() => 0);
         ws.pierY = hs[ny.i] + 0.33;
-        for (const pr of props) if (pr.kind === 'pier' && pr.town === ti) pr.at[1] = ws.pierY;
+        for (const pr of props) if ((pr.kind === 'pier' || pr.kind === 'rod') && pr.town === ti) pr.at[1] = ws.pierY;
       }
     }
 
@@ -427,7 +429,8 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       const segs: LifeSeg[] = [];
       let at = home.node;
       let now = t;
-      for (const act of acts) {
+      for (const act0 of acts) {
+        const act = act0 === 'sit' && !m.sits ? 'stroll' : act0;       // no sit clip: a stroll instead
         let target: { place: Place; slot: Slot | null; node: number; dur: number; pose: string } | null = null;
         const tries = act === 'sit' ? benches : act === 'browse' || act === 'tend' ? stalls : act === 'fish' ? piers : act === 'wait-bus' ? stops : [];
         if (act === 'stroll' || act === 'walk-dog') {
@@ -467,7 +470,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
         if (!r) continue;
         if (r.length >= 2) { const [seg, d] = makeMove(r, now, m.speed); segs.push(seg); now += d; }
         const sl = target.slot!;
-        const t1 = now + target.dur;
+        const t1 = target.pose === 'tend' ? Math.max(now + 600, MARKET[1] * 3600) : now + target.dur;
         book(sl, now - 20, t1 + 20);
         segs.push({ k: 'act', t: r2(now), t1: r2(t1), at: [r2(sl.at[0]), r2(sl.y + off[1]), r2(sl.at[1])], face: r2(sl.face), pose: target.pose, slot: sl.id, place: target.place.id });
         now = t1 + 1;

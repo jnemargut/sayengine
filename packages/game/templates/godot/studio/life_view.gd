@@ -108,6 +108,31 @@ func _snap() -> void:
 	for v in rt.vehicles:
 		prev_v.append([v["x"], v["y"], v["z"], v["yaw"]])
 
+## The walk mesh polygons (the same ones the web draws) as a translucent overlay (debug).
+var walk_overlay: MeshInstance3D
+func show_walk(on: bool) -> void:
+	if on and walk_overlay == null:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for w in data.get("walk", []):
+			var p: Array = w["poly"]
+			var n := p.size() / 3
+			for i in range(1, n - 1):
+				for k in [0, i, i + 1]:
+					st.add_vertex(Vector3(p[k * 3], float(p[k * 3 + 1]) + 0.03, p[k * 3 + 2]))
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.21, 0.77, 1.0, 0.35)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		walk_overlay = MeshInstance3D.new()
+		walk_overlay.name = "Walk mesh"
+		walk_overlay.mesh = st.commit()
+		walk_overlay.material_override = m
+		add_child(walk_overlay)
+	if walk_overlay:
+		walk_overlay.visible = on
+
 func seek(t: float, warm := 60.0) -> void:
 	rt.init_day(t, warm)
 	_snap()

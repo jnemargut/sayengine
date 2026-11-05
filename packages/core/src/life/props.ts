@@ -80,6 +80,16 @@ export function propsGlb(props: Prop[]): Uint8Array {
       for (const sx of [-1, 1]) box(posts, at(sx * (W / 2 - 0.05), 0.45, L / 4), [0.04, 0.04, L / 4], yaw);  // rails on the outer half
       const n = node(`pier ${k}`, [{ m: wood, mesh: deck }, { m: mat('pier post', '#5a4632'), mesh: posts }], { town: p.town });
       if (n >= 0) root.push(n);
+    } else if (p.kind === 'rod') {
+      // a rod held at the hip, tipped up over the water, a line hanging from its tip
+      const rod: Mesh = { pos: [], nrm: [] }, line: Mesh = { pos: [], nrm: [] };
+      const fx = Math.sin(yaw), fz = Math.cos(yaw), L = 2.4, tilt = 0.45;
+      const mid: V3 = [x + fx * (L / 2) * Math.cos(tilt), y + 1.05 + (L / 2) * Math.sin(tilt), z + fz * (L / 2) * Math.cos(tilt)];
+      box(rod, mid, [0.015, 0.015, L / 2], yaw, -tilt);
+      const tip: V3 = [x + fx * L * Math.cos(tilt), y + 1.05 + L * Math.sin(tilt), z + fz * L * Math.cos(tilt)];
+      box(line, [tip[0], (tip[1] + y - 0.6) / 2, tip[2]], [0.004, (tip[1] - y + 0.6) / 2, 0.004], yaw);
+      const n = node(`rod ${k}`, [{ m: mat('rod', '#3a2c22', 0.5), mesh: rod }, { m: mat('fishing line', '#e8e8e8', 0.5), mesh: line }], { town: p.town });
+      if (n >= 0) root.push(n);
     } else if (p.kind === 'busstop') {
       const m: Mesh = { pos: [], nrm: [] }, sign: Mesh = { pos: [], nrm: [] };
       box(m, [x, y + 1.3, z], [0.05, 1.3, 0.05], yaw);

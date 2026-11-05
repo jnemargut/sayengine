@@ -64,6 +64,7 @@ func _next() -> void:
 		return
 	var s: Dictionary = shots[shot]
 	life.seek(float(s["t"]), float(s.get("warm", 60)))
+	life.show_walk(bool(s.get("walk", false)))
 	cam.fov = float(s.get("fov", 50))
 	cam.current = true
 	settle = 6
@@ -75,12 +76,19 @@ func _aim() -> void:
 	var l: Array = s["look"]
 	var pos := Vector3(c[0], c[1], c[2])
 	var look := Vector3(l[0], l[1], l[2])
+	var who = null
 	if s.has("follow"):
-		var a: Dictionary = life.rt.agents[int(s["follow"])]
-		if a["visible"]:
-			var at := Vector3(a["x"], a["y"], a["z"])
-			var back := Vector3(-sin(a["yaw"]), 0, -cos(a["yaw"]))
-			pos = at + back * float(s.get("dist", 6.0)) + Vector3(0, float(s.get("height", 2.6)), 0)
-			look = at + Vector3(0, 1.0, 0) - back * 3.0
+		who = life.rt.agents[int(s["follow"])]
+	elif s.has("followVehicle"):
+		who = life.rt.vehicles[int(s["followVehicle"])]
+	if who != null and who["visible"]:
+		# orbit: `angle` degrees from straight behind (180 = in front), `dist` back, `height` up
+		var at := Vector3(who["x"], who["y"], who["z"])
+		var yaw: float = float(who["yaw"]) + deg_to_rad(float(s.get("angle", 0.0)))
+		var back := Vector3(-sin(yaw), 0, -cos(yaw))
+		pos = at + back * float(s.get("dist", 6.0)) + Vector3(0, float(s.get("height", 2.6)), 0)
+		look = at + Vector3(0, float(s.get("lookUp", 1.0)), 0)
+		if frame > 0 or settle < 6:
+			pos = cam.global_position.lerp(pos, 0.08)
 	cam.global_position = pos
 	cam.look_at(look, Vector3.UP)

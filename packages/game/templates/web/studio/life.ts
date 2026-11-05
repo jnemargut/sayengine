@@ -362,7 +362,7 @@ export class LifeRuntime {
       const r = A.r + this.player.r;
       if (ahead > -0.3 && ahead < 3 && Math.abs(side) < r + 0.5) {
         if (side <= 0) latT = Math.max(latT, st.lat + side + r + 0.5); else latT = Math.min(latT, st.lat + side - r - 0.5);
-        if (ahead < r + 0.4) want = 0;
+        if (ahead < r + 0.4 && Math.abs(side) < r + 0.1) want = 0;   // right in our way: stop (beside us: walk on by)
       }
     }
     latT = clamp(latT, -hw + A.r, hw - A.r);

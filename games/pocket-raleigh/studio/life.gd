@@ -509,7 +509,7 @@ func _step_person(i: int, dt: float) -> void:
 				latT = max(latT, st["lat"] + side + r + 0.5)
 			else:
 				latT = min(latT, st["lat"] + side - r - 0.5)
-			if ahead < r + 0.4:
+			if ahead < r + 0.4 and abs(side) < r + 0.1:
 				want = 0.0
 	latT = _clamp(latT, -hw + ar, hw - ar)
 	var lat0: float = st["lat"]

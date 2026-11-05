@@ -1,0 +1,217 @@
+[
+ {
+  "name": "raleigh-market",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 29,
+  "dist": 7,
+  "height": 3.2,
+  "angle": 160,
+  "fov": 50
+ },
+ {
+  "name": "raleigh-bench",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 6,
+  "dist": 4.5,
+  "height": 1.6,
+  "angle": 200,
+  "fov": 50,
+  "lookUp": 0.8
+ },
+ {
+  "name": "raleigh-dog-walker",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 6,
+  "dist": 6,
+  "height": 2.4,
+  "angle": 35,
+  "fov": 50
+ },
+ {
+  "name": "twin-market",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 121,
+  "dist": 8,
+  "height": 3.5,
+  "angle": 170,
+  "fov": 50
+ },
+ {
+  "name": "twin-pier",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 127,
+  "dist": 6,
+  "height": 2.2,
+  "angle": 140,
+  "fov": 50
+ },
+ {
+  "name": "raleigh-walkers",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 17,
+  "dist": 7,
+  "height": 2.2,
+  "angle": 0,
+  "fov": 50
+ },
+ {
+  "name": "raleigh-bus",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "followVehicle": 12,
+  "dist": 16,
+  "height": 6,
+  "angle": 140,
+  "lookUp": 1.5,
+  "fov": 50
+ },
+ {
+  "name": "raleigh-car",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "followVehicle": 0,
+  "dist": 10,
+  "height": 3.5,
+  "angle": 25,
+  "fov": 50
+ },
+ {
+  "name": "video-raleigh-dog",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 6,
+  "dist": 7,
+  "height": 3,
+  "angle": 30,
+  "fov": 50,
+  "frames": 240
+ },
+ {
+  "name": "video-twin-market",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 121,
+  "dist": 14,
+  "height": 7,
+  "angle": 170,
+  "fov": 50,
+  "frames": 240
+ },
+ {
+  "name": "video-raleigh-bus",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "followVehicle": 12,
+  "dist": 18,
+  "height": 7,
+  "angle": 150,
+  "lookUp": 1.5,
+  "fov": 50,
+  "frames": 180
+ }
+]
