@@ -170,21 +170,30 @@ export function quadrupedSpec(p: CharParams): CharSpec {
     // legs with mass: a muscled thigh (haunch) and upper arm that run up into the body, a gaskin and
     // forearm that taper, slim pasterns, and broad padded paws
     const t = 0.105 * wither * (0.8 + 0.4 * b), ft = t * 0.92;
-    const ring = (c: V3, rx: number, ry: number, rz: number, n = 8): V3[] => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return add(c, [rx * Math.cos(a), ry * Math.sin(a) * 0.15, rz * Math.sin(a)]); });
-    // the haunch: wide and deep at the hip (flattened side to side), narrowing to the stifle
+    // an ellipsoid's points (side rx, along the bone ry, front-back rz), for hulls that taper smoothly
+    const blob = (c: V3, along: V3, rx: number, ry: number, rz: number): V3[] => {
+      const yv = norm(along), xv: V3 = [1, 0, 0], zv = norm(cross(xv, yv));
+      const pts: V3[] = [];
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 8; j++) {
+        const th = (Math.PI * (i + 0.5)) / 4, ph = (Math.PI * 2 * j) / 8;
+        pts.push(add(c, add(add(mul(xv, rx * Math.sin(th) * Math.cos(ph)), mul(yv, ry * Math.cos(th))), mul(zv, rz * Math.sin(th) * Math.sin(ph)))));
+      }
+      return pts;
+    };
+    // the haunch: a broad, deep thigh (flattened side to side) that narrows into the stifle
+    const thigh = sub(stifle, hip);
     pieces.push({ kind: 'hull', part: `${side}UpperLeg`, pts: [
-      ...ring(add(hip, [sx * t * 0.05, t * 0.35, -t * 0.1]), t * 0.95, 1, t * 1.55),
-      ...ring(add(lerpV(hip, stifle, 0.45), [sx * t * 0.08, 0, t * 0.12]), t * 0.92, 1, t * 1.25),
-      ...ring(lerpV(hip, stifle, 0.9), t * 0.56, 1, t * 0.62),
+      ...blob(add(lerpV(hip, stifle, 0.3), [sx * t * 0.05, 0, 0]), thigh, t * 1.0, len(thigh) * 0.42, t * 1.55),
+      ...blob(lerpV(hip, stifle, 0.93), thigh, t * 0.5, t * 0.5, t * 0.56),
     ] });
     ball(stifle, t * 0.46, `${side}LowerLeg`); seg(stifle, hock, t * 0.54, t * 0.4, `${side}LowerLeg`);
     ball(hock, t * 0.42, `${side}Foot`); seg(hock, paw, t * 0.38, t * 0.34, `${side}Foot`);
     pieces.push({ kind: 'hull', part: `${side}Toes`, pts: pawPts(paw, t * 1.05, pawY, toeLen * 1.15) });
-    // the upper arm: muscle from the shoulder blade down to the elbow
+    // the upper arm: muscle from the shoulder down to the elbow
+    const arm = sub(elbow, sh);
     pieces.push({ kind: 'hull', part: `${side}UpperArm`, pts: [
-      ...ring(add(sh, [0, ft * 0.3, ft * 0.15]), ft * 0.85, 1, ft * 1.25),
-      ...ring(lerpV(sh, elbow, 0.5), ft * 0.82, 1, ft * 1.05),
-      ...ring(elbow, ft * 0.62, 1, ft * 0.68),
+      ...blob(lerpV(sh, elbow, 0.3), arm, ft * 0.9, len(arm) * 0.4, ft * 1.3),
+      ...blob(lerpV(sh, elbow, 0.92), arm, ft * 0.62, ft * 0.6, ft * 0.68),
     ] });
     ball(elbow, ft * 0.66, `${side}LowerArm`); seg(elbow, wrist, ft * 0.7, ft * 0.5, `${side}LowerArm`);
     ball(wrist, ft * 0.5, `${side}Hand`); seg(wrist, fpaw, ft * 0.47, ft * 0.43, `${side}Hand`);
