@@ -4,7 +4,7 @@
 // player bumping into everything (folk step aside, cars brake).
 import type { P2 } from '../world/geo.ts';
 import type { LifeBake } from './bake.ts';
-import { LifeRuntime, LEASH, LIFE_DT, RED } from './runtime.ts';
+import { LifeRuntime, LEASH, LIFE_DT, RED, FRIENDS } from './runtime.ts';
 
 export interface DayCheck { name: string; pass: boolean; count: number; worst: number; limit: number; unit: string; detail: string; at?: number[] }
 export interface DayReport { from: number; to: number; ticks: number; ms: number; checks: DayCheck[]; peak: { folk: number; cars: number }; byHour: number[]; brakesForPlayer: number }
@@ -17,7 +17,7 @@ function playerAt(ps: PlayerScript, t: number): P2 {
   for (let i = 1; i < ps.pts.length; i++) L.push(L[i - 1] + Math.hypot(ps.pts[i][0] - ps.pts[i - 1][0], ps.pts[i][1] - ps.pts[i - 1][1]));
   const total = L[L.length - 1] || 1;
   // there and back
-  let s = (t * ps.speed) % (2 * total);
+  let s = (((t * ps.speed) % (2 * total)) + 2 * total) % (2 * total);
   if (s > total) s = 2 * total - s;
   for (let i = 1; i < L.length; i++) if (s <= L[i]) { const u = (s - L[i - 1]) / (L[i] - L[i - 1] || 1); return [ps.pts[i - 1][0] + (ps.pts[i][0] - ps.pts[i - 1][0]) * u, ps.pts[i - 1][1] + (ps.pts[i][1] - ps.pts[i - 1][1]) * u]; }
   return ps.pts[ps.pts.length - 1];
@@ -66,18 +66,37 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const prev = rt.agents.map((a) => ({ v: a.visible, x: a.x, z: a.z }));
   const prevV = rt.vehicles.map((v) => ({ v: v.visible, x: v.x, z: v.z, leg: v.leg, s: v.s }));
   const still = rt.vehicles.map(() => 0);
+  const hot = new Map<string, number>();
   const byHour = new Array(24).fill(0), seen = new Array(24).fill(0);
   let peakF = 0, peakC = 0, brakes = 0, ticks = 0;
   const pr = o.player?.r ?? 0.4;
-  let ps = 0, walkSamples = 0;
+  let ps = 0, walkSamples = 0, pdir = 1, poff = 0, pstuck = 0;
   for (let t = from; t < to; t += LIFE_DT) {
     if (o.player && t >= (o.player.from ?? 0) && t < (o.player.to ?? 1e9)) {
-      // the scripted player is solid like the game's: a car or a person in the way holds it up
-      const p = playerAt(o.player, ps + LIFE_DT);
-      let free = true;
-      for (let i = 0; i < rt.vehicles.length && free; i++) if (rt.vehicles[i].visible && circleInRect(p[0], p[1], pr, { x: rt.vehicles[i].x, z: rt.vehicles[i].z, yaw: rt.vehicles[i].yaw, l: D.vehicles[i].len, w: D.vehicles[i].wid })) free = false;
-      if (free) ps += LIFE_DT;
-      const q = playerAt(o.player, ps);
+      // the scripted player is solid like the game's: a car or a person in the way holds it up. Like someone
+      // at the controls it steps around folk in its way (up to 0.9 m aside) and turns back after 2.5 s stuck
+      const solid = (x: number, z: number) => {
+        for (let i = 0; i < rt.vehicles.length; i++) if (rt.vehicles[i].visible && circleInRect(x, z, pr, { x: rt.vehicles[i].x, z: rt.vehicles[i].z, yaw: rt.vehicles[i].yaw, l: D.vehicles[i].len, w: D.vehicles[i].wid })) return true;
+        for (let i = 0; i < rt.agents.length; i++) {
+          const a = rt.agents[i];
+          if (!a.visible) continue;
+          const dn = Math.hypot(a.x - x, a.z - z);
+          if (dn < D.agents[i].r + pr && dn < Math.hypot(a.x - rt.player.x, a.z - rt.player.z)) return true;
+        }
+        return false;
+      };
+      const p0 = playerAt(o.player, ps), p1 = playerAt(o.player, ps + pdir * LIFE_DT);
+      const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, nx = -(p1[1] - p0[1]) / dl, nz = (p1[0] - p0[0]) / dl;
+      let moved = false;
+      // (the first tick puts the player at the start of its walk)
+      let q: P2 = rt.player.on ? [rt.player.x, rt.player.z] : [p0[0], p0[1]];
+      for (const off of [poff - Math.sign(poff) * Math.min(0.05, Math.abs(poff)), poff, poff + 0.25, poff - 0.25]) {
+        if (Math.abs(off) > 0.9) continue;
+        // the player goes exactly where it checked it was free to go
+        const c: P2 = [p1[0] + nx * off, p1[1] + nz * off];
+        if (!solid(c[0], c[1])) { ps += pdir * LIFE_DT; poff = off; moved = true; q = c; break; }
+      }
+      if (moved || !rt.player.on) pstuck = 0; else if ((pstuck += LIFE_DT) > 2.5) { pdir = -pdir; pstuck = 0; }
       rt.setPlayer(q[0], q[1], pr, true);
     } else rt.setPlayer(0, 0, pr, false);
     rt.step();
@@ -115,18 +134,24 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       if (!A[i].visible) continue;
       if (D.agents[i].kind === 'person') nf++;
       for (let j = i + 1; j < A.length; j++) {
-        if (!A[j].visible || D.agents[j].owner === i || D.agents[i].owner === j) continue;
-        if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) cnt.slip++; continue; }
-        const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = D.agents[i].r + D.agents[j].r - 0.08;
+        // a dog may brush its walker (friends walking together may not)
+        if (!A[j].visible || (D.agents[j].owner === i && D.agents[j].kind === 'dog') || (D.agents[i].owner === j && D.agents[i].kind === 'dog')) continue;
+        if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) { cnt.slip++; if (process.env.LIFE_DEBUG) { const key = `slip ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10}`; hot.set(key, (hot.get(key) ?? 0) + 1); } } continue; }
+        // two friends out together walk close: their limit is FRIENDS (arms brushing), not two radii
+        const pals = D.agents[i].pal === j || D.agents[j].pal === i;
+        const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = (pals ? FRIENDS : D.agents[i].r + D.agents[j].r) - 0.08;
         if (d < lim) {
           cnt.overlap++; worst.overlap = Math.max(worst.overlap, lim - d); note('overlap', t);
+          if (process.env.LIFE_DEBUG) { const key = `overlap ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10} ${i}/${j}`; hot.set(key, (hot.get(key) ?? 0) + 1); }
           if (process.env.LIFE_DEBUG && cnt.overlap < 6) { const gi = D.agents[i].plan[A[i].seg] as any, gj = D.agents[j].plan[A[j].seg] as any; console.log('OVERLAP', (t / 3600).toFixed(3), i, j, d.toFixed(2), gi?.k, gi?.pose ?? '', A[i].pose, A[i].slot, gj?.k, gj?.pose ?? '', A[j].pose, A[j].slot, A[i].x.toFixed(1), A[i].z.toFixed(1), A[i].v.toFixed(2), A[j].v.toFixed(2), A[i].blocked.toFixed(1), A[j].blocked.toFixed(1)); }
         }
       }
       // walls: never inside a building; off the walk only on a crossing
       if (D.agents[i].kind === 'person') {
-        const g = D.agents[i].plan[A[i].seg];
-        if (g && g.k === 'move' && rt.t - A[i].moveStart > 0.8) {
+        // a friend walking alongside counts while their friend walks (and they're keeping up)
+        const ow = D.agents[i].owner, wo = ow !== undefined ? A[ow] : null;
+        const g = ow !== undefined ? (D.agents[ow].plan[wo!.seg] && D.agents[ow].plan[wo!.seg].k === 'move' && A[i].v > 0.05 ? { k: 'move' } : null) : D.agents[i].plan[A[i].seg];
+        if (g && g.k === 'move' && (ow !== undefined || rt.t - A[i].moveStart > 0.8)) {
           const w = where(D.agents[i].town ?? 0, A[i].x, A[i].z);
           walkSamples++;
           if (w === 2) { cnt.wall++; note('wall', t); } else if (w === 1) { cnt.offWalk++; note('offWalk', t); }
@@ -141,7 +166,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       }
       if (rt.player.on) {
         const d = Math.hypot(A[i].x - rt.player.x, A[i].z - rt.player.z), lim = D.agents[i].r + pr - 0.08;
-        if (d < lim) { cnt.player++; worst.player = Math.max(worst.player, lim - d); note('player', t); }
+        if (d < lim) { cnt.player++; worst.player = Math.max(worst.player, lim - d); note('player', t); if (process.env.LIFE_DEBUG) { const g = D.agents[i].plan[A[i].seg] as any; console.log('PLAYER', (t / 3600).toFixed(4), i, D.agents[i].kind, g?.k, g?.pose ?? '', A[i].pose, 'v', A[i].v.toFixed(2), 'blk', A[i].blocked.toFixed(1), 'wait', A[i].wait, d.toFixed(2)); } }
       }
     }
     // one sitter per seat
@@ -163,6 +188,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
     byHour[h] += nf; seen[h]++;
     peakF = Math.max(peakF, nf); peakC = Math.max(peakC, nc);
   }
+  if (process.env.LIFE_DEBUG) console.log('HOT', [...hot.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25));
   const mk = (name: string, k: keyof typeof cnt, limit: number, unit: string, detail: string, w?: number): DayCheck => ({ name, pass: cnt[k] <= limit, count: cnt[k], worst: +(w ?? 0).toFixed(3), limit, unit, detail, ...(at[k] ? { at: at[k] } : {}) });
   const checks: DayCheck[] = [
     mk('no two folk in one spot', 'overlap', 0, 'samples', 'people closer than their two radii', worst.overlap),

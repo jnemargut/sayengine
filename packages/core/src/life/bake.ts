@@ -16,6 +16,7 @@ export interface LifeOptions {
   event?: 'market' | null;          // a Saturday market on the plaza / the green, 8:00–13:00
   start?: number;                   // the hour the games open on (e.g. 10.6 = 10:36)
   folk?: number[];                  // cast size per town
+  pairs?: number;                   // share of folk who go out with a friend (walk side by side, chat at benches)
   cars?: number[];                  // cars per town
   bus?: boolean;
   busTowns?: number[];              // which towns run a bus (default: the first)
@@ -112,7 +113,8 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           const q: P2 = [p[0] + nn[0] * (s.width / 2 + 0.6), p[1] + nn[1] * (s.width / 2 + 0.6)];
           const along2: P2 = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
           const pq: P2 = [q[0] + along2[0] * 6 + nn[0] * 0.6, q[1] + along2[1] * 6 + nn[1] * 0.6];
-          const okP = plan.buildings.every((bb) => !pointInPoly(pq, bb.footprint) && nearestOn([...bb.footprint, bb.footprint[0]], pq).d > 1.5) && plan.streets.every((oo) => oo === s || oo.kind === 'footway' || nearestOn(oo.points, pq).d > oo.width / 2 + 1);
+          // not at a corner: a bench there sits in the crosswalk's path (folk crossing would walk into the sitter)
+          const okP = junctions.every((J) => Math.hypot(J.at[0] - pq[0], J.at[1] - pq[1]) > 15) && plan.buildings.every((bb) => !pointInPoly(pq, bb.footprint) && nearestOn([...bb.footprint, bb.footprint[0]], pq).d > 1.5) && plan.streets.every((oo) => oo === s || oo.kind === 'footway' || nearestOn(oo.points, pq).d > oo.width / 2 + 1);
           if (okP) {
             const bq: P2 = [pq[0] + along2[0] * 3, pq[1] + along2[1] * 3];
             ws.blocked.push({ c: pq, dir: along2, len: 2.2, wid: 1.0 }, { c: [bq[0] - nn[0] * 0.1, bq[1] - nn[1] * 0.1], dir: along2, len: 1.8, wid: 0.6 });
@@ -147,11 +149,12 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           if (!ws.walkable(p) || ws.freeHalf(p, f, 3.2) < 3 || ws.freeHalf(p, [-f[1], f[0]], 3.2) < 3) continue;
           cand.push(p);
         }
-        // a ring: candidates far from the middle first
-        cand.sort((a, b) => Math.hypot(b[0] - c[0], b[1] - c[1]) - Math.hypot(a[0] - c[0], a[1] - c[1]) + (R() - 0.5) * 6);
+        // a market square: a ring of stalls about 8 m out from the middle, facing in (a lively cluster, not
+        // strung along the plaza's edge by the buildings)
+        cand.sort((a, b) => Math.abs(Math.hypot(a[0] - c[0], a[1] - c[1]) - 8) - Math.abs(Math.hypot(b[0] - c[0], b[1] - c[1]) - 8) + (R() - 0.5) * 3);
         for (const p of cand) {
           if (chosen.length >= want) break;
-          if (chosen.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 8.5)) continue;
+          if (chosen.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 6.5)) continue;
           chosen.push(p);
         }
         const colours = ['#c8463a', '#2f6f9f', '#d9a03a', '#3f7a4a', '#8a4a7a', '#e07a2a'];
@@ -200,8 +203,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
               slots: [-1, 1].map((k) => ({ at: [end[0] - n[1] * 0.55 * k, end[1] + n[0] * 0.55 * k] as P2, y: 0, face, pose: 'fish', appr: [appr[0] - n[1] * 0.55 * k, appr[1] + n[0] * 0.55 * k] as P2 })) },
           });
           props.push({ kind: 'pier', at: [c[0] + off[0], 0, c[1] + off[2]], yaw: face, size: [len + 0.6, 2.4], town: ti });
-          // a rod at each fishing spot, held out over the water
-          for (const k of [-1, 1]) props.push({ kind: 'rod', at: [end[0] - n[1] * 0.55 * k + n[0] * 0.3 + off[0], 0, end[1] + n[0] * 0.55 * k + n[1] * 0.3 + off[2]], yaw: face, town: ti });
+          // (the anglers bring their own rods: the cast holds one in the right hand, shown while fishing)
           stats.piers++;
         }
         const ny = nearestOn(walkS.points, ws.piers[0].c);
@@ -361,7 +363,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     const townPlaces = places.filter((p) => p.town === ti);
     const benches = townPlaces.filter((p) => p.kind === 'bench'), stalls = townPlaces.filter((p) => p.kind === 'stall'), piers = townPlaces.filter((p) => p.kind === 'pier'), stops = townPlaces.filter((p) => p.kind === 'busstop');
     const park = townPlaces.find((p) => p.kind === 'park');
-    const nFolk = o.folk?.[ti] ?? (plan.source === 'real' ? 120 : 50);
+    const nFolk = o.folk?.[ti] ?? (plan.source === 'real' ? 160 : 70);
     const nDogs = o.dogs?.[ti] ?? 1;
     const order = shuffle(folkModels.map((m) => m.id), R);
     const strollPool = graph.nodes.filter((n) => reach(n.id)).map((n) => n.id);
@@ -386,7 +388,10 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           const a = n.p, b = graph.nodes[seq[k]].p, L = Math.hypot(b[0] - a[0], b[1] - a[1]);
           if (L > 24 || !ws.segWalkable(a, b, 0.3)) break;
           const dir: P2 = [(b[0] - a[0]) / (L || 1), (b[1] - a[1]) / (L || 1)];
-          const h = Math.min(...[0, 0.25, 0.5, 0.75, 1].map((tt) => ws.freeHalf([a[0] + (b[0] - a[0]) * tt, a[1] + (b[1] - a[1]) * tt], dir, 1.6)));
+          // the free half-width all along the shortcut (every 0.4 m: a corner between samples is where folk graze)
+          let h = 9;
+          const nS = Math.max(4, Math.ceil(L / 0.4));
+          for (let q = 0; q <= nS && h >= 0.6; q++) h = Math.min(h, ws.freeHalf([a[0] + (b[0] - a[0]) * q / nS, a[1] + (b[1] - a[1]) * q / nS], dir, 1.6));
           if (h < 0.6) break;
           j = k; hw = h;
         }
@@ -419,6 +424,24 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       // planned time: the walk plus a little for each crossing (waiting for the signal)
       return [seg, s / speed + cross.length * 18];
     };
+    /** Where a friend stands while someone uses a slot (scene space): at the end of the bench, beside a
+     *  browser away from the other browser, behind an angler or someone waiting. Always on the walk, off the slots. */
+    const friendSpot = (pl: Place, sl: Slot): [number, number, number] | null => {
+      if (pl.kind === 'door' || sl.pose === 'tend') return null;
+      const f: P2 = [Math.sin(sl.face), Math.cos(sl.face)];
+      const others = pl.slots.filter((o) => o !== sl);
+      const away: P2 = others.length ? norm([sl.at[0] - others.reduce((a, o) => a + o.at[0], 0) / others.length, sl.at[1] - others.reduce((a, o) => a + o.at[1], 0) / others.length]) : [-f[1], f[0]];
+      const cands: P2[] = pl.kind === 'bench' ? [[sl.at[0] + away[0] * 0.95 + f[0] * 0.3, sl.at[1] + away[1] * 0.95 + f[1] * 0.3], [sl.at[0] + f[0] * 1.1 + away[0] * 0.3, sl.at[1] + f[1] * 1.1 + away[1] * 0.3]]
+        : pl.kind === 'stall' ? [[sl.at[0] + away[0] * 0.75 + f[0] * 0.15, sl.at[1] + away[1] * 0.75 + f[1] * 0.15], [sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8]]
+        : pl.kind === 'busstop' ? [[sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8]]
+        : [[sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8], [sl.at[0] + away[0] * 0.75, sl.at[1] + away[1] * 0.75]];
+      for (const c of cands) {
+        const lc: P2 = [c[0] - off[0], c[1] - off[2]];
+        if (!ws.walkable(lc) || places.some((q) => q.town === ti && q.slots.some((o) => o !== sl && Math.hypot(o.at[0] - c[0], o.at[1] - c[1]) < 0.62))) continue;
+        return [r2(c[0]), r2((pl.kind === 'pier' ? ws.pierY : ws.heightAt(lc)) + off[1]), r2(c[1])];
+      }
+      return null;
+    };
     const slotFree = (sl: Slot, t0: number, t1: number) => sl.busy.every(([a, b]) => t1 + 25 < a || t0 > b + 25);
     const book = (sl: Slot, t0: number, t1: number) => sl.busy.push([t0, t1]);
 
@@ -448,6 +471,19 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
             if (!r || r.length < 2) continue;
             const [seg, dur] = makeMove(r, now, m.speed);
             segs.push(seg); now += dur + 1; at = goal;
+            // now and then a stop: a glance in a window, a look around, before walking on
+            if (act === 'stroll' && R() < 0.45) {
+              const pp = paths[(seg as any).p], n4 = pp.length / 4;
+              const hx = pp[(n4 - 1) * 4] - pp[(n4 - 2) * 4], hz = pp[(n4 - 1) * 4 + 2] - pp[(n4 - 2) * 4 + 2], hl = Math.hypot(hx, hz) || 1;
+              const nd = graph.nodes[goal];
+              const side: P2 = [nd.p[0] - hz / hl * 0.35, nd.p[1] + hx / hl * 0.35];
+              const spot = ws.walkable(side) && ws.freeHalf(side, [hx / hl, hz / hl], 0.6) >= 0.4 ? side : nd.p;
+              const dwell = between(3, 9);
+              const ps: P2 = [nd.p[0] + hz / hl * 0.4, nd.p[1] - hx / hl * 0.4];
+              const palOk = spot !== nd.p && ws.walkable(ps);
+              segs.push({ k: 'act', t: r2(now), t1: r2(now + dwell), at: [r2(spot[0] + off[0]), r2(ws.heightAt(spot) + off[1]), r2(spot[1] + off[2])], face: r2(Math.atan2(hx, hz) + (R() < 0.5 ? 1 : -1) * between(0.9, 1.6)), pose: 'look', slot: -1, ...(palOk ? { pal: [r2(ps[0] + off[0]), r2(ws.heightAt(ps) + off[1]), r2(ps[1] + off[2])] as [number, number, number] } : {}) });
+              now += dwell + 1;
+            }
           }
           continue;
         }
@@ -472,7 +508,8 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
         const sl = target.slot!;
         const t1 = target.pose === 'tend' ? Math.max(now + 600, MARKET[1] * 3600) : now + target.dur;
         book(sl, now - 20, t1 + 20);
-        segs.push({ k: 'act', t: r2(now), t1: r2(t1), at: [r2(sl.at[0]), r2(sl.y + off[1]), r2(sl.at[1])], face: r2(sl.face), pose: target.pose, slot: sl.id, place: target.place.id });
+        const palAt = friendSpot(target.place, sl);
+        segs.push({ k: 'act', t: r2(now), t1: r2(t1), at: [r2(sl.at[0]), r2(sl.y + off[1]), r2(sl.at[1])], face: r2(sl.face), pose: target.pose, slot: sl.id, place: target.place.id, ...(palAt ? { pal: palAt } : {}) });
         now = t1 + 1;
         at = target.node;
       }
@@ -560,9 +597,17 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
         stats.outings++;
       }
       if (!segs.length) { cast.pop(); continue; }
-      const idx = addAgent({ id: member.id, town: ti, kind: 'person', r: 0.26, speed: member.speed, model: member.model, scale: member.scale, plan: segs });
+      const idx = addAgent({ id: member.id, town: ti, kind: 'person', r: 0.26, speed: member.speed, lane: r2(between(0.25, 0.85)), model: member.model, scale: member.scale, plan: segs });
       plans.push({ idx, segs, home });
       stats.folk++;
+      // some go out with a friend: side by side on the walk, standing by them for a chat when they stop
+      if (role === 'folk' && R() < (o.pairs ?? 0.18)) {
+        const fm = folkModels.filter((x) => x.id !== member.model && !/kid/.test(x.id));
+        const pm = fm.length ? pick(fm) : M;
+        agents[idx].lane = r2(between(0.75, 0.9));         // keep well right, so the two fit side by side
+        agents[idx].pal = addAgent({ id: `${member.id}-pal`, town: ti, kind: 'person', r: 0.26, speed: member.speed, owner: idx, model: pm.id, scale: r2(between(0.94, 1.06)), plan: [] });
+        stats.folk++; stats.pairs = (stats.pairs ?? 0) + 1;
+      }
       if (role === 'dogwalker' && dogModels.length) {
         const dm = dogModels[stats.dogs % dogModels.length];
         addAgent({ id: `${member.id}-dog`, town: ti, kind: 'dog', r: 0.22, speed: 2.4, owner: idx, model: dm.id, scale: r2(between(0.9, 1.1)), plan: [] });

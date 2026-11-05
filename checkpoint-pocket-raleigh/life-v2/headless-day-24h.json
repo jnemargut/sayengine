@@ -1,0 +1,190 @@
+{
+  "stats": {
+    "places": 203,
+    "benches": 95,
+    "stalls": 10,
+    "piers": 2,
+    "busStops": 3,
+    "doors": 93,
+    "walkNodes": 2990,
+    "walkEdges": 4982,
+    "crossings": 86,
+    "carEdges": 257,
+    "signals": 21,
+    "folk": 280,
+    "dogs": 2,
+    "cars": 17,
+    "buses": 1,
+    "trips": 2783,
+    "outings": 576,
+    "pairs": 50
+  },
+  "bakeMs": 82661,
+  "day": {
+    "from": 5,
+    "hours": 24,
+    "ms": 176648,
+    "peak": {
+      "folk": 80,
+      "cars": 12
+    },
+    "byHour": [
+      0.4,
+      0,
+      0,
+      0,
+      0,
+      1.1,
+      5,
+      11.4,
+      37.2,
+      59.1,
+      73.6,
+      64.9,
+      62.8,
+      53.9,
+      47.8,
+      56.9,
+      50,
+      45.3,
+      36.8,
+      21.7,
+      23.4,
+      12.6,
+      2.6,
+      0.7
+    ],
+    "checks": [
+      {
+        "name": "no two folk in one spot",
+        "pass": false,
+        "count": 3,
+        "worst": 0.198,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "people closer than their two radii",
+        "at": [
+          36967,
+          36968,
+          38279
+        ]
+      },
+      {
+        "name": "few squeeze-pasts",
+        "pass": true,
+        "count": 1319,
+        "worst": 0,
+        "limit": 1440,
+        "unit": "samples",
+        "detail": "two folk face to face in a pinch slipping past each other (shoulders through shoulders for a moment; at most one sample a minute)"
+      },
+      {
+        "name": "nobody inside a building",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a walking person (or a dog) inside a footprint"
+      },
+      {
+        "name": "folk stay on the walk",
+        "pass": true,
+        "count": 22,
+        "worst": 0,
+        "limit": 268,
+        "unit": "samples",
+        "detail": "a walking person off the sidewalks, plazas and crossings (a few grazes at corners allowed)",
+        "at": [
+          24049,
+          24050,
+          25627,
+          35387,
+          37558
+        ]
+      },
+      {
+        "name": "no pops",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "ticks",
+        "detail": "no jump beyond the body's speed + 0.3 m in a 0.1 s tick"
+      },
+      {
+        "name": "no car hits anyone",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a person inside a car's footprint"
+      },
+      {
+        "name": "no two cars in one spot",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "two vehicle footprints overlapping"
+      },
+      {
+        "name": "nobody runs a red",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "crossings",
+        "detail": "a vehicle crossing its stop line after 3 s of red"
+      },
+      {
+        "name": "no gridlock",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "vehicles",
+        "detail": "a vehicle stopped for more than 150 s"
+      },
+      {
+        "name": "dog at leash length",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "the dog stays 0.55–2 m from its walker"
+      },
+      {
+        "name": "one sitter per seat",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "two people in one slot"
+      },
+      {
+        "name": "folk make room for the player",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a person inside the player"
+      },
+      {
+        "name": "cars brake for the player",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "the player inside a car's footprint"
+      }
+    ]
+  },
+  "parity": null
+}

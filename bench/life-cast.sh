@@ -1,11 +1,12 @@
 #!/bin/sh
 # The Pocket Raleigh cast (Phase 4 week 12): studio characters and vehicles for the life module, built
 # through the studio's own tools. Run from the repo root with a fresh .studio (STUDIO_PORT picks the daemon).
-#   sh bench/life-cast.sh
+#   sh bench/life-cast.sh            (LIFE_CAST_TOWNS=0 skips the towns and the player: the cast alone, for export)
 set -e
-S=./studio
+S=${STUDIO_BIN:-./studio}
 q() { "$S" "$@" > /dev/null || { echo "failed: $*"; exit 1; }; }
 
+if [ "${LIFE_CAST_TOWNS:-1}" != 0 ]; then
 # the towns (weeks 9-10)
 q world-town --name "Pocket Raleigh" --source real --area raleigh-city-plaza --style raleigh-downtown
 q world-town --name "River Twin" --source invented --seed 7 --description "mill town on a river, 1920s, 3 blocks" --offset '[380,0,0]'
@@ -15,6 +16,7 @@ q new-character --name Walker --preset apprentice --position '[3,0,30]'
 q set-motion --object walker --id walk --speed 1.4 --energy 0.65
 q set-motion --object walker --id idle --energy 0.5
 q move-object --object walker --position '[3,0,30]' --rotation 180
+fi
 
 # folk: body plans and looks drawn wide (no look-alikes), parked out of town
 x=-60
@@ -41,6 +43,17 @@ for id in folk-ada folk-bert folk-dev folk-esme folk-faro folk-gwen folk-hal; do
 done
 q set-motion --object folk-cleo --id browse --kind action --action look-around
 q set-motion --object folk-cleo --id fish --kind action --action fish
+# idle variety (the views play one now and then while folk stand, browse, tend a stall or chat)
+for id in folk-ada folk-bert folk-cleo folk-dev folk-esme folk-faro folk-gwen folk-hal; do
+  q set-motion --object "$id" --id nod --kind action --action nod
+  q set-motion --object "$id" --id shrug --kind action --action shrug
+  q set-motion --object "$id" --id point --kind action --action point
+  q set-motion --object "$id" --id pickup --kind action --action pick-up
+  # a rod in the right hand (the hold tool fits the grip); the views show it only while fishing
+  q new-object --name "Rod $id" --type prop --id "rod-$id" --color '#5a4632'
+  q add-op --object "rod-$id" --id pole --op cylinder --args '{"r1":0.014,"r2":0.005,"h":2.3,"at":[0,0,0]}'
+  q hold --character "$id" --hand right --prop "rod-$id"
+done
 
 # the dog
 q new-character --id dog-biscuit --name Biscuit --preset dog --position "[$x,0,-330]"
