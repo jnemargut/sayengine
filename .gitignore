@@ -6,6 +6,10 @@ apps/view/dist/
 .bettercompact/
 .scratch/
 .claude/worktrees/
+# Personal taste, notes and picks (Decision 63): private unless you opt in (git add -f)
+taste.md
+notes.json
+picks.json
 # line-preview checkpoint: only the video, stills and README are kept (regenerate: node bench/talking-face.ts)
 checkpoint-week4/*
 !checkpoint-week4/lines.mp4

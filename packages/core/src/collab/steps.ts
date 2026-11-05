@@ -25,7 +25,9 @@ export function assetOfChange(c: Change, doc?: SceneDoc): AssetRef {
     }
     case 'look': {
       if (a === 'looks' && b) return { kind: 'look', id: b, thing: `look:${b}`, ...(rest[0] ? { section: rest[0] } : {}) };
-      return { kind: 'look', id: a ?? 'look', thing: `look:${a ?? ''}`, section: a };
+      // the active look and its palette mirror belong to the active look
+      const active = (doc as any)?.look?.active ?? (a === 'active' ? c.after : undefined) ?? 'look';
+      return { kind: 'look', id: String(active), thing: `look:${active}`, section: a };
     }
     case 'cutscenes': return { kind: 'cutscene', id: a, thing: `cutscene:${a}`, ...(b ? { section: b } : {}) };
     case 'effects': return { kind: 'effect', id: a, thing: `effect:${a}`, ...(b ? { section: b } : {}) };
