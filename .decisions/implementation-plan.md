@@ -317,14 +317,14 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - [ ] Two looks: "day toy" and "neon night".
 
 ### Week 12: life, people
-- [ ] Smart places: benches, stalls, piers, dog walks.
-- [ ] Seeded cast and schedules by hour, season and event.
-- [ ] One baked walk mesh and lane graph, with the same polygons exported to both engines.
-- [ ] Small runtimes in TypeScript and GDScript with shared tests.
-- [ ] A sped-up headless day checks overlaps, wall crossings, pops and player collision.
+- [x] Smart places: benches, stalls, piers, dog walks. *(plus bus stops and doors; each place lists its offers and slots: bench `sit ×2`, stall `browse ×2 + tend`, pier `fish ×2`, park `walk-dog` for a pair, bus stop `wait ×3`)*
+- [x] Seeded cast and schedules by hour, season and event. *(`life/bake.ts`: roles (stall keepers, anglers, dog walkers, folk), 2–4 outings each from an hourly density per day type, the season's dusk, the Saturday market 8–13; slots booked so nobody shares a seat)*
+- [x] One baked walk mesh and lane graph, with the same polygons exported to both engines. *(`life/nav.ts`; `life.json` carries the walk polygons, both engines draw them as a debug overlay)*
+- [x] Small runtimes in TypeScript and GDScript with shared tests. *(`core/src/life/runtime.ts` = the web's `studio/life.ts`; `templates/godot/studio/life.gd`; the parity test runs both on one day)*
+- [x] A sped-up headless day checks overlaps, wall crossings, pops and player collision. *(`studio life-day`, `life/day.ts`; 13 checks, see the status below for what still fails)*
 
 ### Week 13: life, vehicles + sound
-- [ ] Cars and a bus on lanes: car following, stop lines, braking for the player.
+- [x] Cars and a bus on lanes: car following, stop lines, braking for the player. *(IDM following, signals with amber/all-red, a junction box, right-hand traffic with no left turns, a bus loop with stops; the vehicles are wheel-rig creatures)*
 - [ ] sound:
   - synth for game sounds
   - Stable Audio Open Small and CC0 libraries for foley and ambience

@@ -154,8 +154,40 @@
   "fov": 50
  },
  {
-  "name": "video-raleigh-dog",
+  "name": "walk-mesh-raleigh",
   "t": 38160,
+  "cam": [
+   60,
+   95,
+   150
+  ],
+  "look": [
+   0,
+   0,
+   60
+  ],
+  "fov": 50,
+  "walk": true
+ },
+ {
+  "name": "walk-mesh-twin",
+  "t": 38160,
+  "cam": [
+   440,
+   110,
+   120
+  ],
+  "look": [
+   380,
+   0,
+   0
+  ],
+  "fov": 50,
+  "walk": true
+ },
+ {
+  "name": "video-raleigh-dog",
+  "t": 38715,
   "cam": [
    0,
    0,
@@ -167,9 +199,29 @@
    0
   ],
   "follow": 6,
-  "dist": 7,
-  "height": 3,
-  "angle": 30,
+  "dist": 6.5,
+  "height": 2.6,
+  "angle": 25,
+  "fov": 50,
+  "frames": 240
+ },
+ {
+  "name": "video-raleigh-street",
+  "t": 38160,
+  "cam": [
+   0,
+   0,
+   0
+  ],
+  "look": [
+   0,
+   0,
+   0
+  ],
+  "follow": 17,
+  "dist": 9,
+  "height": 3.2,
+  "angle": 20,
   "fov": 50,
   "frames": 240
  },
@@ -187,10 +239,10 @@
    0
   ],
   "follow": 121,
-  "dist": 14,
-  "height": 7,
+  "dist": 22,
+  "height": 11,
   "angle": 170,
-  "fov": 50,
+  "fov": 45,
   "frames": 240
  },
  {
