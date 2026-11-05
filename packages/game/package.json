@@ -1,6 +1,7 @@
 {
   "name": "@studio/game",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "The /game skill's engine back ends: Godot (standalone games) and three.js + Rapier (web), driven headlessly for import, run, screenshot, play-test and round-trip checks.",
   "main": "src/index.ts"

@@ -1,7 +1,10 @@
 {
   "name": "@studio/cli",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "studio command-line tool, generated from the core tool registry.",
-  "bin": { "studio": "studio.ts" }
+  "bin": {
+    "studio": "studio.ts"
+  }
 }

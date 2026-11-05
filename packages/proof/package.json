@@ -1,6 +1,7 @@
 {
   "name": "@studio/proof",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "The proof module (Decision 31, Mac only): pinned views in Godot and the web build, FLIP picture diffs, budgets and an imitated phone (WebKit at phone size, Chrome with the CPU slowed).",
   "main": "src/proof.ts"

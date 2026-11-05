@@ -1,8 +1,11 @@
 {
   "name": "@studio/core",
   "version": "0.1.0",
+  "license": "Apache-2.0",
   "type": "module",
   "description": "DOM-free modeling engine: scene IR, branching change log, typed op graph on Manifold, checks, tool registry.",
   "main": "src/index.ts",
-  "exports": { ".": "./src/index.ts" }
+  "exports": {
+    ".": "./src/index.ts"
+  }
 }
