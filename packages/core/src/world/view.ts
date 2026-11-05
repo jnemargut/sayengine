@@ -96,6 +96,6 @@ export function townView(spec: TownSpec, world: WorldState | undefined, models: 
 }
 
 /** The light summary the live view gets in every state message (meshes come from /api/town). */
-export function townsForState(world: WorldState | undefined): Array<{ name: string; stamp: string; source: string; fixes: number; landmarks: string[] }> {
-  return Object.values(world?.towns ?? {}).map((s) => ({ name: s.name, stamp: stamp(s), source: s.source, fixes: s.fixes?.length ?? 0, landmarks: [...new Set((s.fixes ?? []).map((f) => f.model).filter(Boolean) as string[])] }));
+export function townsForState(world: WorldState | undefined): Array<{ name: string; stamp: string; source: string; fixes: number; fixLayer: unknown[]; landmarks: string[] }> {
+  return Object.values(world?.towns ?? {}).map((s) => ({ name: s.name, stamp: stamp(s), source: s.source, fixes: s.fixes?.length ?? 0, fixLayer: s.fixes ?? [], landmarks: [...new Set((s.fixes ?? []).map((f) => f.model).filter(Boolean) as string[])] }));
 }

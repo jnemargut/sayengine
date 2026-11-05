@@ -7,7 +7,7 @@ import path from 'node:path';
 import type { Studio } from '../studio.ts';
 import type { Proposal } from '../history.ts';
 import { describeAddress, formatAddress, parseAddress, type MomentAddress, type Timeline } from './address.ts';
-import { addressFor, timelineFor } from './timelines.ts';
+import { addressFor, timelineFor, partWords } from './timelines.ts';
 import { Notes, emptyNotes, type Note, type NotesData, type NoteStatus } from './notes.ts';
 import { SEED_TASTE, addRule, formatTaste, parseTaste, rulesFromPicks, type Pick, type TasteRule } from './taste.ts';
 import { answerAsk, makeCard, skipAsk, skipRate, type Ask, type AskInput, type Card } from './card.ts';
@@ -98,7 +98,9 @@ export class Collab {
   }
 
   describe(a: MomentAddress, doc = this.studio.doc()): string {
-    return describeAddress(a, this.timelineOf(a, doc), (id) => thingName(doc, id));
+    const head = a.thing.split('/')[0], part = a.thing.slice(head.length + 1);
+    const words = part && head.startsWith('town:') ? partWords.town?.(doc, head.slice(5), part) : null;
+    return describeAddress(words ? { ...a, thing: `${head}/${words}` } : a, this.timelineOf(a, doc), (id) => thingName(doc, id));
   }
 
   addNote(text: string, at: unknown, opts: { author?: string; from?: Note['from']; proposal?: string; ask?: string; region?: Note['region'] } = {}): Note {

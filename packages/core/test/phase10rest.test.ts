@@ -129,7 +129,7 @@ test('a building click → its stable id → a fix-layer entry and one step; no 
   s.selection = { object: 'town:Mini Raleigh', part: clicked, time: new Date().toISOString() };
   const addr = s.collab.address('selection');
   assert.equal(addr.thing, `town:Mini Raleigh/${clicked}`);
-  assert.equal(s.collab.describe(addr), `Mini Raleigh / ${clicked}`);
+  assert.equal(s.collab.describe(addr), `Mini Raleigh / ${info.label}`, 'in words, not the id');
   // a word note from the inspector becomes a fix entry keyed by the id, and one step with the note
   const before = steps(s).length;
   const r = ok('world-fix', { town: 'Mini Raleigh', id: clicked, words: 'flat roof, two storeys taller' }, 'human');

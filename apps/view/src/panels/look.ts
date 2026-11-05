@@ -214,7 +214,8 @@ export function shootUnder(r: THREE.WebGLRenderer, scene: THREE.Scene, cam: THRE
   const pass = installGradePass(r, tex, { outline: look.outline });
   const bg = scene.background;
   scene.background = new THREE.Color(look.sky.color);
-  r.render(scene, cam);
+  const c = (cam as THREE.PerspectiveCamera).clone(); c.aspect = w / h; c.updateProjectionMatrix();
+  r.render(scene, c);
   const url = r.domElement.toDataURL('image/png');
   scene.background = bg;
   pass.dispose(); tex.dispose();

@@ -41,6 +41,8 @@ function thingTimeline(doc: SceneDoc, id: string, part: string | undefined, stud
 
 /** Part checks other modules provide (the world module: does this town still have that building?). */
 export const partExists: { town?: (doc: SceneDoc, town: string, building: string) => boolean } = {};
+/** Part names in words other modules provide (a building's "Office 2a17ab" instead of its id). */
+export const partWords: { town?: (doc: SceneDoc, town: string, building: string) => string | null } = {};
 
 export function assetRecord(doc: SceneDoc, kind: string, key: string): unknown {
   const d: any = doc;

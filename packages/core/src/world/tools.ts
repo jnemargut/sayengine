@@ -10,7 +10,8 @@ import { BUILDING_USES, ROOF_TYPES } from './plan.ts';
 import { STYLES } from './styles.ts';
 import { validateFix, findTarget, type Fix } from './fixes.ts';
 import { fixFromWords } from './words.ts';
-import { partExists } from '../collab/timelines.ts';
+import { partExists, partWords } from '../collab/timelines.ts';
+import { buildingLabel } from './view.ts';
 import { buildTown, creditsText, landmarkObjects, listAreas, type TownSpec, type WorldState } from './town.ts';
 import { townNodes, nodeTriangles, type ModelMesh, type Soup } from './mesh.ts';
 
@@ -19,6 +20,12 @@ partExists.town = (doc: any, town: string, building: string) => {
   const spec = doc.world?.towns?.[town];
   if (!spec) return false;
   try { return buildTown(spec, doc.world).plan.buildings.some((b) => b.id === building); } catch { return false; }
+};
+
+partWords.town = (doc: any, town: string, building: string) => {
+  const spec = doc.world?.towns?.[town];
+  if (!spec) return null;
+  try { const b = buildTown(spec, doc.world).plan.buildings.find((x) => x.id === building); return b ? buildingLabel(b) : null; } catch { return null; }
 };
 
 const P2Z = z.tuple([z.number(), z.number()]);
