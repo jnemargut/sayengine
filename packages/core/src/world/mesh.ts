@@ -151,6 +151,19 @@ export function townNodes(plan: TownPlan, opts: BuildOpts = {}): TownNode[] {
   if (lights.triangles) nodes.push({ name: 'Street furniture', semanticType: 'street-furniture', at: [0, 0, 0], soups: lights.result(), extras: {} });
   const life = streetLife(plan, style);
   if (life.triangles) nodes.push({ name: 'Street life', semanticType: 'street-furniture', at: [0, 0, 0], soups: life.result(), extras: { parkedCars: true } });
+  // props placed by the fix layer (street landmarks): the studio model as is, at its spot
+  for (const pr of plan.props ?? []) {
+    const mm = opts.models?.[pr.model];
+    if (!mm) continue;
+    const base = pr.base ?? groundAt(g, pr.at[0], pr.at[1]);
+    const sb = new SoupBuilder([pr.at[0], base, pr.at[1]]);
+    const rot = ((pr.rotation ?? 0) * Math.PI) / 180, cs = Math.cos(rot), sn = Math.sin(rot);
+    for (const s of mm.soups) for (let i = 0; i < s.positions.length; i += 9) {
+      const P = (k: number): V3 => { const x = s.positions[i + k], y = s.positions[i + k + 1], z = s.positions[i + k + 2]; return [pr.at[0] + x * cs - z * sn, base + y, pr.at[1] + x * sn + z * cs]; };
+      sb.tri(s.mat, P(0), P(3), P(6), [s.normals[i] * cs - s.normals[i + 2] * sn, s.normals[i + 1], s.normals[i] * sn + s.normals[i + 2] * cs]);
+    }
+    nodes.push({ name: `Prop ${pr.model} ${pr.fix}`, semanticType: 'landmark', at: [pr.at[0], base, pr.at[1]], soups: sb.result(), extras: { model: pr.model, fixes: [pr.fix] } });
+  }
   const names = new Set<string>();
   for (const b of plan.buildings) {
     if (b.hidden) continue;
@@ -284,9 +297,15 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
     for (let f = 1; f < b.floors; f++) {
       const yb = floor0 + gf + (f - 1) * fh;
       if (b.use === 'parking') { pane(0.02, 0.98, yb + 0.9, yb + fh - 0.35, darkM, 0.04); pane(0, 1, yb + 0.75, yb + 0.9, trimM, 0.08); continue; }
-      if (tower) { pane(0.03, 0.97, yb + 0.55, yb + fh - 0.35, glassM, 0.05); continue; }
+      if (tower) {
+        if (!W) { pane(0.03, 0.97, yb + 0.55, yb + fh - 0.35, glassM, 0.05); continue; }
+        // curtain wall in bays: some lit, some with blinds (a night look shows who works late)
+        for (let k = 0; k < bays; k++) win(i, f, k, 0.03 + (0.94 * k) / bays, 0.03 + (0.94 * (k + 1)) / bays, yb + 0.55, yb + fh - 0.35, (a0, a1, y0, y1, m, o) => pane(a0, a1, y0, y1, m, o ?? 0.05), false);
+        continue;
+      }
       if (scheme === 'ribbon') {
-        pane(0.04, 0.96, yb + 0.95, yb + fh - 0.45, glassM, 0.06);
+        if (!W) pane(0.04, 0.96, yb + 0.95, yb + fh - 0.45, glassM, 0.06);
+        else for (let k = 0; k < bays; k++) win(i, f, k, 0.04 + (0.92 * k) / bays, 0.04 + (0.92 * (k + 1)) / bays, yb + 0.95, yb + fh - 0.45, (a0, a1, y0, y1, m, o) => pane(a0, a1, y0, y1, m, o ?? 0.06), false);
         pane(0, 1, yb + fh - 0.45, yb + fh - 0.25, trimM, 0.09);
         continue;
       }

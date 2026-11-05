@@ -143,13 +143,23 @@ export const WORLD_TOOLS: ToolDef[] = [
     input: z.object({
       town: TownRef, id: z.string().optional(), at: P2Z.optional(), set: FixSetZ.optional(), hide: z.boolean().optional(),
       model: z.string().optional(), modelRotation: z.number().optional(), note: z.string().optional(),
+      place: z.boolean().optional().describe('place --model at --at as a prop that replaces no building (light masts, statues)'), base: z.number().optional().describe('a placed prop\'s floor height (default: the ground)'),
     }),
     example: 'studio world-fix --town "Pocket Raleigh" --id ov:2a17… --set \'{"roof":"hip","height":24}\' --note "the old courthouse has a hipped roof"',
     run(ctx, a) {
       const spec = townOf(ctx, a.town);
       const t = buildTown(spec);
       const f: Fix = { ...(a.id ? { id: a.id } : {}), ...(a.at ? { at: a.at } : {}), ...(a.set ? { set: a.set } : {}), ...(a.hide ? { hide: true } : {}), ...(a.model ? { model: a.model } : {}), ...(a.modelRotation !== undefined ? { modelRotation: a.modelRotation } : {}), ...(a.note ? { note: a.note } : {}) };
+      if (a.place) { f.place = true; if (a.base !== undefined) f.base = a.base; }
       validateFix(f);
+      if (f.place) {
+        const o = ctx.doc.objects[a.model] ?? Object.values(ctx.doc.objects).find((x: any) => x.name.toLowerCase() === String(a.model).toLowerCase());
+        if (!o) throw new Error(`no studio object "${a.model}" to place (make it first, or check the name)`);
+        f.model = (o as any).id;
+        ctx.set(['world', 'towns', spec.name, 'fixes'], [...spec.fixes, f]);
+        ctx.summary(`${spec.name}: fix #${spec.fixes.length}: placed ${(o as any).name} at [${f.at!.join(', ')}]`);
+        return { index: spec.fixes.length, fix: f };
+      }
       const target = findTarget(t.plan, f);
       if (!target) throw new Error(`no building ${a.id ? `"${a.id}"` : ''}${a.at ? ` at [${a.at.join(', ')}]` : ''} in ${spec.name} — world-info --near [x,z] lists ids`);
       // keep both keys, so the fix survives an id change (position) and a small move (id)

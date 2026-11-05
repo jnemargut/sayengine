@@ -30,7 +30,7 @@ export function writeGlb(g: Glb): Uint8Array {
 /** Bake a look into a GLB's colours. Returns the new GLB and what changed. Idempotence is the caller's job (bake the studio's export, once). */
 export function bakeGlb(buf: Uint8Array, look: Look): { glb: Uint8Array; vertexColours: number; materials: number; textures: number } {
   const g = readGlb(buf);
-  const tweakFor = (name: string) => look.materials[name] ?? look.materials[name.replace(/^world /, '')];
+  const tweakFor = (name: string) => look.materials[name] ?? look.materials[name.replace(/^world /, '')] ?? look.materials[name.split(' ').pop() ?? ''];
   const cache = new Map<string, RGB>();
   const bake = (c: RGB, name: string): RGB => {
     const k = `${name}|${c.map((v) => Math.round(v * 4096)).join(',')}`;

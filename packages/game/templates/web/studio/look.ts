@@ -115,7 +115,7 @@ export async function applyLook(game: { renderer: THREE.WebGLRenderer; scene: TH
     if (!o.isMesh) return;
     for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as any[]) {
       const key = String(m.name ?? '');
-      const t = tweaks[key] ?? tweaks[key.replace(/^world /, '')];
+      const t = tweaks[key] ?? tweaks[key.replace(/^world /, '')] ?? tweaks[key.split(' ').pop() ?? ''];
       if (!t) continue;
       if (t.emission) { m.emissive = new THREE.Color(t.emission); m.emissiveIntensity = t.emissionEnergy ?? 1; }
       if (t.roughness !== undefined) m.roughness = t.roughness;

@@ -71,6 +71,8 @@ export interface TownPlan {
   buildings: Building[];
   areas: Area[];
   trees: Tree[];
+  /** studio models placed by the fix layer without replacing a building (light masts, statues, kiosks) */
+  props?: Array<{ model: string; at: P2; rotation?: number; base?: number; fix: number }>;
   credits: Credit[];
   stats: Record<string, number>;
 }

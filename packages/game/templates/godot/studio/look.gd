@@ -134,7 +134,7 @@ static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:
 			# pinned shading: Lambert diffuse like three.js (Godot's default Burley brightens grazing views)
 			(m as BaseMaterial3D).diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
 			var key := String(m.resource_name).trim_prefix("studio:")
-			var t = tweaks.get(key, tweaks.get(key.trim_prefix("world "), null))
+			var t = tweaks.get(key, tweaks.get(key.trim_prefix("world "), tweaks.get(key.get_slice(" ", key.get_slice_count(" ") - 1), null)))
 			if not (t is Dictionary):
 				continue
 			var b := m as BaseMaterial3D
