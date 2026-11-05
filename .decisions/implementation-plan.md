@@ -731,7 +731,7 @@ Anything you ask for moves. Skeletons are built from rig parts, and each part br
   - loop closure
   - ending in idle
 - [x] Failure timeline in the preview.
-- [~] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips. *(TS runtime done; Godot gets baked clips, IK nodes deferred: see status)*
+- [x] Live runtime for interactive parts: Godot 4.6 IK nodes plus a matching TypeScript runtime. Everything else is baked to clips. *(TS runtime done; Godot live IK on its own TwoBoneIK3D / FABRIK3D since 2026-11-05: see "Godot live IK" below)*
 ### Status of weeks 13–14 (2026-11-04, branch `phase8/rig-parts`, not merged)
 Built:
 - [x] **Framework** (`core/src/rigparts.ts`). A creature is a list of part specs. Each part brings:
@@ -779,7 +779,7 @@ Built:
 - [x] **Runtime:**
   - Everything bakes to clips in `creature.glb`: a node per bone with TRS channels, no skin. It passes the glTF validator, and the four presets import into Godot 4.7.2 with their clips and no warnings.
   - The live TS runtime (`creatureruntime.ts`) handles reach-triggered stepping (one gait group at a time) and wheels with spring suspension and bicycle-model steering over any ground function. Other parts are layered from a baked clip. The player has live segments driven by it.
-  - **Godot IK nodes deferred:** the node-per-bone export has no `Skeleton3D`, so 4.6+ `SkeletonModifier3D` IK (TwoBoneIK3D, FABRIK3D) can't attach. Godot gets the baked clips. Live IK in Godot needs a skinned creature export first.
+  - ~~**Godot IK nodes deferred:** the node-per-bone export has no `Skeleton3D`, so 4.6+ `SkeletonModifier3D` IK (TwoBoneIK3D, FABRIK3D) can't attach. Godot gets the baked clips. Live IK in Godot needs a skinned creature export first.~~ Done 2026-11-05 on `godot/parity-live-ik`: see "Godot live IK" below.
 - [x] **Bench proofs:** `node bench/creatures.ts crab|snake|car|windmill` writes videos and stills to `checkpoint-phase8/`. All motion checks pass. The crab video includes a deliberately broken replay that shows the timeline in red.
 
 Weak or not done:
@@ -824,7 +824,7 @@ Built:
 
 Weak or not done:
 - [ ] MediaPipe webcam start: skipped.
-- [ ] Godot still gets baked clips only (no skinned creature export, so no live IK there). The runtime's live reach and springs are TypeScript (web).
+- [x] ~~Godot still gets baked clips only~~ Godot has live legs and live reach since 2026-11-05 (see "Godot live IK" below). Live springs are still TypeScript only.
 - [ ] Self penetration still uses bounding spheres per piece, so thin feathers and the trip's foot against the bucket aren't judged precisely (the bucket isn't part of the character's checks at all).
 - [ ] Action keys are hand-placed numbers. The octopus took several rounds of checks to find a layout where idle-curling arms don't brush the table, which is the D53 tripwire territory for complex scenes.
 
@@ -846,6 +846,39 @@ Weak or not done:
 - [ ] The octopus's coil sits on the far side of the pot from the bench camera; it reads in the close-up crop, less so in the wide shot.
 - [ ] The cartoon smile is closed: no teeth, and the grin's dark opening is only a line. A real open grin would need M/B/P to close from an open rest.
 - [ ] The dog still stands a little tall; shortening the legs broke the sit's leg reach, so the proportions are unchanged.
+### Godot live IK (2026-11-05, branch `godot/parity-live-ik`, not merged)
+Built:
+- [x] **Skinned creature export** (`core/src/creatureskin.ts`, `creatureSkinnedGLB`):
+  - One skin over the bones, so Godot imports a `Skeleton3D`.
+  - One skinned mesh, each piece at full weight on its bone, so it moves exactly like the node-per-bone export.
+  - The same clips.
+  - A weightless `.tip` joint at the end of every leg and chain.
+  - `extras.ik` (legs, chains, gait numbers), which Godot imports as node metadata.
+  - It validates for crab, spider, octopus and snake.
+  - `creatureGLB` (node per bone) is unchanged and stays the fallback.
+- [x] **`studio/creature_ik.gd`:** a `SkeletonModifier3D` that runs before Godot 4.7's own IK nodes. It is the Godot half of `CreatureRuntime`, with the same numbers:
+  - reach-triggered stepping, one gait group at a time, onto raycast ground (or a ground function)
+  - the body on a spring over the planted feet
+  - one `TwoBoneIK3D` per creature with a knee pole per leg
+  - `reach(chain, goal)` through a `FABRIK3D`, with a critically damped follow
+- [x] **`studio/foot_ik.gd`** for kit humanoids (already skinned):
+  - the baked walk plays
+  - feet are lifted onto the ground under heel and toe, and a swinging foot looks ahead over step edges
+  - the hips drop so the lower foot reaches
+  - a `TwoBoneIK3D` per leg; feet keep the clip's orientation
+- [x] **Proof** (`node bench/godot-ik.ts`, `checkpoint-godot-live-ik/`):
+  - **Stairs:** the Apprentice climbs five 15 cm steps. Soles within 0.4 cm of the step, plants drift ≤ 0.4 cm, toes never enter a step.
+  - **Crab, live over ±15 cm bumps:** the universal motion checks on the Godot capture pass 9/9. Feet within 1 cm of the ground. The baked fallback on the same ground floats by up to 7.6 cm and fails "feet on the ground".
+  - **Spider, walking and turning:** 9/9 pass.
+  - **Octopus arm following a moving goal:** the tip is on the followed point (mean 0.3 cm). It trails the goal by 4.4 cm, which is the designed damped follow.
+- [x] **Headless test** (`game/test/godotik.test.ts` with `studio/creature_ik_check.gd`): a Skeleton3D, the IK attached, footfalls, feet on targets (< 1 cm) and on the ground (< 2 cm), and the arm on its goal.
+
+Weak or not done:
+- [ ] The humanoid on stairs is a flat-ground walk with its feet moved onto the steps: no shorter stride and no lean into the climb.
+- [ ] The live crab stands taller, with straighter legs, than its baked crouch: the body height comes from the planted feet alone.
+- [ ] FABRIK3D kinks the reaching arm at a few joints. Cone joint limits made the tip miss by 11–14 cm, so they are off. A smoothing pass of our own is next.
+- [ ] Live springs and wheels in Godot: not done (baked).
+- [ ] Nothing in `/game` exports creatures into game projects yet. The bench and the test write the skinned GLBs themselves.
 
 
 ## Assumptions & Tripwires
@@ -918,6 +951,13 @@ Built in main's codebase for Fire's Dying to adopt in its v1.1 pass (the game br
 - **Proof:** `npm run bench:effects`, 13 tasks, all passing.
   - Godot vs web parity: forge fire matches (0.09). Embers 0.28, sparks 0.43 and smoke 0.43 drift. Rain differs at 0.77.
   - Tripwire D56: smoke, sparks and rain drift visibly between engines. Next, tune them, or try Effekseer for those types.
+- **Parity v1.2 (2026-11-05, branch `godot/parity-live-ik`; `checkpoint-effects-ui/v1.2/`).** Compilers and the review capture changed; no effect files changed.
+  - Fire 0.087 (was 0.09), sparks **0.143** (0.30), embers **0.143** (0.28), smoke **0.313** (0.52), rain **0.419** (0.45).
+  - Smoke rising short in Godot was its turbulence. Godot turns velocity toward a noise direction each step, so puffs stopped rising. The influence is now sized to the web's wobble.
+  - On the web: additive layers fade on a^(1/2.2), and see-through layers carry an exponent from the blend equation.
+  - In both engines: stretched particles are streaks. Godot streaks align to their velocity; every spark used to stand upright.
+  - Web review frames are PNG (JPEG had washed out 1 px rain).
+  - Smoke and rain are still over 0.25. The web renders the review yard about 23 % darker (wall 0.65 vs 0.84), and the score compares absolute colours and a fixed diff threshold. Next: match the yard's lighting (a look on the forge bench), or score against each engine's own backdrop. Effekseer is not needed for these.
 
 ### Effects (weeks 15–16)
 - [x] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.

@@ -301,6 +301,19 @@ void main() { vec2 uv = vec2(vUv.x, 1.0 - vUv.y); float y = 1.0 - uv.y; float x 
 const gv = (v: V3) => `Vector3(${v.map((n) => +n.toFixed(4)).join(', ')})`;
 const gc = (h: string, a = 1) => { const c = hex(h); return `Color(${c.map((n) => +n.toFixed(4)).join(', ')}, ${+a.toFixed(3)})`; };
 
+/** Godot's turbulence turns a particle's velocity toward a noise direction by `influence` every process
+ *  step (GPU particles step at 30 fps), keeping its speed; three.quarks' Noise (the web) wobbles the
+ *  position around its path by at most `turbulence × 0.6` m. At the old influence (0.04–0.06 × turbulence)
+ *  a 4 s smoke puff had its direction scrambled within about a second and stopped rising, so the
+ *  Godot column stood a third as tall as the web's. Here the influence is sized so that over a whole
+ *  life the drift off course is about the web's wobble: the share of velocity turned ≈ wobble ÷ travel
+ *  (at most 35 %), spread over the life's steps. */
+export function turbulenceInfluence(l: ParticleLayer): number {
+  const life = avg(l.life), travel = Math.max(0.05, avg(l.speed) * life);
+  const share = Math.min(0.35, ((l.turbulence ?? 0) * 0.6) / travel);
+  return share / Math.max(1, life * 30);
+}
+
 /** The effect as a Godot scene. Root carries metadata the runtime (studio/effects.gd) reads: the value it
  *  follows, triggers, warm-up. */
 export function godotEffectScene(def: EffectDef, palette?: Record<string, string>, shaderPath = 'res://assets/studio/effects/shape.gdshader'): string {
@@ -337,15 +350,22 @@ export function godotEffectScene(def: EffectDef, palette?: Record<string, string
     const dir = l.direction ?? [0, 1, 0];
     const shapeType = { point: 0, sphere: 1, cone: 0, box: 3, disc: 6 }[l.shape.type];
     const shapeProps = l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'disc' ? `\nemission_ring_axis = Vector3(0, 1, 0)\nemission_ring_height = 0.0\nemission_ring_radius = ${l.shape.radius ?? 0.1}\nemission_ring_inner_radius = 0.0` : '';
-    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\nlifetime_randomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = 1.0\nturbulence_noise_scale = 4.0\nturbulence_influence_min = ${(l.turbulence! * 0.04).toFixed(3)}\nturbulence_influence_max = ${(l.turbulence! * 0.06).toFixed(3)}` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
+    const pm = add('ParticleProcessMaterial', `emission_shape = ${shapeType}${shapeProps}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\nlifetime_randomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\ndamping_min = ${(l.drag ?? 0) * 3}\ndamping_max = ${(l.drag ?? 0) * 3}\nscale_min = 1.0\nscale_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_curve = SubResource("${curveTex}")\ncolor_ramp = SubResource("${gradTex}")${(l.turbulence ?? 0) > 0 ? `\nturbulence_enabled = true\nturbulence_noise_strength = 1.0\nturbulence_noise_scale = 4.0\nturbulence_influence_min = ${(turbulenceInfluence(l) * 0.8).toFixed(4)}\nturbulence_influence_max = ${(turbulenceInfluence(l) * 1.2).toFixed(4)}` : ''}${l.stretch ? '\nparticle_flag_align_y = true' : ''}`);
     const dotGrad = add('Gradient', `colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)`);
-    const dot = add('GradientTexture2D', `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 1\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)`);
-    const mat = add('StandardMaterial3D', `transparency = 1\nalbedo_texture = SubResource("${dot}")\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nbillboard_mode = ${l.stretch ? 2 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);
+    // a stretched particle is a streak: soft across its width (u), solid along its length, so a raindrop
+    // reads end to end instead of fading to a dot in the middle (the web runtime draws the same shape)
+    const dot = add('GradientTexture2D', l.stretch
+      ? `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 0\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)\nrepeat = 2`
+      : `gradient = SubResource("${dotGrad}")\nwidth = 32\nheight = 32\nfill = 1\nfill_from = Vector2(0.5, 0.5)\nfill_to = Vector2(1, 0.5)`);
+    const mat = add('StandardMaterial3D', `transparency = 1\nalbedo_texture = SubResource("${dot}")\nblend_mode = ${l.blend === 'add' ? 1 : 0}\nshading_mode = 0\nvertex_color_use_as_albedo = true\nvertex_color_is_srgb = true\nbillboard_mode = ${l.stretch ? 0 : 3}\nbillboard_keep_scale = true\nparticles_anim_h_frames = 1\nparticles_anim_v_frames = 1`);
     const len = l.stretch ? Math.max(l.size[0], avg(l.speed) * l.stretch) : l.size[0];
     const quad = add('QuadMesh', `material = SubResource("${mat}")\nsize = Vector2(${l.size[0]}, ${+len.toFixed(4)})`);
     const amount = Math.max(1, Math.ceil(l.rate * l.life[1] + (l.bursts ?? []).reduce((s, b) => s + b.count, 0)));
     const oneShot = l.rate === 0;
-    nodes.push(`[node name="${l.id}" type="GPUParticles3D" parent="."]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, ${off.join(', ')})\namount = ${amount}\nlifetime = ${l.life[1]}\none_shot = ${oneShot}\nemitting = ${!oneShot}\nexplosiveness = ${oneShot ? 1 : 0}\nrandomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\nprocess_material = SubResource("${pm}")\ndraw_pass_1 = SubResource("${quad}")\ncast_shadow = 0\nmetadata/layer = "${l.id}"\nmetadata/rate = ${l.rate}`);
+    // a streak faces the camera with its length along its velocity: the GPU node aligns each particle (TRANSFORM_ALIGN_Z_BILLBOARD_Y_TO_VELOCITY:
+    // billboard about Z, Y along the velocity). The material's fixed-Y billboard before stood every
+    // spark upright, whichever way it flew.
+    nodes.push(`[node name="${l.id}" type="GPUParticles3D" parent="."]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, ${off.join(', ')})${l.stretch ? '\ntransform_align = 3' : ''}\namount = ${amount}\nlifetime = ${l.life[1]}\none_shot = ${oneShot}\nemitting = ${!oneShot}\nexplosiveness = ${oneShot ? 1 : 0}\nrandomness = ${+(1 - l.life[0] / l.life[1]).toFixed(3)}\nprocess_material = SubResource("${pm}")\ndraw_pass_1 = SubResource("${quad}")\ncast_shadow = 0\nmetadata/layer = "${l.id}"\nmetadata/rate = ${l.rate}`);
     // the CPU twin: the same emitter for renderers without GPU particles; studio/effects.gd swaps it in
     const cpuCurve = add('Curve', curveBody);
     nodes.push(`[node name="${l.id}_cpu" type="CPUParticles3D" parent="."]\ntransform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, ${off.join(', ')})\nvisible = false\nemitting = false\namount = ${amount}\nlifetime = ${l.life[1]}\none_shot = ${oneShot}\nexplosiveness = ${oneShot ? 1 : 0}\nmesh = SubResource("${quad}")\nemission_shape = ${l.shape.type === 'box' ? 3 : l.shape.type === 'sphere' ? 1 : 0}${l.shape.type === 'box' ? `\nemission_box_extents = ${gv((l.shape.size ?? [1, 1, 1]).map((v) => v / 2) as V3)}` : l.shape.type === 'sphere' ? `\nemission_sphere_radius = ${l.shape.radius ?? 0.1}` : ''}\ndirection = ${gv(dir)}\nspread = ${l.spread ?? 0}\ninitial_velocity_min = ${l.speed[0]}\ninitial_velocity_max = ${l.speed[1]}\ngravity = Vector3(0, ${-(l.gravity ?? 0)}, 0)\nscale_amount_min = 1.0\nscale_amount_max = ${+(l.size[1] / l.size[0]).toFixed(3)}\nscale_amount_curve = SubResource("${cpuCurve}")\ncolor_ramp = SubResource("${grad}")\nmetadata/layer = "${l.id}"\nmetadata/fallback = true`);

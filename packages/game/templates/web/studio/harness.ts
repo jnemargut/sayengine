@@ -450,7 +450,7 @@ function frameCamera(cam: THREE.PerspectiveCamera, f: { center: V3; radius: numb
 
 const commands = {
   /** Play one studio effect frame by frame from the studio's review camera: --value ramps its game value,
-   *  events fire game events, play loops character clips (so motion triggers fire). JPEG frames + a
+   *  events fire game events, play loops character clips (so motion triggers fire). PNG frames + a
    *  background frame with the effect hidden (for the Godot-vs-web parity diff). */
   async effect(g: StudioGame, c: any) {
     const fx = await startEffects(g);
@@ -464,7 +464,9 @@ const commands = {
     g.characters?.update(0);   // everyone in their current pose (the others then hold it)
     fx.show(c.id, false);
     g.renderer.render(g.scene, cam);
-    const bg = g.renderer.domElement.toDataURL('image/jpeg', 0.92);
+    // lossless, like Godot's frames: JPEG's chroma subsampling washed a 1-px rain streak into the
+    // background, so the parity diff undercounted thin effects on the web side
+    const bg = g.renderer.domElement.toDataURL('image/png');
     fx.show(c.id, true);
     const fps = c.fps ?? 30, n = Math.ceil((c.seconds ?? 4) * fps), dt = 1 / fps;
     const frames: string[] = [];
@@ -478,7 +480,7 @@ const commands = {
       for (const p of c.play ?? []) g.characters?.actors[p.character]?.mixer.update(dt);
       fx.update(dt);
       g.renderer.render(g.scene, cam);
-      if (c.frames !== false) frames.push(g.renderer.domElement.toDataURL('image/jpeg', 0.9));
+      if (c.frames !== false) frames.push(g.renderer.domElement.toDataURL('image/png'));
     }
     return { ok: true, effect: c.id, frames, background: bg, fired: fx.fired, seconds: n * dt };
   },

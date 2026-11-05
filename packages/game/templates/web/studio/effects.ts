@@ -14,7 +14,29 @@ interface FxFile { def: any; at: V3; colours: Record<string, string>; quarks: an
 interface Live { id: string; root: THREE.Object3D; file: FxFile; emitters: Record<string, any>; shapes: THREE.ShaderMaterial[]; triggers: Trigger[]; last: Record<string, number> }
 
 let dot: THREE.Texture | null = null;
-/** A soft round particle (white → clear), drawn once. */
+const dots = new Map<number, THREE.Texture>();
+/** Godot's particle dot (alpha falling linearly from the centre to the rim), alpha raised to `g`: the
+ *  compiler's per-layer exponent, so the web's sRGB blend reads like Godot's linear-light one. `streak`:
+ *  the stretched-particle texture instead, soft across (v, the width of a quarks stretched billboard) and
+ *  solid along its length. */
+function godotDot(g: number, streak = false): THREE.Texture {
+  const k = Math.round(g * 1000) / 1000 + (streak ? 100 : 0);
+  if (dots.has(k)) return dots.get(k)!;
+  const n = 64, c = document.createElement('canvas'); c.width = c.height = n;
+  const x = c.getContext('2d')!, img = x.createImageData(n, n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const r = streak ? Math.abs((j + 0.5) / n - 0.5) * 2 : Math.hypot((i + 0.5) / n - 0.5, (j + 0.5) / n - 0.5) * 2;
+    const o = (j * n + i) * 4;
+    img.data[o] = img.data[o + 1] = img.data[o + 2] = 255;
+    img.data[o + 3] = Math.round(255 * Math.pow(Math.max(0, 1 - r), g));
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  dots.set(k, t);
+  return t;
+}
+
+/** A soft round particle (white → clear), drawn once: see-through puffs (smoke) use it. */
 function softDot(): THREE.Texture {
   if (dot) return dot;
   const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -47,7 +69,7 @@ export class StudioEffects {
       root.add(obj);
       for (const e of list) {
         const sys = e.system;
-        sys.material.map = softDot();
+        sys.material.map = typeof e.userData?.streak === 'number' ? godotDot(e.userData.streak, true) : typeof e.userData?.dot === 'number' ? godotDot(e.userData.dot) : softDot();
         sys.material.needsUpdate = true;
         this.batch.addSystem(sys);
         emitters[e.userData?.layer ?? e.name] = e;

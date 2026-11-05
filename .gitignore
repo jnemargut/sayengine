@@ -25,3 +25,10 @@ checkpoint-phase8/*/*
 !checkpoint-phase8/*/stills/
 !checkpoint-phase8/*/creature.glb
 !checkpoint-phase8/*/*.gdshader
+
+# Godot live IK checkpoint: videos, stills, report and README are kept (regenerate: node bench/godot-ik.ts)
+checkpoint-godot-live-ik/*
+!checkpoint-godot-live-ik/*.mp4
+!checkpoint-godot-live-ik/stills/
+!checkpoint-godot-live-ik/report.json
+!checkpoint-godot-live-ik/README.md

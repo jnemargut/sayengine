@@ -51,6 +51,12 @@ Every point where a missing or weak studio tool hurt while making this tiny game
 - **L. A laid-down cylinder runs 0 → h, not centred.** The chisel grip floated and the bellows nozzle went into the forge, so two rebuilds. The studio checks named both exactly ("2 separate pieces", "overlaps Forge by 102 cm³"), so it was cheap.
 - **M. Every asset build re-synthesises all 15 voice lines** (about 3 of its 4 minutes). → voice: cache by text and voice.
 - **N. Two effects still don't match across engines.** Smoke now matches in colour and coverage, but the web column rises higher than Godot's, and the cause wasn't found. Web rain drops are under a pixel wide and barely register. Rain is an **Effekseer candidate**. Numbers are in the v1.1 report.
+  - **Follow-up (v1.2 compilers, branch `godot/parity-live-ik`):** the smoke cause was Godot's turbulence. It turns a particle's velocity toward a noise direction every step, so at the old influence a puff's direction was scrambled within a second and it stopped rising. The influence is now sized to the web's wobble. Also fixed:
+    - Godot sparks stood upright instead of along their flight.
+    - Additive layers on the web fade on a^(1/2.2).
+    - Stretched particles use a streak texture in both engines.
+    - The web review frames are now PNG: JPEG's chroma subsampling was washing out 1 px drops.
+  - What's left for smoke and rain is mostly the yard itself: the web renders the review backdrop about 23 % darker (wall 0.64 vs 0.83). See `checkpoint-effects-ui/v1.2/README.md`.
 
 ## Missing tools (the game needed them, the studio had nothing)
 

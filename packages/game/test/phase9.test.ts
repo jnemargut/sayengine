@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { initKernel, Studio, EFFECT_PRESETS, DEFAULT_FIRE_PALETTE, ICON_NAMES } from '../../core/src/index.ts';
 import { gameData } from '../../core/src/gamedata.ts';
 import { exportGame } from '../../core/src/gameexport.ts';
-import { loadQuarks, quarksJSON, parseQuarks, writeGameData, QUARKS_VERSION } from '../src/effects.ts';
+import { loadQuarks, quarksJSON, parseQuarks, writeGameData, alphaGamma, QUARKS_VERSION } from '../src/effects.ts';
 import { runGame, findChrome, type GameContext } from '../src/index.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
@@ -45,8 +45,15 @@ test('three.quarks: pinned, and every preset round-trips through its JSON with i
         const avg = (r: number[]) => (r[0] + r[1]) / 2;
         assert.ok(Math.abs(e.system.rendererEmitterSettings.lengthFactor * avg(l.size) - avg(l.speed) * l.stretch) < 1e-6, `${k}: streak length`);
       }
-      const c0 = e.system.behaviors.find((x: any) => x.type === 'ColorOverLife').color.a;
+      const grad = e.system.behaviors.find((x: any) => x.type === 'ColorOverLife').color;
+      const c0 = grad.color.keys[0][0];
       assert.ok(Math.abs(c0.x - new THREE.Color().setStyle(DEFAULT_FIRE_PALETTE[l.colour[0]] ?? l.colour[0], THREE.LinearSRGBColorSpace).r) < 1e-3, `${k}: colour unlinearised`);
+      // v1.2: alpha over life carries the layer's exponent (Godot blends in linear light): additive layers
+      // fade on a^(1/2.2), so half way through a 1 → 0 fade the web is brighter than a straight line
+      const mid = grad.alpha.keys.find((x: any) => Math.abs(x[1] - 0.6) < 1e-6)[0];
+      const a = l.alpha ?? [1, 1], lin = a[0] + (a[1] - a[0]) * 0.6;
+      assert.ok(Math.abs(mid - Math.pow(lin, alphaGamma(l.blend, DEFAULT_FIRE_PALETTE[l.colour[0]] ?? l.colour[0]))) < 1e-6, `${k}: alpha exponent`);
+      if (l.blend === 'add' && a[0] !== a[1]) assert.ok(mid > lin, `${k}: additive fade brighter than linear`);
     }
   }
 });
