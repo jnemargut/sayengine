@@ -65,6 +65,19 @@ Use it only when asked ("show me three", "give me options"):
 - **Overnight or unattended work never waits on an ask.** Use `card --unattended true` with a `guess` on each
   ask, carry on, and report the guesses as guesses. They wait in the inbox to be checked.
 
+## Moments on the timeline (Phase 10 step 2)
+
+Everything that moves sits on one timeline in the live view. Use it to point at moments:
+- The user scrubs and clicks a bone or part; `./studio selection` gives the address on the right clock (clip,
+  shot, sound or beats) anchored to the nearest named moment. Prefer anchored addresses (`~impact`): they follow
+  the moment when the clip is re-timed.
+- A word note on a clip is `./studio word-note --note "slower" --at "<address>"`: one step, with a before and
+  after the user plays in the dock. Don't bundle several notes into one step.
+- Effect sliders and `set-effect --why` give labelled steps; `sound-three` gives three takes with a
+  listen-and-pick ask (the "your call" for sound, since checks can't judge how it sounds).
+- `./studio timeline` reads the red stretches (failed motion checks) and the moments, in seconds. Report a red
+  stretch by its check and moment ("the pop on the downswing, 0.97 s, just before the impact"), then fix the motion.
+
 ## Privacy
 
 Notes, picks and taste live in `.studio/` and `~/.studio/`. Both are gitignored, as is any `taste.md`,

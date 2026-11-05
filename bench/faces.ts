@@ -1,11 +1,12 @@
 // Face appeal round (Phase 7): the cast's face close-ups and full-body sheets, in the faceted style and
-// the smooth style, at the same cameras as the craft pass. Writes checkpoint-faces/<label>/<style>/.
+// the smooth style, as stills of the live view (Phase 10: the cast player is retired). Writes
+// checkpoint-faces/<label>/<style>/.
 //   node bench/faces.ts [label]          (label defaults to "after"; needs Chrome)
 //   FACES_STYLES=faceted node bench/faces.ts before
 import fs from 'node:fs';
 import path from 'node:path';
-import { initKernel, Studio, selectForExport, toGLB, validateGlb } from '../packages/core/src/index.ts';
-import { buildCastLineup, captureCast } from '../packages/daemon/src/castplayer/make.ts';
+import { initKernel, Studio } from '../packages/core/src/index.ts';
+import { openView } from './viewbench.ts';
 import { CAST } from './cast.ts';
 
 const label = process.argv[2] ?? 'after';
@@ -29,28 +30,20 @@ for (const style of styles) {
     const res = studio.evaluate(o);
     const sp = res.rig!.rig.spec;
     report.push(`${o.name} (${style}): ${checks.length - bad.length}/${checks.length} checks pass, ${res.triangles} triangles${bad.length ? ` — FAIL: ${bad.map((c) => `${c.label}: ${c.detail}`).join(' | ')}` : ''}`);
-    const glb = toGLB(selectForExport(studio, doc, { object: id, atOrigin: true }), {});
-    const v = await validateGlb(glb);
-    if (!v.ok) throw new Error(`${id}: GLB does not validate: ${JSON.stringify(v).slice(0, 400)}`);
-    cast.push({ id, name: o.name, label: `${sp.plan} · ${sp.face.kind} mouth`, glb, height: sp.params.height, idle: 'idle', headH: sp.face.headH, headY: sp.face.headBase[1], headZ: sp.face.headBase[2] });
+    cast.push({ id, name: o.name });
   }
   byStyle.set(style, cast);
   const dir = path.join(OUT, style);
   fs.rmSync(dir, { recursive: true, force: true });
-  await buildCastLineup(dir, `The cast (${style})`, cast);
-  process.env.CAST_STILLS_ONLY = '1';
-  await captureCast(dir, { width: Number(process.env.FACES_W ?? 2400), height: Number(process.env.FACES_H ?? 1200) });
+  const view = await openView(studio);
+  // a full-body sheet of the whole cast, then a face close-up of each
+  await view.stills(dir, [
+    { id: 'cast', seconds: 0, t: 0.5, name: 'cast', dir: [0, 0.2, 1], fill: 0.5 } as any,
+    ...cast.map((c: any) => ({ id: c.id, seconds: 0, t: 0.5, name: `face-${c.id}`, focus: c.id, close: 'face', solo: true } as any)),
+  ], { width: Number(process.env.FACES_W ?? 1600), height: Number(process.env.FACES_H ?? 1000) });
+  view.close();
   fs.writeFileSync(path.join(dir, 'checks.txt'), report.join('\n') + '\n');
   console.log(report.join('\n'));
-  for (const f of fs.readdirSync(dir)) if (f.endsWith('.glb') || f === 'frames') fs.rmSync(path.join(dir, f), { recursive: true, force: true });
   console.log(`${style}: ${dir}`);
 }
-// both styles: one lineup page that keeps the GLBs and toggles faceted ↔ smooth (open player/index.html over http)
-if (byStyle.has('faceted') && byStyle.has('smooth')) {
-  const smooth = byStyle.get('smooth')!;
-  const dir = path.join(OUT, 'player');
-  fs.rmSync(dir, { recursive: true, force: true });
-  await buildCastLineup(dir, 'The cast (faceted ↔ smooth)', byStyle.get('faceted')!.map((m, i) => ({ ...m, alt: smooth[i].glb })), ['faceted', 'smooth']);
-  fs.writeFileSync(path.join(dir, '.gitignore'), '*.glb\n');   // ~100 MB of models: kept locally to view, not committed
-  console.log(`style toggle player: ${dir}`);
-}
+// (the faceted ↔ smooth toggle page went with the cast player: compare the two folders' stills)

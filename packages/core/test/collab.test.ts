@@ -101,13 +101,15 @@ test('kit character actions: "slower" stretches the clip; a moment picked by tim
   d.objectOrder.push('kid');
   const t1 = clipTimeline(d, 'kid', 'hi')!;
   const a = addressFor(d, { object: 'kid', clock: 'clip:hi', seconds: t1.markers['key 3'].at / TICKS + 0.1 });
-  assert.equal(a.near, 'key 3');
+  // key 3 is the wave's named "peak" (a library action's moment, Phase 10 step 2): the name wins
+  assert.equal(a.near, 'peak');
+  assert.equal(t1.markers.peak.at, t1.markers['key 3'].at);
   d.objects.kid.character.motions.hi.notes = ['slower'];
   const t2 = clipTimeline(d, 'kid', 'hi')!;
   assert.equal(t2.length, Math.round(t1.length * 1.25));
   const r = resolveAddress(a, t2, t1);
   assert.equal(r.status, 'moved');
-  assert.equal(r.address.at, t2.markers['key 3'].at + (a.at! - t1.markers['key 3'].at));
+  assert.equal(r.address.at, t2.markers.peak.at + (a.at! - t1.markers.peak.at));
 });
 
 test('model parts: selection makes a timeless address; removing the part makes the note stale', () => {

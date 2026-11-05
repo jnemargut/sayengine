@@ -21,6 +21,15 @@ Every command is `./studio sound <cmd>` (JSON out, no daemon). The right source 
 **Which source, by default:** a good CC0 recording first (the user found Stable Audio's results about equal to CC0 ones, and CC0 needs no licence or credit line). If no recording fits, generate it with Stable Audio Open Small (quench hiss, bellows, odd one-offs nobody recorded). Use the synth for UI blips, clinks, risers and anything that must vary by seed. In a pack, give a `sao` event synth `sounds` too: if the model can't run on a machine, the pack falls back to them and the report says so. A game that ships Stable Audio sounds must show "Powered by Stability AI" somewhere players see it (Fire's Dying puts it on the title card); CREDITS.md lists it automatically.
 | Music | seeded stems: pad, arp, bass, hats, beat, lead | `sound stems --seed … --mood warm` |
 
+## Sounds in the scene: on the live view's timeline (Phase 10)
+
+A scene's own sounds are recipes on the shared history, shown as waveform tracks in the view's timeline dock:
+`./studio add-sound --id clink --kind event --sound clink --seed strike-1 --on "Blacksmith:strike@impact"` (fires on
+that moment, every time), `--kind bed --sound forge-roar --seconds 8`, `--kind music --mood forge --bpm 96 --bars 8`
+(bars and beats on the beats clock). `set-sound --why "brighter"` is one step. For "show me three",
+`./studio sound-three --id clink`: three deliberately distinct takes (each a proposal) and a listen-and-pick ask in
+the dock; the user listens and picks; the other two are discarded. Rendering is local (the synth here) and cached by recipe.
+
 ## A game's sound pack
 
 Write `games/<game>/sound/sound-spec.json` (see `games/fires-dying/sound/sound-spec.json`): `values`, `layers` (`bed` or `library`, `follow: {value, gain:[lo,hi], lowpass:[lo,hi]}`), `events` (variations + pitch spread), `music` (`seed`, `mood`, `value` = the intensity, `stings`). Then `./studio sound pack --project <game>` writes `assets/studio/sound/` (WAV + `<file>.license` each, `sound.json`, `CREDITS.md`) and the runtime:

@@ -9,7 +9,7 @@ import type { SceneDoc } from '../types.ts';
 import { stamp } from './address.ts';
 import { assetRecord } from './timelines.ts';
 
-export type AssetKind = 'model' | 'character' | 'creature' | 'look' | 'cutscene' | 'effect' | 'ui' | 'town' | 'scene';
+export type AssetKind = 'model' | 'character' | 'creature' | 'look' | 'cutscene' | 'effect' | 'ui' | 'town' | 'sound' | 'scene';
 export interface AssetRef { kind: AssetKind; id: string; thing: string; section?: string }
 
 /** Which asset a change touches, and which section of it ("params", "motions/pours-tea", "grade"). */
@@ -31,6 +31,7 @@ export function assetOfChange(c: Change, doc?: SceneDoc): AssetRef {
     }
     case 'cutscenes': return { kind: 'cutscene', id: a, thing: `cutscene:${a}`, ...(b ? { section: b } : {}) };
     case 'effects': return { kind: 'effect', id: a, thing: `effect:${a}`, ...(b ? { section: b } : {}) };
+    case 'sounds': return { kind: 'sound', id: a, thing: `sound:${a}`, ...(b ? { section: b } : {}) };
     case 'ui': return { kind: 'ui', id: 'ui', thing: 'ui', ...(a ? { section: a } : {}) };
     case 'world': return { kind: 'town', id: b ?? 'world', thing: `town:${b ?? ''}`, ...(rest[0] ? { section: rest[0] } : {}) };
     case 'objectOrder': return { kind: 'scene', id: 'order', thing: 'scene' };

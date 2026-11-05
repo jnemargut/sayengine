@@ -1,0 +1,126 @@
+{
+  "made": "2026-11-05T21:44:49.626Z",
+  "tracks": [
+    {
+      "id": "motion:blacksmith",
+      "label": "Blacksmith · strike",
+      "clock": "clip:strike",
+      "markers": 11
+    },
+    {
+      "id": "motion:apprentice",
+      "label": "Apprentice · wave",
+      "clock": "clip:wave",
+      "markers": 8
+    },
+    {
+      "id": "effect:sparks",
+      "label": "Sparks",
+      "clock": "none",
+      "markers": 3
+    },
+    {
+      "id": "effect:forge-fire",
+      "label": "Forge fire · loop",
+      "clock": "none",
+      "markers": 0
+    },
+    {
+      "id": "sound:clink",
+      "label": "Clink · clink",
+      "clock": "sound:clink",
+      "markers": 3
+    },
+    {
+      "id": "sound:roar",
+      "label": "Roar · forge-roar bed",
+      "clock": "sound:roar",
+      "markers": 0
+    }
+  ],
+  "red": [
+    {
+      "track": "motion:blacksmith",
+      "check": "no pops (joint speed)",
+      "from": 0.967,
+      "to": 1
+    },
+    {
+      "track": "motion:blacksmith",
+      "check": "no pops (joint speed)",
+      "from": 2.767,
+      "to": 2.8
+    },
+    {
+      "track": "motion:blacksmith",
+      "check": "no pops (joint speed)",
+      "from": 4.567,
+      "to": 4.6
+    }
+  ],
+  "momentAtImpact": {
+    "thing": "blacksmith",
+    "clock": "clip:strike",
+    "at": 28320,
+    "near": "impact",
+    "of": "6d0df17ea5"
+  },
+  "sliderStep": "sparks burst: speed 3.4 → 4.4",
+  "wordNote": {
+    "proposal": "Blacksmith strike: slower",
+    "steps": [
+      {
+        "id": "c82",
+        "note": "slower",
+        "summary": "Blacksmith \"strike\": slower → 2.27 s"
+      }
+    ]
+  },
+  "three": [
+    {
+      "id": "t1",
+      "ask": {
+        "kind": "pick",
+        "listen": true,
+        "question": "Which clink sounds right? Listen to each, then pick one",
+        "topic": "sound-clink",
+        "sound": "clink",
+        "options": [
+          {
+            "label": "brighter ring",
+            "proposal": "p2"
+          },
+          {
+            "label": "heavier",
+            "proposal": "p3"
+          },
+          {
+            "label": "dull thud",
+            "proposal": "p4"
+          }
+        ]
+      }
+    }
+  ],
+  "viewErrors": [],
+  "frameTime": {
+    "frames": 240,
+    "cpuMean": 1.8554166734218598,
+    "cpuP95": 2.700000047683716,
+    "gapMean": 16.66583333333334,
+    "gapP95": 16.700000000000728,
+    "fps": 60.00300015000748,
+    "particles": 29,
+    "playing": true,
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)"
+  },
+  "shots": {
+    "01-swing-red-stretch": "checkpoint-phase10/timeline/01-swing-red-stretch.png",
+    "02-impact-sparks-clink-note": "checkpoint-phase10/timeline/02-impact-sparks-clink-note.png",
+    "03-effect-sliders": "checkpoint-phase10/timeline/03-effect-sliders.png",
+    "04-word-note-step-after": "checkpoint-phase10/timeline/04-word-note-step-after.png",
+    "05-word-note-step-before": "checkpoint-phase10/timeline/05-word-note-step-before.png",
+    "06-sound-show-three": "checkpoint-phase10/timeline/06-sound-show-three.png",
+    "video": "checkpoint-phase10/timeline/forge-timeline.mp4"
+  }
+}

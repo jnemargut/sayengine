@@ -55,18 +55,23 @@ export const DAEMON_TOOLS: DaemonTool[] = [
   },
   {
     name: 'line-preview',
-    description: 'Review a character\'s spoken lines: writes a folder with the exported character (GLB with its "line:<id>" clips), the line audio and a player page (click a line: the three.js character speaks it in close-up, in sync with the audio). --video true also renders every frame in headless Chrome and muxes an MP4 with ffmpeg (lines.mp4), plus stills. [--object id] [--out dir]',
+    description: 'Play a character\'s spoken lines in the live view (Phase 10: the separate line player is retired): each line is a voice track on the view\'s timeline with its waveform and word moments; the character speaks it in sync (lip sync on the line\'s clip). Returns the view link; --video true captures the real view in headless Chrome to an MP4 with stills.',
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, lines: { type: 'string', description: 'comma-separated line ids (default: all)' } } },
   },
   {
     name: 'motion-preview',
-    description: 'Review a character\'s motions (walk, run, idle, turn, actions): writes a folder with the exported character (GLB with its motion clips) and a player page where each motion travels at its own speed over half-metre squares, so sliding feet would show. --video true renders an MP4 (motions.mp4) of them all in headless Chrome, plus two stills per motion. [--object id] [--motions walk,idle] [--out dir]',
+    description: 'Play a character\'s motions in the live view, in the scene (Phase 10: the separate motion player is retired): the clip runs on the view\'s timeline with its named moments and the motion checks as red stretches where they fail. Returns the view link; --video true captures the view to an MP4 (frames of the real view, the timeline dock in every frame) with a still at every named moment.',
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' }, with: { type: 'string', description: 'other scene objects to show beside the character (comma-separated), e.g. the bucket it trips over' }, at: { type: 'string', description: 'JSON [x,y,z]: where the first --with object stands, relative to the character' } } },
   },
   {
     name: 'creature-preview',
-    description: 'Review a creature made of rig parts (Decisions 52–54): writes a folder with the exported creature (creature.glb: a node per bone, a clip per motion, the ground) and a three.js player. Baked motions travel at their speed over half-metre squares on the creature\'s own ground; legged and wheeled creatures also get a live segment, steered by the runtime over uneven ground (feet step when out of reach, tyres on springs). Every frame carries the check timeline (red = the frames where a check fails). --video true renders an MP4 plus three stills per segment. --demo-failure true adds a replay with the body moving faster than the feet, to show the timeline catching sliding feet. [--object id] [--motions a,b] [--live false] [--out dir]',
+    description: 'Play a rig-part creature\'s motions in the live view, in the scene (Phase 10: the separate creature player is retired): each clip on the view\'s timeline, its part and universal checks as red stretches where they fail, its key moments named. Returns the view link and the checks; --video true captures the view to an MP4 with stills at the key moments.',
     flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string' }, live: { type: 'boolean', default: true }, demoFailure: { type: 'boolean', default: false } } },
+  },
+  {
+    name: 'timeline',
+    description: 'The live view\'s one timeline (Phase 10 step 2): every track (motion clips, voice lines, a cutscene\'s shots, effects, sounds, music) with its clock, named moments and failed motion checks as red stretches (in seconds), plus the moment the view is on as an address (scrub in the view and select a bone or part). --play "blacksmith:strike,apprentice:wave" picks the clips; --cutscene <id> plays a cutscene on the shot clock; --branch p1 a proposal.',
+    flags: { type: 'object', properties: { branch: { type: 'string' }, play: { type: 'string' }, cutscene: { type: 'string' }, at: { type: 'number', description: 'scene seconds (default: where the view is)' }, object: { type: 'string' }, part: { type: 'string' } } },
   },
   {
     name: 'cutscene-data',
@@ -85,7 +90,7 @@ export const DAEMON_TOOLS: DaemonTool[] = [
   },
   {
     name: 'cutscene-preview',
-    description: 'Review a cutscene (Decision 24): writes a folder with the studio scene (GLB with every character\'s clips), the cutscene timeline, the line audio and the three.js cutscene player (the same one web games use), plus storyboard.html — one frame per shot with its framing, lines and the checks (Read the storyboard PNGs to look). --video true also renders every frame in headless Chrome and muxes an MP4 with the voices. --id cutscene [--out dir]',
+    description: 'Play a cutscene in the live view on the shot clock (Phase 10: the separate cutscene player is retired): shot markers on the timeline, the camera cutting on them, lines as waveform tracks. Captures the view (an MP4 with --video true; always one still per shot plus storyboard.html with the cutscene checks).',
     flags: { type: 'object', properties: { id: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false } } },
   },
   {

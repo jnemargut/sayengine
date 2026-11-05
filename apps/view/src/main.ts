@@ -10,6 +10,7 @@ import { focusOnState, validFocus } from './focus.ts';
 import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
 import { installGradePass, lutTexture, type GradePass } from '../../../packages/game/templates/web/studio/look.ts';
 import { buildLut, parseLook } from '../../../packages/core/src/look/look.ts';
+import { initTimeline } from './timeline/index.ts';
 import { notesPanelHtml, cardHtml, statsHtml, pointingWords, type ViewNote, type Card, type ReviewStats } from './collab.ts';
 import { Panels } from './panels/index.ts';
 
@@ -123,7 +124,9 @@ function resize() {
 }
 new ResizeObserver(resize).observe(vpEl);
 resize();
-(function loop() { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+// Phase 10: the timeline dock poses everything that moves before each render (and measures the frame)
+let timeline: ReturnType<typeof initTimeline> | null = null;
+(function loop(now?: number) { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); timeline?.begin(now ?? performance.now()); renderer.render(scene, camera); timeline?.end(); requestAnimationFrame(loop); })();
 
 // ── decoding & meshes ─────────────────────────────────────────────────
 function b64(s: string): ArrayBuffer {
@@ -502,6 +505,7 @@ function render() {
   renderReview();
   renderHistory();
   rebuildScene();
+  timeline?.onState(); // the shown branch may have changed: the timeline follows it
 }
 
 function fmtParam(v: number, unit?: string) {
@@ -554,6 +558,8 @@ function pickAt(cx: number, cy: number): { obj: string; part: string | null } | 
   const r = renderer.domElement.getBoundingClientRect();
   const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
+  const moving = timeline?.pick(ray); // a bone or part on something playing on the timeline
+  if (moving) return moving;
   const hit = ray.intersectObjects(objGroup.children, true).find((h) => (h.object as THREE.Mesh).userData?.id && (Array.isArray((h.object as THREE.Mesh).material) ? ((h.object as THREE.Mesh).material as THREE.Material[])[h.face?.materialIndex ?? 0]?.visible !== false : true));
   if (!hit) return null;
   const m = hit.object as THREE.Mesh;
@@ -564,8 +570,9 @@ function pickAt(cx: number, cy: number): { obj: string; part: string | null } | 
 }
 function select(obj: string | null, part: string | null) {
   selectedObj = obj; selectedPart = part;
-  ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object: obj, part }));
+  ws?.readyState === 1 && ws.send(JSON.stringify({ type: 'select', object: obj, part, ...(timeline?.selectExtra(obj, part) ?? {}) }));
   render();
+  timeline?.onSelect();
 }
 renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
 renderer.domElement.addEventListener('pointerup', (e) => {
@@ -1049,6 +1056,12 @@ panels = new Panels({
     return c.toDataURL('image/png');
   },
   thingWords: (thing) => { const [h, ...rest] = thing.split('/'); const o = state?.main.find((x) => x.id === h); return [o?.name ?? (h.startsWith('town:') ? h.slice(5) : h === 'ui' ? 'UI kit' : h.startsWith('look:') ? `look ${h.slice(5)}` : h), ...rest.map((x) => panels.town.building(x)?.label ?? x)].join(' / '); },
+});
+timeline = initTimeline({
+  scene, camera, controls, renderer, vpEl, holders: () => holders, call, toast, select,
+  view: () => ({ focus, before, selectedObj, selectedPart, state }),
+  setBefore(on) { before = on; if (!on) compareStep = null; renderReview(); rebuildScene(); timeline?.onState(); },
+  renderNow() { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); timeline?.begin(performance.now()); renderer.render(scene, camera); timeline?.end(); },
 });
 connect();
 

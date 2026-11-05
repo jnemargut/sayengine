@@ -7,9 +7,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initKernel, Studio, exportGame, selectForExport, toGLB, validateGlb } from '../packages/core/src/index.ts';
-import { bakeMotion } from '../packages/core/src/motion.ts';
 import { runGame, findGodot, findChrome, type GameContext } from '../packages/game/src/index.ts';
-import { buildMotionPreview, captureMotionVideo, showTime } from '../packages/daemon/src/motionplayer/make.ts';
+import { openView } from './viewbench.ts';
 import { buildForge } from './forge.ts';
 
 const OUT = path.resolve(import.meta.dirname, '..', 'checkpoint-week6');
@@ -20,29 +19,19 @@ buildForge((t, a) => { const r = studio.call(t, a); if (!r.ok) throw new Error(`
 const doc = studio.doc();
 const log = (s: string) => console.log(s);
 
-// 1. motion previews (the character alone at the origin, with what it holds)
+// 1. motion previews, captured from the live view (the character in the scene, solo, on the timeline)
+const view = await openView(studio);
 for (const [id, extra] of [['blacksmith', null], ['apprentice', { run: { kind: 'run' }, 'turn-left': { kind: 'turn', turn: 90 }, 'look-around': { kind: 'action', action: 'look-around' } }]] as const) {
-  const o = doc.objects[id];
-  const solo = { ...o, character: { ...o.character, motions: { ...o.character!.motions, ...(extra ?? {}) } } };
-  const sdoc = { ...doc, objects: { ...doc.objects, [id]: solo as any } };
-  const items = selectForExport(studio, sdoc, { object: id, atOrigin: true });
-  const glb = toGLB(items, {});
-  if (!(await validateGlb(glb)).ok) throw new Error(`${id}: GLB does not validate`);
-  const rig = items[0].res.rig!.rig;
-  const motions = Object.entries(solo.character!.motions!).map(([mid, spec]: [string, any]) => {
-    const c = bakeMotion(mid, spec, rig, solo.character);
-    const what = spec.kind === 'action' ? spec.action : spec.kind;
-    return { id: mid, kind: spec.kind, label: `${o.name}: ${mid}${mid === what ? '' : ` (${what})`}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: showTime(c) };
-  });
+  for (const [mid, spec] of Object.entries(extra ?? {})) { const r = studio.call('set-motion', { object: id, id: mid, ...spec }); if (!r.ok) throw new Error(`set-motion ${mid}: ${r.error}`); }
   const dir = path.join(os.tmpdir(), `week6-${id}-motions`);
   fs.rmSync(dir, { recursive: true, force: true });
-  await buildMotionPreview(dir, o.name, glb, motions);
-  const r = await captureMotionVideo(dir, motions);
+  const r = (await view.call('motion-preview', { object: id, video: true, out: dir })).result;
   if (r.video) fs.copyFileSync(r.video, path.join(OUT, `motions-${id}.mp4`));
   fs.mkdirSync(path.join(OUT, 'stills'), { recursive: true });
   for (const st of r.stills ?? []) fs.copyFileSync(st, path.join(OUT, 'stills', `${id}-${path.basename(st)}`));
-  log(`motions: ${o.name} — ${motions.map((m) => m.id).join(', ')} (${r.seconds} s)`);
+  log(`motions: ${doc.objects[id].name} — ${r.segments.join(', ')} (${r.seconds} s)`);
 }
+view.close();
 
 // 2. the diorama in both engines: the apprentice walks up to the anvil
 const studioDir = fs.mkdtempSync(path.join(os.tmpdir(), 'week6-games-'));

@@ -20,6 +20,7 @@ export * from './taste.ts';
 export * from './card.ts';
 export * from './steps.ts';
 export * from './three.ts';
+export * from './movetimeline.ts';
 
 // ── where it's kept ───────────────────────────────────────────────────────────────────────────────
 
