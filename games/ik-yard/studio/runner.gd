@@ -513,6 +513,7 @@ func _cmd_cutscene(c: Dictionary) -> Dictionary:
 ## every 2nd frame (a following camera on a walk, else "look": {center, radius, dir}).
 func _cmd_feet(c: Dictionary) -> Dictionary:
 	var acc := {}
+	var trace := []
 	var state := {"t": 0.0, "off": c.get("ik", true) == false}
 	var settle: float = c.get("settle", 0.5)
 	var sample := func() -> void:
@@ -532,6 +533,8 @@ func _cmd_feet(c: Dictionary) -> Dictionary:
 				a.feet[k.name] = true
 				if k.planted:
 					a.gaps.append(float(k.gap))
+				if c.get("trace", false) and who.kind == "humanoid":
+					trace.append([snappedf(state.t, 0.01), k.name, k.planted, snappedf(k.gap, 0.001)])
 	get_tree().physics_frame.connect(sample)
 	var result := {"ok": true}
 	if c.get("walk") != null:
@@ -581,6 +584,8 @@ func _cmd_feet(c: Dictionary) -> Dictionary:
 			"limitCm": [snappedf(lim_up * 100.0, 0.01), snappedf(lim_dn * 100.0, 0.01)],
 			"detail": ("no planted feet seen" if gaps.is_empty() else "planted feet within %.1f cm up / %.1f cm down (p95)" % [f95 * 100.0, s95 * 100.0])})
 	result["subjects"] = subjects
+	if c.get("trace", false):
+		result["trace"] = trace
 	result["passed"] = subjects.size() - failed
 	result["failed"] = failed if subjects.size() else 1
 	result["ik"] = not state.off

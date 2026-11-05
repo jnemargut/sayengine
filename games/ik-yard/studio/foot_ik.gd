@@ -40,6 +40,7 @@ var enabled := true:             ## false: the baked clip alone (no planting), f
 var exclude: Array[RID] = []     ## bodies the rays skip (the character's own)
 var _started := false
 var _prev := {}
+var drawn := {}                  ## side → [ankle, toe] as drawn last frame (world)
 
 static func attach(character: Node3D, ground = null, skeleton: Skeleton3D = null) -> Node:
 	var sk: Skeleton3D = skeleton
@@ -151,6 +152,11 @@ func _process_modification_with_delta(delta: float) -> void:
 				var d: Dictionary = first.sides[s]
 				var gp := sk.get_bone_global_pose(d["foot"])
 				sk.set_bone_global_pose(d["foot"], Transform3D(d["rot"], gp.origin))
+		# the feet as drawn (a modifier's pose is gone once the frame is drawn: read it here)
+		var xf0 := sk.global_transform
+		for s in first.sides:
+			var d: Dictionary = first.sides[s]
+			first.drawn[s] = [xf0 * sk.get_bone_global_pose(d["foot"]).origin, xf0 * sk.get_bone_global_pose(d["toes"]).origin if d["toes"] >= 0 else xf0 * sk.get_bone_global_pose(d["foot"]).origin]
 		if first.recording:
 			first._record(sk)
 		return
@@ -203,15 +209,13 @@ func _record(sk: Skeleton3D) -> void:
 ## (< 0.12 m/s); gap is the sole's height over the ground under it (the lower of heel and toe, each against
 ## its rest height): + floats, − sinks. Call once per physics frame.
 func contacts(dt: float) -> Array:
-	var sk := get_skeleton()
 	var out := []
-	if sk == null:
-		return out
-	var xf := sk.global_transform
 	for s in sides:
+		if not drawn.has(s):
+			continue
 		var d: Dictionary = sides[s]
-		var a := xf * sk.get_bone_global_pose(d["foot"]).origin
-		var toe := xf * sk.get_bone_global_pose(d["toes"]).origin if d["toes"] >= 0 else a
+		var a: Vector3 = drawn[s][0]
+		var toe: Vector3 = drawn[s][1]
 		var gh := ground_at(a.x, a.z, a.y + 0.6)
 		var gt := ground_at(toe.x, toe.z, toe.y + 0.6)
 		var gap := minf(a.y - gh - stance_h, toe.y - gt - float(d.get("toe_h", stance_h)))

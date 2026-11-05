@@ -243,7 +243,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         const frameDir = video ? path.join(workDir(dir, 'video'), `${stamp()}-feet`) : '';
         if (video) fs.mkdirSync(frameDir, { recursive: true });
         const look = args.look ? parse(args.look) : null;
-        const cmd: any = { cmd: 'feet', seconds: Number(args.seconds ?? (args.walk ? 20 : 6)), ...(args.walk !== undefined ? { walk: parseTarget(args.walk) } : {}), ...(args.from ? { from: parse(args.from) } : {}), ik: !(args.ik === false || args.ik === 'false'), ...(video ? { frames: frameDir } : {}), ...(look ? { look } : {}) };
+        const cmd: any = { cmd: 'feet', seconds: Number(args.seconds ?? (args.walk ? 20 : 6)), ...(args.walk !== undefined ? { walk: parseTarget(args.walk) } : {}), ...(args.from ? { from: parse(args.from) } : {}), ik: !(args.ik === false || args.ik === 'false'), ...(args.trace ? { trace: true } : {}), ...(video ? { frames: frameDir } : {}), ...(look ? { look } : {}) };
         if (video && !args.walk && !look) return out({ ok: false, ...base, error: '--video without --walk needs --look {center, radius, dir}' });
         const r = await godot.runnerCommand(dir, cmd, { windowed: video, size: video ? 1280 : undefined, timeoutMs: 400000 });
         if (video && r.ok) Object.assign(r.result ?? {}, framesToVideo(frameDir, 30));
