@@ -66,4 +66,25 @@ What got built while you slept, what I checked myself, and anything that went wr
     - Placing on furniture picks its flat top.
     - Screenshots include the HUD.
     - All voice audio is exported.
-  - **Fire's Dying v1.1** (adopts all of this, plus harder and more varied play, plus effect tuning) is building now.
+
+- **Fire's Dying v1.1** (merged; 135 tests pass, view builds).
+  - **Play it:** `cd games/fires-dying && npm run play`, then http://127.0.0.1:8123/. R or Enter replays from the end card.
+  - **What's new:**
+    - 20 jobs instead of 16, and two new tools (chisel, whetstone).
+    - A bellows to pump, and a quench step every fifth job (carry the bucket to the tub).
+    - The smith gets impatient near the end, and making him wait costs fire.
+    - Real fire, sparks, smoke and embers, plus the new HUD: bars, a "he wants" slot with an icon, a carrying slot, and title and end cards with Play again.
+  - **Bot playtest:** won in 4:01, lost in 85 s when it never fed the fire, and the fire died at 62 s when it stood still. Play again works in all three. I looked at the stills: the HUD and the carried items read clearly.
+  - **Honest verdict:** a real 4–5 minute game you'd play twice, not ten times.
+    - Every job is still "walk there, press E".
+    - The camera is far enough out that carried tools are small.
+    - Nothing brings you back except your time.
+  - **Effect matching between engines** (0.25 or less = match): fire 0.09, embers 0.28, sparks 0.30, rain 0.45, smoke 0.52.
+    - Four real bugs fixed: sideways web rain, short web sparks, dark web colours, and every Godot particle living longest.
+    - Smoke still rises higher on the web, cause not found.
+    - Rain is noted as a candidate for Effekseer.
+  - **Problem log:** `PAIN.md` has the new problems. The biggest: `game import` quietly wrote empty effects and UI data. It now says so.
+
+## Where things stand
+- **Tool freeze (your decision 59):** no new tool modules until you've shared Fire's Dying. So I stopped here rather than starting Pocket Raleigh.
+- **Your move:** play it, share it with someone, and tell me what felt off. Next up after that: Pocket Raleigh, wings and fins, and one-off actions.
