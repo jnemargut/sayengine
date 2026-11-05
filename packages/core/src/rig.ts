@@ -175,7 +175,15 @@ export function curveMouth(spec: CharSpec, pos: Float32Array, vertPart: string[]
     if (z < m[2] - 0.25 * H && !isMouthPart(part)) continue;
     const t = Math.min(1.25, Math.abs(x) / mw);
     const lift = amt * t * t * Math.exp(-((y / (0.07 * H)) ** 2)) * (1 - smooth(1.2 * mw, 1.7 * mw, Math.abs(x)));
-    pos[v * 3 + 1] += lift;
+    // a cartoon smile is a grin: the lower lip and the slot's lower edge sag in the middle, so the
+    // closed line opens into a crescent (dark inside, corners still closed) instead of a thin seam
+    let grin = 0;
+    if (F.kind === 'cartoon' && k > 0 && y < F.slotH * 0.3) {
+      const u = Math.min(1, Math.abs(x) / (mw * 0.92));
+      const fall = part === 'lipLower' ? 1 : Math.exp(-(((y + F.slotH * 0.5) / (0.045 * H)) ** 2));
+      grin = amt * 1.0 * (1 - u * u) ** 1.4 * fall;
+    }
+    pos[v * 3 + 1] += lift - grin;
   }
 }
 export const CHAR_DEFAULTS: CharParams = { height: 1.75, build: 0.55, headSize: 1, armLength: 1, legLength: 1, handSize: 1, hair: 'short' };
@@ -561,7 +569,7 @@ export function characterSpec(p: CharParams): CharSpec {
     if (shape === 'triangle') headPts.push([0, hb - 0.03 * headH, surfZ(0.0) * 0.98]);
   }
   const slotH = (mouthKind === 'cartoon' ? 0.024 : 0.018) * headH;
-  const mouthW = (mouthKind === 'cartoon' ? 0.44 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.35) * hw;
+  const mouthW = (mouthKind === 'cartoon' ? 0.38 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.35) * hw;
   // ── mouth: chamber, teeth and tongue (all relative to the lip surface a = mouthZ, in head heights) ──
   const a = mouthZ, Hh = headH, my = mouthY;
   const chamberPts: V3[] = [];
@@ -620,6 +628,18 @@ export function characterSpec(p: CharParams): CharSpec {
     { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
     { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
   ];
+  if (mouthKind === 'cartoon') {
+    // a cartoon mouth curves into a smile at rest (curveMouth): its opening is cut in slices across
+    // the mouth, so the cut's edges have vertices all along and bend smoothly instead of kinking
+    const K = 10, c0 = cuts[0] as Extract<CharSpec['cuts'][number], { kind: 'box' }>;
+    cuts.splice(0, 1, ...Array.from({ length: K }, (_, i) => {
+      const x0 = -mouthW + (2 * mouthW * i) / K - 0.002 * headH, x1 = -mouthW + (2 * mouthW * (i + 1)) / K + 0.002 * headH;
+      const [cy, cz] = [c0.c[1], c0.c[2]], [hy, hz] = [c0.size[1] / 2, c0.size[2] / 2];
+      const pts: V3[] = [];
+      for (const x of [x0, x1]) for (const y of [cy - hy, cy + hy]) for (const z of [cz - hz, cz + hz]) pts.push([x, y, z]);
+      return { kind: 'hull' as const, part: 'mouthInner', pts };
+    }));
+  }
   if (mouthKind === 'grille') {
     // a speaker grille: a shallow dark panel behind three bars
     cuts[0] = { kind: 'box', c: [0, mouthY, mouthZ - 0.02 * headH], size: [2.3 * mouthW, 0.1 * headH, 0.05 * headH], part: 'mouthInner' };
@@ -711,7 +731,23 @@ export function characterSpec(p: CharParams): CharSpec {
     pieces.push(bar('lipUpper', my + 0.03 * Hh, mouthW * 1.05), bar('lipMid', my, mouthW * 1.05), bar('lipLower', my - 0.03 * Hh, mouthW * 1.05));
   } else {
     const thin = mouthKind === 'cartoon' ? 0.6 : 1;
-    for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
+    if (mouthKind === 'cartoon') for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
+      // cartoon lips: slices along the mouth (a soft rim, thinning to the corners), so the resting
+      // smile bends them into a smooth curve; the lower lip is a little fuller
+      const K = 10, full = dy < 0 ? 1.1 : 0.85;
+      const y = mouthY + dy * (slotH / 2 + 0.008 * headH * thin), z = mouthZ - 0.006 * headH, r = 0.012 * headH * thin * full;
+      const section = (x: number): V3[] => {
+        const f = Math.sqrt(Math.max(0.08, 1 - (Math.abs(x) / (mouthW * 1.04)) ** 4));
+        const y0 = mouthY + dy * slotH * 0.12;
+        const at = (yy: number, zz: number): V3 => [x, y0 + (yy - y0) * f, z + (zz - z) * f];
+        return [at(y0, z - r), at(y0, z - r * 0.3), at(y, z + r * 0.7), at(y + dy * r * 0.5, z + r * 0.9), at(y + dy * r * 0.85, z + r * 0.25), at(y + dy * r * 0.9, z - r * 0.6)];
+      };
+      for (let i = 0; i < K; i++) {
+        const xa = -mouthW * 1.02 + (2.04 * mouthW * i) / K, xb = -mouthW * 1.02 + (2.04 * mouthW * (i + 1)) / K;
+        pieces.push({ kind: 'hull', part: name, pts: [...section(xa), ...section(xb)] });
+      }
+    }
+    else for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
       const y = mouthY + dy * (slotH / 2 + 0.008 * headH * thin);
       const z = mouthZ - 0.006 * headH;
       const r = 0.012 * headH * thin;
