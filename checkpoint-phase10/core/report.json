@@ -1,0 +1,135 @@
+{
+  "made": "2026-11-05T19:24:30.332Z",
+  "shots": [
+    "checkpoint-phase10/core/view-card-and-notes.png",
+    "checkpoint-phase10/core/view-before-after.png",
+    "checkpoint-phase10/core/view-answered-skipped.png"
+  ],
+  "notes": [
+    {
+      "id": "n1",
+      "status": "open",
+      "text": "Seat edge feels sharp — round it more",
+      "thing": "walnut-stool/seat"
+    },
+    {
+      "id": "n2",
+      "status": "stale",
+      "text": "Footrest too low for a counter",
+      "thing": "walnut-stool/footrest",
+      "why": "walnut-stool/footrest no longer exists"
+    },
+    {
+      "id": "n3",
+      "status": "on-it",
+      "text": "Legs read a bit heavy",
+      "thing": "walnut-stool/leg#1"
+    },
+    {
+      "id": "n4",
+      "status": "open",
+      "text": "Your call (skipped): Is the warmer light too orange on walnut?",
+      "thing": "walnut-stool"
+    }
+  ],
+  "card": {
+    "proposal": "p1",
+    "made": "2026-11-05T19:23:13.982Z",
+    "unattended": false,
+    "checked": {
+      "passed": 4,
+      "failed": 0,
+      "pending": 0,
+      "lines": [
+        "✓ Watertight solid",
+        "✓ All 4 legs grounded",
+        "✓ One connected piece",
+        "✓ Nothing below the floor"
+      ]
+    },
+    "asks": [
+      {
+        "kind": "pick",
+        "question": "Which legs read better from across the room?",
+        "topic": "stool-legs",
+        "options": [
+          {
+            "label": "13 mm",
+            "traits": [
+              "thin"
+            ]
+          },
+          {
+            "label": "15 mm",
+            "traits": [
+              "medium"
+            ]
+          },
+          {
+            "label": "18 mm (as was)",
+            "traits": [
+              "thick"
+            ]
+          }
+        ],
+        "id": "a1",
+        "status": "answered",
+        "answer": "13 mm",
+        "answeredAt": "2026-11-05T19:24:13.770Z"
+      },
+      {
+        "kind": "yesno",
+        "question": "Is the warmer light too orange on walnut?",
+        "topic": "look-warmth",
+        "id": "a2",
+        "status": "skipped",
+        "note": "n4"
+      },
+      {
+        "kind": "note",
+        "question": "Anything about the seat height?",
+        "id": "a3",
+        "status": "open"
+      }
+    ],
+    "byTaste": [
+      {
+        "question": "Which sound for the stool scraping the floor?",
+        "topic": "sound-source",
+        "rule": "Sounds: CC0 library sounds first; Stable Audio Open Small only to fill the gaps.",
+        "source": "you said, 5 Nov 2026",
+        "value": "cc0-first"
+      }
+    ],
+    "leansOn": [
+      "sound-source → cc0-first, per your taste file: \"Sounds: CC0 library sounds first; Stable Audio Open Small only to fill the gaps.\" (you said, 5 Nov 2026)"
+    ],
+    "dropped": []
+  },
+  "stats": {
+    "steps": {
+      "kept": 0,
+      "keptWithoutOpening": 0,
+      "share": 0,
+      "tripwire": null
+    },
+    "notes": {
+      "stale": 1,
+      "total": 4,
+      "rate": 0.25,
+      "tripwire": null
+    },
+    "taste": {
+      "rules": 3,
+      "studio": 3,
+      "project": 0,
+      "tripwire": null
+    },
+    "asks": {
+      "skipped": 1,
+      "asked": 3,
+      "rate": 0.33,
+      "tripwire": null
+    }
+  }
+}

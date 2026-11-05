@@ -101,7 +101,7 @@ export class Notes {
 
   /** The decision-61 tripwire: how many notes went stale (more than about 1 in 10 → anchor to named moments more). */
   staleRate(): { stale: number; total: number; rate: number } {
-    const total = this.data.notes.filter((n) => n.address.clock !== 'none' || n.status === 'stale').length;
+    const total = this.data.notes.length;
     const stale = this.data.notes.filter((n) => n.log.some((l) => l.status === 'stale')).length;
     return { stale, total, rate: total ? stale / total : 0 };
   }

@@ -10,6 +10,7 @@ import { focusOnState, validFocus } from './focus.ts';
 import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
 import { installGradePass, lutTexture, type GradePass } from '../../../packages/game/templates/web/studio/look.ts';
 import { buildLut, parseLook } from '../../../packages/core/src/look/look.ts';
+import { notesPanelHtml, cardHtml, statsHtml, pointingWords, type ViewNote, type Card, type ReviewStats } from './collab.ts';
 
 type V3 = [number, number, number];
 interface BBox { min: V3; max: V3 }
@@ -25,14 +26,17 @@ interface PackedObj {
   position: V3; rotation: number; placement: string | null; linkedCopyOf: string | null;
   role: 'model' | 'reference'; reference: ImageRef | { kind: 'mesh'; asset: string; file: string } | null;
 }
-interface Step { n: number; id: string; summary: string; author: string; tool: string; undone: boolean; affects: Record<string, string[]> }
-interface Prop { id: string; title: string; status: string; author: string; active: boolean; steps: Step[]; checks: Record<string, Check[]>; allPass: boolean; objects: PackedObj[] }
+interface Step { n: number; id: string; summary: string; author: string; tool: string; undone: boolean; affects: Record<string, string[]>; note?: string; assets?: string[]; seen?: boolean; kept?: boolean }
+interface Prop { id: string; title: string; status: string; author: string; active: boolean; steps: Step[]; checks: Record<string, Check[]>; allPass: boolean; objects: PackedObj[]; card?: Card; takeGroup?: string }
 interface State {
   active: string; mainHead: string | null; commitCount: number; main: PackedObj[]; proposals: Prop[];
   history: { id: string; author: string; tool: string; summary: string; time: string }[];
   /** the scene's active look (Decision 29): its grade and outline drive the viewport, thumbnails and presentation renders */
   look?: any;
   activity: { time: string; author: string; tool: string; args: string; ok: boolean; summary?: string; error?: string }[];
+  /** Phase 10: the notes inbox, review counters */
+  notes?: ViewNote[];
+  review?: ReviewStats;
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as T;
@@ -57,6 +61,8 @@ let ws: WebSocket | null = null;
 let callSeq = 0;
 let preview: { objects: PackedObj[]; obj: string } | null = null; // live slider scrub (not committed)
 let previewPending = false, previewQueued: { object: string; params: Record<string, number> } | null = null;
+let noteDraft = '';                 // the note being typed (kept across state updates)
+let compareStep: string | null = null; // the step whose before/after is open (viewport shows before)
 
 // ── three.js ──────────────────────────────────────────────────────────
 const vpEl = $('#viewport');
@@ -296,7 +302,7 @@ function rebuildScene() {
   const badge = $('#vpBadge');
   badge.className = 'vp-badge';
   if (preview) { badge.textContent = 'Preview: release to commit'; badge.classList.add('on'); }
-  else if (before && focus !== 'main') { badge.textContent = 'Before (main)'; badge.classList.add('on', 'before'); }
+  else if (before && focus !== 'main') { badge.textContent = compareStep ? 'Before · press After to compare' : 'Before (main)'; badge.classList.add('on', 'before'); }
   else if (focus !== 'main') { badge.textContent = `Proposal ${focus} · hold Space for before`; badge.classList.add('on'); }
 }
 
@@ -445,6 +451,10 @@ function render() {
       (o.role === 'reference' ? '' : o.parts.filter((p) => !p.name.startsWith('~')).map((p) => `<div class="part${selectedObj === o.id && selectedPart === p.name ? ' sel' : ''}${failing.has(p.name) ? ' fail' : ''}" data-obj="${esc(o.id)}" data-part="${esc(p.name)}"><span>${esc(p.name)}</span><span class="swatch" style="background:${esc(p.material?.color ?? o.material.color)}" title="${esc(p.material?.name ?? o.material.name)}"></span></div>`).join(''));
   }).join('') + '<div class="muted">Floor · y = 0</div>' : '<div class="muted">Empty scene</div>';
 
+  // notes inbox (Decision 63): pin a note on what's selected
+  const pointing = pointingWords(obj?.name ?? null, selectedPart);
+  if (document.activeElement?.id !== 'noteDraft') $('#notes').innerHTML = notesPanelHtml(state.notes ?? [], pointing, noteDraft);
+
   // checks
   $('#checks').innerHTML = obj ? obj.checks.map((c) => `<span class="check${c.pass ? '' : c.pending ? ' pend' : ' fail'}" title="${esc(c.detail)}"><i></i>${esc(c.pass ? c.label : c.pending ? `In progress — ${c.detail}` : `${c.label} — ${c.detail}`)}</span>`).join('') : '';
 
@@ -455,7 +465,7 @@ function render() {
   const dragLine = (p: Part) => p.drag === 'op' ? 'drag the arrows to move just this part' : `dragging moves the whole ${esc(obj!.name)} (this part is a copy or is rotated after it's made)`;
   $('#partInfo').innerHTML = sp ? (() => {
     const d = [0, 1, 2].map((k) => Math.round((sp.bbox.max[k] - sp.bbox.min[k]) * 1000));
-    return `<b>${esc(sp.name)}</b> · ${d[0]} × ${d[1]} × ${d[2]} mm · ${esc(sp.material?.name ?? '')}<br><span>made by ${esc((sp.ops ?? []).join(', ') || '—')} · ${dragLine(sp)} · Claude sees this via <code>studio selection</code></span>`;
+    return `<b>${esc(sp.name)}</b> · ${d[0]} × ${d[1]} × ${d[2]} mm · ${esc(sp.material?.name ?? '')}<br><span>made by ${esc((sp.ops ?? []).join(', ') || '—')} · ${dragLine(sp)} · Claude sees this as an address (<code>studio selection</code>)</span>${notesOn(obj!.id, sp.name)}`;
   })() : obj ? (obj.role === 'reference'
     ? `<b>Reference</b> · ${esc(obj.reference?.file ?? '')}<br><span>Not exported. ${obj.reference?.kind === 'image' ? 'Shown in renders so Claude can model to match it.' : 'Measure it with <code>studio inspect</code>.'}</span>`
     : `<span>${esc(obj.material.name)}${obj.linkedCopyOf ? ` · linked copy of <b>${esc(obj.linkedCopyOf)}</b>` : ''}. Click a part to select it; drag the arrows to move${placeLine ? '' : ' or turn'} the object.</span>${placeLine}`) : '';
@@ -511,9 +521,10 @@ function renderReview() {
   const fails = Object.values(p.checks).flat().filter((c) => !c.pass);
   el.innerHTML = tabs +
     `<div class="rv-head"><span>${esc(p.id)} · ${esc(p.title)} · ${p.steps.length} change${p.steps.length === 1 ? '' : 's'}</span>${p.allPass ? '<span class="ok">checks pass</span>' : `<span class="bad">${fails.length} check${fails.length === 1 ? '' : 's'} failing</span>`}</div>` +
-    (p.steps.length ? p.steps.map((s) => `<div class="step${s.undone ? ' undone' : ''}${s.author === 'human' ? ' you' : ''}" data-step="${s.id}"><span class="txt">${esc(s.summary)}<span class="who">${esc(who(s.author))} · ${esc(s.tool)}</span></span><span class="btns"><button class="k" data-act="keep" data-step="${s.id}">Keep</button><button class="u" data-act="undo-step" data-step="${s.id}">${s.undone ? 'Undone' : 'Undo'}</button></span></div>`).join('') : '<div class="rv-empty">No changes on this proposal yet.</div>') +
-    (fails.length ? `<div class="rv-fails">${fails.map((f) => esc(`${f.label}: ${f.detail}`)).join('<br>')}</div>` : '') +
-    `<div class="rv-actions"><button class="primary" data-act="commit-proposal">Commit ${kept} change${kept === 1 ? '' : 's'}</button><button class="ghost" data-act="discard-proposal">Discard</button><span class="hint">Hover a change to see it · hold Space for before</span></div>`;
+    (p.steps.length ? p.steps.map((s) => `<div class="step${s.undone ? ' undone' : ''}${s.author === 'human' ? ' you' : ''}${compareStep === s.id ? ' cmp' : ''}" data-step="${s.id}"><span class="txt">${s.note ? `<span class="wn">“${esc(s.note)}”</span>` : ''}${esc(s.summary)}<span class="who">${esc(who(s.author))} · ${esc(s.tool)}${s.assets?.length ? ` · ${esc(s.assets.join(', '))}` : ''}${s.seen ? ' · <span class="seen">seen</span>' : ''}</span></span><span class="btns"><button class="ba${s.seen ? ' seen' : ''}" data-act="open-step" data-step="${s.id}" title="Open its before and after: only then does Keep count as reviewed">${compareStep === s.id ? 'After' : 'Before/after'}</button><button class="k${s.kept ? ' on' : ''}" data-act="keep" data-step="${s.id}" title="${s.seen ? 'Keep (reviewed)' : 'Keep without opening: counted'}">Keep</button><button class="u" data-act="undo-step" data-step="${s.id}">${s.undone ? 'Undone' : 'Undo'}</button></span></div>`).join('') : '<div class="rv-empty">No changes on this proposal yet.</div>') +
+    (p.card ? cardHtml(p.card) : fails.length ? `<div class="rv-fails">${fails.map((f) => esc(`${f.label}: ${f.detail}`)).join('<br>')}</div>` : '') +
+    `<div class="rv-actions"><button class="primary" data-act="commit-proposal">Commit ${kept} change${kept === 1 ? '' : 's'}</button><button class="ghost" data-act="discard-proposal">Discard</button><span class="hint">Before/after on a step, or hold Space</span></div>` +
+    statsHtml(state.review);
 }
 
 function renderHistory() {
@@ -596,13 +607,15 @@ document.addEventListener('click', (e) => {
     themePref = THEMES[(THEMES.indexOf(themePref as any) + 1) % THEMES.length];
     setTheme(themePref);
     rebuildScene();
+  } else if (t.dataset.act && collabAct(t)) {
+    // handled (notes, card, before/after)
   } else if (t.dataset.act) {
     const args: any = { proposal: focus };
     if (t.dataset.step) args.step = t.dataset.step;
     if (t.dataset.act === 'discard-proposal' && !confirm(`Discard ${focus}? It stays in history.`)) return;
     call(t.dataset.act, args);
   } else if (t.dataset.focus) {
-    focus = t.dataset.focus; hoverStep = null; render();
+    focus = t.dataset.focus; hoverStep = null; compareStep = null; before = false; render();
   } else if (t.dataset.obj) {
     select(t.dataset.obj, t.dataset.part && selectedPart !== t.dataset.part ? t.dataset.part : null);
   } else if (t.dataset.mode) {
@@ -649,8 +662,16 @@ $('#params').addEventListener('change', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
-  if (e.target instanceof HTMLInputElement) return;
-  if (e.code === 'Space' && focus !== 'main' && !before) { e.preventDefault(); before = true; rebuildScene(); }
+  if (e.target instanceof HTMLInputElement) {
+    if (e.key === 'Enter' && (e.target as HTMLElement).id === 'noteDraft') addNote();
+    else if (e.key === 'Enter' && (e.target as HTMLElement).dataset.askNote) answerNote((e.target as HTMLElement).dataset.askNote!);
+    return;
+  }
+  if (e.code === 'Space' && focus !== 'main' && !before) {
+    e.preventDefault(); before = true; rebuildScene();
+    // holding Space over a step opens its before/after: Keep on it then counts as reviewed
+    if (hoverStep && !hoverStep.seen) call('open-step', { proposal: focus, step: hoverStep.id });
+  }
   else if (e.key === 'g' || e.key === 'w') setGizmoMode('translate');
   else if (e.key === 'r' || e.key === 'e') setGizmoMode('rotate');
   else if (e.key === 'Escape') select(null, null);
@@ -876,6 +897,73 @@ function decodeF32(b64: string): Float32Array {
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Float32Array(bytes.buffer);
 }
+
+// ── working together (Phase 10): notes, the card, before/after ───────────
+document.addEventListener('input', (e) => { const t = e.target as HTMLInputElement; if (t.id === 'noteDraft') noteDraft = t.value; });
+function addNote() {
+  const text = noteDraft.trim();
+  if (!text || !selectedObj) return;
+  call('notes', { action: 'add', text, at: selectedPart ? `${selectedObj}/${selectedPart}` : selectedObj });
+  noteDraft = '';
+  ($('#noteDraft') as HTMLInputElement | null)?.blur();
+}
+function answerNote(askId: string) {
+  const inp = document.querySelector(`[data-ask-note="${askId}"]`) as HTMLInputElement | null;
+  if (inp?.value.trim()) call('answer', { proposal: focus, ask: askId, answer: inp.value.trim() });
+}
+function collabAct(t: HTMLElement): boolean {
+  const d = t.dataset;
+  switch (d.act) {
+    case 'note-add': addNote(); return true;
+    case 'note-status': call('notes', { action: d.to === 'open' ? 'reopen' : d.to, id: d.note }); return true;
+    case 'note-repin': if (!selectedObj) { toast('Select a part first, then Re-pin'); return true; } call('notes', { action: 'repin', id: d.note, at: selectedPart ? `${selectedObj}/${selectedPart}` : selectedObj }); return true;
+    case 'card-answer': call('answer', { proposal: focus, ask: d.ask, answer: d.answer }); return true;
+    case 'card-note': answerNote(d.ask!); return true;
+    case 'card-skip': call('skip-ask', { proposal: focus, ask: d.ask }); return true;
+    case 'open-step': {
+      // first press: show the before (main); second press: back to the after
+      if (compareStep === d.step) { compareStep = null; before = false; }
+      else { compareStep = d.step!; before = true; call('open-step', { proposal: focus, step: d.step }); }
+      renderReview(); rebuildScene();
+      return true;
+    }
+  }
+  return false;
+}
+/** Notes pinned on an object (or one of its parts), for the inspector. */
+function notesOn(obj: string, part?: string): string {
+  const mine = (state?.notes ?? []).filter((n) => n.status !== 'done' && (n.address.thing === obj || n.address.thing === `${obj}/${part}` || (!part && n.address.thing.startsWith(obj + '/'))));
+  return mine.length ? `<div class="pinned">${mine.map((n) => `<span class="nt-pin ${n.status}">${esc(n.id.slice(1))}</span> ${esc(n.text)}`).join('<br>')}</div>` : '';
+}
+// pins in the viewport: one numbered marker per live note, on top of its part (or object)
+const pinLayer = document.createElement('div');
+pinLayer.className = 'pin-layer';
+vpEl.appendChild(pinLayer);
+function placePins() {
+  if (!state) return;
+  const objs = shownObjects();
+  const live = (state.notes ?? []).filter((n) => n.status !== 'done' && n.address.clock === 'none');
+  const html: string[] = [];
+  const r = renderer.domElement.getBoundingClientRect(), vr = vpEl.getBoundingClientRect();
+  for (const n of live) {
+    const [oid, part] = n.address.thing.split('/');
+    const o = objs.find((x) => x.id === oid);
+    if (!o) continue;
+    const p = part ? o.parts.find((x) => x.name === part) : null;
+    if (part && !p) continue; // the part is gone (a stale note): it waits in the panel, not pinned somewhere wrong
+    const bb = p?.bbox ?? o.bbox;
+    if (!bb) continue;
+    // a part's pin sits at its middle; a whole object's on its top
+    const v = new THREE.Vector3((bb.min[0] + bb.max[0]) / 2, p ? (bb.min[1] + bb.max[1]) / 2 : bb.max[1], (bb.min[2] + bb.max[2]) / 2);
+    v.project(camera);
+    if (v.z > 1) continue;
+    const x = r.left - vr.left + (v.x * 0.5 + 0.5) * r.width, y = r.top - vr.top + (-v.y * 0.5 + 0.5) * r.height;
+    html.push(`<div class="vp-pin ${n.status}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px" title="${esc(n.text)}"><b>${esc(n.id.slice(1))}</b><span>${esc(n.text.length > 34 ? n.text.slice(0, 33) + '…' : n.text)}</span></div>`);
+  }
+  const out = html.join('');
+  if (pinLayer.dataset.html !== out) { pinLayer.innerHTML = out; pinLayer.dataset.html = out; }
+}
+(function pinLoop() { placePins(); requestAnimationFrame(pinLoop); })();
 
 // ── connection ────────────────────────────────────────────────────────
 function connect() {
