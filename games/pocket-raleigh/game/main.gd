@@ -10,11 +10,13 @@ const PLAYER := preload("res://studio/player.gd")
 const EFFECTS := preload("res://studio/effects.gd")
 const UI := preload("res://studio/ui.gd")
 const LOOK := preload("res://studio/look.gd")
+const LIFE := preload("res://studio/life_view.gd")
 const SKY := Color(0.80, 0.86, 0.90)
 var effects: Node
 var ui: CanvasLayer
 var player: CharacterBody3D
 var cam: Camera3D
+var life: Node3D
 
 func _ready() -> void:
 	if ResourceLoader.exists(STUDIO_SCENE):
@@ -25,6 +27,8 @@ func _ready() -> void:
 	# the studio look (look.json: sky, fog, light, grade); without one, the game's own environment
 	if not LOOK.apply(self):
 		_add_environment()
+	# town life (studio life-bake): a seeded Saturday of folk, a dog walker, cars and a bus
+	life = LIFE.start(self)
 	effects = EFFECTS.start(self)
 	ui = UI.start(self)
 	var info = CHARS.manifest().get("player")

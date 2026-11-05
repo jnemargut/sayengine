@@ -1,0 +1,160 @@
+{
+  "stats": {
+    "places": 215,
+    "benches": 113,
+    "stalls": 10,
+    "piers": 2,
+    "busStops": 3,
+    "doors": 91,
+    "walkNodes": 2982,
+    "walkEdges": 4926,
+    "crossings": 86,
+    "carEdges": 257,
+    "signals": 21,
+    "folk": 170,
+    "dogs": 2,
+    "cars": 17,
+    "buses": 1,
+    "trips": 2742,
+    "outings": 425
+  },
+  "bakeMs": 221458,
+  "day": {
+    "from": 9.5,
+    "hours": 1,
+    "ms": 74437,
+    "peak": {
+      "folk": 47,
+      "cars": 13
+    },
+    "byHour": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      43.1,
+      38.6,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "checks": [
+      {
+        "name": "no two folk in one spot",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "few squeeze-pasts",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 61
+      },
+      {
+        "name": "nobody inside a building",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "folk stay on the walk",
+        "pass": false,
+        "count": 353,
+        "worst": 0,
+        "limit": 17
+      },
+      {
+        "name": "no pops",
+        "pass": false,
+        "count": 1,
+        "worst": 0.593,
+        "limit": 0
+      },
+      {
+        "name": "no car hits anyone",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "no two cars in one spot",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "nobody runs a red",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "no gridlock",
+        "pass": false,
+        "count": 9,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "dog at leash length",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "one sitter per seat",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      },
+      {
+        "name": "folk make room for the player",
+        "pass": false,
+        "count": 2,
+        "worst": 0.425,
+        "limit": 0
+      },
+      {
+        "name": "cars brake for the player",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0
+      }
+    ]
+  },
+  "parity": {
+    "seconds": 120,
+    "snapshots": 25,
+    "positions": 1307,
+    "worstMetres": 5.636176187821303e-13,
+    "visibilityMismatches": 0,
+    "godotMs": 156917,
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "pass": true
+  }
+}

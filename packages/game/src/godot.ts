@@ -99,12 +99,13 @@ export async function importProject(dir: string): Promise<ImportReport> {
 
 /** Round-trip a GLB through Godot in a throwaway project — for the studio's export checks. */
 export async function roundTrip(glbPath: string): Promise<ImportReport> {
-  const dir = path.join(os.tmpdir(), 'studio-godot-roundtrip');
-  fs.rmSync(dir, { recursive: true, force: true });
+  // a fresh folder per call: two round trips at once (an export in the daemon, a test) must not delete
+  // each other's project mid-import (Godot then fails with "getcwd … is null")
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-godot-roundtrip-'));
   fs.mkdirSync(path.join(dir, 'assets', 'studio'), { recursive: true });
   copyTemplate('godot', dir, { NAME: 'roundtrip' });
   fs.copyFileSync(glbPath, path.join(dir, 'assets', 'studio', 'scene.glb'));
-  return importProject(dir);
+  try { return await importProject(dir); } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
 /** Run one runner command. `windowed` is needed for anything that renders. */

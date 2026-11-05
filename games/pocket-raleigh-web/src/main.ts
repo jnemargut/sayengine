@@ -8,6 +8,7 @@ import { addStaticColliders, installHarness, startCharacters, type StudioGame } 
 import { startEffects } from '../studio/effects.ts';
 import { startUI } from '../studio/ui.ts';
 import { applyLook } from '../studio/look.ts';
+import { startLife } from '../studio/lifeview.ts';
 
 const STUDIO_SCENE = 'assets/studio/scene.glb';
 const SKY = '#cddbe5';
@@ -72,10 +73,14 @@ async function start(): Promise<StudioGame> {
   await applyLook(game);   // the studio look (look.json): sky, fog, light, grade — or keep the lights above
   await startEffects(game);
   await startUI(game);
+  // town life (studio life-bake): a seeded Saturday of folk, a dog walker, cars and a bus
+  const life = await startLife(game);
+  (window as any).life = life;
   renderer.setAnimationLoop(() => {
     if (game.paused) return;
     game.step(1 / 60);
     game.characters?.update(1 / 60);
+    life?.update(1 / 60);
     renderer.render(scene, camera);
   });
   return game;

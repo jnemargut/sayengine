@@ -286,6 +286,20 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - No per-building nodes in the engines: buildings are merged into ~110 m chunks with vertex colours (≈ 90 draw calls in Godot, ≈ 180 on the web with shadows, down from 1,700); the per-building ids ride in the chunk's extras.
 - Fetching needs the network and the free `overturemaps` CLI (`~/.studio-tools/venv`); USGS ground is US only.
 
+### Status (2026-11-05): weeks 12–13 (life: people, then vehicles) built on `phase4/life`
+**Built:** the life module (`packages/core/src/life/`, tools `life-bake` + `life-day`, skill `/life`). From the town plans it bakes one walk mesh (sidewalks, pedestrian streets, plazas, crosswalks at junctions and mid-plaza, piers) and one lane graph (walking lanes; right-hand car lanes split at junctions with stop lines, 21 signals, turn curves, a junction box), smart places that say what they offer (113 benches, 10 market stalls, 2 piers, 3 bus stops, 2 parks, ~90 doors), a seeded cast drawn from the studio's characters (8 folk on 5 body plans, a dog, 4 cars and a bus from the wheel rig parts) and their Saturday (170 folk, 2 dog walkers, ~425 outings, 17 cars on ~2,700 trips, the bus on a loop with stops). One `life.json` + `life-props.glb` feed both engines. Runtimes: `runtime.ts` (= the web's `studio/life.ts`) and `templates/godot/studio/life.gd`, plus the views (`lifeview.ts`, `life_view.gd`) with colliders so the player bumps into folk and vehicles and the runtime sees the player. Pocket Raleigh plays it in both engines: `checkpoint-pocket-raleigh/life/`.
+
+**Tests:** 167 (9 new: places and offers, walk mesh + right-hand lanes, the seeded day, runtime determinism + a half-hour headless day, cars at the line and braking for the player, folk making room, props GLB, tools/cast/runtime copy, and the Godot parity run). On this shared, heavily loaded machine the full suite went 166/167: the existing *web runtime … say* Chrome test timed out under load and passes on its own. Also fixed a race: the Godot round trip now uses a fresh folder per call (two at once deleted each other's project — "getcwd is null").
+
+**D30 tripwire:** the GDScript and TypeScript runtimes agree to **5.6e-13 m** (1,307 positions over 120 s + 60 s warm-up, no visibility mismatch; `node bench/life.ts`), and a parity test runs in `npm test`. No shared core needed.
+
+**Weak (honest):**
+- **The headless day is not green.** One hour of the Saturday (9:30–10:30, both towns, scripted player) passes 9 of 13 checks; it fails *folk stay on the walk* (corner grazes and folk held up at a crossing on the road), *no gridlock* (9 vehicles held > 150 s, mostly behind a stopped car at a junction box), one pop (0.59 m) and *folk make room for the player* (2 samples). A full 24-hour run has been worse earlier: crowd knots in narrow sidewalk pinches were the big one and are mostly fixed (keep-right lanes, sidestep, a face-to-face pair "slips past" after 3 s and is counted), but I haven't re-run 24 h on the final code.
+- **It reads as a quiet toy town, not a lively one.** ~50 folk out at 10:36 across two towns is thin on screen; vendors and anglers hold still poses; walkers follow sidewalk centre lines with little idle variety; folk appear and vanish at building doors.
+- Vehicles are static meshes (the creature export at the origin carries no wheel animation), and the studio evaluator caches creature meshes by op, so each vehicle has to be exported from a fresh daemon (`bench/life-export-vehicles.sh`).
+- Cast GLBs are ~5–7 MB each (face shapes and clips ride along): ~49 MB per game, heavy for the phone.
+- The bake takes ~40 s for both towns; the Godot runtime costs ~10 ms per 0.1 s tick for 190 agents (dictionaries; not optimised).
+
 ### Week 9: world, real
 - [x] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature. *(`world/plan.ts`; ids `ov:<GERS>`, `osm:w<id>`, `inv:<seed>:<lot>`)*
 - [x] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area. *(`studio world-fetch`; overturemaps CLI, the 3DEP ImageServer as raw float32, Overpass; cached in `.studio/cache/world/<area>`; a 56 KB offline test fixture)*
@@ -331,11 +345,11 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - Bake fallback: textures keep only a graded factor, not graded texels.
 
 ### Week 12: life, people
-- [ ] Smart places: benches, stalls, piers, dog walks.
-- [ ] Seeded cast and schedules by hour, season and event.
-- [ ] One baked walk mesh and lane graph, with the same polygons exported to both engines.
-- [ ] Small runtimes in TypeScript and GDScript with shared tests.
-- [ ] A sped-up headless day checks overlaps, wall crossings, pops and player collision.
+- [x] Smart places: benches, stalls, piers, dog walks. *(plus bus stops and doors; each place lists its offers and slots: bench `sit ×2`, stall `browse ×2 + tend`, pier `fish ×2`, park `walk-dog` for a pair, bus stop `wait ×3`)*
+- [x] Seeded cast and schedules by hour, season and event. *(`life/bake.ts`: roles (stall keepers, anglers, dog walkers, folk), 2–4 outings each from an hourly density per day type, the season's dusk, the Saturday market 8–13; slots booked so nobody shares a seat)*
+- [x] One baked walk mesh and lane graph, with the same polygons exported to both engines. *(`life/nav.ts`; `life.json` carries the walk polygons, both engines draw them as a debug overlay)*
+- [x] Small runtimes in TypeScript and GDScript with shared tests. *(`core/src/life/runtime.ts` = the web's `studio/life.ts`; `templates/godot/studio/life.gd`; the parity test runs both on one day)*
+- [x] A sped-up headless day checks overlaps, wall crossings, pops and player collision. *(`studio life-day`, `life/day.ts`; 13 checks, see the status below for what still fails)*
 
 ### Week 13: life, vehicles + sound
 - [ ] Cars and a bus on lanes: car following, stop lines, braking for the player. *(the life module, built in parallel)*
@@ -345,6 +359,13 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
   - seeded stems that adapt to the action (Godot interactive streams and a web version) *(pad/arp/bass/hats/beat/lead, an intensity ladder; Godot: AudioStreamSynchronized inside AudioStreamInteractive with stings; web: `studio/sound.ts`; both read one `sound.json`)*
   - beat-cut loops *(stems cut exactly on the bar with tails folded in; `studio sound loop` cuts recordings on librosa's grid)*
   - a licence on every file, feeding the credits *(REUSE `.license` sidecars → `CREDITS.md`; `sound credits` fails on a missing one)*
+- [x] Cars and a bus on lanes: car following, stop lines, braking for the player. *(IDM following, signals with amber/all-red, a junction box, right-hand traffic with no left turns, a bus loop with stops; the vehicles are wheel-rig creatures)*
+- [ ] sound:
+  - synth for game sounds
+  - Stable Audio Open Small and CC0 libraries for foley and ambience
+  - seeded stems that adapt to the action (Godot interactive streams and a web version)
+  - beat-cut loops
+  - a licence on every file, feeding the credits
 
 ### Week 14: reel + milestone
 - [x] Reel: a cutscene file plus an edit track. *(`packages/reel/`, `studio reel …`, skill `/reel`; `games/pocket-raleigh/reel/trailer.json`)*
