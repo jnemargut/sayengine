@@ -365,17 +365,29 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       if (!run) {
         // a walk vaults over the planted leg (an inverted pendulum): the hips ride as high as the
         // planted leg reaches nearly straight, highest at mid-stance, lowest where both feet are down
-        // (a soft minimum rounds that corner), never above standing height
+        // (a soft minimum rounds that corner), never above standing height. Averaged over a short window
+        // of the cycle, so a foot landing or lifting doesn't move the hips in one frame (bird legs did)
         const k = 0.012 * s;
-        let acc = 0;
-        for (const [side, f] of [['Left', fl], ['Right', fr]] as const) {
-          if (!f.down) continue;
-          const hx = (side === 'Left' ? L : R).hip[0] + swayX;
-          const dx = f.p[0] - hx, dz = f.p[2];
-          const top = f.p[1] + Math.sqrt(Math.max(0, walkReach ** 2 - dx * dx - dz * dz)) - hipDrop;
-          acc += Math.exp(-(top - hipsRest[1]) / k);
-        }
-        hipY = Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+        const hipAt = (pp: number) => {
+          const ql = footPath('Left', ((pp % 1) + 1) % 1), qr = footPath('Right', (((pp + 0.5) % 1) + 1) % 1);
+          const sx = sway * Math.cos(2 * Math.PI * pp - Math.PI * duty);
+          let acc = 0;
+          for (const [side, f] of [['Left', ql], ['Right', qr]] as const) {
+            if (!f.down) continue;
+            const hx = (side === 'Left' ? L : R).hip[0] + sx;
+            const dx = f.p[0] - hx, dz = f.p[2];
+            const top = f.p[1] + Math.sqrt(Math.max(0, walkReach ** 2 - dx * dx - dz * dz)) - hipDrop;
+            acc += Math.exp(-(top - hipsRest[1]) / k);
+          }
+          return Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+        };
+        // the lowest height over a short window, then averaged: never higher than the legs reach at this
+        // frame (each window minimum covers it), and a dip arrives over a few frames instead of one
+        const d = 0.012;
+        const raw = new Map<number, number>();
+        const at = (i: number) => { if (!raw.has(i)) raw.set(i, hipAt(p + i * d)); return raw.get(i)!; };
+        const ero = (j: number) => Math.min(at(j - 2), at(j - 1), at(j), at(j + 1), at(j + 2));
+        hipY = (ero(-2) + 2 * ero(-1) + 3 * ero(0) + 2 * ero(1) + ero(2)) / 9;
         // a bouncy gait dips into each step (where both feet are down)
         if (SM.dip) hipY -= SM.dip * s * (1 + Math.cos(4 * Math.PI * (p - duty / 2 + 0.25))) / 2;
       }

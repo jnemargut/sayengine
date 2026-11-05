@@ -81,7 +81,14 @@ try {
     if (name === 'bird') perform(id, 'bird-takes-off');
     if (name === 'windmill') perform(id, 'windmill-creaks-to-a-stop');
     report(studio('motion-checks', '--object', id).result.checks);
-    preview(id, path.join(out, name), name === 'crab' ? ['--demo-failure', 'true'] : []);
+    // long renders are split (the CLI's request to the daemon times out after ~5 minutes)
+    if (name === 'bird') {
+      preview(id, path.join(out, 'bird'), ['--motions', 'idle,fly,glide,hover', '--live', 'false']);
+      preview(id, path.join(out, 'bird-takeoff'), ['--motions', 'takeoff-fly-land', '--live', 'false']);
+    } else if (name === 'octopus') {
+      preview(id, path.join(out, 'octopus'), ['--motions', 'idle,pour-tea']);
+      preview(id, path.join(out, 'octopus-noted'), ['--motions', 'pour-tea-noted', '--live', 'false']);
+    } else preview(id, path.join(out, name), name === 'crab' ? ['--demo-failure', 'true'] : []);
     if (name === 'fish') {
       const eel = studio('new-creature', '--preset', 'eel').result.id;
       report(studio('motion-checks', '--object', eel).result.checks);
