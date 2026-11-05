@@ -84,7 +84,7 @@ export function wingBuild(spec: WingPartSpec) {
       const fl = lh * (0.62 + 0.11 * k) + c * 0.25;
       pieces.push({ bone: names[2], shape: { kind: 'blade', a: root, b: add(root, mul(dir, fl)), w: c * 0.3, normal: up, taper: 0.5 }, color: k >= 3 ? (spec.tipColor ?? spec.color) : spec.color, part: spec.id });
     }
-    limits[names[0]] = { kind: 'cone', maxDeg: 120 };
+    limits[names[0]] = { kind: 'cone', maxDeg: 150 };
     limits[names[1]] = { kind: 'cone', maxDeg: 172 };
     limits[names[2]] = { kind: 'cone', maxDeg: 172 };
     for (const n of names) fast[n] = Math.max(900, peak * 1.9 + 300);
@@ -117,10 +117,10 @@ export function wingPose(spec: WingPartSpec, mode: WingMode, phase: number, t: n
   const dn = u < d ? Math.sin((Math.PI * u) / d) : 0;
   const upS = u >= d ? Math.sin((Math.PI * (u - d)) / (1 - d)) : 0;
   const A = mode === 'hover' ? amp * 1.1 : amp;
-  const mid = mode === 'hover' ? 12 : 10;
+  const mid = mode === 'hover' ? 22 : 10;
   const elev = mid + A * e;
-  const twist = mode === 'hover' ? 28 * dn - 28 * upS : 14 * dn - 10 * upS;
-  const sweep = mode === 'hover' ? -26 * dn + 20 * upS : -5 * dn + 9 * upS;
+  const twist = mode === 'hover' ? 28 * dn - 10 * upS : 14 * dn - 10 * upS;
+  const sweep = mode === 'hover' ? -26 * dn + 8 * upS : -5 * dn + 9 * upS;
   const fold = (mode === 'hover' ? 18 : 42) * upS;
   return {
     arm: qMul(Y(sweep), qMul(Z(elev), X(twist))),
@@ -264,7 +264,7 @@ export function wingChecks(c: Creature, clip: CreatureClip, fks: FK[]): MotionCh
     const samples = c.pieces.filter((pc) => boneSet.has(pc.bone)).flatMap((pc) => bladePoints(pc.shape).map((p) => ({ b: c.index.get(pc.bone)!, p })))
       .filter((s) => !inside(sub(s.p, bodyHead)));
     const bad = new Array(F).fill(false);
-    let worst = 0;
+    let worst = 0, who = '';
     for (let f = 0; f < F; f++) {
       const fk = fks[f];
       for (const s of samples) {
@@ -273,11 +273,11 @@ export function wingChecks(c: Creature, clip: CreatureClip, fks: FK[]): MotionCh
         if (inside(l)) {
           bad[f] = true;
           const depth = 1 - Math.sqrt((l[0] / half[0]) ** 2 + (l[1] / half[1]) ** 2 + (l[2] / half[2]) ** 2);
-          worst = Math.max(worst, depth * Math.min(...half));
+          if (depth * Math.min(...half) > worst) { worst = depth * Math.min(...half); who = c.bones[s.b].name; }
         }
       }
     }
-    out.push(mk('wings clear the body', bad, worst, 0, 'm deep', 'no feather tip or wing edge passes into the body', spec.id));
+    out.push(mk('wings clear the body', bad, worst, 0, 'm deep', who ? `deepest: ${who}` : 'no feather tip or wing edge passes into the body', spec.id));
     // symmetry: the right wing mirrors the left
     const L = sides.find((s) => s.side > 0)!, R = sides.find((s) => s.side < 0)!;
     const sb = new Array(F).fill(false);
@@ -335,12 +335,11 @@ export function swimChecks(c: Creature, clip: CreatureClip, fks: FK[]): MotionCh
     const mid = latAt(b1, c.bones[b1].tail);
     const s1 = plan.front - c.bones[b1].tail[2], s2 = plan.front - tailRest[2];
     const n = F - 1;
-    let bestLag = 0, best = -Infinity;
-    for (let lag = 0; lag < n; lag++) {
-      let acc = 0;
-      for (let f = 0; f < n; f++) acc += mid[f] * tail[(f + lag) % n];
-      if (acc > best) { best = acc; bestLag = lag; }
-    }
+    const corr = Array.from({ length: n }, (_, lag) => { let acc = 0; for (let f = 0; f < n; f++) acc += mid[f] * tail[(f + lag) % n]; return acc; });
+    const best = Math.max(...corr);
+    // the first lag at the top of the correlation (a loop of several beats peaks once per beat)
+    let bestLag = corr.findIndex((v, i) => v >= best * 0.95 && v >= corr[(i + n - 1) % n] && v >= corr[(i + 1) % n]);
+    if (bestLag < 0) bestLag = corr.indexOf(best);
     const V = bestLag ? (s2 - s1) / (bestLag / clip.fps) : Infinity;
     const slip = clip.speed / V;
     const ok = V > clip.speed && slip > 0.25 && slip < 0.95;

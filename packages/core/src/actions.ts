@@ -9,7 +9,7 @@
 // DOM-free.
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qAngle, qInv, qSlerp, keyEase } from './motion.ts';
-import { bakeCreature, bonePoint, chainLocals, creatureFK, fabrik, sampleClip, terrainHeight, twoBoneKnee, type ChainPartSpec, type Creature, type CreatureClip, type CreatureMotion, type FK, type HingePartSpec, type LegsPartSpec, type MotionCheck, type PartShape, type PropPartSpec, type WingPartSpec } from './rigparts.ts';
+import { bakeCreature, bonePoint, chainLocals, legPole, creatureFK, fabrik, sampleClip, terrainHeight, twoBoneKnee, type ChainPartSpec, type Creature, type CreatureClip, type CreatureMotion, type FK, type HingePartSpec, type LegsPartSpec, type MotionCheck, type PartShape, type PropPartSpec, type WingPartSpec } from './rigparts.ts';
 import { flightPlan, legTuck, mirrorQ, wingPose, type WingMode } from './wings.ts';
 
 const TAU = Math.PI * 2;
@@ -246,7 +246,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
         let isDown = a.legs === 'plant' && b.legs === 'plant' && !moved;
         if (a.legs === 'plant' && b.legs === 'tuck' && e < 0.02) isDown = true;
         if (len(sub(target, hipW)) > reachL * 0.985) { target = add(hipW, mul(norm(sub(target, hipW)), reachL * 0.985)); isDown = false; }
-        const ik = twoBoneKnee(hipW, target, l1, l2, add(qRot(R[B], [leg.side, 0, 0.6]), [0, 1.0, 0]));
+        const ik = twoBoneKnee(hipW, target, l1, l2, legPole(leg, R[B]));
         if (isDown) reachMiss = Math.max(reachMiss, ik.miss);
         const locals = chainLocals(c, [leg.hip, leg.knee], [hipW, ik.knee, ik.foot], R[B]);
         R[bi(leg.hip)] = locals[0]; R[bi(leg.knee)] = locals[1];
@@ -330,7 +330,12 @@ function shapeBottom(s: PartShape): number {
   switch (s.kind) {
     case 'box': return s.c[1] - s.size[1] / 2;
     case 'ball': return s.c[1] - s.r * (s.scale?.[1] ?? 1);
-    case 'seg': return Math.min(s.a[1] - s.r1 * (s.squash?.[1] ?? 1), s.b[1] - s.r2 * (s.squash?.[1] ?? 1));
+    case 'seg': {
+      // the cross-section's reach downward: none for an upright cylinder, its radius lying flat
+      const d = [s.b[0] - s.a[0], s.b[1] - s.a[1], s.b[2] - s.a[2]], l = Math.hypot(d[0], d[1], d[2]) || 1;
+      const k = Math.sqrt(Math.max(0, 1 - (d[1] / l) ** 2));
+      return Math.min(s.a[1] - s.r1 * k, s.b[1] - s.r2 * k);
+    }
     case 'wheel': return s.c[1] - s.r;
     case 'blade': return Math.min(s.a[1], s.b[1]);
   }

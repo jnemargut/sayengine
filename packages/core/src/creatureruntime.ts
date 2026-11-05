@@ -7,7 +7,7 @@
 // test can drive it. Godot gets the baked clips (see the Phase 8 notes).
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qInv } from './motion.ts';
-import { chainLocals, gaitPhase, sampleClip, twoBoneKnee, type Creature, type CreatureClip, type LegsPartSpec, type WheelsPartSpec } from './rigparts.ts';
+import { chainLocals, gaitPhase, legPole, sampleClip, twoBoneKnee, type Creature, type CreatureClip, type LegsPartSpec, type WheelsPartSpec } from './rigparts.ts';
 
 const D2R = Math.PI / 180, TAU = Math.PI * 2;
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -142,8 +142,7 @@ export class CreatureRuntime {
         const hipB = c.bones[this.bi(leg.hip)], kneeB = c.bones[this.bi(leg.knee)];
         const hipL = add(bHead, qRot(R[B], sub(hipB.head, bodyRest)));
         const l1 = len(sub(hipB.tail, hipB.head)), l2 = len(sub(kneeB.tail, kneeB.head));
-        const pole = add(qRot(R[B], [leg.side, 0, 0]), [0, 1.2, 0]);
-        const ik = twoBoneKnee(hipL, loc[i], l1, l2, pole);
+        const ik = twoBoneKnee(hipL, loc[i], l1, l2, legPole(leg, R[B]));
         reachMiss = Math.max(reachMiss, ik.miss);
         const locals = chainLocals(c, [leg.hip, leg.knee], [hipL, ik.knee, ik.foot], R[B]);
         R[this.bi(leg.hip)] = locals[0];

@@ -74,6 +74,12 @@ export interface LegsPartSpec {
   joints?: boolean;                                    // knee balls (default true)
   footColor?: string;                                  // a darker tip
   hipX?: number;                                       // hips' distance out from the centre (× half body width, default 0.9)
+  fan?: number;                                        // feet's spread along the body (× the hips' spread, default 1.15): a spider's fan out
+  bend?: number;                                       // joint limit (deg, default 70 at the hip, 85 at the knee)
+  knee?: V3;                                           // the knee's rest offset from the hip (left leg; default up and out). A bird's points back: [0, -0.1, -0.06]
+  pole?: V3;                                           // which way the knee bends (body space, left leg; default out and up). A bird's: [0, 0, -1]
+  toes?: string;                                       // three toes at each foot, this colour (birds)
+  foot?: number;                                       // feet's forward offset from the hip (m, birds stand with their feet under the body)
 }
 export interface ChainPartSpec {
   kind: 'chain'; id: string; parent?: string;          // attach bone (default Body)
@@ -90,6 +96,7 @@ export interface ChainPartSpec {
   squash?: [number, number];                           // cross-section (side, up): a fish's tail is taller than wide
   limit?: number;                                      // bend limit per joint (deg)
   tip?: Array<{ shape: PartShape; color: string }>;    // shapes riding the last segment (a claw, a sucker pad), object space
+  under?: string;                                      // a lighter strip along the underside, this colour (an octopus's suckers, a belly)
 }
 /** A pair of wings (left given, right mirrored): arm, forearm and hand bones with feathers. Flap, glide,
  *  fold and hover poses, and a flight cycle, are computed from the wing's proportions (wings.ts). */
@@ -186,7 +193,7 @@ export interface Creature {
   spinners: Set<string>;           // bones that turn continuously (wheels, sails): no pop or loop-angle limits
   parts: BuiltPart[];
   size: number;                    // the body's longest dimension (checks scale with it)
-  legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number }>;
+  legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number; pole: V3 }>;
   fast: Record<string, number>;    // bones allowed to turn faster than the pop limit (wings beat): °/s
   wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string }>;
   props: Set<string>;              // prop bones (no parent unless held)
@@ -239,13 +246,13 @@ export function buildCreature(def: CreatureDef): Creature {
           for (const side of [1, -1] as const) {
             const tag = `${side > 0 ? 'L' : 'R'}${i + 1}`;
             const hip: V3 = [side * bw / 2 * (spec.hipX ?? 0.9), bodyY - bh * 0.1, z];
-            const foot: V3 = [side * (bw / 2 + spec.spread), 0, z * 1.15];
+            const foot: V3 = [side * (bw / 2 + spec.spread), 0, z * (spec.fan ?? 1.15) + (spec.foot ?? 0)];
             // the knee: up and out, so the lower segment reaches down to the foot
             const out = norm([foot[0] - hip[0], 0, foot[2] - hip[2]]);
             const dHoriz = Math.hypot(foot[0] - hip[0], foot[2] - hip[2]);
             const kneeUp = spec.kneeUp ?? spec.upper * 0.45;
             const kh = Math.min(spec.upper * 0.95, Math.sqrt(Math.max(0, spec.upper * spec.upper - kneeUp * kneeUp)));
-            const knee: V3 = [hip[0] + out[0] * Math.min(kh, dHoriz * 0.6), hip[1] + kneeUp, hip[2] + out[2] * Math.min(kh, dHoriz * 0.6)];
+            const knee: V3 = spec.knee ? add(hip, [side * spec.knee[0], spec.knee[1], spec.knee[2]]) : [hip[0] + out[0] * Math.min(kh, dHoriz * 0.6), hip[1] + kneeUp, hip[2] + out[2] * Math.min(kh, dHoriz * 0.6)];
             const upper = `${spec.id}.${tag}.upper`, lower = `${spec.id}.${tag}.lower`;
             addBone(C, upper, 'Body', hip, knee);
             addBone(C, lower, upper, knee, foot);
@@ -259,10 +266,16 @@ export function buildCreature(def: CreatureDef): Creature {
               pieces.push({ bone: lower, shape: { kind: 'seg', a: mid, b: tipAt, r1: spec.radius * lerp(0.85, tp, 0.72) * 0.97, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.footColor, part: spec.id });
             } else pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: tipAt, r1: spec.radius * 0.85, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
             if (spec.joints !== false) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
+            if (spec.toes) for (const a of [-32, 0, 32]) {
+              const d: V3 = [Math.sin((a * Math.PI) / 180) * side, 0, Math.cos((a * Math.PI) / 180)];
+              const tl = (spec.upper + spec.lower) * (a ? 0.16 : 0.2);
+              pieces.push({ bone: lower, shape: { kind: 'seg', a: [foot[0], spec.radius * 0.5, foot[2]], b: add([foot[0], spec.radius * 0.35, foot[2]], mul(d, tl)), r1: spec.radius * 0.55, r2: spec.radius * 0.2, sides: 8, round: true }, color: spec.toes, part: spec.id });
+            }
+            if (spec.toes) pieces.push({ bone: lower, shape: { kind: 'seg', a: [foot[0], spec.radius * 0.5, foot[2]], b: add([foot[0], spec.radius * 0.4, foot[2]], [0, 0, -(spec.upper + spec.lower) * 0.1]), r1: spec.radius * 0.5, r2: spec.radius * 0.2, sides: 8, round: true }, color: spec.toes, part: spec.id });
             contacts.push({ bone: lower, at: [foot[0], foot[1] + spec.radius * 0.45, foot[2]], kind: 'foot', part: spec.id });
-            limits[upper] = { kind: 'cone', maxDeg: 70 };
-            limits[lower] = { kind: 'cone', maxDeg: 85 };
-            legs.push({ part: spec.id, hip: upper, knee: lower, foot, side, pair: i });
+            limits[upper] = { kind: 'cone', maxDeg: spec.bend ?? 70 };
+            limits[lower] = { kind: 'cone', maxDeg: Math.max(85, spec.bend ?? 0) };
+            legs.push({ part: spec.id, hip: upper, knee: lower, foot, side, pair: i, pole: spec.pole ? [side * spec.pole[0], spec.pole[1], spec.pole[2]] : [side, 1.2, 0] });
           }
         }
         checks.push('feet planted (no sliding)', 'feet on the ground', 'balance over the feet', 'leg reach');
@@ -283,6 +296,10 @@ export function buildCreature(def: CreatureDef): Creature {
           pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
           if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
           if (i === spec.segments - 1) for (const x of spec.tip ?? []) pieces.push({ bone: name, shape: x.shape, color: x.color, part: spec.id });
+          if (spec.under) {
+            const dn: V3 = [0, -1, 0];
+            pieces.push({ bone: name, shape: { kind: 'seg', a: add(a, mul(dn, r1 * 0.42)), b: add(add(b, mul(dir, Math.min(r2, seg * 0.3))), mul(dn, r2 * 0.42)), r1: r1 * 0.68, r2: r2 * 0.68, sides: 10, round: true, squash: [1, 0.75] }, color: spec.under, part: spec.id });
+          }
           limits[name] = { kind: 'cone', maxDeg: spec.limit ?? (spec.motion === 'coil' || spec.motion === 'curl' ? 70 : 55) };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
           prev = name;
@@ -456,6 +473,15 @@ export function creatureFK(c: Pick<Creature, 'bones' | 'parents'>, rot: Q[], off
 
 /** Where a rest point on a bone is, given world transforms. */
 export const bonePoint = (c: Pick<Creature, 'bones'>, fk: FK, b: number, rest: V3): V3 => add(fk.pos[b], qRot(fk.rot[b], sub(rest, c.bones[b].head)));
+
+/** The direction a leg's knee bends toward, with the body turned by bodyRot. Legs that bend out and
+ *  up (spiders, crabs) keep "up" in the world; legs with a declared pole (a bird's, bending back) turn
+ *  with the body. */
+export function legPole(leg: Creature['legs'][number], bodyRot: Q): V3 {
+  const p = leg.pole;
+  if (p[1] === 1.2 && p[2] === 0 && Math.abs(p[0]) === 1) return add(qRot(bodyRot, [p[0], 0, 0]), [0, 1.2, 0]);
+  return qRot(bodyRot, p);
+}
 
 /** Gait phases per leg (fraction of a cycle each foot lifts at): alternating tripods for six legs,
  *  alternating tetrapods for eight, a lateral sequence for four, alternate for two. */
@@ -684,8 +710,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const hipB = c.bones[bi(ft.leg.hip)], kneeB = c.bones[bi(ft.leg.knee)];
           const hipW = add(bodyHead, qRot(bodyRot, sub(hipB.head, c.bones[bi('Body')].head)));
           const l1 = len(sub(hipB.tail, hipB.head)), l2 = len(sub(kneeB.tail, kneeB.head));
-          const pole = add(qRot(bodyRot, [ft.leg.side, 0, 0]), [0, 1.2, 0]);
-          const ik = twoBoneKnee(hipW, ft.target, l1, l2, pole);
+          const ik = twoBoneKnee(hipW, ft.target, l1, l2, legPole(ft.leg, bodyRot));
           reachMiss = Math.max(reachMiss, ik.miss);
           const locals = chainLocals(c, [ft.leg.hip, ft.leg.knee], [hipW, ik.knee, ik.foot], bodyRot);
           R[bi(ft.leg.hip)] = locals[0];
@@ -704,7 +729,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const hipB = c.bones[bi(leg.hip)], kneeB = c.bones[bi(leg.knee)];
           const hipW = add(bHead, qRot(R[B0], sub(hipB.head, c.bones[B0].head)));
           const tgt = add(bHead, qRot(R[B0], sub(m.kind === 'hover' ? add(legTuck(c, leg), [0, -0.2 * (len(sub(hipB.tail, hipB.head)) + len(sub(kneeB.tail, kneeB.head))), 0.35 * (len(sub(hipB.tail, hipB.head)) + len(sub(kneeB.tail, kneeB.head)))]) : legTuck(c, leg), c.bones[B0].head)));
-          const ik = twoBoneKnee(hipW, tgt, len(sub(hipB.tail, hipB.head)), len(sub(kneeB.tail, kneeB.head)), add(qRot(R[B0], [0, 0, 1]), [0, 0.3, 0]));
+          const ik = twoBoneKnee(hipW, tgt, len(sub(hipB.tail, hipB.head)), len(sub(kneeB.tail, kneeB.head)), legPole(leg, R[B0]));
           const locals = chainLocals(c, [leg.hip, leg.knee], [hipW, ik.knee, ik.foot], R[B0]);
           R[bi(leg.hip)] = locals[0]; R[bi(leg.knee)] = locals[1];
         }
@@ -1050,6 +1075,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
       const centres = spheres.map((s) => world(f, bonePoint(c, fks[f], s.b, s.c)));
       spheres.forEach((s, i) => {
         if (isContactBone.has(s.b) && s.pc.shape.kind !== 'box') return;   // feet/wheels are judged by their own checks
+        if (c.fx.has(c.bones[s.b].name)) return;                            // a hidden effect waits below the ground
         const depth = ground(centres[i]) - (centres[i][1] - s.r);
         if (depth > s.r * CHECK_LIMITS.penetrate) { wbad[f] = true; ww = Math.max(ww, depth); }
       });
