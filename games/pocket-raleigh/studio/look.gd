@@ -109,10 +109,8 @@ static func apply(root: Node3D, rec: Dictionary = {}) -> bool:
 		root.add_child(_outline(ol))
 	return true
 
-## Material tweaks by shading class ("studio:world lit" → lit) or by material name.
+## Lambert diffuse everywhere, then material tweaks by shading class ("studio:world lit" → lit) or by material name.
 static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:
-	if tweaks.is_empty():
-		return
 	var done := {}
 	for n in root.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
@@ -123,6 +121,8 @@ static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:
 			if not (m is BaseMaterial3D) or done.has(m):
 				continue
 			done[m] = true
+			# pinned shading: Lambert diffuse like three.js (Godot's default Burley brightens grazing views)
+			(m as BaseMaterial3D).diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT
 			var key := String(m.resource_name).trim_prefix("studio:")
 			var t = tweaks.get(key, tweaks.get(key.trim_prefix("world "), null))
 			if not (t is Dictionary):
