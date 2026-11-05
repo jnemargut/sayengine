@@ -347,7 +347,7 @@ Checkpoint: `checkpoint-pocket-raleigh/craft/` (README, eye-level sheet, all 14 
   - Light pools on the ground under lamps and masts, and shop spill, are an additive `pool` class in a "Light pools" node. They are invisible without a look.
 - **Storefront variety:** four front kinds, six frame colours, and fabric, metal or no canopy.
 - **Town meshes are indexed:** the GLB went from 50.2 to 38.6 MB, under the 40 MB budget.
-- **Parity** (Godot vs web FLIP, 14 views): day ≤ 0.110, night ≤ PARITY_NIGHT_MAX. Both are within the 0.15 target.
+- **Parity** (Godot vs web FLIP, 14 views): day ≤ 0.110, night ≤ 0.121. Both are within the 0.15 target.
 - **Weak:** see the checkpoint README.
   - At eye level, the Capitol reads clearly only from the head of the street. From City Plaza it is a small floodlit shape at the vista end.
   - The PAC is too far away to read from the plaza, and close up it is a civic box with a portico.

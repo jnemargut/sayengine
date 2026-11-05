@@ -186,7 +186,10 @@ static func _pool(b: BaseMaterial3D, t: Dictionary) -> void:
 	b.vertex_color_is_srgb = false
 	b.disable_fog = true
 	b.disable_receive_shadows = true
-	b.albedo_color = Color(tint.r * k, tint.g * k, tint.b * k, 1.0)
+	# albedo_color is an sRGB colour (Godot decodes it to linear in the shader): encode the linear
+	# tint × energy once, so the pool adds the same linear light as the web's MeshBasicMaterial
+	var lin := tint.srgb_to_linear()
+	b.albedo_color = Color(lin.r * k, lin.g * k, lin.b * k, 1.0).linear_to_srgb()
 
 ## A full-screen outline from the depth buffer: the same test as the web pass (a jump in 1/depth's
 ## Laplacian), drawn before tonemapping like the web's.

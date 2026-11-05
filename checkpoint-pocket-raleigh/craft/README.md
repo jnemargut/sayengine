@@ -24,6 +24,17 @@ Fayetteville St now ends in its two real landmarks: the **NC State Capitol** at 
 
 Two DEM grids never sample alike, and the old town's rules had graded its ground towards its roads. Together these left steps of 0.8–3 m at both seams. A new `seam` option (`world-town --seam "Pocket Raleigh"`) feathers a neighbour's ground over 60 m towards the other town's built ground before the rules run.
 
+To rebuild them:
+
+```
+studio world-fetch --name raleigh-union-square --bbox=-78.6413,35.7788,-78.6374,35.7818
+studio world-fetch --name raleigh-south-fayetteville --bbox=-78.6413,35.7700,-78.6374,35.7737
+studio world-town --name "Union Square" --source real --area raleigh-union-square --offset '[0,8,-447.687]' --seam "Pocket Raleigh"
+studio world-town --name "South Fayetteville" --source real --area raleigh-south-fayetteville --offset '[0,-3.3,486.376]' --seam "Pocket Raleigh"
+```
+
+The offsets are the shift between bounding-box centres plus the difference between the DEM reference heights.
+
 **The landmarks are modelled from references, not memory** (sources below). Each one is swapped in on its Overture footprint with the landmark fix.
 - **NC State Capitol.**
   - A cruciform block of grey-tan gneiss, 42.7 × 48.8 m, over a rusticated ground storey.
@@ -100,14 +111,81 @@ Fronts also get one of six frame colours and a fabric awning, a flat metal canop
 
 ## Parity (Godot vs web, FLIP mean, 14 pinned views)
 
-PARITY_TABLE
+| view | day toy | neon night |
+|---|---|---|
+| fayetteville-north | 0.083 | 0.045 |
+| fayetteville-south | 0.079 | 0.058 |
+| martin-west | 0.085 | 0.036 |
+| raleigh-aerial | 0.103 | 0.063 |
+| twin-main-street | 0.079 | 0.044 |
+| twin-aerial | 0.077 | 0.031 |
+| twin-river | 0.110 | 0.027 |
+| both-towns | 0.071 | 0.039 |
+| city-plaza | 0.088 | **0.121** |
+| skyline-south | 0.066 | 0.032 |
+| eye-north-capitol (new) | 0.078 | 0.087 |
+| eye-south-pac (new) | 0.080 | 0.076 |
+| capitol-close (new) | 0.074 | 0.026 |
+| pac-close (new) | 0.072 | 0.034 |
+| **worst** | **0.110** | **0.121** |
 
-The target was ≤ 0.15. VERDICT_PARITY
+The target was ≤ 0.15, and every view meets it in both looks.
+
+Getting there took four measured fixes:
+
+1. **The glow chain fitted to Godot.** I swept the web's gain against fixed Godot frames:
+
+   | web glow gain | mean FLIP, three night views |
+   |---|---|
+   | 0 (no glow) | 0.150 |
+   | 0.3 | 0.126 |
+   | **0.6** | **0.114** |
+   | 1.0 | 0.120 |
+   | 1.6 | 0.142 |
+
+   Gain 0.6 was best. Two other orders were tested and dropped: adding the glow after the tonemapper in sRGB (0.17–0.21) and a full-resolution first level (0.148).
+2. **Pools sat on the road and z-fought it in Godot.** They now float 20 cm above the ground.
+3. **Godot reads a material's albedo colour as sRGB.** A pool energy of 0.6 came out as 0.32 in linear light in Godot, but 0.6 on the web. With v3.1 that put fayetteville-south at 0.167. `look.gd` now encodes the linear value once, and that view dropped to 0.058.
+4. **Every pool, spill and glow is the same geometry and record in both engines.** Only the glow chain is engine-specific.
+
+What's left: city-plaza is the worst view at 0.121. It has the mast pools and the most glow, and Godot's halo is still a little tighter and brighter at the core than the web's. The rest is shadow filtering and anti-aliasing, as in week 11.
 
 ## How it looks from the street (honest)
 
-VERDICT
+**It now reads as Raleigh from the head of the street, and only half-reads from City Plaza.**
+
+- **The Capitol close-up** (`capitol-close`, about 130 m out at the top of Fayetteville St) is the best picture this project has made of Raleigh.
+  - It shows the pale stone block with its pilastered five-bay south front, the porticoes side-on, and the copper dome on its drum, framed by the street wall and parked cars.
+  - By day it is unmistakably the State Capitol at the end of the street. At night it is floodlit cream against a black sky.
+  - The dome loses most of its copper at night, because the flood class lights stone and copper alike.
+- **Looking north from City Plaza** (`eye-north-capitol`), the Capitol closes the vista, as it does in life. But it is small: about 450 m away and 30 m tall, it fills a few dozen pixels.
+  - The light masts, the Wells Fargo slab and the street wall do more of the work of saying "Fayetteville St" than the Capitol does.
+  - At night it is a small warm shape at the end of a dark street lined with lamps, which is about right.
+- **Looking south** (`eye-south-pac`), the PAC is too far (about 600 m) and too low (about 20 m) to read. It is a pale block at the vanishing point, half-hidden by trees.
+  - Close up (`pac-close`), the six-column portico with lit glass behind it reads as Memorial Auditorium.
+  - But the wings are plain buff boxes with mullioned glass, so it reads as "a civic auditorium", not specifically the PAC.
+- **The night** is a real improvement on v2.
+  - It has dark skies, darker facades, and two colours of street light. The shops glow onto the sidewalk and the lamps have halos.
+  - Lamp light now lies on the pavement instead of only on the lamp heads.
+  - It reads as a city at night, not a blue toy.
+- **The street walls are still rule-built.** The new storefront kinds give the ground floor some rhythm, but the upper floors are the same window grids as before.
+
+Overall: from the plaza it is "a downtown that ends at a domed capitol". Someone who knows Raleigh would probably get it. Someone who doesn't would see a generic capitol-at-the-end-of-Main-Street. From the head of the street, it is Raleigh.
 
 ## What's weak
 
-WEAK
+- **The vista ends are small.** Real perspective makes the Capitol tiny from City Plaza; a game camera or a slightly taller model would read better. I kept the real distances and heights.
+- **The PAC's massing is estimated.** Only the footprint is surveyed, and the six-column count rests on one photo caption. The wings are plain boxes.
+- **Pools and glow are not real lights.**
+  - Pools are flat additive fans 20 cm off the ground. They don't light walls, trees or cars, and at a grazing angle you can see they float.
+  - The mast pools are still a large, even disc.
+  - The glow is a screen effect, not light.
+- **The big shopfront on the east side of City Plaza is still a white lightbox at night.** The shop class is one energy for every pane: a large single pane saturates.
+- **The flood class is one constant warm emission.** It lights the Capitol's copper dome the same as its stone, so the dome nearly vanishes at night.
+- **The second A/B pick (v3.1 over v3) was made before the Godot pool-colour fix.** At that time Godot showed v3.1's pools at about half strength. After the fix, Godot's pools are brighter than in that sheet and match the web's. I didn't re-run the A/B.
+- **The seams between towns are smooth now, but not invisible.** The neighbouring towns' streets are graded on their own, and Fayetteville St changes width at the north seam (tertiary vs residential in OSM).
+- **The day stills were rendered before the pools were lifted 20 cm.** Pools don't draw by day (alpha 0), so the pictures are unaffected.
+- **The scene GLB is 38.6 MB, close to the 40 MB budget.** The two new towns doubled the ground and tree count.
+- **The phone check (`proof phone`) was not re-run.** There are now about 460k triangles and more transparent geometry (pools), plus a glow chain on the web, so the phone frame time is unmeasured.
+- **The studio `check` flags "one connected piece"** for the Capitol (the Washington statue stands apart) and for the PAC. These are landmarks, not printable objects.
+- **The style score was not re-run.** Decision 29's tripwire stands.

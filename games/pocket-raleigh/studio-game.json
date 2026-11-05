@@ -7,12 +7,12 @@
   },
   "player": "Walker",
   "lastImport": {
-    "at": "2026-11-05T11:29:09.667Z",
+    "at": "2026-11-05T14:30:53.670Z",
     "file": "assets/studio/scene.glb",
     "source": "studio scene",
     "ok": true,
-    "triangles": 252886,
-    "meshes": 46,
+    "triangles": 462239,
+    "meshes": 88,
     "warnings": 0
   }
 }

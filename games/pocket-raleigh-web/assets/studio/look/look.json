@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "name": "day-toy",
-  "label": "Day toy: a bright, clean model-railway morning; colours faithful, shadows a little cool, a thin ink line",
+  "name": "neon-night",
+  "label": "Neon night (v3): a real night — near-black navy sky, neutral dark shadows; warm sodium and white LED street light pooling on the ground, lit shops spilling onto the sidewalk, a floodlit Capitol, glow around every light",
   "tonemap": {
-    "curve": "neutral",
-    "exposure": 0.1
+    "curve": "aces",
+    "exposure": 0.3
   },
   "grade": {
-    "temperature": 0.06,
+    "temperature": 0,
     "tint": 0,
-    "contrast": 1.06,
+    "contrast": 1.08,
     "saturation": 1,
     "vibrance": 0.05,
     "lift": [
-      0.01,
-      0.01,
-      0.018
+      0.004,
+      0.004,
+      0.006
     ],
     "gamma": [
       1,
@@ -23,17 +23,17 @@
       1
     ],
     "gain": [
-      1.02,
       1,
-      0.97
+      1,
+      1
     ],
     "shadows": {
-      "color": "#4a6688",
-      "amount": 0.05
+      "color": "#2a3340",
+      "amount": 0.08
     },
     "highlights": {
-      "color": "#ffe8c2",
-      "amount": 0.08
+      "color": "#ffc88a",
+      "amount": 0.12
     }
   },
   "lutSize": 33,
@@ -43,71 +43,119 @@
     "softness": 0.1
   },
   "outline": {
-    "enabled": true,
+    "enabled": false,
     "width": 1,
-    "color": "#2a2630",
+    "color": "#0d0b1a",
     "threshold": 0.08
   },
   "palette": {
-    "sky": "#bcd6ea",
-    "brick": "#a8503c",
-    "limestone": "#e2d8c3",
-    "glass": "#3f6f8a",
-    "leaf": "#5f8f3e",
-    "awning": "#2f6d5a",
-    "accent": "#e0a43a",
-    "asphalt": "#575a63"
+    "sky": "#0a1019",
+    "haze": "#3a2a6a",
+    "window": "#ffc073",
+    "magenta": "#ff4fb0",
+    "cyan": "#3fe0ff",
+    "asphalt": "#1a1c20",
+    "brick": "#5a3a30",
+    "sodium": "#ffa04a",
+    "led": "#fff0dc"
   },
   "sky": {
-    "color": "#bcd6ea"
+    "color": "#0a1019"
   },
   "fog": {
     "enabled": true,
-    "color": "#c9dcea",
-    "begin": 380,
-    "end": 2200
+    "color": "#111822",
+    "begin": 140,
+    "end": 1200
   },
   "light": {
     "sun": {
-      "color": "#fff3df",
-      "energy": 1.1,
-      "elevation": 63,
-      "azimuth": 28,
+      "color": "#aebbd0",
+      "energy": 0.14,
+      "elevation": 40,
+      "azimuth": 210,
       "shadows": true
     },
     "ambient": {
-      "color": "#d2d8e2",
-      "energy": 0.85
+      "color": "#8f97a6",
+      "energy": 0.15
     }
   },
   "materials": {
+    "lit": {
+      "emission": "#ffc073",
+      "emissionEnergy": 1.6
+    },
     "lamp": {
-      "emission": "#fff2cc",
-      "emissionEnergy": 0.3
+      "emission": "#ffa04a",
+      "emissionEnergy": 7
+    },
+    "led": {
+      "emission": "#fff0dc",
+      "emissionEnergy": 7
+    },
+    "neon": {
+      "emission": "#ff4fb0",
+      "emissionEnergy": 4
+    },
+    "sign": {
+      "emission": "#3fe0ff",
+      "emissionEnergy": 2
+    },
+    "shop": {
+      "emission": "#ffd29a",
+      "emissionEnergy": 1
+    },
+    "flood": {
+      "emission": "#ffd7a3",
+      "emissionEnergy": 0.16
+    },
+    "pool": {
+      "emission": "#ffffff",
+      "emissionEnergy": 0.6
+    },
+    "water": {
+      "roughness": 0.08,
+      "tint": "#3a4a5a"
     }
+  },
+  "bloom": {
+    "enabled": true,
+    "threshold": 1.2,
+    "softness": 2,
+    "intensity": 0.45,
+    "levels": [
+      0,
+      0.8,
+      1,
+      0.6,
+      0.3,
+      0,
+      0
+    ]
   },
   "fallback": "auto",
   "board": {
     "references": [],
     "colourfulness": [
-      30,
+      20,
       55
     ],
-    "paletteMatch": 0.55
+    "paletteMatch": 0.5
   },
   "derived": {
     "toSun": [
-      0.2131356294026726,
-      0.8910065241883678,
-      0.4008498189258542
+      -0.3830222215594891,
+      0.6427876096865393,
+      -0.6634139481689384
     ],
     "godotRotationDegrees": [
-      -63,
-      28,
+      -40,
+      210,
       0
     ],
-    "threeSunIntensity": 3.455751918948773,
-    "threeAmbientIntensity": 2.670353755551324,
+    "threeSunIntensity": 0.4398229715025711,
+    "threeAmbientIntensity": 0.47123889803846897,
     "lut": {
       "size": 33,
       "strip": "lut.png",

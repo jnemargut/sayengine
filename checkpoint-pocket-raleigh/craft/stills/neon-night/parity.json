@@ -1,0 +1,16 @@
+{
+  "fayetteville-north": 0.045,
+  "fayetteville-south": 0.0578,
+  "martin-west": 0.0364,
+  "raleigh-aerial": 0.0626,
+  "twin-main-street": 0.0436,
+  "twin-aerial": 0.031,
+  "twin-river": 0.0266,
+  "both-towns": 0.0386,
+  "city-plaza": 0.1208,
+  "skyline-south": 0.0321,
+  "eye-north-capitol": 0.0867,
+  "eye-south-pac": 0.0755,
+  "capitol-close": 0.0255,
+  "pac-close": 0.0344
+}
