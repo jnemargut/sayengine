@@ -6,6 +6,7 @@ import type { SceneDoc } from '../types.ts';
 import { ACTIONS, actionTempo } from '../motion.ts';
 import { applyNotes } from '../actions.ts';
 import { cutsceneTimeline } from '../cutscene.ts';
+import { ACTION_EVENTS } from '../effects.ts';
 import { TICKS, secondsToTicks, stamp, type Clock, type MomentAddress, type Timeline } from './address.ts';
 
 export type TimelineProvider = (doc: SceneDoc, thing: string, clock: Clock, ctx?: { studio?: any }) => Timeline | null | undefined;
@@ -20,6 +21,7 @@ export function timelineFor(doc: SceneDoc, thing: string, clock: Clock, ctx: { s
   const [kind, name] = [clock.slice(0, clock.indexOf(':')), clock.slice(clock.indexOf(':') + 1)];
   if (kind === 'clip') return clipTimeline(doc, head, name);
   if (kind === 'shot') return shotTimeline(doc, name, ctx.studio);
+  if (kind === 'sound' || kind === 'beats') return soundTimeline(doc, head, kind, name);
   return null;
 }
 
@@ -41,6 +43,7 @@ export function assetRecord(doc: SceneDoc, kind: string, key: string): unknown {
     case 'object': return d.objects?.[key];
     case 'cutscene': return d.cutscenes?.[key];
     case 'effect': return d.effects?.[key];
+    case 'sound': return d.sounds?.[key];
     case 'look': return d.look?.looks?.[key];
     case 'ui': return d.ui;
     case 'town': return d.world?.towns?.[key];
@@ -69,6 +72,8 @@ export function clipTimeline(doc: SceneDoc, objectId: string, motion: string): T
   const dur = (spec.duration ?? def?.duration ?? 2) * actionTempo(spec.notes ?? []);
   const markers: Timeline['markers'] = {};
   (def?.keys ?? []).forEach((k: any, i: number) => { const name = k.label ?? `key ${i + 1}`; if (!(name in markers)) markers[name] = { at: secondsToTicks(k.at * dur) }; });
+  // a library action's named moments (the strike's "impact"): effects and sounds fire on them
+  for (const [name, frac] of Object.entries(ACTION_EVENTS[spec.action] ?? {})) if (!(name in markers) && frac < 1) markers[name] = { at: secondsToTicks(frac * dur) };
   return { clock: `clip:${motion}`, thing: objectId, length: secondsToTicks(dur), version: stamp(spec), markers };
 }
 
@@ -91,6 +96,31 @@ function shotTimeline(doc: SceneDoc, id: string, studio?: any): Timeline | null 
   for (const s of shots) markers[`shot ${s.id}`] = { at: secondsToTicks(s.start), len: secondsToTicks(s.end - s.start) };
   for (const e of events) if (!(e.name in markers)) markers[e.name] = { at: secondsToTicks(e.t) };
   return { clock: `shot:${id}`, thing: `cutscene:${id}`, length: secondsToTicks(duration), version: stamp(cs), markers, shots: shots.map((s) => ({ id: s.id, at: secondsToTicks(s.start), len: secondsToTicks(s.end - s.start) })) };
+}
+
+/**
+ * A scene sound's clock (Phase 10 step 2): sound:<id> (an event or bed: its length, no moments) and
+ * beats:<id> (music: bars and beats are its moments, "bar 3"). Lengths come from the recipe; the
+ * rendered audio is a cache. Voice lines (sound:line-<id> on a character) are timed by their line.
+ */
+function soundTimeline(doc: SceneDoc, thing: string, kind: string, name: string): Timeline | null {
+  const d: any = doc;
+  if (name.startsWith('line-')) {
+    const o = doc.objects[thing];
+    const l = o?.character?.lines?.[name.slice(5)];
+    if (!l) return { clock: `sound:${name}` as Clock, thing, length: 0, version: 'gone', markers: {}, exists: false };
+    return { clock: `sound:${name}` as Clock, thing, length: secondsToTicks(l.duration), version: stamp(l), markers: {} };
+  }
+  const s = d.sounds?.[name];
+  if (!s) return { clock: `${kind}:${name}` as Clock, thing, length: 0, version: 'gone', markers: {}, exists: false };
+  if (kind === 'beats' || s.kind === 'music') {
+    const bpm = s.music?.bpm ?? 96, bars = s.music?.bars ?? 8, bar = (60 / bpm) * 4;
+    const markers: Timeline['markers'] = {};
+    for (let b = 0; b < bars; b++) markers[`bar ${b + 1}`] = { at: secondsToTicks(b * bar), len: secondsToTicks(bar) };
+    return { clock: `beats:${name}` as Clock, thing, length: secondsToTicks(bars * bar), version: stamp(s), markers, bpm, beatsPerBar: 4 };
+  }
+  const len = s.kind === 'bed' ? s.bed?.seconds ?? 8 : 1.6;
+  return { clock: `sound:${name}` as Clock, thing, length: secondsToTicks(len), version: stamp(s), markers: {} };
 }
 
 /** A fresh address for something selected: model parts are timeless; a moment on a clip snaps to the nearest named key. */
