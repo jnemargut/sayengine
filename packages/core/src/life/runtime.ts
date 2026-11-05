@@ -14,7 +14,7 @@ export const IDM = { T: 1.2, s0: 2.2, a: 1.6, b: 2.6 };
 
 // ── data (life.json, written by the bake) ───────────────────────────────────
 export interface LifeSignal { id: string; at: [number, number]; cycle: number; offset: number; green: [number, number]; amber: number; allRed: number }
-export interface LifeEdge { id: string; pts: number[]; speed: number; stop?: { sig: number; group: number }; bus?: number[]; turn?: boolean; conf?: number[] }
+export interface LifeEdge { id: string; pts: number[]; speed: number; stop?: { sig: number; group: number }; bus?: number[]; turn?: boolean; conf?: number[]; jn?: number }
 export interface LifeCross { s0: number; s1: number; sig: number; group: number }
 export interface LifeMove { k: 'move'; t: number; p: number; cross?: LifeCross[] }
 export interface LifeAct { k: 'act'; t: number; t1: number; at: [number, number, number]; face: number; pose: string; slot: number; place?: string }
@@ -34,6 +34,7 @@ export interface AgentState {
   x: number; y: number; z: number; yaw: number; pose: string;
   actStart: number; actEnd: number; moveStart: number; fromX: number; fromY: number; fromZ: number;
   slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
+  fx: number; fz: number;                 // the walking frame: turns smoothly, so a sharp corner never flips our side
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
 
@@ -168,7 +169,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1 };
   }
 
   firstTrip(i: number, t: number): number {
@@ -209,6 +210,7 @@ export class LifeRuntime {
   placeOnPath(i: number, p: number) {
     const st = this.agents[i];
     const P = pointAt(this.paths[p], 4, st.s), D = dirAt(this.paths[p], 4, st.s);
+    st.fx = D[0]; st.fz = D[1];
     // right of travel (x east, z south, y up): (-dz, dx) — lat > 0 keeps right
     st.x = P[0] - D[1] * st.lat; st.z = P[2] + D[0] * st.lat; st.y = P[1];
   }
@@ -237,9 +239,9 @@ export class LifeRuntime {
       // walking on from one leg into the next: carry on where we are (no blend, keep our side)
       if (wasMove) {
         st.moveStart = this.t - 10;
-        const P0 = pointAt(this.paths[g.p], 4, 0), D0 = dirAt(this.paths[g.p], 4, 0);
-        st.lat = clamp((st.x - P0[0]) * -D0[1] + (st.z - P0[2]) * D0[0], -P0[3] + A.r, P0[3] - A.r);
-      } else { st.moveStart = this.t; st.lat = 0; }
+        const P0 = pointAt(this.paths[g.p], 4, 0);
+        st.lat = clamp((st.x - P0[0]) * -st.fz + (st.z - P0[2]) * st.fx, -P0[3] + A.r, P0[3] - A.r);
+      } else { st.moveStart = this.t; st.lat = 0; const D0 = dirAt(this.paths[g.p], 4, 0); st.fx = D0[0]; st.fz = D0[1]; }
     }
     else {
       st.actStart = this.t; st.actEnd = Math.max(g.t1, this.t + 3);
@@ -276,7 +278,17 @@ export class LifeRuntime {
     }
     if (g.k === 'act') {
       if (g.pose === 'inside') { st.v = 0; if (this.t >= st.actEnd) this.nextSeg(i); return; }
-      const k = st.stay ? 0 : clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
+      let k = st.stay ? 0 : clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
+      if (k > 0 && k < 1 + dt / SIT_BLEND) {
+        // settling into the spot: wait while someone stands in it
+        const cx = st.fromX + (g.at[0] - st.fromX) * k, cz = st.fromZ + (g.at[2] - st.fromZ) * k;
+        for (let j = 0; j < this.agents.length; j++) {
+          if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
+          const r = A.r + this.data.agents[j].r;
+          const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
+          if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) { st.actStart += dt; st.actEnd += dt; k = clamp((this.t - st.actStart) / SIT_BLEND, 0, 1); break; }
+        }
+      }
       st.x = st.fromX + (g.at[0] - st.fromX) * k; st.y = st.fromY + (g.at[1] - st.fromY) * k; st.z = st.fromZ + (g.at[2] - st.fromZ) * k;
       st.yaw = angleTo(st.yaw, g.face, 4 * dt);
       st.v = 0;
@@ -288,7 +300,14 @@ export class LifeRuntime {
     }
     if (this.t < g.t) { st.v = 0; return; }               // not time yet (waiting where we are)
     const P = this.paths[g.p];
-    const pt = pointAt(P, 4, st.s), D = dirAt(P, 4, st.s);
+    const pt = pointAt(P, 4, st.s), Dp = dirAt(P, 4, st.s);
+    // turn the walking frame toward the path at most 2.6 rad/s
+    {
+      const a0 = Math.atan2(st.fx, st.fz), a1 = Math.atan2(Dp[0], Dp[1]);
+      const a = angleTo(a0, a1, 2.6 * dt);
+      st.fx = Math.sin(a); st.fz = Math.cos(a);
+    }
+    const D = [st.fx, st.fz];
     const hw = pt[3];
     let want = A.speed, latT = Math.min(0.4, hw * 0.4);
     // crossings: wait at the curb for the walk signal
@@ -347,8 +366,8 @@ export class LifeRuntime {
     if (st.v < 0) st.v = 0;
     const ns = st.s + st.v * dt;
     // where that puts us (rising from a seat or a spot: blended from where the act left us)
-    const P2 = pointAt(P, 4, ns), D2 = dirAt(P, 4, ns);
-    let cx = P2[0] - D2[1] * st.lat, cz = P2[2] + D2[0] * st.lat;
+    const P2 = pointAt(P, 4, ns);
+    let cx = P2[0] - D[1] * st.lat, cz = P2[2] + D[0] * st.lat;
     const k = clamp((this.t - st.moveStart) / SIT_BLEND, 0, 1);
     if (k < 1) { cx = st.fromX + (cx - st.fromX) * k; cz = st.fromZ + (cz - st.fromZ) * k; }
     // never step into someone (or the player): stay put this tick instead
@@ -451,11 +470,12 @@ export class LifeRuntime {
       if (this.t < trip.t || this.t < st.waitUntil) return;
       // enter only when the start of the lane is clear
       const e0 = trip.edges[0];
+      const S0 = this.edges[e0];
       for (let j = 0; j < this.vehicles.length; j++) {
         const o = this.vehicles[j];
         if (j === i || !o.visible) continue;
-        const ot = this.tripOf(j);
-        if (ot && ot.edges[o.leg] === e0 && o.s < V.len + 8) { st.waitUntil = this.t + 1; return; }
+        const dx = o.x - S0.pts[0], dz = o.z - S0.pts[2], lim = (V.len + this.data.vehicles[j].len) / 2 + 6;
+        if (dx * dx + dz * dz < lim * lim) { st.waitUntil = this.t + 1; return; }
       }
       st.visible = true; st.leg = 0; st.s = 0; st.v = this.data.edges[e0].speed * 0.6; st.dwell = 0; st.stopDone = -1;
       this.placeVehicle(i);
@@ -508,6 +528,8 @@ export class LifeRuntime {
           if (!o.visible) continue;
           const ot = this.tripOf(j)!;
           const oe = ot.edges[o.leg];
+          const oj = this.data.edges[oe].jn;
+          if ((V.len > 6 || this.data.vehicles[j].len > 6) && oj !== undefined && oj === ne.jn && this.data.edges[oe].turn) { busy = true; break; }
           const half = this.data.vehicles[j].len / 2 + 0.5;
           const prevE = o.leg > 0 ? ot.edges[o.leg - 1] : this.data.vehicles[j].loop ? ot.edges[ot.edges.length - 1] : -1;
           const nextE = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : this.data.vehicles[j].loop ? ot.edges[0] : -1;
@@ -554,7 +576,7 @@ export class LifeRuntime {
         if (!o.visible) continue;
         moving = o.v > 0.05;
         // folk standing on the sidewalk (waiting at the curb, chatting) aren't in the road
-        if (!moving && !o.onCross) continue;
+        if (o.wait && !o.onCross) continue;
         px = o.x; pz = o.z; pr = this.data.agents[j].r;
       }
       const dx = px - st.x, dz = pz - st.z;
@@ -575,15 +597,13 @@ export class LifeRuntime {
     st.v += acc * dt;
     if (st.v < 0 || hard) st.v = 0;
     st.s += st.v * dt;
-    while (st.s > EP.len) {
-      st.s -= EP.len;
+    while (st.s > this.edges[trip.edges[st.leg]].len) {
+      st.s -= this.edges[trip.edges[st.leg]].len;
       st.leg += 1;
       if (st.leg >= trip.edges.length) {
         if (V.loop) { st.leg = 0; st.stopDone = -1; }
         else { st.visible = false; st.trip += 1; st.waitUntil = this.t + 1; return; }
       }
-      const ne = this.edges[trip.edges[st.leg]];
-      if (st.s > ne.len) st.s = ne.len;
     }
     this.placeVehicle(i);
   }

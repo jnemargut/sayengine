@@ -103,8 +103,8 @@ export class WalkSpace {
   walkableRaw(p: P2): boolean {
     if (this.blocked.some((r) => inRect(p, r, 0.25))) return false;
     if (this.onPier(p)) return true;
+    if (this.inCrossing(p) && !this.inBuilding(p, 0)) return true;
     if (this.inBuilding(p)) return false;
-    if (this.inCrossing(p)) return true;
     if (this.onRoad(p, 0.25)) return false;
     if (this.inPoly(p, this.water)) return false;
     for (const s of this.walkers) {
@@ -273,8 +273,19 @@ export function carLanes(ws: WalkSpace, junctions: Junction[], opts: { speed: nu
       }
     }
   }
+  // lanes that simply carry on into another street piece (an end-to-end join, not a junction)
+  for (const a of edges.slice()) {
+    if (a.to !== -1) continue;
+    const P0 = a.pts[a.pts.length - 1];
+    const b = edges.find((e) => e !== a && e.from === -1 && Math.hypot(e.pts[0][0] - P0[0], e.pts[0][2] - P0[2]) < 4 && dot2(a.endDir, e.startDir) > 0.7);
+    if (!b) continue;
+    const pts: Array<[number, number, number]> = [P0, b.pts[0]];
+    const j: CarEdge = { id: edges.length, pts, street: a.street, from: -2, to: -2, kind: 'turn', speed: a.speed, next: [b.id], turnOf: [a.id, b.id], startDir: a.endDir, endDir: b.startDir };
+    edges.push(j);
+    a.next.push(j.id); a.to = -2; b.from = -2;
+  }
   // turn curves at junctions: straight on and right turns only (no left turns: no head-on conflicts)
-  const lanes = edges.slice();
+  const lanes = edges.filter((e) => e.kind === 'lane');
   for (const J of junctions) {
     const ins = lanes.filter((e) => e.to === J.id), outs = lanes.filter((e) => e.from === J.id);
     for (const a of ins) {

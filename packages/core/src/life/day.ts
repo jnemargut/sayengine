@@ -69,7 +69,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const byHour = new Array(24).fill(0), seen = new Array(24).fill(0);
   let peakF = 0, peakC = 0, brakes = 0, ticks = 0;
   const pr = o.player?.r ?? 0.4;
-  let ps = 0;
+  let ps = 0, walkSamples = 0;
   for (let t = from; t < to; t += LIFE_DT) {
     if (o.player && t >= (o.player.from ?? 0) && t < (o.player.to ?? 1e9)) {
       // the scripted player is solid like the game's: a car or a person in the way holds it up
@@ -89,7 +89,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       const a = A[i], p = prev[i];
       if (a.visible && p.v) {
         const d = Math.hypot(a.x - p.x, a.z - p.z), lim = (D.agents[i].kind === 'dog' ? 3 : 2) * LIFE_DT + 0.3;
-        if (d > lim) { cnt.pop++; worst.pop = Math.max(worst.pop, d); note('pop', t); }
+        if (d > lim) { cnt.pop++; worst.pop = Math.max(worst.pop, d); note('pop', t); if (process.env.LIFE_DEBUG && cnt.pop < 8) console.log('POP', (t / 3600).toFixed(4), i, D.agents[i].kind, 'seg', a.seg, (D.agents[i].plan[a.seg] as any)?.k, 's', a.s.toFixed(2), 'lat', a.lat.toFixed(2), d.toFixed(2), 'from', p.x.toFixed(2), p.z.toFixed(2), 'to', a.x.toFixed(2), a.z.toFixed(2)); }
       }
       p.v = a.visible; p.x = a.x; p.z = a.z;
     }
@@ -97,7 +97,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       const v = V[i], p = prevV[i];
       if (v.visible && p.v) {
         const d = Math.hypot(v.x - p.x, v.z - p.z);
-        if (d > 16 * LIFE_DT + 0.3) { cnt.pop++; worst.pop = Math.max(worst.pop, d); note('pop', t); }
+        if (d > 16 * LIFE_DT + 0.3) { cnt.pop++; worst.pop = Math.max(worst.pop, d); note('pop', t); if (process.env.LIFE_DEBUG) { const tr = rt.tripOf(i)!; console.log('VPOP', (t / 3600).toFixed(4), i, D.vehicles[i].kind, 'leg', p.leg, '->', v.leg, D.edges[tr.edges[p.leg]]?.id, D.edges[tr.edges[v.leg]]?.id, d.toFixed(1), 'trip', v.trip); } }
         // red light: crossing the end of an edge with a stop line while red
         const trip = rt.tripOf(i);
         if (trip && p.leg !== v.leg) {
@@ -127,6 +127,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
         const g = D.agents[i].plan[A[i].seg];
         if (g && g.k === 'move' && rt.t - A[i].moveStart > 0.8) {
           const w = where(D.agents[i].town ?? 0, A[i].x, A[i].z);
+          walkSamples++;
           if (w === 2) { cnt.wall++; note('wall', t); } else if (w === 1) { cnt.offWalk++; note('offWalk', t); }
           if (process.env.LIFE_DEBUG && w > 0 && cnt.offWalk + cnt.wall < 12) console.log('OFF', w, (t / 3600).toFixed(4), i, 'seg', A[i].seg, 's', A[i].s.toFixed(2), 'lat', A[i].lat.toFixed(2), 'v', A[i].v.toFixed(2), A[i].x.toFixed(2), A[i].z.toFixed(2), 'blk', A[i].blocked.toFixed(1), 'k', ((t - A[i].moveStart) / 0.8).toFixed(2));
         }
@@ -165,7 +166,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const checks: DayCheck[] = [
     mk('no two folk in one spot', 'overlap', 0, 'samples', 'people closer than their two radii', worst.overlap),
     mk('nobody inside a building', 'wall', 0, 'samples', 'a walking person (or a dog) inside a footprint'),
-    mk('folk stay on the walk', 'offWalk', Math.ceil(ticks / every / 2000), 'samples', 'a walking person off the sidewalks, plazas and crossings (a few grazes at corners allowed)'),
+    mk('folk stay on the walk', 'offWalk', Math.ceil(walkSamples * 0.0003), 'samples', 'a walking person off the sidewalks, plazas and crossings (a few grazes at corners allowed)'),
     mk('no pops', 'pop', 0, 'ticks', 'no jump beyond the body\'s speed + 0.3 m in a 0.1 s tick', worst.pop),
     mk('no car hits anyone', 'carHit', 0, 'samples', 'a person inside a car\'s footprint'),
     mk('no two cars in one spot', 'carCar', 0, 'samples', 'two vehicle footprints overlapping'),

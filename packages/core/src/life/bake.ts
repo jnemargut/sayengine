@@ -18,6 +18,7 @@ export interface LifeOptions {
   folk?: number[];                  // cast size per town
   cars?: number[];                  // cars per town
   bus?: boolean;
+  busTowns?: number[];              // which towns run a bus (default: the first)
   dogs?: number[];                  // dog walkers per town
   models: CastModel[];
 }
@@ -211,7 +212,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     // ── bus loop and its stops (they need the lanes) ──
     const laneById = new Map(lanes.map((e) => [e.id, e]));
     let busLoop: number[] | null = null;
-    if (o.bus !== false && busModels.length) {
+    if (o.bus !== false && busModels.length && (o.busTowns ?? [0]).includes(ti)) {
       const prefer = (e: CarEdge) => (/fayetteville|main/i.test(ws.cars[e.street].name ?? '') ? 0 : 1);
       const starts = lanes.filter((e) => e.kind === 'lane' && e.from >= 0 && e.to >= 0 && lenOf(e) > 30).sort((a, b) => prefer(a) - prefer(b) || lenOf(b) - lenOf(a));
       for (const s0 of starts.slice(0, 30)) {
@@ -329,13 +330,14 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     for (const a of turns) {
       const conf: number[] = [];
       for (const b of turns) {
-        if (a === b || a.from !== b.from) continue;
+        if (a === b || a.from !== b.from || a.from < 0) continue;
         let near = a.turnOf![1] === b.turnOf![1];
         for (let i = 0; !near && i < a.pts.length; i++) for (let j = 0; j < b.pts.length; j++) if (Math.hypot(a.pts[i][0] - b.pts[j][0], a.pts[i][2] - b.pts[j][2]) < 3.3) { near = true; break; }
         if (near) conf.push(edgeBase + b.id);
       }
       if (conf.length) edges[edgeBase + a.id].conf = conf;
       edges[edgeBase + a.id].turn = true;
+      if (a.from >= 0) edges[edgeBase + a.id].jn = ti * 1000 + a.from;
     }
     // signal heads at each stop line, on the right-hand curb
     for (const e of lanes) {
@@ -566,7 +568,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     }
 
     // ── vehicles: cars on portal-to-portal trips through the day, and a bus on its loop ──
-    const portals = lanes.filter((e) => e.kind === 'lane' && e.from < 0 && lenOf(e) > 10);
+    const portals = lanes.filter((e) => e.kind === 'lane' && e.from === -1 && lenOf(e) > 10);
     const nCars = o.cars?.[ti] ?? (plan.source === 'real' ? 12 : 5);
     for (let c = 0; c < nCars && portals.length && carModels.length; c++) {
       const cm = carModels[c % carModels.length];
@@ -633,7 +635,7 @@ function randomTrip(start: CarEdge, byId: Map<number, CarEdge>, R: () => number)
     const out = [start.id];
     let e = start;
     for (let k = 0; k < 24; k++) {
-      if (e.to < 0) return out;
+      if (e.to === -1) return out;
       if (!e.next.length) break;
       const straight = e.next.map((id) => byId.get(id)!).filter((t) => turnScore(t) < 0.5);
       const right = e.next.map((id) => byId.get(id)!).filter((t) => turnScore(t) >= 0.5);
