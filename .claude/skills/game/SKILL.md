@@ -54,6 +54,13 @@ Motions arrive as clips named by their id (`idle`, `walk`, `wave`…; several ch
 - `startCharacters(game, { controls: 'none' })` makes the studio player without keyboard controls; drive `game.characters.player.move(dir, speed, dt)` + `.sync(dt)` yourself. `controls: true` keeps WASD. `game.characters.actors[name].play(clip, {once})` plays any clip.
 - `say(game, 'Blacksmith', 'good-lad')` plays the line's voice, its `line:<id>` clip (shifted by the line's measured lip-sync offset) and a speech bubble over the speaker. `game import` writes every recorded line to `assets/studio/lines/` (`lines.json` + WAVs).
 
+## Before the engine: the studio's timeline (Phase 10)
+
+Check motion, voice lines, cutscenes, effects and sounds in the studio's live view first: they all play on one
+timeline there (`./studio timeline` lists tracks, moments and red stretches where motion checks fail). The
+engines then play the same clips, cutscene files and effect recipes; `game screenshot`/`walk-to` remain the
+proof that they play in the engine.
+
 ## Effects and UI (Decisions 56–58)
 
 - Effects are made in the studio (`studio add-effect --preset forge-fire|sparks|chimney-smoke|embers|rain`, `--value fire` to follow a 0–1 game value, `--triggers '[{"on":"Blacksmith:strike@impact","layer":"burst"}]'` or a game event name). `game import` compiles them: Godot `.tscn` (GPU particles, a CPU twin per layer, shape effects with a scrolling-noise shader) and web three.quarks JSON with the same shader. In game code: `const fx = await startEffects(game)` / `EFFECTS.start(self)`; `fx.setValue('fire', 0.4)`; `fx.event('fed')`. Motion-tied bursts fire by themselves.
