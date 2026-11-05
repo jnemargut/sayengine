@@ -823,13 +823,13 @@ function streetLife(plan: TownPlan, style: Style): SoupBuilder {
 const POOL_COLORS: Record<string, string> = { sodium: '#ffa64d', led: '#ffe9cf', mast: '#fff4e2' };
 const SHOP_COLORS = ['#ffc98a', '#ffe2b8', '#fff3e0', '#ffd4a0', '#dfe9ff'];
 /** Pools of light under street lamps and lantern props (light masts), and the spill of lit shop windows
- * onto the sidewalk: flat additive fans with a soft falloff, a few centimetres above the ground. */
+ * onto the sidewalk: flat additive fans with a soft falloff, 20 cm up (lower, they z-fight the graded road in Godot). */
 function lightPools(plan: TownPlan, style: Style, lamps: LampSpot[], models: Record<string, ModelMesh>): SoupBuilder {
   const sb = new SoupBuilder();
   const m = M('pool', '#000000', 1);
   const lin = (hex: string): [number, number, number] => { const n = parseInt(hex.slice(1), 16); const f = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return [f(((n >> 16) & 255) / 255), f(((n >> 8) & 255) / 255), f((n & 255) / 255)]; };
   const flat = (y: number) => () => y;
-  for (const l of lamps) sb.pool(m, l.at, l.kind === 'led' ? 5.5 : 6.5, lin(POOL_COLORS[l.kind]), flat(l.base + 0.035));
+  for (const l of lamps) sb.pool(m, l.at, l.kind === 'led' ? 5.5 : 6.5, lin(POOL_COLORS[l.kind]), flat(l.base + 0.2));
   // lantern props (City Plaza light masts): a wide pool under the highest lamp part
   for (const pr of plan.props ?? []) {
     const mm = models[pr.model];
@@ -838,7 +838,7 @@ function lightPools(plan: TownPlan, style: Style, lamps: LampSpot[], models: Rec
     for (const s of mm.soups) if (/(^|\s)lamp$/.test(s.mat.name)) for (let i = 1; i < s.positions.length; i += 3) top = Math.max(top, s.positions[i]);
     if (!top) continue;
     const base = pr.base ?? groundAt(plan.ground, pr.at[0], pr.at[1]);
-    sb.pool(m, pr.at, Math.min(10, Math.max(7, top * 0.55)), lin(POOL_COLORS.mast), flat(base + 0.04));
+    sb.pool(m, pr.at, Math.min(10, Math.max(7, top * 0.55)), lin(POOL_COLORS.mast), flat(base + 0.2));
   }
   // shop windows spill onto the sidewalk in front of them
   for (const b of plan.buildings) {

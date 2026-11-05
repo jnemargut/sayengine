@@ -102,7 +102,7 @@
     },
     "shop": {
       "emission": "#ffd29a",
-      "emissionEnergy": 1.8
+      "emissionEnergy": 1.0
     },
     "flood": {
       "emission": "#ffd7a3",
@@ -110,7 +110,7 @@
     },
     "pool": {
       "emission": "#ffffff",
-      "emissionEnergy": 0.9
+      "emissionEnergy": 0.6
     },
     "water": {
       "tint": "#3a4a5a",

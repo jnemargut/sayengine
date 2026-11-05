@@ -79,7 +79,7 @@ export const PRESETS: Record<string, Look> = {
     materials: { lamp: { emission: '#fff2cc', emissionEnergy: 0.3 }, led: { emission: '#f6f7f8', emissionEnergy: 0.3 } },
     board: { references: [], colourfulness: [30, 55], paletteMatch: 0.55 },
   }),
-  // v3 (A/B pick 2026-11-05, checkpoint-pocket-raleigh/craft): a real night instead of v2's blue-violet wash
+  // v3.1 (A/B picks 2026-11-05, checkpoint-pocket-raleigh/craft/ab): a real night instead of v2's blue-violet wash
   'neon-night': parseLook({
     ...base, name: 'neon-night', label: 'Neon night: a real night — near-black navy sky, neutral dark shadows; warm sodium and white LED street light pooling on the ground, lit shops spilling onto the sidewalk, a floodlit Capitol, glow around every light',
     tonemap: { curve: 'aces', exposure: 0.3 },
@@ -95,9 +95,9 @@ export const PRESETS: Record<string, Look> = {
       led: { emission: '#fff0dc', emissionEnergy: 7 },
       neon: { emission: '#ff4fb0', emissionEnergy: 4 },
       sign: { emission: '#3fe0ff', emissionEnergy: 2 },
-      shop: { emission: '#ffd29a', emissionEnergy: 1.8 },
+      shop: { emission: '#ffd29a', emissionEnergy: 1.0 },
       flood: { emission: '#ffd7a3', emissionEnergy: 0.16 },
-      pool: { emission: '#ffffff', emissionEnergy: 0.9 },
+      pool: { emission: '#ffffff', emissionEnergy: 0.6 },
       water: { tint: '#3a4a5a', roughness: 0.08 },
     },
     bloom: { enabled: true, threshold: 1.2, softness: 2.0, intensity: 0.45, levels: [0, 0.8, 1, 0.6, 0.3, 0, 0] },
