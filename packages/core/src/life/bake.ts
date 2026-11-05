@@ -149,11 +149,12 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           if (!ws.walkable(p) || ws.freeHalf(p, f, 3.2) < 3 || ws.freeHalf(p, [-f[1], f[0]], 3.2) < 3) continue;
           cand.push(p);
         }
-        // a ring: candidates far from the middle first
-        cand.sort((a, b) => Math.hypot(b[0] - c[0], b[1] - c[1]) - Math.hypot(a[0] - c[0], a[1] - c[1]) + (R() - 0.5) * 6);
+        // a market square: a ring of stalls about 8 m out from the middle, facing in (a lively cluster, not
+        // strung along the plaza's edge by the buildings)
+        cand.sort((a, b) => Math.abs(Math.hypot(a[0] - c[0], a[1] - c[1]) - 8) - Math.abs(Math.hypot(b[0] - c[0], b[1] - c[1]) - 8) + (R() - 0.5) * 3);
         for (const p of cand) {
           if (chosen.length >= want) break;
-          if (chosen.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 8.5)) continue;
+          if (chosen.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 6.5)) continue;
           chosen.push(p);
         }
         const colours = ['#c8463a', '#2f6f9f', '#d9a03a', '#3f7a4a', '#8a4a7a', '#e07a2a'];
@@ -202,8 +203,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
               slots: [-1, 1].map((k) => ({ at: [end[0] - n[1] * 0.55 * k, end[1] + n[0] * 0.55 * k] as P2, y: 0, face, pose: 'fish', appr: [appr[0] - n[1] * 0.55 * k, appr[1] + n[0] * 0.55 * k] as P2 })) },
           });
           props.push({ kind: 'pier', at: [c[0] + off[0], 0, c[1] + off[2]], yaw: face, size: [len + 0.6, 2.4], town: ti });
-          // a rod at each fishing spot, held out over the water
-          for (const k of [-1, 1]) props.push({ kind: 'rod', at: [end[0] - n[1] * 0.55 * k + n[0] * 0.3 + off[0], 0, end[1] + n[0] * 0.55 * k + n[1] * 0.3 + off[2]], yaw: face, town: ti });
+          // (the anglers bring their own rods: the cast holds one in the right hand, shown while fishing)
           stats.piers++;
         }
         const ny = nearestOn(walkS.points, ws.piers[0].c);

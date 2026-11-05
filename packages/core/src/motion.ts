@@ -151,8 +151,10 @@ export const ACTIONS: Record<string, ActionDef> = {
     keys: [0, 0.5, 1].map((at) => ({ at, drop: 0.43, shift: [0, -0.1] as [number, number], feet: { left: [0.03, 0, 0.16] as V3, right: [-0.03, 0, 0.2] as V3 }, bones: { Spine: [['x', -6]] as Step, Chest: [['x', 4]] as Step, Neck: [['x', 4]] as Step, LeftUpperArm: armUp('Left', 34, -62), RightUpperArm: armUp('Right', 30, -62), LeftLowerArm: [['y', -38]] as Step, RightLowerArm: [['y', 38]] as Step }, hands: { left: 'relaxed', right: 'relaxed' } })),
   },
   fish: {
+    // both hands on the butt of the rod in front of the belly, elbows bent and tucked, the rod tip out
+    // over the water; a slow breath and a small twitch of the wrists so the hold is alive
     label: 'Hold a fishing rod out over the water (held)', duration: 4,
-    keys: [0, 0.5, 1].map((at) => ({ at, bones: { RightUpperArm: armUp('Right', 58, 6), LeftUpperArm: armUp('Left', 46, 2), RightLowerArm: [['y', 20]] as Step, LeftLowerArm: [['y', -32]] as Step, Chest: [['y', -4]] as Step, Head: [['x', 8]] as Step }, hands: { left: 'fist', right: 'fist' } })),
+    keys: [0, 0.35, 0.5, 0.65, 1].map((at, k) => ({ at, bones: { RightUpperArm: armUp('Right', 62, -48 + (k === 2 ? 3 : 0)), LeftUpperArm: armUp('Left', 74, -52), RightLowerArm: [['y', 62 + (k === 2 ? 6 : 0)]] as Step, LeftLowerArm: [['y', -78]] as Step, RightHand: [['x', k === 2 ? -14 : -8]] as Step, LeftHand: [['x', -6]] as Step, Chest: [['x', 3], ['y', -3]] as Step, Head: [['x', 9]] as Step }, hands: { left: 'fist', right: 'fist' } })),
   },
   'look-around': {
     label: 'Look left, then right', duration: 3,

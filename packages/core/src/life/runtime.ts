@@ -473,7 +473,7 @@ export class LifeRuntime {
       // slipping past: shoulders turned, but never through each other (0.15 m between centres)
       // friends out together walk close (arms brushing: 0.42 m between centres)
       const friends = j === A.pal || j === A.owner;
-      const r = st.slip > this.t && o.slip > this.t ? 0.15 : friends ? FRIENDS : squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
+      const r = friends ? FRIENDS : st.slip > this.t && o.slip > this.t ? 0.15 : squeeze > 0 ? Math.min(squeeze, A.r + this.data.agents[j].r) : A.r + this.data.agents[j].r;
       // current positions: earlier folk this tick have already moved (no two step into one spot)
       const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
       const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
@@ -530,6 +530,9 @@ export class LifeRuntime {
       st.x = tx; st.y = ty; st.z = tz; st.yaw = face; st.seg = 0; st.fromX = tx; st.fromY = ty; st.fromZ = tz;
     }
     st.visible = true;
+    // our friend is held up and we're right by them: step back out of their way first
+    { const lx = st.x - w.x, lz = st.z - w.z, ld = Math.sqrt(lx * lx + lz * lz);
+      if (w.blocked > 1.5 && ld < 1.0 && ld > 1e-6) { tx = w.x + lx / ld * 1.3; tz = w.z + lz / ld * 1.3; } }
     const dx = tx - st.x, dz = tz - st.z, d = Math.sqrt(dx * dx + dz * dz);
     const stp = Math.min(d, A.speed * 1.35 * dt);
     let moved = 0;
@@ -585,6 +588,10 @@ export class LifeRuntime {
         const r = A.r + this.data.agents[j].r;
         const ax = this.agents[j].x - nx, az = this.agents[j].z - nz, bx = this.agents[j].x - st.x, bz = this.agents[j].z - st.z;
         if (ax * ax + az * az < r * r && ax * ax + az * az < bx * bx + bz * bz) { ok = false; break; }
+      }
+      if (ok && this.player.on) {
+        const r = A.r + this.player.r + 0.05, ax = this.player.x - nx, az = this.player.z - nz, bx = this.player.x - st.x, bz = this.player.z - st.z;
+        if (ax * ax + az * az < r * r && ax * ax + az * az < bx * bx + bz * bz) ok = false;
       }
       if (ok) { st.x = nx; st.z = nz; }
     }

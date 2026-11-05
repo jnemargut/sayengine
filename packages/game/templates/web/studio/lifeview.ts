@@ -10,7 +10,12 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { LifeRuntime, LIFE_DT, GREEN, AMBER, type LifeData } from './life.ts';
 import type { StudioGame } from './harness.ts';
 
-interface Actor { root: THREE.Object3D; mixer: THREE.AnimationMixer | null; actions: Record<string, THREE.AnimationAction>; cur: string; clipSpeed: number; body: any; kind: string; scale: number }
+interface Actor {
+  root: THREE.Object3D; mixer: THREE.AnimationMixer | null; actions: Record<string, THREE.AnimationAction>; cur: string; clipSpeed: number; body: any; kind: string; scale: number;
+  mats: THREE.Material[]; alpha: number; shown: boolean; rods: THREE.Object3D[];
+  wheels: Array<{ spin: THREE.Object3D; steer: THREE.Object3D | null; r: number }>; wheelbase: number;
+  gesture: string; gestureEnd: number; nextPick: number; turn: number;
+}
 export interface StudioLife {
   rt: LifeRuntime; data: LifeData & Record<string, any>;
   /** advance by dt seconds of game time (the runtime steps in 0.1 s ticks) */
@@ -22,7 +27,15 @@ export interface StudioLife {
   speed: number;
 }
 
-const POSE_CLIP: Record<string, string[]> = { walk: ['walk'], idle: ['idle'], sit: ['sit', 'idle'], fish: ['fish', 'idle'], browse: ['browse', 'idle'], tend: ['browse', 'idle'], wait: ['idle'], trot: ['trot', 'walk'] };
+const POSE_CLIP: Record<string, string[]> = { walk: ['walk'], idle: ['idle'], sit: ['sit', 'idle'], fish: ['fish', 'idle'], browse: ['browse', 'idle'], tend: ['idle', 'browse'], wait: ['idle'], chat: ['idle'], look: ['browse', 'idle'], trot: ['trot', 'walk'] };
+// idle variety: while standing in a pose, folk now and then do one of these (once), then go back to it.
+// Picked from the agent's index and the time, so every viewer sees the same town.
+const GESTURES: Record<string, string[]> = {
+  idle: ['browse', 'nod', 'idle', 'idle'], wait: ['browse', 'idle', 'shrug', 'idle'], chat: ['nod', 'shrug', 'point', 'nod', 'idle'],
+  browse: ['pickup', 'point', 'nod', 'browse'], tend: ['point', 'nod', 'pickup', 'shrug', 'browse'], look: ['point', 'nod', 'browse'],
+};
+const hash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const FADE = 0.5;                                   // s to fade in at a door (or out of one)
 
 export async function startLife(g: StudioGame, opts: { start?: number; warm?: number } = {}): Promise<StudioLife | null> {
   const res = await fetch('assets/studio/life.json').catch(() => null);
@@ -51,7 +64,20 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
   const make = (model: string, kind: string, scale: number, collider: () => any): Actor => {
     const M = models[model];
     const root = M ? SkeletonUtils.clone(M.scene) : new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 1.1, 4, 8), new THREE.MeshStandardMaterial({ color: '#c9a37a' }));
-    root.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; } });
+    // own materials, so each one can fade at a door on its own
+    const mats: THREE.Material[] = [], rods: THREE.Object3D[] = [];
+    const wheels: Actor['wheels'] = [];
+    root.traverse((o: any) => {
+      if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; o.material = Array.isArray(o.material) ? o.material.map((m: any) => m.clone()) : o.material.clone(); mats.push(...(Array.isArray(o.material) ? o.material : [o.material])); }
+      if (/^rod/i.test(o.name)) rods.push(o);
+    });
+    root.traverse((o: any) => {
+      if (!/^wheel-/.test(o.name)) return;
+      const r = (o.parent?.parent?.userData?.wheels ?? root.children[0]?.userData?.wheels ?? []).find((w: any) => w.node === o.name)?.r ?? 0.35;
+      wheels.push({ spin: o, steer: /^steer-f/.test(o.parent?.name ?? '') ? o.parent : null, r });
+    });
+    const zs = wheels.map((w) => (w.steer ?? w.spin.parent ?? w.spin).position.z);
+    const wheelbase = zs.length ? Math.max(1, Math.max(...zs) - Math.min(...zs)) : 2.6;
     root.scale.setScalar(scale);
     root.visible = false;
     g.scene.add(root);
@@ -59,7 +85,8 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
     const actions: Record<string, THREE.AnimationAction> = {};
     if (mixer) for (const c of M!.animations) actions[c.name] = mixer.clipAction(c);
     const walk = M?.animations.find((c) => c.name === 'walk' || c.name === 'drive');
-    return { root, mixer, actions, cur: '', clipSpeed: kind === 'person' ? 1.3 : kind === 'dog' ? 1.2 : 8, body: collider(), kind, scale };
+    for (const [n, a] of Object.entries(actions)) if (!['walk', 'idle', 'sit', 'fish', 'browse', 'trot', 'drive'].includes(n)) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
+    return { root, mixer, actions, cur: '', clipSpeed: kind === 'person' ? 1.3 : kind === 'dog' ? 1.2 : 8, body: collider(), kind, scale, mats, alpha: 0, shown: false, rods, wheels, wheelbase, gesture: '', gestureEnd: 0, nextPick: 0, turn: 0 };
     void walk;
   };
   const kinBody = (shape: any) => { const b = g.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(0, -500, 0)); g.world.createCollider(shape, b); return b; };
@@ -76,9 +103,29 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
   };
   let acc = 0;
   const lerpAng = (a: number, b: number, t: number) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
-  const play = (A: Actor, pose: string, speed: number) => {
+  const setAlpha = (A: Actor, a: number) => {
+    if (a === A.alpha) return;
+    A.alpha = a;
+    for (const m of A.mats) { m.transparent = a < 0.999; m.opacity = a; m.depthWrite = a >= 0.999; }
+  };
+  /** The clip for a standing pose, with now-and-then gestures (one at a time, then back). */
+  const choose = (A: Actor, i: number, pose: string, t: number): string => {
+    const base = (POSE_CLIP[pose] ?? ['idle']).find((n) => A.actions[n]) ?? 'idle';
+    const G = GESTURES[pose];
+    if (!G || pose === 'walk') { A.gesture = ''; return base; }
+    if (A.gesture && t < A.gestureEnd) return A.gesture;
+    A.gesture = '';
+    if (t >= A.nextPick) {
+      const k = Math.floor(t / 4);
+      const g = G[Math.floor(hash(i, k) * G.length)];
+      A.nextPick = t + 3 + hash(k, i) * 5;
+      if (g !== base && A.actions[g]) { A.gesture = g; A.gestureEnd = t + A.actions[g].getClip().duration; return g; }
+    }
+    return base;
+  };
+  const play = (A: Actor, pose: string, speed: number, clip?: string) => {
     if (!A.mixer) return;
-    const want = (POSE_CLIP[pose] ?? ['idle']).find((n) => A.actions[n]) ?? (A.actions.drive ? 'drive' : A.actions.idle ? 'idle' : Object.keys(A.actions)[0]);
+    const want = clip && A.actions[clip] ? clip : (POSE_CLIP[pose] ?? ['idle']).find((n) => A.actions[n]) ?? (A.actions.drive ? 'drive' : A.actions.idle ? 'idle' : Object.keys(A.actions)[0]);
     if (!want) return;
     if (A.cur !== want) {
       const next = A.actions[want];
@@ -100,16 +147,24 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
       while (acc >= LIFE_DT && steps < 50) { snap(); rt.step(); acc -= LIFE_DT; steps++; }
       if (steps === 50) acc = 0;
       const k = acc / LIFE_DT;
+      const gdt = dt * life.speed;
       rt.agents.forEach((s, i) => {
         const A = agents[i];
-        A.root.visible = s.visible;
-        if (!s.visible) { A.body.setNextKinematicTranslation({ x: 0, y: -500, z: 0 }); return; }
+        // fade in through a door (and out of one at the last place we were seen), never a pop
+        setAlpha(A, Math.max(0, Math.min(1, A.alpha + (s.visible ? 1 : -1) * gdt / FADE)));
+        A.root.visible = A.alpha > 0.001;
+        if (!s.visible) { A.body.setNextKinematicTranslation({ x: 0, y: -500, z: 0 }); if (A.root.visible) A.mixer?.update(gdt); return; }
         const x = prev.ax[i] + (s.x - prev.ax[i]) * k, z = prev.az[i] + (s.z - prev.az[i]) * k, y = prev.ay[i] + (s.y - prev.ay[i]) * k;
         A.root.position.set(x, y, z);
-        A.root.rotation.y = lerpAng(prev.ayaw[i], s.yaw, k);
+        // standing about: a slow turn of the body now and then (weight on the other foot, a look round)
+        const standing = s.v < 0.05 && s.pose !== 'sit' && s.pose !== 'fish' && A.kind === 'person';
+        const want = standing ? Math.sin(rt.t * 0.13 + i * 2.1) * 0.35 * Math.max(0, Math.sin(rt.t * 0.05 + i)) : 0;
+        A.turn += (want - A.turn) * Math.min(1, gdt * 1.5);
+        A.root.rotation.y = lerpAng(prev.ayaw[i], s.yaw, k) + A.turn;
         A.body.setNextKinematicTranslation({ x, y: y + 0.85, z });
-        play(A, s.pose, s.v);
-        A.mixer?.update(dt * life.speed);
+        for (const r of A.rods) r.visible = s.pose === 'fish';
+        play(A, s.pose, s.v, s.v > 0.05 ? undefined : choose(A, i, s.pose, rt.t));
+        A.mixer?.update(gdt);
       });
       rt.vehicles.forEach((s, i) => {
         const A = vehicles[i];
@@ -122,7 +177,13 @@ export async function startLife(g: StudioGame, opts: { start?: number; warm?: nu
         A.body.setNextKinematicRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
         play(A, s.v > 0.1 ? 'walk' : 'idle', s.v);
         if (A.actions.drive) { A.actions.drive.paused = s.v < 0.05; }
-        A.mixer?.update(dt * life.speed);
+        A.mixer?.update(gdt);
+        // wheels roll with the ground and the front ones steer into the turn (from the turn rate)
+        if (A.wheels.length) {
+          const dyaw = lerpAng(0, s.yaw - prev.vyaw[i], 1) / LIFE_DT;
+          const steer = s.v > 0.3 ? Math.max(-0.6, Math.min(0.6, Math.atan(A.wheelbase * dyaw / s.v))) : 0;
+          for (const w of A.wheels) { w.spin.rotation.x += s.v * gdt / w.r; if (w.steer) w.steer.rotation.y += (steer - w.steer.rotation.y) * Math.min(1, gdt * 8); }
+        }
       });
       for (const L of lamps) {
         const c = rt.signal(L.sig, L.group, rt.t);

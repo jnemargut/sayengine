@@ -659,10 +659,10 @@ func _free(i: int, cx: float, cz: float) -> bool:
 			st["slip"] = t + 2.5
 			o["slip"] = t + 2.5
 		var r: float = (min(squeeze, ar + float(A_[j]["r"]))) if squeeze > 0.0 else ar + float(A_[j]["r"])
-		if j == int(A.get("pal", -1)) or j == int(A.get("owner", -1)):
-			r = FRIENDS
 		if st["slip"] > t and o["slip"] > t:
 			r = 0.15
+		if j == int(A.get("pal", -1)) or j == int(A.get("owner", -1)):
+			r = FRIENDS
 		var dx: float = o["x"] - cx
 		var dz: float = o["z"] - cz
 		var d2 := dx * dx + dz * dz
@@ -755,6 +755,12 @@ func _step_buddy(i: int, dt: float) -> void:
 		st["fromY"] = ty
 		st["fromZ"] = tz
 	st["visible"] = true
+	var lx: float = st["x"] - w["x"]
+	var lz: float = st["z"] - w["z"]
+	var ld := sqrt(lx * lx + lz * lz)
+	if w["blocked"] > 1.5 and ld < 1.0 and ld > 1e-6:
+		tx = float(w["x"]) + lx / ld * 1.3
+		tz = float(w["z"]) + lz / ld * 1.3
 	var dx: float = tx - st["x"]
 	var dz: float = tz - st["z"]
 	var d := sqrt(dx * dx + dz * dz)
@@ -856,6 +862,14 @@ func _step_dog(i: int, dt: float) -> void:
 			if ax * ax + az * az < r * r and ax * ax + az * az < bx * bx + bz * bz:
 				ok = false
 				break
+		if ok and player["on"]:
+			var pr2: float = ar + float(player["r"]) + 0.05
+			var pax: float = player["x"] - nx
+			var paz: float = player["z"] - nz
+			var pbx: float = player["x"] - st["x"]
+			var pbz: float = player["z"] - st["z"]
+			if pax * pax + paz * paz < pr2 * pr2 and pax * pax + paz * paz < pbx * pbx + pbz * pbz:
+				ok = false
 		if ok:
 			st["x"] = nx
 			st["z"] = nz
