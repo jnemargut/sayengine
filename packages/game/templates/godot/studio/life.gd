@@ -743,6 +743,12 @@ func _step_buddy(i: int, dt: float) -> void:
 		tz = pa[2]
 		face = atan2(float(at[0]) - tx, float(at[2]) - tz)
 		pose = "idle" if g["pose"] == "fish" else ("browse" if g["pose"] == "browse" else "chat")
+	elif g != null and g["k"] == "act" and g["pose"] != "inside":
+		var at2: Array = g["at"]
+		tx = float(at2[0]) - sin(float(g["face"])) * 0.85
+		ty = at2[1]
+		tz = float(at2[2]) - cos(float(g["face"])) * 0.85
+		face = g["face"]
 	if st["seg"] < 0:
 		for j in agents.size():
 			if j == i or not agents[j]["visible"]:

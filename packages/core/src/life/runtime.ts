@@ -521,6 +521,10 @@ export class LifeRuntime {
       tx = g.pal[0]; ty = g.pal[1]; tz = g.pal[2];
       face = Math.atan2(g.at[0] - tx, g.at[2] - tz);
       pose = g.pose === 'fish' ? 'idle' : g.pose === 'browse' ? 'browse' : 'chat';
+    } else if (g && g.k === 'act' && g.pose !== 'inside') {
+      // no spot of their own: just behind them (a bus stop faces the road, so behind is away from it)
+      tx = g.at[0] - Math.sin(g.face) * 0.85; ty = g.at[1]; tz = g.at[2] - Math.cos(g.face) * 0.85;
+      face = g.face;
     }
     if (st.seg < 0) {
       // out of the door with them, once there's room
