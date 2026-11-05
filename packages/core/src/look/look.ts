@@ -63,7 +63,7 @@ export const PRESETS: Record<string, Look> = {
   'day-toy': parseLook({
     ...base, name: 'day-toy', label: 'Day toy: a bright, clean model-railway morning; colours faithful, shadows a little cool, a thin ink line',
     tonemap: { curve: 'neutral', exposure: 0.1 },
-    grade: { temperature: 0.06, tint: 0, contrast: 1.06, saturation: 1.12, vibrance: 0.15, lift: [0.01, 0.01, 0.018], gamma: [1, 1, 1], gain: [1.02, 1.0, 0.97], shadows: { color: '#4a6688', amount: 0.05 }, highlights: { color: '#ffe8c2', amount: 0.08 } },
+    grade: { temperature: 0.06, tint: 0, contrast: 1.06, saturation: 1.0, vibrance: 0.05, lift: [0.01, 0.01, 0.018], gamma: [1, 1, 1], gain: [1.02, 1.0, 0.97], shadows: { color: '#4a6688', amount: 0.05 }, highlights: { color: '#ffe8c2', amount: 0.08 } },
     outline: { enabled: true, width: 1, color: '#2a2630', threshold: 0.08 },
     palette: { sky: '#bcd6ea', brick: '#a8503c', limestone: '#e2d8c3', glass: '#3f6f8a', leaf: '#5f8f3e', awning: '#2f6d5a', accent: '#e0a43a', asphalt: '#575a63' },
     sky: { color: '#bcd6ea' },

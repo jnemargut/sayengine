@@ -1,0 +1,226 @@
+{
+  "tool": "look-board",
+  "ok": false,
+  "look": "neon-night",
+  "run": "games/pocket-raleigh/.studio-game/proof/2026-11-05T11-26-57",
+  "references": [],
+  "targets": {
+    "references": [],
+    "colourfulness": [
+      28,
+      60
+    ],
+    "paletteMatch": 0.5
+  },
+  "styleModel": "no reference pictures",
+  "summary": {
+    "colourfulness": {
+      "pass": 16,
+      "fail": 4,
+      "notSet": 0,
+      "range": [
+        43.3,
+        60.9
+      ]
+    },
+    "palette match": {
+      "pass": 14,
+      "fail": 6,
+      "notSet": 0,
+      "range": [
+        0.432,
+        0.669
+      ]
+    },
+    "style score": {
+      "pass": 0,
+      "fail": 0,
+      "notSet": 20,
+      "range": null
+    }
+  },
+  "views": [
+    {
+      "engine": "godot",
+      "view": "both-towns",
+      "colourfulness": 50.3,
+      "palette match": 0.432,
+      "style score": null,
+      "failing": [
+        "palette match 0.432 (target ≥ 0.5 (vs the look palette))"
+      ]
+    },
+    {
+      "engine": "godot",
+      "view": "city-plaza",
+      "colourfulness": 54.6,
+      "palette match": 0.576,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "godot",
+      "view": "fayetteville-north",
+      "colourfulness": 45.7,
+      "palette match": 0.621,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "godot",
+      "view": "fayetteville-south",
+      "colourfulness": 48.5,
+      "palette match": 0.623,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "godot",
+      "view": "martin-west",
+      "colourfulness": 43.4,
+      "palette match": 0.669,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "godot",
+      "view": "raleigh-aerial",
+      "colourfulness": 60.8,
+      "palette match": 0.502,
+      "style score": null,
+      "failing": [
+        "colourfulness 60.8 (target 28–60)"
+      ]
+    },
+    {
+      "engine": "godot",
+      "view": "skyline-south",
+      "colourfulness": 60.5,
+      "palette match": 0.502,
+      "style score": null,
+      "failing": [
+        "colourfulness 60.5 (target 28–60)"
+      ]
+    },
+    {
+      "engine": "godot",
+      "view": "twin-aerial",
+      "colourfulness": 52.9,
+      "palette match": 0.463,
+      "style score": null,
+      "failing": [
+        "palette match 0.463 (target ≥ 0.5 (vs the look palette))"
+      ]
+    },
+    {
+      "engine": "godot",
+      "view": "twin-main-street",
+      "colourfulness": 51.8,
+      "palette match": 0.624,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "godot",
+      "view": "twin-river",
+      "colourfulness": 55.1,
+      "palette match": 0.444,
+      "style score": null,
+      "failing": [
+        "palette match 0.444 (target ≥ 0.5 (vs the look palette))"
+      ]
+    },
+    {
+      "engine": "web",
+      "view": "both-towns",
+      "colourfulness": 51,
+      "palette match": 0.434,
+      "style score": null,
+      "failing": [
+        "palette match 0.434 (target ≥ 0.5 (vs the look palette))"
+      ]
+    },
+    {
+      "engine": "web",
+      "view": "city-plaza",
+      "colourfulness": 54.5,
+      "palette match": 0.583,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "web",
+      "view": "fayetteville-north",
+      "colourfulness": 45.6,
+      "palette match": 0.633,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "web",
+      "view": "fayetteville-south",
+      "colourfulness": 48.1,
+      "palette match": 0.642,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "web",
+      "view": "martin-west",
+      "colourfulness": 43.3,
+      "palette match": 0.669,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "web",
+      "view": "raleigh-aerial",
+      "colourfulness": 60.9,
+      "palette match": 0.518,
+      "style score": null,
+      "failing": [
+        "colourfulness 60.9 (target 28–60)"
+      ]
+    },
+    {
+      "engine": "web",
+      "view": "skyline-south",
+      "colourfulness": 60.9,
+      "palette match": 0.501,
+      "style score": null,
+      "failing": [
+        "colourfulness 60.9 (target 28–60)"
+      ]
+    },
+    {
+      "engine": "web",
+      "view": "twin-aerial",
+      "colourfulness": 53.2,
+      "palette match": 0.474,
+      "style score": null,
+      "failing": [
+        "palette match 0.474 (target ≥ 0.5 (vs the look palette))"
+      ]
+    },
+    {
+      "engine": "web",
+      "view": "twin-main-street",
+      "colourfulness": 51.8,
+      "palette match": 0.624,
+      "style score": null,
+      "failing": []
+    },
+    {
+      "engine": "web",
+      "view": "twin-river",
+      "colourfulness": 52.9,
+      "palette match": 0.485,
+      "style score": null,
+      "failing": [
+        "palette match 0.485 (target ≥ 0.5 (vs the look palette))"
+      ]
+    }
+  ],
+  "sheet": "games/pocket-raleigh/.studio-game/proof/2026-11-05T11-26-57/board-neon-night.png",
+  "note": "Numbers catch \"too saturated\", not \"no charm\": look at the sheet, then pick A/B (studio look ab / look pick). Never score a look out of 10."
+}

@@ -10,8 +10,8 @@
     "temperature": 0.06,
     "tint": 0,
     "contrast": 1.06,
-    "saturation": 1.12,
-    "vibrance": 0.15,
+    "saturation": 1,
+    "vibrance": 0.05,
     "lift": [
       0.01,
       0.01,

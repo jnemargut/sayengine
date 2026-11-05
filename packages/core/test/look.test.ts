@@ -172,7 +172,7 @@ test('a game import writes look.json, the LUT strip and .cube; a Compatibility G
   assert.ok(JSON.parse(fs.readFileSync(path.join(dir, 'assets', 'studio', 'look', 'look.json'), 'utf8')).baked);
   assert.ok(fs.existsSync(path.join(dir, 'assets', 'studio', 'look', 'lut.png.import')), 'Godot keeps the strip lossless');
   assert.equal(writeLook(dir, 'godot', null).mode, 'none');
-  assert.ok(!fs.existsSync(path.join(dir, 'assets', 'studio', 'look')));
+  assert.equal(fs.readFileSync(path.join(dir, 'assets', 'studio', 'look', 'look.json'), 'utf8').trim(), 'null', 'no look: a null manifest, never a 404');
 });
 
 test('both engines run the same transport: the web pass and Godot\'s environment agree on paper', () => {

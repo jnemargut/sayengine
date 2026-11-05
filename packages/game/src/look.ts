@@ -41,8 +41,9 @@ detect_3d/compress_to=0
 export function writeLook(dir: string, engine: 'godot' | 'web', rec: any | null): { files: string[]; baked?: { glb: string; vertexColours: number; materials: number; textures: number }[]; mode: 'none' | 'grade' | 'bake' } {
   const out = path.join(dir, 'assets', 'studio', 'look');
   fs.rmSync(out, { recursive: true, force: true });
-  if (!rec) return { files: [], mode: 'none' };
   fs.mkdirSync(out, { recursive: true });
+  // look.json always exists (null without a look), so the runtimes never fetch a 404
+  if (!rec) { fs.writeFileSync(path.join(out, 'look.json'), 'null\n'); return { files: [path.join(out, 'look.json')], mode: 'none' }; }
   const { version, derived, ...record } = rec;
   const look = parseLook(record);
   const files: string[] = [];

@@ -139,7 +139,8 @@ test('a landmark swaps in a studio model and the town GLB carries vertex colours
   const B = new GlbBuilder();
   const rep = addTownsToGlb(B, towns);
   assert.equal(rep.length, 2);
-  assert.ok(rep[0].materials <= 4, `${rep[0].materials} materials`);
+  // shading classes: matte, glossy, metal, water + the ones a look can light (lit, lamp, neon, sign)
+  assert.ok(rep[0].materials <= 8, `${rep[0].materials} materials`);
   const glb = B.build();
   const v = await validateGlb(glb);
   assert.equal(v.errors, 0, JSON.stringify(v.messages.slice(0, 3)));

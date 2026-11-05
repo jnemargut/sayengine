@@ -1,0 +1,39 @@
+{
+  "look": "neon-night",
+  "parity": {
+    "fayetteville-north": 0.05033,
+    "fayetteville-south": 0.05686,
+    "martin-west": 0.04047,
+    "raleigh-aerial": 0.08784,
+    "twin-main-street": 0.05003,
+    "twin-aerial": 0.0606,
+    "twin-river": 0.06906,
+    "both-towns": 0.06336,
+    "city-plaza": 0.05813,
+    "skyline-south": 0.04803
+  },
+  "budgets": [
+    {
+      "name": "draw calls (worst view)",
+      "value": 322,
+      "max": 1500,
+      "pass": true,
+      "detail": "322 / 1500"
+    },
+    {
+      "name": "triangles drawn (worst view)",
+      "value": 471154,
+      "max": 1500000,
+      "pass": true,
+      "detail": "471154 / 1500000"
+    },
+    {
+      "name": "scene file",
+      "value": 26.18301010131836,
+      "max": 40,
+      "pass": true,
+      "detail": "26.18 MB / 40 MB"
+    }
+  ],
+  "run": "~/AI3DModel/.claude/worktrees/agent-a6817c30f4196cd47/games/pocket-raleigh/.studio-game/proof/2026-11-05T11-26-57"
+}
