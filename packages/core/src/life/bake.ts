@@ -269,6 +269,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     for (const pd of pending) for (const sl of pd.place.slots) extra.push({ p: sl.appr, chain: -1 });
     for (const d of doors) extra.push({ p: d.at, chain: -1 });
     const graph = walkGraph(ws, junctions, extra);
+    ws.freeze();
     // the extra nodes are the last ones, in order
     let xi = graph.nodes.length - extra.length + skipExtra;
     const ws2 = ws;
@@ -323,6 +324,19 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       edges.push(le);
     }
     stats.carEdges += lanes.length;
+    // turns through the same junction that cross or merge: only one at a time (the junction box)
+    const turns = lanes.filter((e) => e.kind === 'turn');
+    for (const a of turns) {
+      const conf: number[] = [];
+      for (const b of turns) {
+        if (a === b || a.from !== b.from) continue;
+        let near = a.turnOf![1] === b.turnOf![1];
+        for (let i = 0; !near && i < a.pts.length; i++) for (let j = 0; j < b.pts.length; j++) if (Math.hypot(a.pts[i][0] - b.pts[j][0], a.pts[i][2] - b.pts[j][2]) < 3.3) { near = true; break; }
+        if (near) conf.push(edgeBase + b.id);
+      }
+      if (conf.length) edges[edgeBase + a.id].conf = conf;
+      edges[edgeBase + a.id].turn = true;
+    }
     // signal heads at each stop line, on the right-hand curb
     for (const e of lanes) {
       const le = edges[edgeBase + e.id];
@@ -350,21 +364,51 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     const pathCache = new Map<string, number[] | null>();
     const route = (a: number, b: number) => { const k = `${a}>${b}`; if (!pathCache.has(k)) pathCache.set(k, shortestWalk(graph, a, b)); return pathCache.get(k)!; };
     /** A move along the walk graph as a runtime path (scene space) with its crossings; returns [seg, duration]. */
+    /** Pull a node path tight (skip corners where the straight line stays walkable and off the road), so
+     *  nobody zig-zags or doubles back; crossings stay exactly where they are. */
+    const pull = (seq: number[]): Array<{ p: P2; y: number; hw: number; cross?: { sig: number; group: number } }> => {
+      const out: Array<{ p: P2; y: number; hw: number; cross?: { sig: number; group: number } }> = [];
+      let i = 0;
+      while (i < seq.length) {
+        const n = graph.nodes[seq[i]];
+        if (i === seq.length - 1) { out.push({ p: n.p, y: n.y, hw: 9 }); break; }
+        const e1 = edgeBetween(graph, seq[i], seq[i + 1])!;
+        if (e1.cross) { out.push({ p: n.p, y: n.y, hw: e1.hw, cross: e1.cross }); i++; continue; }
+        // furthest node reachable in a straight, walkable, road-free line (up to 6 hops ahead)
+        let j = i + 1, hw = e1.hw;
+        for (let k = i + 2; k < Math.min(seq.length, i + 6); k++) {
+          const ek = edgeBetween(graph, seq[k - 1], seq[k])!;
+          if (ek.cross) break;
+          const a = n.p, b = graph.nodes[seq[k]].p, L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          if (L > 24 || !ws.segWalkable(a, b, 0.3)) break;
+          const dir: P2 = [(b[0] - a[0]) / (L || 1), (b[1] - a[1]) / (L || 1)];
+          const h = Math.min(...[0, 0.25, 0.5, 0.75, 1].map((tt) => ws.freeHalf([a[0] + (b[0] - a[0]) * tt, a[1] + (b[1] - a[1]) * tt], dir, 1.6)));
+          if (h < 0.6) break;
+          j = k; hw = h;
+        }
+        out.push({ p: n.p, y: n.y, hw });
+        i = j;
+      }
+      return out;
+    };
+    const pulled = new Map<string, ReturnType<typeof pull>>();
     const makeMove = (nodesSeq: number[], t: number, speed: number): [LifeSeg, number] => {
       const pts: number[] = [];
       const cross: LifeCross[] = [];
+      const key = `${nodesSeq[0]}>${nodesSeq[nodesSeq.length - 1]}:${nodesSeq.length}`;
+      if (!pulled.has(key)) pulled.set(key, pull(nodesSeq));
+      const P = pulled.get(key)!;
       let s = 0;
-      for (let k = 0; k < nodesSeq.length; k++) {
-        const n = graph.nodes[nodesSeq[k]];
+      for (let k = 0; k < P.length; k++) {
+        const n = P[k];
         if (k) {
-          const pr = graph.nodes[nodesSeq[k - 1]];
+          const pr = P[k - 1];
           const l = Math.hypot(n.p[0] - pr.p[0], n.p[1] - pr.p[1]);
-          const e = edgeBetween(graph, nodesSeq[k - 1], nodesSeq[k]);
-          if (e?.cross && e.cross.sig >= 0) cross.push({ s0: r2(s), s1: r2(s + l), sig: e.cross.sig, group: e.cross.group });
+          if (pr.cross) cross.push({ s0: r2(s), s1: r2(s + l), sig: pr.cross.sig, group: pr.cross.group });
           s += l;
         }
-        const hwIn = k ? edgeBetween(graph, nodesSeq[k - 1], nodesSeq[k])?.hw ?? 0.6 : 9, hwOut = k + 1 < nodesSeq.length ? edgeBetween(graph, nodesSeq[k], nodesSeq[k + 1])?.hw ?? 0.6 : 9;
-        pts.push(r2(n.p[0] + off[0]), r2(n.y + off[1]), r2(n.p[1] + off[2]), r2(Math.min(hwIn, hwOut, 2.4)));
+        const hw = Math.min(k ? P[k - 1].hw : 9, n.hw, 2.4);
+        pts.push(r2(n.p[0] + off[0]), r2(n.y + off[1]), r2(n.p[1] + off[2]), r2(hw));
       }
       paths.push(pts);
       const seg: LifeSeg = { k: 'move', t: r2(t), p: paths.length - 1, ...(cross.length ? { cross } : {}) };

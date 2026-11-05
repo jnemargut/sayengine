@@ -55,7 +55,7 @@ export class WalkSpace {
   cars: Street[]; peds: Street[]; walkers: Street[];
   buildings: BBoxed[];
   parks: BBoxed[]; water: BBoxed[];
-  crossings: Rect[] = []; piers: Rect[] = []; blocked: Rect[] = [];
+  crossings: Rect[] = []; crossInfo: Array<{ sig: number; group: number }> = []; piers: Rect[] = []; blocked: Rect[] = [];
   constructor(plan: TownPlan) {
     this.plan = plan;
     this.cars = plan.streets.filter(isCar);
@@ -64,6 +64,14 @@ export class WalkSpace {
     this.buildings = plan.buildings.filter((b) => !b.hidden).map((b) => boxed(b.footprint));
     this.parks = plan.areas.filter((a) => a.kind === 'park' || a.kind === 'plaza').map((a) => boxed(a.polygon));
     this.water = plan.areas.filter((a) => a.kind === 'water' || a.kind === 'river').map((a) => boxed(a.polygon));
+    for (const st of plan.streets) this.sbox.set(st, boxed(st.points));
+  }
+  private sbox = new Map<Street, BBoxed>();
+  /** Distance from p to a street's centreline, or Infinity when p is clearly further than `within`. */
+  dist(st: Street, p: P2, within: number): number {
+    const b = this.sbox.get(st)!;
+    if (p[0] < b.min[0] - within || p[0] > b.max[0] + within || p[1] < b.min[1] - within || p[1] > b.max[1] + within) return Infinity;
+    return nearestOn(st.points, p).d;
   }
   inBuilding(p: P2, pad = 0.3): boolean {
     for (const b of this.buildings) {
@@ -76,13 +84,23 @@ export class WalkSpace {
   inPoly(p: P2, list: BBoxed[]): boolean { return list.some((b) => p[0] >= b.min[0] && p[0] <= b.max[0] && p[1] >= b.min[1] && p[1] <= b.max[1] && pointInPoly(p, b.poly)); }
   /** On some car street's carriageway (pad widens it). */
   onRoad(p: P2, pad = 0): Street | null {
-    for (const s of this.cars) if (nearestOn(s.points, p).d < s.width / 2 + pad) return s;
+    for (const s of this.cars) if (this.dist(s, p, s.width / 2 + pad) < s.width / 2 + pad) return s;
     return null;
   }
   inCrossing(p: P2): boolean { return this.crossings.some((r) => inRect(p, r)); }
   onPier(p: P2): boolean { return this.piers.some((r) => inRect(p, r)); }
+  private memo: Map<number, boolean> | null = null;
+  /** Freeze the space (no more crossings, piers or blockers): walkable() is then memoised on a 5 cm grid. */
+  freeze() { this.memo = new Map(); }
   /** May a person stand here? */
   walkable(p: P2): boolean {
+    if (!this.memo) return this.walkableRaw(p);
+    const key = Math.round(p[0] * 20) * 1000003 + Math.round(p[1] * 20);
+    let v = this.memo.get(key);
+    if (v === undefined) { v = this.walkableRaw(p); this.memo.set(key, v); }
+    return v;
+  }
+  walkableRaw(p: P2): boolean {
     if (this.blocked.some((r) => inRect(p, r, 0.25))) return false;
     if (this.onPier(p)) return true;
     if (this.inBuilding(p)) return false;
@@ -90,7 +108,7 @@ export class WalkSpace {
     if (this.onRoad(p, 0.25)) return false;
     if (this.inPoly(p, this.water)) return false;
     for (const s of this.walkers) {
-      const d = nearestOn(s.points, p).d;
+      const d = this.dist(s, p, s.width / 2 + s.sidewalk + 0.5);
       if (isPed(s) ? d < s.width / 2 : d > s.width / 2 + 0.2 && d < s.width / 2 + s.sidewalk) return true;
     }
     if (this.inPoly(p, this.parks)) return true;
@@ -111,6 +129,7 @@ export class WalkSpace {
     if (this.onPier(p)) return this.pierY;
     let best: { d: number; y: number } | null = null;
     for (const s of this.plan.streets) {
+      if (this.dist(s, p, s.width / 2 + s.sidewalk + 0.5) === Infinity) continue;
       const n = nearestOn(s.points, p);
       const w = s.width / 2;
       const hs = s.heights ?? s.points.map((q) => groundAt(this.plan.ground, q[0], q[1]));
@@ -224,7 +243,7 @@ export function carLanes(ws: WalkSpace, junctions: Junction[], opts: { speed: nu
     if (!J) return 0;
     let w = 0;
     for (const a of J.arms) if (a.street !== si) w = Math.max(w, cars[a.street].width / 2);
-    return w + 3.4;
+    return w + 4.2;
   };
   for (let si = 0; si < cars.length; si++) {
     const s = cars[si];
@@ -308,6 +327,17 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
   const link = (a: number, b: number, cross?: WalkEdge['cross']): boolean => {
     if (a === b || edges.some((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a))) return false;
     const A = nodes[a].p, B = nodes[b].p, len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    if (!cross) {
+      // a link over a carriageway is a crossing (it can only be on a crosswalk): carry its signal
+      const n = Math.max(1, Math.ceil(len / 0.4));
+      for (let i = 0; i <= n && !cross; i++) {
+        const q: P2 = [A[0] + (B[0] - A[0]) * i / n, A[1] + (B[1] - A[1]) * i / n];
+        if (!ws.onRoad(q, 0)) continue;
+        const k = ws.crossings.findIndex((r) => inRect(q, r));
+        if (k < 0) return false;
+        cross = ws.crossInfo[k];
+      }
+    }
     const dir: P2 = [(B[0] - A[0]) / (len || 1), (B[1] - A[1]) / (len || 1)];
     const hw = cross ? 1.3 : Math.min(...[0, 0.17, 0.33, 0.5, 0.67, 0.83, 1].map((t) => ws.freeHalf([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t], dir)));
     if (hw < 0.55) return false;
@@ -360,7 +390,8 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
       const e1: P2 = [c[0] - dir[1] * (s.width / 2 + Math.min(1.4, s.sidewalk / 2)), c[1] + dir[0] * (s.width / 2 + Math.min(1.4, s.sidewalk / 2))];
       const e2: P2 = [c[0] + dir[1] * (s.width / 2 + Math.min(1.4, s.sidewalk / 2)), c[1] - dir[0] * (s.width / 2 + Math.min(1.4, s.sidewalk / 2))];
       ws.crossings.push(rect);
-      if (!ws.walkable(e1) || !ws.walkable(e2)) { ws.crossings.pop(); return; }
+      ws.crossInfo.push(J.sig >= 0 ? { sig: J.sig, group: J.groups[ai] } : { sig: -1, group: 0 });
+      if (!ws.walkable(e1) || !ws.walkable(e2)) { ws.crossings.pop(); ws.crossInfo.pop(); return; }
       const a = add(e1, chain), b = add(e2, chain);
       chain++;
       link(a, b, J.sig >= 0 ? { sig: J.sig, group: J.groups[ai] } : { sig: -1, group: 0 });

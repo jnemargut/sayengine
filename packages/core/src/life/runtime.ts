@@ -14,7 +14,7 @@ export const IDM = { T: 1.2, s0: 2.2, a: 1.6, b: 2.6 };
 
 // ── data (life.json, written by the bake) ───────────────────────────────────
 export interface LifeSignal { id: string; at: [number, number]; cycle: number; offset: number; green: [number, number]; amber: number; allRed: number }
-export interface LifeEdge { id: string; pts: number[]; speed: number; stop?: { sig: number; group: number }; bus?: number[]; next?: number[] }
+export interface LifeEdge { id: string; pts: number[]; speed: number; stop?: { sig: number; group: number }; bus?: number[]; turn?: boolean; conf?: number[] }
 export interface LifeCross { s0: number; s1: number; sig: number; group: number }
 export interface LifeMove { k: 'move'; t: number; p: number; cross?: LifeCross[] }
 export interface LifeAct { k: 'act'; t: number; t1: number; at: [number, number, number]; face: number; pose: string; slot: number; place?: string }
@@ -33,7 +33,7 @@ export interface AgentState {
   visible: boolean; seg: number; s: number; lat: number; v: number;
   x: number; y: number; z: number; yaw: number; pose: string;
   actStart: number; actEnd: number; moveStart: number; fromX: number; fromY: number; fromZ: number;
-  slot: number; blocked: number; wait: boolean; stay: boolean;
+  slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
 
@@ -91,6 +91,20 @@ function dirAt(p: PathInfo, stride: number, s: number): number[] {
 }
 
 function clamp(v: number, a: number, b: number) { return v < a ? a : v > b ? b : v; }
+/** Distance from a point to a vehicle's footprint (0 inside). */
+export function boxDist(px: number, pz: number, x: number, z: number, yaw: number, len: number, wid: number): number {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), dx = px - x, dz = pz - z;
+  const u = dx * fx + dz * fz, w = dx * fz - dz * fx;
+  const cu = clamp(u, -len / 2, len / 2), cw = clamp(w, -wid / 2, wid / 2);
+  return Math.sqrt((u - cu) * (u - cu) + (w - cw) * (w - cw));
+}
+/** Is a circle (px, pz, r) touching a vehicle's footprint (centre, yaw, length, width)? */
+export function inBox(px: number, pz: number, r: number, x: number, z: number, yaw: number, len: number, wid: number): boolean {
+  const fx = Math.sin(yaw), fz = Math.cos(yaw), dx = px - x, dz = pz - z;
+  const u = dx * fx + dz * fz, w = dx * fz - dz * fx;
+  const cu = clamp(u, -len / 2, len / 2), cw = clamp(w, -wid / 2, wid / 2);
+  return (u - cu) * (u - cu) + (w - cw) * (w - cw) < r * r;
+}
 function angleTo(from: number, to: number, maxStep: number): number {
   let d = to - from;
   while (d > Math.PI) d -= 2 * Math.PI;
@@ -129,6 +143,7 @@ export class LifeRuntime {
   }
   /** Walkers crossing a street of `group` may start while the other group has a green with 5 s left. */
   walkOk(sig: number, group: number, t: number): boolean {
+    if (sig < 0) return true;
     const S = this.data.signals[sig];
     let u = (t + S.offset) % S.cycle;
     if (u < 0) u += S.cycle;
@@ -153,7 +168,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false };
   }
 
   firstTrip(i: number, t: number): number {
@@ -277,8 +292,9 @@ export class LifeRuntime {
     const hw = pt[3];
     let want = A.speed, latT = Math.min(0.4, hw * 0.4);
     // crossings: wait at the curb for the walk signal
-    st.wait = false;
+    st.wait = false; st.onCross = false;
     if (g.cross) for (const c of g.cross) {
+      if (st.s > c.s0 - 0.2 && st.s < c.s1 + 0.2) st.onCross = true;
       if (st.s < c.s0 - 0.25 && st.s > c.s0 - 2.5) {
         let go = this.walkOk(c.sig, c.group, this.t);
         // and look both ways: no car coming at the crossing
@@ -288,7 +304,9 @@ export class LifeRuntime {
             const vv = this.vehicles[j];
             if (!vv.visible) continue;
             const dx = M[0] - vv.x, dz = M[2] - vv.z, d = Math.sqrt(dx * dx + dz * dz);
-            if (d < 7 + vv.v * 2.5 && (dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2 || d < 4)) { go = false; break; }
+            const Vd = this.data.vehicles[j];
+            const coming = vv.v > 0.5 && d < 7 + vv.v * 2.5 && dx * Math.sin(vv.yaw) + dz * Math.cos(vv.yaw) > -2;
+            if (coming || boxDist(M[0], M[2], vv.x, vv.z, vv.yaw, Vd.len, Vd.wid) < 2.2) { go = false; break; }
           }
         }
         if (!go) { want = Math.min(want, Math.max(0, (c.s0 - 0.35 - st.s) * 2)); st.wait = true; }
@@ -342,6 +360,13 @@ export class LifeRuntime {
       const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, d2 = dx * dx + dz * dz;
       const ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
       if (d2 < r * r && d2 < ex * ex + ez * ez) { ok = false; break; }
+    }
+    for (let j = 0; ok && j < this.vehicles.length; j++) {
+      const vv = this.vehicles[j];
+      if (!vv.visible) continue;
+      const Vd = this.data.vehicles[j];
+      const dn = boxDist(cx, cz, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
+      if (dn < A.r + 0.2 && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) ok = false;
     }
     if (ok && this.player.on) {
       const r = A.r + this.player.r + 0.05;
@@ -469,6 +494,38 @@ export class LifeRuntime {
         if (col === RED || canStop) { if (toLine < gap) { gap = Math.max(0.01, toLine + IDM.s0 - 0.3); lv = 0; } }
       }
     }
+    // the junction box: don't enter a turn while a crossing or merging one is taken (or about to be, by
+    // someone nearer the line; ties go to the lower index)
+    const nextLeg = st.leg + 1 < trip.edges.length ? st.leg + 1 : V.loop ? 0 : -1;
+    if (nextLeg >= 0) {
+      const ne = this.data.edges[trip.edges[nextLeg]];
+      const toLine = EP.len - st.s - V.len / 2;
+      if (ne.conf && toLine < 12) {
+        let busy = false;
+        for (let j = 0; j < this.vehicles.length && !busy; j++) {
+          if (j === i) continue;
+          const o = this.vehicles[j];
+          if (!o.visible) continue;
+          const ot = this.tripOf(j)!;
+          const oe = ot.edges[o.leg];
+          const half = this.data.vehicles[j].len / 2 + 0.5;
+          const prevE = o.leg > 0 ? ot.edges[o.leg - 1] : this.data.vehicles[j].loop ? ot.edges[ot.edges.length - 1] : -1;
+          const nextE = o.leg + 1 < ot.edges.length ? ot.edges[o.leg + 1] : this.data.vehicles[j].loop ? ot.edges[0] : -1;
+          for (let c = 0; c < ne.conf.length; c++) {
+            // a body still in (or already nosing into) a conflicting turn holds the box
+            if (oe === ne.conf[c] || (prevE === ne.conf[c] && o.s < half) || (nextE === ne.conf[c] && this.edges[oe].len - o.s < this.data.vehicles[j].len / 2 - 0.1)) { busy = true; break; }
+            const onl = o.leg + 1 < ot.edges.length ? o.leg + 1 : this.data.vehicles[j].loop ? 0 : -1;
+            if (onl >= 0 && ot.edges[onl] === ne.conf[c]) {
+              const ol = this.edges[oe].len - o.s - this.data.vehicles[j].len / 2;
+              const os = this.data.edges[oe].stop;
+              const canGo = !os || this.signal(os.sig, os.group, this.t) === GREEN;
+              if (canGo && ol < 3 && (ol < toLine - 0.5 || (Math.abs(ol - toLine) <= 0.5 && j < i))) { busy = true; break; }
+            }
+          }
+        }
+        if (busy && toLine + IDM.s0 - 0.3 < gap) { gap = Math.max(0.01, toLine + IDM.s0 - 0.3); lv = 0; }
+      }
+    }
     // bus stops: pull in and dwell
     if (V.kind === 'bus' && E.bus) {
       for (let b = 0; b < E.bus.length; b++) {
@@ -490,12 +547,22 @@ export class LifeRuntime {
     const half = V.wid / 2 + 0.25;
     for (let j = 0; j <= this.agents.length; j++) {
       let px: number, pz: number, pr: number;
+      let moving = true;
       if (j === this.agents.length) { if (!this.player.on) continue; px = this.player.x; pz = this.player.z; pr = this.player.r; }
-      else { const o = this.agents[j]; if (!o.visible) continue; px = o.x; pz = o.z; pr = this.data.agents[j].r; }
+      else {
+        const o = this.agents[j];
+        if (!o.visible) continue;
+        moving = o.v > 0.05;
+        // folk standing on the sidewalk (waiting at the curb, chatting) aren't in the road
+        if (!moving && !o.onCross) continue;
+        px = o.x; pz = o.z; pr = this.data.agents[j].r;
+      }
       const dx = px - st.x, dz = pz - st.z;
       if (dx * dx + dz * dz > (look + V.len) * (look + V.len)) continue;
+      // someone at the front corners (stepping off a curb as we turn): stop dead; beside or behind: carry on
+      if (moving && ((px - st.x) * Math.sin(st.yaw) + (pz - st.z) * Math.cos(st.yaw)) > V.len * 0.25 && inBox(px, pz, pr + 0.35, st.x, st.z, st.yaw, V.len, V.wid)) { hard = true; st.brake = true; continue; }
       const hit = this.alongRoute(i, px, pz, look + V.len / 2, half + pr);
-      if (hit >= 0) {
+      if (hit >= 0 && hit > V.len / 2 - 0.6) {           // ahead of the nose (beside the body: they wait for us)
         const gp = hit - V.len / 2 - pr;
         if (gp + 1.0 < gap) { gap = Math.max(0.01, gp + 1.0); lv = 0; st.brake = true; }
         if (gp < 1.2) hard = true;              // right in front: stop dead (cars never touch anyone)

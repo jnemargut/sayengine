@@ -69,9 +69,17 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const byHour = new Array(24).fill(0), seen = new Array(24).fill(0);
   let peakF = 0, peakC = 0, brakes = 0, ticks = 0;
   const pr = o.player?.r ?? 0.4;
+  let ps = 0;
   for (let t = from; t < to; t += LIFE_DT) {
-    if (o.player && t >= (o.player.from ?? 0) && t < (o.player.to ?? 1e9)) { const p = playerAt(o.player, t - (o.player.from ?? from)); rt.setPlayer(p[0], p[1], pr, true); }
-    else rt.setPlayer(0, 0, pr, false);
+    if (o.player && t >= (o.player.from ?? 0) && t < (o.player.to ?? 1e9)) {
+      // the scripted player is solid like the game's: a car or a person in the way holds it up
+      const p = playerAt(o.player, ps + LIFE_DT);
+      let free = true;
+      for (let i = 0; i < rt.vehicles.length && free; i++) if (rt.vehicles[i].visible && circleInRect(p[0], p[1], pr, { x: rt.vehicles[i].x, z: rt.vehicles[i].z, yaw: rt.vehicles[i].yaw, l: D.vehicles[i].len, w: D.vehicles[i].wid })) free = false;
+      if (free) ps += LIFE_DT;
+      const q = playerAt(o.player, ps);
+      rt.setPlayer(q[0], q[1], pr, true);
+    } else rt.setPlayer(0, 0, pr, false);
     rt.step();
     ticks++;
     const A = rt.agents, V = rt.vehicles;
@@ -96,7 +104,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
           const e = D.edges[trip.edges[p.leg]];
           if (e?.stop && rt.signal(e.stop.sig, e.stop.group, t) === RED && rt.signal(e.stop.sig, e.stop.group, t - 3) === RED) { cnt.red++; note('red', t); }
         }
-        if (v.v < 0.1) { still[i] += LIFE_DT; if (still[i] > 150 && still[i] - LIFE_DT <= 150) { cnt.stuck++; note('stuck', t); } } else still[i] = 0;
+        if (v.v < 0.1) { still[i] += LIFE_DT; if (still[i] > (process.env.LIFE_STUCK ? +process.env.LIFE_STUCK : 150) && still[i] - LIFE_DT <= (process.env.LIFE_STUCK ? +process.env.LIFE_STUCK : 150)) { cnt.stuck++; note('stuck', t); if (process.env.LIFE_DEBUG && cnt.stuck < 30) { const tr = rt.tripOf(i)!; const e = D.edges[tr.edges[v.leg]]; const near = V.map((o, k) => ({ k, d: Math.hypot(o.x - v.x, o.z - v.z), o })).filter((q) => q.k !== i && q.o.visible && q.d < 15).map((q) => q.k + '@' + D.edges[rt.tripOf(q.k)!.edges[q.o.leg]].id + ':' + q.o.s.toFixed(1) + ':v' + q.o.v.toFixed(1)); const pe = A.map((o, k) => ({ k, d: Math.hypot(o.x - v.x, o.z - v.z), o })).filter((q) => q.o.visible && q.d < 8).map((q) => q.k + (q.o.wait ? 'W' : '') + ':v' + q.o.v.toFixed(1)); console.log('STUCK', (t / 3600).toFixed(4), i, D.vehicles[i].kind, e.id, 's', v.s.toFixed(1), 'len', rt.edges[tr.edges[v.leg]].len.toFixed(1), 'stop', e.stop ? rt.signal(e.stop.sig, e.stop.group, t) : '-', 'next', D.edges[tr.edges[v.leg + 1]]?.id, 'cars', near.join(' '), 'folk', pe.join(' '), v.brake); } } } else still[i] = 0;
       } else still[i] = 0;
       p.v = v.visible; p.x = v.x; p.z = v.z; p.leg = v.leg; p.s = v.s;
     }
@@ -145,9 +153,9 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       nc++;
       if (V[i].brake && rt.player.on && Math.hypot(V[i].x - rt.player.x, V[i].z - rt.player.z) < 25) brakes++;
       const bi = box(i);
-      for (let j = i + 1; j < V.length; j++) if (V[j].visible && Math.hypot(V[i].x - V[j].x, V[i].z - V[j].z) < 14 && rectsOverlap(bi, box(j))) { cnt.carCar++; note('carCar', t); }
-      for (let j = 0; j < A.length; j++) if (A[j].visible && Math.hypot(V[i].x - A[j].x, V[i].z - A[j].z) < 8 && circleInRect(A[j].x, A[j].z, D.agents[j].r - 0.05, bi)) { cnt.carHit++; note('carHit', t); }
-      if (rt.player.on && circleInRect(rt.player.x, rt.player.z, pr - 0.05, bi)) { cnt.playerCar++; note('playerCar', t); }
+      for (let j = i + 1; j < V.length; j++) if (V[j].visible && Math.hypot(V[i].x - V[j].x, V[i].z - V[j].z) < 14 && rectsOverlap(bi, box(j))) { cnt.carCar++; note('carCar', t); if (process.env.LIFE_DEBUG && cnt.carCar < 6) { const ti = rt.tripOf(i)!, tj = rt.tripOf(j)!; console.log('CARCAR', (t / 3600).toFixed(4), i, j, V[j].x.toFixed(1), V[j].z.toFixed(1), (V[i].yaw * 57.3).toFixed(0), (V[j].yaw * 57.3).toFixed(0), 'edges', D.edges[ti.edges[V[i].leg]].id, D.edges[tj.edges[V[j].leg]].id, 's', V[i].s.toFixed(1), V[j].s.toFixed(1), 'v', V[i].v.toFixed(1), V[j].v.toFixed(1), V[i].x.toFixed(1), V[i].z.toFixed(1)); } }
+      for (let j = 0; j < A.length; j++) if (A[j].visible && Math.hypot(V[i].x - A[j].x, V[i].z - A[j].z) < 8 && circleInRect(A[j].x, A[j].z, D.agents[j].r - 0.05, bi)) { cnt.carHit++; note('carHit', t); if (process.env.LIFE_DEBUG && cnt.carHit < 6) { const g = D.agents[j].plan[A[j].seg] as any; console.log('CARHIT', (t / 3600).toFixed(4), 'veh', i, 'v', V[i].v.toFixed(1), 'brake', V[i].brake, 'agent', j, D.agents[j].kind, g?.k, g?.pose, A[j].pose, 'wait', A[j].wait, A[j].x.toFixed(1), A[j].z.toFixed(1), 'edge', D.edges[rt.tripOf(i)!.edges[V[i].leg]].id); } }
+      if (rt.player.on && circleInRect(rt.player.x, rt.player.z, pr - 0.05, bi)) { cnt.playerCar++; note('playerCar', t); if (process.env.LIFE_DEBUG && cnt.playerCar < 4) console.log('PLAYERCAR', (t / 3600).toFixed(4), i, V[i].v.toFixed(1), V[i].brake, rt.player.x.toFixed(1), rt.player.z.toFixed(1)); }
     }
     const h = Math.floor((t / 3600) % 24);
     byHour[h] += nf; seen[h]++;
