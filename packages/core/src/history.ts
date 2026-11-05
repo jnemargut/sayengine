@@ -14,6 +14,7 @@ export interface Commit {
   changes: Change[];
   time: string;
   args?: unknown;
+  note?: string;       // the word note this step answers ("slower", "warmer") — Decision 62
 }
 
 export interface Proposal {
@@ -27,6 +28,24 @@ export interface Proposal {
   created: string;
   resolved?: string;
   note?: string;
+  seen?: string[];     // steps whose before/after was opened (Decision 62: only then does "keep" count as reviewed)
+  kept?: string[];     // steps the reviewer tapped Keep on
+  keptUnopened?: string[]; // steps merged without their before/after ever being opened
+  card?: import('./collab/card.ts').Card;   // the "your call" card (Decision 64)
+  takeGroup?: string;  // "show me three": the group this take belongs to
+}
+
+/** Review counters (Decision 62 tripwire: more than about 9 in 10 kept without opening → group steps). */
+export interface ReviewStats { kept: number; keptUnopened: number; played: string[] }
+
+export interface TakeGroup {
+  id: string; title: string; topic: string; author: string; created: string;
+  takes: Array<{ label: string; proposal: string; traits: string[] }>;
+  distinct: { pairs: Array<{ a: string; b: string; distance: number }>; min: number };
+  sections: Array<{ section: string; takes: Record<string, string[]>; spread: number }>;
+  status: 'open' | 'picked' | 'dropped';
+  opened?: boolean;    // the side-by-side compare was opened
+  picked?: string; why?: string; resolved?: string;
 }
 
 export interface RepoData {
@@ -34,7 +53,9 @@ export interface RepoData {
   mainHead: string | null;
   proposals: Record<string, Proposal>;
   active: string;      // "main" | proposal id
-  seq: { commit: number; proposal: number };
+  seq: { commit: number; proposal: number; take?: number };
+  review?: ReviewStats;
+  takes?: Record<string, TakeGroup>;
 }
 
 export function emptyRepo(): RepoData {
@@ -207,6 +228,11 @@ export class History {
     }
     p.status = 'committed';
     p.resolved = new Date().toISOString();
+    const rv = (this.data.review ??= { kept: 0, keptUnopened: 0, played: [] });
+    const seen = new Set(p.seen ?? []);
+    p.keptUnopened = merged.map((m) => (m.args as any).from as string).filter((id) => !seen.has(id));
+    rv.kept += merged.length;
+    rv.keptUnopened += p.keptUnopened.length;
     return { merged, skipped, mainMoved };
   }
 

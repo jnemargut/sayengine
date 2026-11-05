@@ -20,6 +20,7 @@ import { apronReport, bakeMotion, motionReport, checkFrames } from './motion.ts'
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
 import { bakeCreature, buildCreature, creatureChecks } from './rigparts.ts';
+import { Collab, stamp, stepAssets, type Clock } from './collab/index.ts';
 
 export interface CallResult {
   ok: boolean;
@@ -50,10 +51,15 @@ export class Studio {
   private resolveErrors = new WeakMap<SceneDoc, Record<string, string>>();
   private listeners = new Set<() => void>();
   onPersist?: (data: RepoData) => void;
+  /** Working together (Phase 10): notes, taste, cards, addresses. Swap its IO for files (the daemon does). */
+  collab: Collab;
+  /** What the human points at in the view (a part, or a moment on a clock): addresses are made from it. */
+  selection: { object: string; part?: string | null; clock?: Clock; seconds?: number; near?: string; time: string } | null = null;
 
   constructor(data?: RepoData, opts: { assets?: AssetStore } = {}) {
     this.history = new History(data);
     this.assets = opts.assets ?? new MemoryAssets();
+    this.collab = new Collab(this);
     setMeshLoader((a) => {
       const key = JSON.stringify(a);
       let m = this.meshCache.get(key);
@@ -79,7 +85,13 @@ export class Studio {
   proposalDoc(p: any): SceneDoc { return this.resolve(this.history.proposalDoc(p)); }
 
   onChange(fn: () => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  private emit() { this.onPersist?.(this.history.data); for (const fn of this.listeners) fn(); }
+  private emit() {
+    try { this.collab.refreshNotes(); } catch { /* a note's clock failed to build: it stays as it was */ }
+    this.onPersist?.(this.history.data);
+    for (const fn of this.listeners) fn();
+  }
+  /** Persist and tell the view, after a change outside a tool call (notes, card answers). */
+  touch() { this.emit(); }
 
   doc(): SceneDoc { return this.resolve(this.history.activeDoc()); }
 
@@ -356,7 +368,8 @@ export class Studio {
     return v;
   }
 
-  call(name: string, rawArgs: unknown = {}, author = 'claude'): CallResult {
+  /** Run a tool. `opts.why` is the word note the step answers ("slower", "warmer"): it rides on the step (Decision 62). */
+  call(name: string, rawArgs: unknown = {}, author = 'claude', opts: { why?: string } = {}): CallResult {
     const tool = toolByName(name);
     const branch = this.history.data.active;
     if (!tool) return { ok: false, tool: name, branch, error: `unknown tool "${name}"`, hint: 'run `studio help` for the list' };
@@ -402,6 +415,7 @@ export class Studio {
         return { ok: true, tool: name, branch, result, summary: 'no change' };
       }
       const c = this.history.record(author, name, summary || name, changes, args);
+      if (opts.why) c.note = String(opts.why);
       const touched = new Set(changes.filter((x) => x.path[0] === 'objects' && x.path[1]).map((x) => x.path[1]));
       const doc = this.doc();
       // objects placed on / linked to a touched object move with it: report their checks too
@@ -530,12 +544,18 @@ export class Studio {
         active: h.data.active === p.id,
         steps: steps.map((c, i) => ({
           n: i + 1, id: c.id, summary: c.summary, author: c.author, tool: c.tool,
+          ...(c.note ? { note: c.note } : {}),
+          assets: stepAssets(c, preview).map((r) => r.kind === 'model' ? r.id : `${r.kind}:${r.id}`),
+          seen: (p.seen ?? []).includes(c.id), kept: (p.kept ?? []).includes(c.id),
           undone: p.undone.includes(c.id),
           dependsOnUndone: p.undone.includes(c.id) ? [] : [],
           affects: this.partsAffected(c, preview),
         })),
         checks,
         allPass: Object.values(checks).every((cs) => cs.every((c) => c.pass)),
+        ...(p.card ? { card: p.card } : {}),
+        ...(p.takeGroup ? { takeGroup: p.takeGroup } : {}),
+        ...(p.keptUnopened ? { keptUnopened: p.keptUnopened } : {}),
       };
     });
   }
@@ -555,8 +575,17 @@ export class Studio {
         position: o.position, rotation: o.rotation ?? 0,
         placement: o.place ? describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) : null,
         linkedCopyOf: o.instanceOf ?? null, role: o.role ?? 'model', reference: o.reference ?? null,
+        stamp: stamp(o),
       };
     });
+  }
+
+  /** Every object a proposal's steps touch (for addressing its card's asks). */
+  partsAffectedBy(p: any): Record<string, string[]> {
+    const preview = this.proposalDoc(p);
+    const out: Record<string, string[]> = {};
+    for (const c of this.history.steps(p)) for (const [k, v] of Object.entries(this.partsAffected(c, preview))) out[k] = [...new Set([...(out[k] ?? []), ...v])];
+    return out;
   }
 
   /**
@@ -594,6 +623,10 @@ export class Studio {
       history: this.log('main', 12),
       activity: this.activity.slice(-40),
       look: activeLook(main),
+      notes: this.collab.notesForView(),
+      review: this.collab.stats(),
+      takes: Object.values(h.data.takes ?? {}).filter((g) => g.status === 'open'),
+      selection: this.selection,
     };
   }
 }

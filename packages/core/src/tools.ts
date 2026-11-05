@@ -17,6 +17,7 @@ import { UI_TOOLS, uiChecks } from './uikit.ts';
 import { WORLD_TOOLS, worldChecks } from './world/tools.ts';
 import { LOOK_TOOLS } from './look/tools.ts';
 import { LIFE_TOOLS } from './life/tools.ts';
+import { COLLAB_TOOLS } from './collab/tools.ts';
 
 export interface ToolCtx {
   doc: SceneDoc;                       // draft of the active branch
@@ -589,7 +590,7 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'keep', mode: 'review', mutates: false,
-    description: 'Reviewer: re-include a previously undone step.',
+    description: 'Reviewer: keep a step (re-includes it if it was undone). Keep counts as reviewed only after the step\'s before/after was opened (open-step, or "Before/after" in the view); otherwise it is counted as kept without opening.',
     input: z.object({ proposal: z.string().optional(), step: z.union([z.string(), z.number()]) }),
     run(ctx, a) {
       const h = ctx.studio.history;
@@ -598,8 +599,10 @@ export const TOOLS: ToolDef[] = [
       const s = typeof a.step === 'number' || /^\d+$/.test(String(a.step)) ? steps[Number(a.step) - 1] : steps.find((x: any) => x.id === a.step);
       if (!s) throw new Error(`no step ${a.step} in ${p.id}`);
       p.undone = p.undone.filter((x: string) => x !== s.id);
-      ctx.summary(`${p.id}: kept "${s.summary}"`);
-      return { proposal: p.id, kept: s.id };
+      p.kept = [...new Set([...(p.kept ?? []), s.id])];
+      const reviewed = (p.seen ?? []).includes(s.id);
+      ctx.summary(`${p.id}: kept "${s.summary}"${reviewed ? '' : ' (without opening its before/after)'}`);
+      return { proposal: p.id, kept: s.id, reviewed, ...(reviewed ? {} : { hint: `studio open-step --proposal ${p.id} --step ${s.id} to see its before and after` }) };
     },
   },
   {
@@ -773,6 +776,7 @@ TOOLS.push(...UI_TOOLS);
 TOOLS.push(...WORLD_TOOLS);
 TOOLS.push(...LOOK_TOOLS);
 TOOLS.push(...LIFE_TOOLS);
+TOOLS.push(...COLLAB_TOOLS);
 
 export function toolByName(name: string): ToolDef | undefined {
   return TOOLS.find((t) => t.name === name);
