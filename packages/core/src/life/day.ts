@@ -88,14 +88,15 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       const p0 = playerAt(o.player, ps), p1 = playerAt(o.player, ps + pdir * LIFE_DT);
       const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, nx = -(p1[1] - p0[1]) / dl, nz = (p1[0] - p0[0]) / dl;
       let moved = false;
+      // (the first tick puts the player at the start of its walk)
+      let q: P2 = rt.player.on ? [rt.player.x, rt.player.z] : [p0[0], p0[1]];
       for (const off of [poff - Math.sign(poff) * Math.min(0.05, Math.abs(poff)), poff, poff + 0.25, poff - 0.25]) {
         if (Math.abs(off) > 0.9) continue;
-        if (!solid(p1[0] + nx * off, p1[1] + nz * off)) { ps += pdir * LIFE_DT; poff = off; moved = true; break; }
+        // the player goes exactly where it checked it was free to go
+        const c: P2 = [p1[0] + nx * off, p1[1] + nz * off];
+        if (!solid(c[0], c[1])) { ps += pdir * LIFE_DT; poff = off; moved = true; q = c; break; }
       }
       if (moved || !rt.player.on) pstuck = 0; else if ((pstuck += LIFE_DT) > 2.5) { pdir = -pdir; pstuck = 0; }
-      const q0 = playerAt(o.player, ps), q1 = playerAt(o.player, ps + pdir * LIFE_DT);
-      const ql = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]) || 1;
-      const q: P2 = [q0[0] - (q1[1] - q0[1]) / ql * poff, q0[1] + (q1[0] - q0[0]) / ql * poff];
       rt.setPlayer(q[0], q[1], pr, true);
     } else rt.setPlayer(0, 0, pr, false);
     rt.step();
