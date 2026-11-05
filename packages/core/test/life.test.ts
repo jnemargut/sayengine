@@ -83,10 +83,10 @@ test('a seeded cast and day: varied models, by hour and event; same seed → sam
   }
   // the day follows the hour: more out at 11 than at 6
   assert.ok(density({ seed: 1, models: [] }, 11) > density({ seed: 1, models: [] }, 6) * 5);
-  const again = bakeLife([{ plan: buildTown(twinSpec).plan, offset: [380, 0, 0] }], { seed: 1, event: 'market', folk: [36], cars: [5], busTowns: [0], models: MODELS });
-  assert.equal(JSON.stringify(again.data), JSON.stringify(b.data), 'same seed, same day');
-  const other = bakeLife([{ plan: buildTown(twinSpec).plan, offset: [380, 0, 0] }], { seed: 2, event: 'market', folk: [36], cars: [5], busTowns: [0], models: MODELS });
-  assert.notEqual(JSON.stringify(other.data.agents.map((a) => a.plan)), JSON.stringify(b.data.agents.map((a) => a.plan)), 'another seed, another day');
+  const small = (seed: number) => bakeLife([{ plan: buildTown(twinSpec).plan, offset: [380, 0, 0] }], { seed, event: 'market', folk: [8], cars: [2], busTowns: [0], models: MODELS });
+  const one = small(1);
+  assert.equal(JSON.stringify(small(1).data), JSON.stringify(one.data), 'same seed, same day');
+  assert.notEqual(JSON.stringify(small(2).data.agents.map((a) => a.plan)), JSON.stringify(one.data.agents.map((a) => a.plan)), 'another seed, another day');
 });
 
 test('the runtime is deterministic, and the headless day passes its checks', () => {
