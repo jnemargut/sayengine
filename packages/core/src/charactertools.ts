@@ -58,7 +58,7 @@ const PRESETS: Record<string, Partial<Record<string, number | string>>> = {
   goblin: { plan: 'stocky', height: 1.05, build: 0.55, headSize: 1.3, armLength: 1.1, handSize: 1.15, hair: 'none', nose: 'long', ears: 'pointy', mouth: 'cartoon', eyes: 'big', brows: 'bar', style: 'toy', shape: 'triangle', mood: 'nervous' },
   robot: { plan: 'human', height: 1.95, build: 0.8, headSize: 1.2, hair: 'none', mouth: 'grille', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', style: 'toy', shape: 'square', mood: 'warm' },
   bird: { plan: 'beaked', legs: 'bird', mood: 'gentle' },
-  dog: { plan: 'quadruped', headSize: 0.88, mood: 'warm' },
+  dog: { plan: 'quadruped', headSize: 0.88, legLength: 0.86, mood: 'warm' },
   // a heron: the lanky skeleton with a bird's face parts and wings (body plans and face parts mix freely)
   birdfolk: { plan: 'lanky', height: 1.72, build: 0.35, headSize: 1.2, hair: 'tuft', mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', wings: true, tail: true, tailLength: 0.45, legs: 'bird', shape: 'triangle', mood: 'proud' } as any,
   kid: { plan: 'chibi', hair: 'bun', mood: 'cheerful' },
