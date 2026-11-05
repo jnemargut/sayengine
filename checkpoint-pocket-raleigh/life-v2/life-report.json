@@ -19,11 +19,11 @@
     "outings": 576,
     "pairs": 50
   },
-  "bakeMs": 59555,
+  "bakeMs": 62041,
   "day": {
     "from": 9.5,
     "hours": 1,
-    "ms": 18514,
+    "ms": 19241,
     "peak": {
       "folk": 80,
       "cars": 11
@@ -38,7 +38,7 @@
       0,
       0,
       0,
-      64,
+      63.9,
       73.5,
       0,
       0,
@@ -67,7 +67,7 @@
       {
         "name": "few squeeze-pasts",
         "pass": false,
-        "count": 310,
+        "count": 320,
         "worst": 0,
         "limit": 61,
         "unit": "samples",
@@ -183,10 +183,10 @@
     "seconds": 120,
     "snapshots": 25,
     "positions": 2004,
-    "worstMetres": 0.6526303850153781,
+    "worstMetres": 0.10255999854398003,
     "visibilityMismatches": 0,
-    "godotMs": 55210,
+    "godotMs": 51134,
     "godot": "4.7.2.stable.official.ed1daf0bf",
-    "pass": false
+    "pass": true
   }
 }
