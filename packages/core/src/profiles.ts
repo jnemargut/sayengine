@@ -64,6 +64,13 @@ export function materialGroups(obj: SceneObject, res: EvalResult): MaterialGroup
   const groups = new Map<string, MaterialGroup>();
   for (const p of res.parts) {
     const m = materialForPart(obj, p.name.startsWith('~') ? obj.output ?? '' : p.name);
+    // a painted character part (face, iris, markings) keeps its own painted texture instead of the bake
+    if (m.paint && res.rig) {
+      const key = 'P' + JSON.stringify(m);
+      const g = groups.get(key) ?? { key, textured: false, material: m, parts: [] };
+      g.parts.push(p.name); groups.set(key, g);
+      continue;
+    }
     const textured = !(m.transmission && m.transmission > 0) && (m.opacity ?? 1) >= 1;
     const special = textured
       ? { cc: m.clearcoat ? +m.clearcoat.toFixed(2) : 0, ccr: m.clearcoat ? +(m.clearcoatRoughness ?? 0.1).toFixed(2) : 0 }

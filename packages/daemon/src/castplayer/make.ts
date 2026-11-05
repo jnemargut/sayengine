@@ -9,12 +9,13 @@ import { STUDIO_ROOT } from '../../../game/src/project.ts';
 import { withPage } from '../../../game/src/chrome.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export interface CastMember { id: string; name: string; label: string; glb: Uint8Array; height: number; idle: string | null; headH?: number; headY?: number }
+export interface CastMember { id: string; name: string; label: string; glb: Uint8Array; height: number; idle: string | null; headH?: number; headY?: number; alt?: Uint8Array }
 
-export async function buildCastLineup(outDir: string, title: string, cast: CastMember[]): Promise<string> {
+/** `styles` names the two style families when members carry an `alt` GLB: the player toggles between them. */
+export async function buildCastLineup(outDir: string, title: string, cast: CastMember[], styles?: [string, string]): Promise<string> {
   fs.mkdirSync(outDir, { recursive: true });
-  const members = cast.map((c) => { fs.writeFileSync(path.join(outDir, `${c.id}.glb`), c.glb); return { id: c.id, name: c.name, label: c.label, glb: `${c.id}.glb`, height: c.height, idle: c.idle, headH: c.headH, headY: c.headY, headZ: (c as any).headZ }; });
-  fs.writeFileSync(path.join(outDir, 'cast.json'), JSON.stringify({ title, cast: members }, null, 2));
+  const members = cast.map((c) => { fs.writeFileSync(path.join(outDir, `${c.id}.glb`), c.glb); if (c.alt) fs.writeFileSync(path.join(outDir, `${c.id}.alt.glb`), c.alt); return { ...(c.alt ? { alt: `${c.id}.alt.glb` } : {}), id: c.id, name: c.name, label: c.label, glb: `${c.id}.glb`, height: c.height, idle: c.idle, headH: c.headH, headY: c.headY, headZ: (c as any).headZ }; });
+  fs.writeFileSync(path.join(outDir, 'cast.json'), JSON.stringify({ title, cast: members, ...(styles ? { styles } : {}) }, null, 2));
   fs.writeFileSync(path.join(outDir, 'index.html'), `<!doctype html><html><head><meta charset="utf-8"><title>Cast lineup</title><style>html,body{margin:0;background:#ece6dc}#stage canvas{width:100%;height:auto;display:block}</style></head><body><div id="stage"></div><script type="module" src="player.js"></script></body></html>`);
   const esbuild = await import('esbuild');
   await esbuild.build({ entryPoints: [path.join(HERE, 'main.ts')], outfile: path.join(outDir, 'player.js'), bundle: true, minify: true, format: 'esm', target: 'es2022', nodePaths: [path.join(STUDIO_ROOT, 'node_modules')], logLevel: 'silent' });

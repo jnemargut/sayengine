@@ -12,6 +12,7 @@ const label = process.argv[2] ?? 'after';
 const OUT = path.resolve(process.env.FACES_OUT ?? path.join(import.meta.dirname, '..', 'checkpoint-faces'), label);
 const styles = (process.env.FACES_STYLES ?? 'faceted,smooth').split(',');
 await initKernel();
+const byStyle = new Map<string, any[]>();
 for (const style of styles) {
   const studio = new Studio();
   for (const c of CAST) {
@@ -33,6 +34,7 @@ for (const style of styles) {
     if (!v.ok) throw new Error(`${id}: GLB does not validate: ${JSON.stringify(v).slice(0, 400)}`);
     cast.push({ id, name: o.name, label: `${sp.plan} · ${sp.face.kind} mouth`, glb, height: sp.params.height, idle: 'idle', headH: sp.face.headH, headY: sp.face.headBase[1], headZ: sp.face.headBase[2] });
   }
+  byStyle.set(style, cast);
   const dir = path.join(OUT, style);
   fs.rmSync(dir, { recursive: true, force: true });
   await buildCastLineup(dir, `The cast (${style})`, cast);
@@ -42,4 +44,13 @@ for (const style of styles) {
   console.log(report.join('\n'));
   for (const f of fs.readdirSync(dir)) if (f.endsWith('.glb') || f === 'frames') fs.rmSync(path.join(dir, f), { recursive: true, force: true });
   console.log(`${style}: ${dir}`);
+}
+// both styles: one lineup page that keeps the GLBs and toggles faceted ↔ smooth (open player/index.html over http)
+if (byStyle.has('faceted') && byStyle.has('smooth')) {
+  const smooth = byStyle.get('smooth')!;
+  const dir = path.join(OUT, 'player');
+  fs.rmSync(dir, { recursive: true, force: true });
+  await buildCastLineup(dir, 'The cast (faceted ↔ smooth)', byStyle.get('faceted')!.map((m, i) => ({ ...m, alt: smooth[i].glb })), ['faceted', 'smooth']);
+  fs.writeFileSync(path.join(dir, '.gitignore'), '*.glb\n');   // ~100 MB of models: kept locally to view, not committed
+  console.log(`style toggle player: ${dir}`);
 }
