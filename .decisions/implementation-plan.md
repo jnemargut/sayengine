@@ -772,6 +772,25 @@ Weak or not done:
 - [ ] Self penetration still uses bounding spheres per piece, so thin feathers and the trip's foot against the bucket aren't judged precisely (the bucket isn't part of the character's checks at all).
 - [ ] Action keys are hand-placed numbers. The octopus took several rounds of checks to find a layout where idle-curling arms don't brush the table, which is the D53 tripwire territory for complex scenes.
 
+### Creature craft pass 2 (2026-11-05, branch `phase8/creature-craft`, not merged)
+Asked for: feathers that read as feathers, spider legs that aren't chopsticks, an octopus that grips the handle, a kid whose smile isn't a stitched line, a dog with leg mass; fish tail rings if cheap. Before/after sheets in `checkpoint-craft-2/`.
+- [x] **Feathers** (`feather` shape in `rigparts.ts`, mesh in `creatures.ts`): a thin two-sided vane, widest a third of the way, rounded or pointed tip, raised shaft (camber), tip curving down, a wider trailing vane, smooth normals. `from`/`to` cut a band, so a feather is two colour bands (root lighter, tip darker). `featherPieces()` in `wings.ts`.
+- [x] **Wings rebuilt from feather rows:** secondaries along the arm and forearm with greater and lesser coverts riding them, a fan of six primaries with their coverts, an alula, a thinner leading edge. Every flight feather has its own bone, and `poseWings()` pivots it by how folded the wing is (`spread` in `WingPoseOut`): folded, the primaries stack along the hand and the forearm's feathers turn back along the body instead of sticking up, so the folded wing is a teardrop. The upstroke half-closes the fan. All wing checks still pass (feather corners are sampled).
+- [x] **Feathered tail and scapulars:** `fin` takes `feathers: n` (a fan of feathers, the middle ones on top) and `tipColor`. The bird has a seven-feather tail and soft scapulars over the shoulders.
+- [x] **Arthropod legs** (`legs` part: `arch`, `bands`, `hair`): femur up to the knee, then the lower bone drawn as a bowed tibia and metatarsus, each segment swelling in the middle and tapering, knuckles at every joint, pale bands at the joints, short bristles leaning toward the foot. The spider is recoloured (banded mid-brown legs against a darker body and the light floor, dark tips only on the last third), with knees high (`kneeUp`, `pole`), a patterned abdomen and pedipalps with dark tips.
+- [x] **Wrap grip** (`coilJoints()` in `actions.ts`, general for any chain): when a chain is about to hold (or holds) a prop, its last segments curl round the prop's handle axis (`prop.wrap: { axis, r }`) at a radius that clears the handle and the chain's thickness, rising a little per turn. The curl continues the way the chain arrives (no kink), tightens from straight to a full turn as the grip key approaches, and uncurls over 0.4 s after letting go. A held prop rides the coil's centre, so "held props stay in the grip" passes. Chains take `shrink` (each segment shorter than the last, so a tentacle tip can coil). The octopus has 14 shrinking segments per arm (limit 90°) and suckers on the outer half.
+- [x] **Fish tail rings fixed** (all chains): each segment's overlap now carries the taper on instead of keeping its end radius, and the joint ball matches the surface, so no ridge where the next segment starts.
+- [x] **Cartoon smile** (`rig.ts`): cartoon lips and the mouth opening are built in ten slices across the mouth, so the resting smile bends them into a smooth curve instead of a kinked polyline. The lower lip is fuller, the mouth narrower (0.38 of the head width), a happy mood sags the lower lip in the middle (a grin), and the painted corner creases are short soft dimples instead of long lines. The kid's lip colour is nearer the skin. Speech and teeth checks pass. Other mouths are unchanged (see `checkpoint-craft-2/faces/`).
+- [x] **Dog legs with mass** (`quadruped.ts`): a tapered ellipsoid haunch and upper arm (flattened side to side) that narrow into the stifle and elbow, a thicker forearm, and broad padded paws (`pawPts`). The haunch sits back so belly skin stays on the spine (the pose checks failed when it reached forward). Walk, trot, gallop, sit and lie checks pass.
+- [x] **Checks:** the self-collision check has a broad phase (a sphere per bone, so bones far apart skip their piece pairs). Feathers, like blades, aren't collision spheres.
+- Tests: 169, all pass (two network/engine tests that time out under heavy machine load pass alone).
+
+Weak or not done:
+- [ ] The studio view (kernel) shows creature pieces as convex hulls, so a curved feather shows as a flat slab there. The GLB and the preview are right.
+- [ ] The octopus's coil sits on the far side of the pot from the bench camera; it reads in the close-up crop, less so in the wide shot.
+- [ ] The cartoon smile is closed: no teeth, and the grin's dark opening is only a line. A real open grin would need M/B/P to close from an open rest.
+- [ ] The dog still stands a little tall; shortening the legs broke the sit's leg reach, so the proportions are unchanged.
+
 
 ## Assumptions & Tripwires
 | Assumption | Revisit if... | Affects |
