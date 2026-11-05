@@ -8,6 +8,8 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { focusOnState, validFocus } from './focus.ts';
 import { makeMaterial, addGrain, setupRenderer, addStage, fitShadow, type Mat } from './look.ts';
+import { installGradePass, lutTexture, type GradePass } from '../../../packages/game/templates/web/studio/look.ts';
+import { buildLut, parseLook } from '../../../packages/core/src/look/look.ts';
 
 type V3 = [number, number, number];
 interface BBox { min: V3; max: V3 }
@@ -28,6 +30,8 @@ interface Prop { id: string; title: string; status: string; author: string; acti
 interface State {
   active: string; mainHead: string | null; commitCount: number; main: PackedObj[]; proposals: Prop[];
   history: { id: string; author: string; tool: string; summary: string; time: string }[];
+  /** the scene's active look (Decision 29): its grade and outline drive the viewport, thumbnails and presentation renders */
+  look?: any;
   activity: { time: string; author: string; tool: string; args: string; ok: boolean; summary?: string; error?: string }[];
 }
 
@@ -677,6 +681,29 @@ const tr = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: tru
 setupRenderer(tr);
 tr.setSize(TS, TS, false);
 const thumbCache = new Map<string, string>();
+
+// ── the active look (Decision 29): the same transport tonemapper + LUT pass as the games ──
+let lookKey = '';
+let lookLut: THREE.Data3DTexture | null = null;
+let lookRec: any = null;
+const passes = new Map<THREE.WebGLRenderer, GradePass>();
+function gradeOn(r: THREE.WebGLRenderer, on: boolean) {
+  const p = passes.get(r);
+  if (on && lookLut && !p) passes.set(r, installGradePass(r, lookLut, { outline: lookRec?.outline }));
+  else if (on && p) { p.setLut(lookLut); p.setOutline(lookRec?.outline); p.enabled = true; }
+  else if (!on && p) p.enabled = false;
+}
+function syncLook(rec: any) {
+  const key = rec ? JSON.stringify(rec) : '';
+  if (key === lookKey) return;
+  lookKey = key; lookRec = rec;
+  lookLut?.dispose(); lookLut = null;
+  if (rec) { try { const L = parseLook(rec); const lut = buildLut(L); lookLut = lutTexture(lut.data, lut.size); } catch (e) { console.warn('look', e); } }
+  for (const [r, p] of passes) { if (!lookLut) { p.dispose(); passes.delete(r); } }
+  gradeOn(renderer, !!lookLut); gradeOn(tr, !!lookLut);
+  if (!lookLut) { setupRenderer(renderer); setupRenderer(tr); }
+  thumbCache.clear();
+}
 function thumbnail(objs: PackedObj[]): string {
   const s = new THREE.Scene();
   s.background = new THREE.Color(cssVar('--color-100', '#f5f5f4'));
@@ -706,6 +733,9 @@ async function handleRender(msg: any) {
     rr.setSize(W, H, false);
     const s = new THREE.Scene();
     if (!presentation) s.background = new THREE.Color(COLORS.bg);
+    // presentation renders wear the active look (labelled renders for Claude stay neutral: stable input)
+    gradeOn(rr, presentation && !!lookLut);
+    if (presentation && lookLut) s.background = new THREE.Color('#ebe6de');
     const key = addStage(s, rr, { shadowOpacity: presentation ? 0.3 : 0.18, envIntensity: presentation ? 0.95 : 0.85 });
     if (!presentation) s.add(new THREE.GridHelper(6, 60, COLORS.grid1, COLORS.grid2));
     for (const o of objs) {
@@ -858,6 +888,7 @@ function connect() {
     if (m.type === 'state') {
       focus = focusOnState(focus, state?.active, m.state.active);
       state = m.state;
+      syncLook(state!.look ?? null);
       preview = null;
       for (const o of [...state!.main, ...state!.proposals.flatMap((p) => p.objects)]) if (o.reference?.kind === 'image') void textureFor(o.reference.asset);
       render();

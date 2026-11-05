@@ -123,34 +123,53 @@ export async function applyLook(game: { renderer: THREE.WebGLRenderer; scene: TH
     }
   });
   // the grade pass
-  const N = L.lutSize ?? 33;
-  const lut = await loadStrip(dir + (D.lut?.strip ?? 'lut.png'), N);
+  const lut = await loadStrip(dir + (D.lut?.strip ?? 'lut.png'), L.lutSize ?? 33);
+  const pass = installGradePass(renderer, lut, { useLut: !L.baked, outline: L.outline });
+  const look: StudioLook = {
+    name: L.name, record: L, sun, ambient,
+    get enabled() { return pass.enabled; }, set enabled(v: boolean) { pass.enabled = v; },
+    dispose() { pass.dispose(); lut.dispose(); },
+  };
+  (game as any).look = look;
+  return look;
+}
+
+export interface GradePass { enabled: boolean; setLut(t: THREE.Data3DTexture | null): void; setOutline(o: any): void; dispose(): void }
+/**
+ * Wrap renderer.render: scenes drawn to the screen go to a linear HDR target first, then one pass does
+ * the outline, the transport tonemapper and the LUT. Shared by the games and the studio view.
+ */
+export function installGradePass(renderer: THREE.WebGLRenderer, lut: THREE.Data3DTexture | null, opts: { useLut?: boolean; outline?: any } = {}): GradePass {
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
-  const depth = new THREE.DepthTexture(size.x, size.y);
+  const depth = new THREE.DepthTexture(Math.max(1, size.x), Math.max(1, size.y));
   depth.type = THREE.FloatType;
-  const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: depth, colorSpace: THREE.LinearSRGBColorSpace });
+  const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: 4, depthTexture: depth, colorSpace: THREE.LinearSRGBColorSpace });
   const mat = new THREE.ShaderMaterial({
     vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false, toneMapped: false,
     uniforms: {
-      tColor: { value: rt.texture }, tDepth: { value: depth }, tLut: { value: lut }, useLut: { value: L.baked ? 0 : 1 },
-      outline: { value: L.outline?.enabled ? 1 : 0 }, outlineColor: { value: new THREE.Color(L.outline?.color ?? '#000000') }, outlineWidth: { value: L.outline?.width ?? 1 }, outlineThreshold: { value: L.outline?.threshold ?? 0.06 },
-      texel: { value: new THREE.Vector2(1 / size.x, 1 / size.y) }, near: { value: 0.1 }, far: { value: 2500 },
+      tColor: { value: rt.texture }, tDepth: { value: depth }, tLut: { value: lut }, useLut: { value: lut && opts.useLut !== false ? 1 : 0 },
+      outline: { value: 0 }, outlineColor: { value: new THREE.Color('#000000') }, outlineWidth: { value: 1 }, outlineThreshold: { value: 0.06 },
+      texel: { value: new THREE.Vector2(1 / Math.max(1, size.x), 1 / Math.max(1, size.y)) }, near: { value: 0.1 }, far: { value: 2500 },
     },
   });
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
   quad.frustumCulled = false;
   const post = new THREE.Scene(); post.add(quad);
   const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const prevTone = renderer.toneMapping;
   renderer.toneMapping = THREE.NoToneMapping;   // the pass tonemaps
-  const look: StudioLook = {
-    name: L.name, record: L, sun, ambient, enabled: true,
-    dispose() { rt.dispose(); lut.dispose(); mat.dispose(); (renderer as any).render = orig; },
-  };
   const orig = renderer.render.bind(renderer);
   let inside = false;
+  const pass: GradePass = {
+    enabled: true,
+    setLut(t) { mat.uniforms.tLut.value = t; mat.uniforms.useLut.value = t ? 1 : 0; },
+    setOutline(o) { mat.uniforms.outline.value = o?.enabled ? 1 : 0; if (o) { mat.uniforms.outlineColor.value.set(o.color ?? '#000000'); mat.uniforms.outlineWidth.value = o.width ?? 1; mat.uniforms.outlineThreshold.value = o.threshold ?? 0.06; } },
+    dispose() { rt.dispose(); depth.dispose(); mat.dispose(); (renderer as any).render = orig; renderer.toneMapping = prevTone; },
+  };
+  pass.setOutline(opts.outline);
   (renderer as any).render = (s: THREE.Object3D, cam: THREE.Camera) => {
-    if (inside || !look.enabled || renderer.getRenderTarget() !== null || s === post) return orig(s, cam);
+    if (inside || !pass.enabled || renderer.getRenderTarget() !== null || s === post) return orig(s, cam);
     inside = true;
     try {
       renderer.getDrawingBufferSize(size);
@@ -163,6 +182,18 @@ export async function applyLook(game: { renderer: THREE.WebGLRenderer; scene: TH
       orig(post, postCam);
     } finally { inside = false; }
   };
-  (game as any).look = look;
-  return look;
+  return pass;
+}
+
+/** A LUT from raw data (r fastest, 3 floats per entry, texel-centre convention): the studio view builds it from the record. */
+export function lutTexture(data: Float32Array, N: number): THREE.Data3DTexture {
+  const u8 = new Uint8Array(N * N * N * 4);
+  for (let i = 0, j = 0; i < data.length; i += 3, j += 4) { u8[j] = Math.round(Math.min(1, Math.max(0, data[i])) * 255); u8[j + 1] = Math.round(Math.min(1, Math.max(0, data[i + 1])) * 255); u8[j + 2] = Math.round(Math.min(1, Math.max(0, data[i + 2])) * 255); u8[j + 3] = 255; }
+  const t = new THREE.Data3DTexture(u8, N, N, N);
+  t.format = THREE.RGBAFormat; t.type = THREE.UnsignedByteType;
+  t.minFilter = THREE.LinearFilter; t.magFilter = THREE.LinearFilter;
+  t.wrapS = t.wrapT = t.wrapR = THREE.ClampToEdgeWrapping;
+  t.unpackAlignment = 1;
+  t.needsUpdate = true;
+  return t;
 }
