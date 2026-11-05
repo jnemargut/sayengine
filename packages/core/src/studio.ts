@@ -120,7 +120,9 @@ export class Studio {
 
   evalKey(obj: SceneObject): string {
     const c = obj.character;
-    return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0, obj.orientation ?? null, c ? [c.pose, c.expression, c.hands] : null]);
+    // a rig-part creature's body comes from its definition, not its ops (every creature shares the same
+    // `creature` op): without it, two creatures exported at the origin got the first one's cached body
+    return JSON.stringify([obj.params, obj.ops, obj.opOrder, obj.output, obj.position, obj.rotation ?? 0, obj.orientation ?? null, c ? [c.pose, c.expression, c.hands] : null, obj.creature?.def ?? null]);
   }
 
   checks(id: string, doc = this.doc()): CheckResult[] {

@@ -66,6 +66,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const prev = rt.agents.map((a) => ({ v: a.visible, x: a.x, z: a.z }));
   const prevV = rt.vehicles.map((v) => ({ v: v.visible, x: v.x, z: v.z, leg: v.leg, s: v.s }));
   const still = rt.vehicles.map(() => 0);
+  const hot = new Map<string, number>();
   const byHour = new Array(24).fill(0), seen = new Array(24).fill(0);
   let peakF = 0, peakC = 0, brakes = 0, ticks = 0;
   const pr = o.player?.r ?? 0.4;
@@ -132,18 +133,22 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       if (!A[i].visible) continue;
       if (D.agents[i].kind === 'person') nf++;
       for (let j = i + 1; j < A.length; j++) {
-        if (!A[j].visible || D.agents[j].owner === i || D.agents[i].owner === j) continue;
-        if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) cnt.slip++; continue; }
+        // a dog may brush its walker (friends walking together may not)
+        if (!A[j].visible || (D.agents[j].owner === i && D.agents[j].kind === 'dog') || (D.agents[i].owner === j && D.agents[i].kind === 'dog')) continue;
+        if (A[i].slip > rt.t && A[j].slip > rt.t) { if (Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z) < D.agents[i].r + D.agents[j].r - 0.08) { cnt.slip++; if (process.env.LIFE_DEBUG) { const key = `slip ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10}`; hot.set(key, (hot.get(key) ?? 0) + 1); } } continue; }
         const d = Math.hypot(A[i].x - A[j].x, A[i].z - A[j].z), lim = D.agents[i].r + D.agents[j].r - 0.08;
         if (d < lim) {
           cnt.overlap++; worst.overlap = Math.max(worst.overlap, lim - d); note('overlap', t);
+          if (process.env.LIFE_DEBUG) { const key = `overlap ${Math.round(A[i].x / 10) * 10},${Math.round(A[i].z / 10) * 10} ${i}/${j}`; hot.set(key, (hot.get(key) ?? 0) + 1); }
           if (process.env.LIFE_DEBUG && cnt.overlap < 6) { const gi = D.agents[i].plan[A[i].seg] as any, gj = D.agents[j].plan[A[j].seg] as any; console.log('OVERLAP', (t / 3600).toFixed(3), i, j, d.toFixed(2), gi?.k, gi?.pose ?? '', A[i].pose, A[i].slot, gj?.k, gj?.pose ?? '', A[j].pose, A[j].slot, A[i].x.toFixed(1), A[i].z.toFixed(1), A[i].v.toFixed(2), A[j].v.toFixed(2), A[i].blocked.toFixed(1), A[j].blocked.toFixed(1)); }
         }
       }
       // walls: never inside a building; off the walk only on a crossing
       if (D.agents[i].kind === 'person') {
-        const g = D.agents[i].plan[A[i].seg];
-        if (g && g.k === 'move' && rt.t - A[i].moveStart > 0.8) {
+        // a friend walking alongside counts while their friend walks (and they're keeping up)
+        const ow = D.agents[i].owner, wo = ow !== undefined ? A[ow] : null;
+        const g = ow !== undefined ? (D.agents[ow].plan[wo!.seg] && D.agents[ow].plan[wo!.seg].k === 'move' && A[i].v > 0.05 ? { k: 'move' } : null) : D.agents[i].plan[A[i].seg];
+        if (g && g.k === 'move' && (ow !== undefined || rt.t - A[i].moveStart > 0.8)) {
           const w = where(D.agents[i].town ?? 0, A[i].x, A[i].z);
           walkSamples++;
           if (w === 2) { cnt.wall++; note('wall', t); } else if (w === 1) { cnt.offWalk++; note('offWalk', t); }
@@ -180,6 +185,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
     byHour[h] += nf; seen[h]++;
     peakF = Math.max(peakF, nf); peakC = Math.max(peakC, nc);
   }
+  if (process.env.LIFE_DEBUG) console.log('HOT', [...hot.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25));
   const mk = (name: string, k: keyof typeof cnt, limit: number, unit: string, detail: string, w?: number): DayCheck => ({ name, pass: cnt[k] <= limit, count: cnt[k], worst: +(w ?? 0).toFixed(3), limit, unit, detail, ...(at[k] ? { at: at[k] } : {}) });
   const checks: DayCheck[] = [
     mk('no two folk in one spot', 'overlap', 0, 'samples', 'people closer than their two radii', worst.overlap),

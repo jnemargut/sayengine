@@ -147,6 +147,23 @@ static func in_box(px: float, pz: float, r: float, x: float, z: float, yaw: floa
 	var cw := _clamp(w, -wid / 2.0, wid / 2.0)
 	return (u - cu) * (u - cu) + (w - cw) * (w - cw) < r * r
 
+static func boxes_touch(ax: float, az: float, ay: float, al: float, aw: float, bx: float, bz: float, by: float, bl: float, bw: float) -> bool:
+	var A0 := sin(ay)
+	var A1 := cos(ay)
+	var B0 := sin(by)
+	var B1 := cos(by)
+	var axes := [A0, A1, A1, -A0, B0, B1, B1, -B0]
+	var dx := bx - ax
+	var dz := bz - az
+	for k in [0, 2, 4, 6]:
+		var ux: float = axes[k]
+		var uz: float = axes[k + 1]
+		var ra: float = abs(A0 * ux + A1 * uz) * al / 2.0 + abs(A1 * ux - A0 * uz) * aw / 2.0
+		var rb: float = abs(B0 * ux + B1 * uz) * bl / 2.0 + abs(B1 * ux - B0 * uz) * bw / 2.0
+		if abs(dx * ux + dz * uz) > ra + rb:
+			return false
+	return true
+
 static func _angle_to(from: float, to: float, max_step: float) -> float:
 	var d := to - from
 	while d > PI:
@@ -214,7 +231,7 @@ func init_day(t0: float, warm := 60.0) -> void:
 		step()
 
 func _fresh_agent() -> Dictionary:
-	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0, "slip": 0.0}
+	return {"visible": false, "seg": -1, "s": 0.0, "lat": 0.0, "v": 0.0, "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pose": "idle", "actStart": 0.0, "actEnd": 0.0, "moveStart": 0.0, "fromX": 0.0, "fromY": 0.0, "fromZ": 0.0, "slot": -1, "blocked": 0.0, "wait": false, "stay": false, "onCross": false, "fx": 0.0, "fz": 1.0, "slip": 0.0, "bl": SIT_BLEND}
 
 func _first_trip(i: int, tt: float) -> int:
 	var V: Dictionary = V_[i]
@@ -234,10 +251,12 @@ func _place_by_plan(i: int, tt: float) -> void:
 	st["seg"] = -1
 	st["visible"] = false
 	var plan: Array = A["plan"]
+	var last := -1
 	for k in plan.size():
 		var g: Dictionary = plan[k]
 		if float(g["t"]) > tt:
 			break
+		last = k
 		var end: float = float(g["t1"]) if g["k"] == "act" else float(g["t"]) + float(paths[int(g["p"])]["len"]) / float(A["speed"])
 		if tt < end:
 			st["seg"] = k
@@ -252,28 +271,48 @@ func _place_by_plan(i: int, tt: float) -> void:
 				st["fromY"] = st["y"]
 				st["fromZ"] = st["z"]
 			else:
-				st["actStart"] = float(g["t"]) - 10.0
-				st["actEnd"] = float(g["t1"])
-				st["visible"] = g["pose"] != "inside"
-				var at: Array = g["at"]
-				st["x"] = float(at[0])
-				st["y"] = float(at[1])
-				st["z"] = float(at[2])
-				st["yaw"] = float(g["face"])
-				st["pose"] = g["pose"]
-				st["fromX"] = st["x"]
-				st["fromY"] = st["y"]
-				st["fromZ"] = st["z"]
-				var sl := int(g["slot"])
-				if sl >= 0:
-					if slot_busy[sl] < 0:
-						slot_busy[sl] = i
-						st["slot"] = sl
-					else:
-						st["pose"] = "idle"
+				_place_act(i, g)
 			return
-		if k == plan.size() - 1:
-			return
+	if last < 0:
+		return
+	if last == plan.size() - 1:
+		st["seg"] = plan.size()
+		return
+	var g2: Dictionary = plan[last]
+	st["seg"] = last
+	st["visible"] = true
+	if g2["k"] == "move":
+		st["s"] = float(paths[int(g2["p"])]["len"])
+		st["moveStart"] = float(g2["t"]) - 10.0
+		st["lat"] = 0.0
+		_place_on_path(i, int(g2["p"]))
+		st["fromX"] = st["x"]
+		st["fromY"] = st["y"]
+		st["fromZ"] = st["z"]
+	else:
+		_place_act(i, g2)
+
+func _place_act(i: int, g: Dictionary) -> void:
+	var st: Dictionary = agents[i]
+	st["actStart"] = float(g["t"]) - 10.0
+	st["actEnd"] = float(g["t1"])
+	st["visible"] = g["pose"] != "inside"
+	var at: Array = g["at"]
+	st["x"] = float(at[0])
+	st["y"] = float(at[1])
+	st["z"] = float(at[2])
+	st["yaw"] = float(g["face"])
+	st["pose"] = g["pose"]
+	st["fromX"] = st["x"]
+	st["fromY"] = st["y"]
+	st["fromZ"] = st["z"]
+	var sl := int(g["slot"])
+	if sl >= 0:
+		if slot_busy[sl] < 0:
+			slot_busy[sl] = i
+			st["slot"] = sl
+		else:
+			st["pose"] = "idle"
 
 func _place_on_path(i: int, p: int) -> void:
 	var st: Dictionary = agents[i]
@@ -292,8 +331,11 @@ func step() -> void:
 		prev_x.append(agents[i]["x"])
 		prev_z.append(agents[i]["z"])
 	for i in agents.size():
-		if A_[i]["kind"] == "person":
+		if A_[i]["kind"] == "person" and not A_[i].has("owner"):
 			_step_person(i, DT)
+	for i in agents.size():
+		if A_[i]["kind"] == "person" and A_[i].has("owner"):
+			_step_buddy(i, DT)
 	for i in agents.size():
 		if A_[i]["kind"] == "dog":
 			_step_dog(i, DT)
@@ -325,20 +367,35 @@ func _next_seg(i: int) -> void:
 		st["s"] = 0.0
 		st["blocked"] = 0.0
 		st["wait"] = false
+		st["bl"] = SIT_BLEND
 		if was_move:
 			st["moveStart"] = t - 10.0
 			var P0 := _point_at(paths[int(g["p"])], 4, 0.0)
 			st["lat"] = _clamp((st["x"] - P0[0]) * -st["fz"] + (st["z"] - P0[2]) * st["fx"], -P0[3] + float(A["r"]), P0[3] - float(A["r"]))
+			var bx0: float = P0[0] - st["fz"] * st["lat"] - st["x"]
+			var bz0: float = P0[2] + st["fx"] * st["lat"] - st["z"]
+			var bd0 := sqrt(bx0 * bx0 + bz0 * bz0)
+			if bd0 > 0.15:
+				st["moveStart"] = t
+				st["bl"] = max(0.4, bd0 / 1.1)
 		else:
 			st["moveStart"] = t
 			st["lat"] = 0.0
 			var D0 := _dir_at(paths[int(g["p"])], 4, 0.0)
 			st["fx"] = D0[0]
 			st["fz"] = D0[1]
+			var B0 := _point_at(paths[int(g["p"])], 4, 0.0)
+			var bx: float = B0[0] - st["x"]
+			var bz: float = B0[2] - st["z"]
+			st["bl"] = max(SIT_BLEND, sqrt(bx * bx + bz * bz) / 1.1)
 	else:
 		st["actStart"] = t
 		st["actEnd"] = max(float(g["t1"]), t + 3.0)
 		st["pose"] = g["pose"]
+		var gat: Array = g["at"]
+		var ax: float = float(gat[0]) - st["x"]
+		var az: float = float(gat[2]) - st["z"]
+		st["bl"] = max(SIT_BLEND, sqrt(ax * ax + az * az) / 1.1)
 		if g["pose"] == "inside":
 			st["visible"] = false
 			st["actEnd"] = float(g["t1"])
@@ -387,6 +444,7 @@ func _step_person(i: int, dt: float) -> void:
 		st["fromY"] = st["y"]
 		st["fromZ"] = st["z"]
 		st["moveStart"] = t - 10.0
+		st["bl"] = SIT_BLEND
 		st["yaw"] = heading_of(int(g["p"]), 0.0)
 		return
 	if g["k"] == "act":
@@ -396,12 +454,12 @@ func _step_person(i: int, dt: float) -> void:
 				_next_seg(i)
 			return
 		var at: Array = g["at"]
-		var k: float = 0.0 if st["stay"] else _clamp((t - st["actStart"]) / SIT_BLEND, 0.0, 1.0)
-		if k > 0.0 and k < 1.0 + dt / SIT_BLEND:
+		var k: float = 0.0 if st["stay"] else _clamp((t - st["actStart"]) / float(st["bl"]), 0.0, 1.0)
+		if k > 0.0 and k < 1.0 + dt / float(st["bl"]):
 			var cx: float = st["fromX"] + (float(at[0]) - st["fromX"]) * k
 			var cz: float = st["fromZ"] + (float(at[2]) - st["fromZ"]) * k
 			for j in agents.size():
-				if j == i or not agents[j]["visible"] or int(A_[j].get("owner", -1)) == i:
+				if j == i or not agents[j]["visible"] or (int(A_[j].get("owner", -1)) == i and A_[j]["kind"] == "dog"):
 					continue
 				var r: float = ar + float(A_[j]["r"])
 				var dx: float = agents[j]["x"] - cx
@@ -412,11 +470,14 @@ func _step_person(i: int, dt: float) -> void:
 					st["actStart"] += dt
 					st["actEnd"] += dt
 					st["blocked"] += dt
-					k = _clamp((t - st["actStart"]) / SIT_BLEND, 0.0, 1.0)
+					k = _clamp((t - st["actStart"]) / float(st["bl"]), 0.0, 1.0)
 					if st["blocked"] > 4.0:
 						st["actEnd"] = t
 						st["stay"] = true
 						k = 0.0
+						st["fromX"] = st["x"]
+						st["fromY"] = st["y"]
+						st["fromZ"] = st["z"]
 					break
 		st["x"] = st["fromX"] + (float(at[0]) - st["fromX"]) * k
 		st["y"] = st["fromY"] + (float(at[1]) - st["fromY"]) * k
@@ -430,10 +491,14 @@ func _step_person(i: int, dt: float) -> void:
 		return
 	if t < float(g["t"]):
 		st["v"] = 0.0
+		if t - st["moveStart"] < st["bl"]:
+			st["moveStart"] += dt
 		return
 	var P: Dictionary = paths[int(g["p"])]
 	var pt := _point_at(P, 4, st["s"])
 	var Dp := _dir_at(P, 4, st["s"])
+	var fx0: float = st["fx"]
+	var fz0: float = st["fz"]
 	var a0 := atan2(float(st["fx"]), float(st["fz"]))
 	var a1 := atan2(float(Dp[0]), float(Dp[1]))
 	var aa := _angle_to(a0, a1, 2.6 * dt)
@@ -443,7 +508,7 @@ func _step_person(i: int, dt: float) -> void:
 	var D0z: float = st["fz"]
 	var hw: float = pt[3]
 	var want: float = A["speed"]
-	var latT: float = min(0.45, hw - ar)
+	var latT: float = min(float(A.get("lane", 0.45)), hw - ar)
 	st["wait"] = false
 	st["onCross"] = false
 	if g.has("cross"):
@@ -468,7 +533,10 @@ func _step_person(i: int, dt: float) -> void:
 					if d < 30.0:
 						any_near = true
 					var coming: bool = vv["v"] > 0.5 and d < 7.0 + vv["v"] * 2.5 and dx * sin(vv["yaw"]) + dz * cos(vv["yaw"]) > -2.0
-					if coming or (vv["v"] > 0.05 and box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])) < 2.2):
+					var vt = trip_of(j)
+					var turning: bool = vt != null and E_[int(vt["edges"][vv["leg"]])].get("turn", false)
+					var bd := box_dist(M[0], M[2], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))
+					if coming or ((vv["v"] > 0.05 or turning) and bd < 2.2) or (turning and bd < 6.0):
 						go = false
 						break
 				if not signal_ok and any_near:
@@ -476,6 +544,13 @@ func _step_person(i: int, dt: float) -> void:
 				if not go:
 					want = min(want, max(0.0, (s0 - 0.35 - st["s"]) * 2.0))
 					st["wait"] = true
+	if A.has("pal"):
+		var b: Dictionary = agents[int(A["pal"])]
+		if b["visible"] and b["blocked"] < 1.5:
+			var pbx: float = b["x"] - st["x"]
+			var pbz: float = b["z"] - st["z"]
+			if pbx * pbx + pbz * pbz > 1.8 * 1.8:
+				want = 0.0
 	var rx := -D0z
 	var rz := D0x
 	for j in agents.size():
@@ -522,7 +597,7 @@ func _step_person(i: int, dt: float) -> void:
 	var P2 := _point_at(P, 4, ns)
 	var cx: float = P2[0] - D0z * st["lat"]
 	var cz: float = P2[2] + D0x * st["lat"]
-	var k := _clamp((t - st["moveStart"]) / SIT_BLEND, 0.0, 1.0)
+	var k := _clamp((t - st["moveStart"]) / float(st["bl"]), 0.0, 1.0)
 	if k < 1.0:
 		cx = st["fromX"] + (cx - st["fromX"]) * k
 		cz = st["fromZ"] + (cz - st["fromZ"]) * k
@@ -547,6 +622,8 @@ func _step_person(i: int, dt: float) -> void:
 			st["z"] = sz
 		else:
 			st["lat"] = lat0
+			st["fx"] = fx0
+			st["fz"] = fz0
 		E = _dir_at(P, 4, st["s"])
 	if st["v"] > 0.05:
 		st["yaw"] = _angle_to(st["yaw"], atan2(float(E[0]), float(E[1])), 5.0 * dt)
@@ -561,10 +638,10 @@ func _free(i: int, cx: float, cz: float) -> bool:
 	var ar: float = A["r"]
 	var squeeze: float = 0.46 if st["blocked"] > 2.5 else -1.0
 	for j in agents.size():
-		if j == i or not agents[j]["visible"] or int(A_[j].get("owner", -1)) == i:
+		if j == i or not agents[j]["visible"] or (int(A_[j].get("owner", -1)) == i and A_[j]["kind"] == "dog"):
 			continue
 		var o: Dictionary = agents[j]
-		if st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5:
+		if st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5 and not A.has("owner") and not A_[j].has("owner"):
 			st["slip"] = t + 2.5
 			o["slip"] = t + 2.5
 		if st["slip"] > t and o["slip"] > t:
@@ -583,7 +660,7 @@ func _free(i: int, cx: float, cz: float) -> bool:
 			continue
 		var Vd: Dictionary = V_[j]
 		var dn := box_dist(cx, cz, vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"]))
-		if dn < ar + 0.2 and dn < box_dist(st["x"], st["z"], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])):
+		if dn < ar + (0.06 if vv["v"] < 0.05 else 0.2) and dn < box_dist(st["x"], st["z"], vv["x"], vv["z"], vv["yaw"], float(Vd["len"]), float(Vd["wid"])):
 			return false
 	if player["on"]:
 		var r: float = ar + float(player["r"]) + 0.05
@@ -594,6 +671,100 @@ func _free(i: int, cx: float, cz: float) -> bool:
 		if dx * dx + dz * dz < r * r and dx * dx + dz * dz < ex * ex + ez * ez:
 			return false
 	return true
+
+# ── companions ────────────────────────────────────────────────────────────
+func _step_buddy(i: int, dt: float) -> void:
+	var A: Dictionary = A_[i]
+	var st: Dictionary = agents[i]
+	var owner := int(A["owner"])
+	var w: Dictionary = agents[owner]
+	var W: Dictionary = A_[owner]
+	var ar: float = A["r"]
+	st["wait"] = w["wait"]
+	st["onCross"] = w["onCross"]
+	if not w["visible"]:
+		st["visible"] = false
+		st["seg"] = -1
+		st["v"] = 0.0
+		return
+	var wplan: Array = W["plan"]
+	var g = wplan[w["seg"]] if w["seg"] >= 0 and w["seg"] < wplan.size() else null
+	var tx: float = st["x"]
+	var tz: float = st["z"]
+	var ty: float = st["y"]
+	var face: float = st["yaw"]
+	var pose := "idle"
+	if g != null and g["k"] == "move":
+		var P: Dictionary = paths[int(g["p"])]
+		var s: float = w["s"]
+		var lat: float = float(w["lat"]) - 0.68
+		if lat < -float(_point_at(P, 4, s)[3]) + ar:
+			s = max(0.0, float(w["s"]) - 0.95)
+			lat = w["lat"]
+		var Q := _point_at(P, 4, s)
+		var E := _dir_at(P, 4, s)
+		lat = _clamp(lat, -float(Q[3]) + ar, float(Q[3]) - ar)
+		tx = Q[0] - E[1] * lat
+		tz = Q[2] + E[0] * lat
+		ty = Q[1]
+		face = atan2(float(E[0]), float(E[1]))
+	elif g != null and g["k"] == "act" and g.has("pal"):
+		var pa: Array = g["pal"]
+		var at: Array = g["at"]
+		tx = pa[0]
+		ty = pa[1]
+		tz = pa[2]
+		face = atan2(float(at[0]) - tx, float(at[2]) - tz)
+		pose = "idle" if g["pose"] == "fish" else ("browse" if g["pose"] == "browse" else "chat")
+	if st["seg"] < 0:
+		for j in agents.size():
+			if j == i or not agents[j]["visible"]:
+				continue
+			var ox: float = agents[j]["x"] - tx
+			var oz: float = agents[j]["z"] - tz
+			var rr: float = ar + float(A_[j]["r"]) + 0.05
+			if ox * ox + oz * oz < rr * rr:
+				st["visible"] = false
+				return
+		st["x"] = tx
+		st["y"] = ty
+		st["z"] = tz
+		st["yaw"] = face
+		st["seg"] = 0
+		st["fromX"] = tx
+		st["fromY"] = ty
+		st["fromZ"] = tz
+	st["visible"] = true
+	var dx: float = tx - st["x"]
+	var dz: float = tz - st["z"]
+	var d := sqrt(dx * dx + dz * dz)
+	var stp: float = min(d, float(A["speed"]) * 1.35 * dt)
+	var moved := 0.0
+	if d > 1e-6:
+		var nx: float = st["x"] + dx / d * stp
+		var nz: float = st["z"] + dz / d * stp
+		if _free(i, nx, nz):
+			st["x"] = nx
+			st["z"] = nz
+			moved = stp
+			st["blocked"] = 0.0
+		else:
+			st["blocked"] += dt
+	if st["blocked"] > 8.0 and d > 3.0:
+		st["visible"] = false
+		st["seg"] = -1
+		st["blocked"] = 0.0
+		st["v"] = 0.0
+		return
+	st["y"] += _clamp(ty - st["y"], -1.5 * dt, 1.5 * dt)
+	st["v"] = moved / dt
+	if st["v"] > 0.1 and d > 0.05:
+		st["yaw"] = _angle_to(st["yaw"], atan2(dx, dz), 5.0 * dt)
+	else:
+		st["yaw"] = _angle_to(st["yaw"], face, 3.0 * dt)
+	st["fx"] = sin(float(st["yaw"]))
+	st["fz"] = cos(float(st["yaw"]))
+	st["pose"] = "walk" if st["v"] > 0.05 else (pose if d < 0.3 else "idle")
 
 func heading_of(p: int, s: float) -> float:
 	var D := _dir_at(paths[p], 4, s)
@@ -776,9 +947,10 @@ func _step_vehicle(i: int, dt: float) -> void:
 	if next_leg >= 0:
 		var ne: Dictionary = E_[int(tedges[next_leg])]
 		var to_line: float = eplen - st["s"] - vlen / 2.0
-		if ne.has("conf") and to_line < 12.0:
-			var conf: Array = ne["conf"]
+		if (ne.has("conf") or ne.has("jn")) and to_line < 12.0:
+			var conf: Array = ne.get("conf", [])
 			var busy := false
+			var wide := false
 			for j in vehicles.size():
 				if busy:
 					break
@@ -794,7 +966,19 @@ func _step_vehicle(i: int, dt: float) -> void:
 				var oloop: bool = V_[j].get("loop", false)
 				if (vlen > 6.0 or olen > 6.0) and E_[oe].has("jn") and ne.has("jn") and int(E_[oe]["jn"]) == int(ne["jn"]) and E_[oe].get("turn", false):
 					busy = true
+					wide = olen > 6.0
 					break
+				if vlen > 6.0 or olen > 6.0:
+					var onx: int = int(oedges[o["leg"] + 1]) if o["leg"] + 1 < oedges.size() else (int(oedges[0]) if oloop else -1)
+					if onx >= 0 and ne.has("jn") and E_[onx].has("jn") and int(E_[onx]["jn"]) == int(ne["jn"]):
+						var ol2: float = float(edges[oe]["len"]) - o["s"] - olen / 2.0
+						var can_go2 := true
+						if E_[oe].has("stop"):
+							can_go2 = signal_state(int(E_[oe]["stop"]["sig"]), int(E_[oe]["stop"]["group"]), t) == GREEN
+						if can_go2 and ol2 < 3.0 and ol2 > -0.5 and (ol2 < to_line - 0.5 or (abs(ol2 - to_line) <= 0.5 and j < i)):
+							busy = true
+							wide = olen > 6.0
+							break
 				var half: float = olen / 2.0 + 0.5
 				var prevE: int = int(oedges[o["leg"] - 1]) if o["leg"] > 0 else (int(oedges[oedges.size() - 1]) if oloop else -1)
 				var nextE: int = int(oedges[o["leg"] + 1]) if o["leg"] + 1 < oedges.size() else (int(oedges[0]) if oloop else -1)
@@ -812,9 +996,68 @@ func _step_vehicle(i: int, dt: float) -> void:
 						if can_go and ol < 3.0 and (ol < to_line - 0.5 or (abs(ol - to_line) <= 0.5 and j < i)):
 							busy = true
 							break
-			if busy and to_line + IDM_S0 - 0.3 < gap:
-				gap = max(0.01, to_line + IDM_S0 - 0.3)
+			var hold: float = to_line - 6.0 if wide else to_line
+			if busy and hold + IDM_S0 - 0.3 < gap:
+				gap = max(0.01, hold + IDM_S0 - 0.3)
 				lv = 0.0
+	if next_leg >= 0 and E_[int(tedges[next_leg])].get("turn", false):
+		var to_line2: float = eplen - st["s"] - vlen / 2.0
+		if to_line2 < 10.0 and to_line2 > -0.5:
+			var reach2: float = float(V["wid"]) / 2.0 + (2.4 if vlen > 6.0 else 1.2)
+			var yield_to := false
+			for j in agents.size():
+				if yield_to:
+					break
+				var o: Dictionary = agents[j]
+				if not o["visible"] or not o["onCross"]:
+					continue
+				for k2 in [1, 2]:
+					if yield_to:
+						break
+					var lg: int = -1
+					if st["leg"] + k2 < tedges.size():
+						lg = st["leg"] + k2
+					elif loop:
+						lg = (st["leg"] + k2) % tedges.size()
+					if lg < 0:
+						break
+					var NP: Dictionary = edges[int(tedges[lg])]
+					var ncum: PackedFloat64Array = NP["cum"]
+					var npts: PackedFloat64Array = NP["pts"]
+					var lim: float = float(NP["len"]) if k2 == 1 else min(float(NP["len"]), 9.0)
+					var q := 0
+					while q < ncum.size() and ncum[q] <= lim + 1.0:
+						var ddx: float = npts[q * 3] - o["x"]
+						var ddz: float = npts[q * 3 + 2] - o["z"]
+						if ddx * ddx + ddz * ddz < (reach2 + 1.5) * (reach2 + 1.5):
+							yield_to = true
+							break
+						q += 1
+			if vlen > 6.0:
+				var tl: float = edges[int(tedges[next_leg])]["len"]
+				var to_end: float = eplen - st["s"]
+				var q2 := 0
+				while q2 * 2 <= tl + 4.0 and not yield_to:
+					var pa := pose_ahead(i, to_end + q2 * 2)
+					for j in vehicles.size():
+						var o: Dictionary = vehicles[j]
+						if j == i or not o["visible"]:
+							continue
+						var ox: float = o["x"] - pa[0]
+						var oz: float = o["z"] - pa[1]
+						if ox * ox + oz * oz > 625.0:
+							continue
+						var ext: float = float(o["v"]) * float(o["v"]) / (2.0 * IDM_B) + float(o["v"])
+						var hx: float = sin(float(o["yaw"])) * ext / 2.0
+						var hz: float = cos(float(o["yaw"])) * ext / 2.0
+						if boxes_touch(pa[0], pa[1], pa[2], vlen + 0.4, float(V["wid"]) + 0.4, o["x"] + hx, o["z"] + hz, o["yaw"], float(V_[j]["len"]) + ext, float(V_[j]["wid"])):
+							yield_to = true
+							break
+					q2 += 1
+			if yield_to and to_line2 + IDM_S0 - 0.3 < gap:
+				gap = max(0.01, to_line2 + IDM_S0 - 0.3)
+				lv = 0.0
+				st["brake"] = true
 	if V["kind"] == "bus" and E.has("bus"):
 		var stops: Array = E["bus"]
 		for b in stops.size():
@@ -838,6 +1081,7 @@ func _step_vehicle(i: int, dt: float) -> void:
 	var hard := false
 	var look: float = max(10.0, st["v"] * 3.2 + 6.0)
 	var halfw: float = float(V["wid"]) / 2.0 + 0.25
+	var ah := pose_ahead(i, float(st["v"]) * dt + 0.6)
 	for j in agents.size() + 1:
 		var px: float
 		var pz: float
@@ -859,6 +1103,10 @@ func _step_vehicle(i: int, dt: float) -> void:
 			px = o["x"]
 			pz = o["z"]
 			pr = A_[j]["r"]
+		if (moving or j == agents.size() or agents[j]["onCross"]) and in_box(px, pz, pr + 0.1, ah[0], ah[1], ah[2], vlen, float(V["wid"])):
+			hard = true
+			st["brake"] = true
+			continue
 		var dx: float = px - st["x"]
 		var dz: float = pz - st["z"]
 		if dx * dx + dz * dz > (look + vlen) * (look + vlen):
@@ -876,6 +1124,20 @@ func _step_vehicle(i: int, dt: float) -> void:
 				st["brake"] = true
 			if gp < 1.2:
 				hard = true
+	for j in vehicles.size():
+		if hard:
+			break
+		var o: Dictionary = vehicles[j]
+		if j == i or not o["visible"]:
+			continue
+		var ox: float = o["x"] - st["x"]
+		var oz: float = o["z"] - st["z"]
+		var reach: float = (vlen + float(V_[j]["len"])) / 2.0 + 3.0
+		if ox * ox + oz * oz > reach * reach or ox * sin(float(st["yaw"])) + oz * cos(float(st["yaw"])) <= 0.0:
+			continue
+		if boxes_touch(ah[0], ah[1], ah[2], vlen + 0.4, float(V["wid"]) + 0.2, o["x"], o["z"], o["yaw"], float(V_[j]["len"]), float(V_[j]["wid"])):
+			hard = true
+			st["brake"] = true
 	var ss: float = IDM_S0 + max(0.0, st["v"] * IDM_T + st["v"] * (st["v"] - lv) / (2.0 * sqrt(IDM_A * IDM_B)))
 	var gq: float = max(gap, 0.01)
 	var acc: float = IDM_A * (1.0 - pow(st["v"] / max(v0, 0.1), 4) - ((ss / gq) * (ss / gq) if gap < 1e8 else 0.0))
@@ -910,6 +1172,29 @@ func _place_vehicle(i: int) -> void:
 	st["z"] = P[2]
 	st["yaw"] = atan2(float(D[0]), float(D[1]))
 
+## Vehicle i's pose d metres further along its route: [x, z, yaw].
+func pose_ahead(i: int, d: float) -> Array:
+	var st: Dictionary = vehicles[i]
+	var trip: Dictionary = trip_of(i)
+	var tedges: Array = trip["edges"]
+	var loop: bool = V_[i].get("loop", false)
+	var leg: int = st["leg"]
+	var s: float = float(st["s"]) + d
+	while s > float(edges[int(tedges[leg])]["len"]):
+		s -= float(edges[int(tedges[leg])]["len"])
+		leg += 1
+		if leg >= tedges.size():
+			if loop:
+				leg = 0
+			else:
+				leg = tedges.size() - 1
+				s = float(edges[int(tedges[leg])]["len"])
+				break
+	var EP: Dictionary = edges[int(tedges[leg])]
+	var P := _point_at(EP, 3, s)
+	var D := _dir_at(EP, 3, s)
+	return [P[0], P[2], atan2(float(D[0]), float(D[1]))]
+
 func along_route(i: int, px: float, pz: float, look: float, half: float) -> float:
 	var st: Dictionary = vehicles[i]
 	var trip: Dictionary = trip_of(i)
@@ -926,6 +1211,9 @@ func along_route(i: int, px: float, pz: float, look: float, half: float) -> floa
 		var cum: PackedFloat64Array = EP["cum"]
 		var pts: PackedFloat64Array = EP["pts"]
 		var n := cum.size()
+		var hw: float = half
+		if E_[int(tedges[leg])].get("turn", false):
+			hw = half + (1.6 if float(V_[i]["len"]) > 6.0 else 0.4)
 		for q in range(0, n - 1):
 			var s0: float = cum[q]
 			var s1: float = cum[q + 1]
@@ -946,7 +1234,7 @@ func along_route(i: int, px: float, pz: float, look: float, half: float) -> floa
 			var cz := az + ez * u
 			var dd := (px - cx) * (px - cx) + (pz - cz) * (pz - cz)
 			var along := base + s0 + (s1 - s0) * u
-			if dd < half * half and along > 0.0 and along < look:
+			if dd < hw * hw and along > 0.0 and along < look:
 				return along
 		base += float(EP["len"])
 	return -1.0
