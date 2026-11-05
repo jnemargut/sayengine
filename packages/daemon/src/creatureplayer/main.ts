@@ -199,8 +199,8 @@ function frame(s: Segment, t: number) {
   const v = cfg.view ?? {};
   const flat = size.y < reach * 0.25;                // snakes, lizards: closer, from higher up
   const dist = v.dist ?? (flat ? Math.max(1.2, reach * 1.45) : Math.max(1.7, reach * 2.0));
-  const cam = camAt(s, t), cam0 = s.cam?.[0];
-  const tgt = new THREE.Vector3(at.x, (v.height ?? size.y * 0.42) + (cam && cam0 ? cam[1] - cam0[1] : 0) + (cam && s.motion && cfg.motions[s.motion] && ['fly', 'glide', 'hover'].includes(cfg.motions[s.motion].kind) ? cam[1] - size.y * 0.5 : 0), at.z);
+  const cam = camAt(s, t);
+  const tgt = new THREE.Vector3(at.x, v.height ?? (cam ? Math.max(size.y * 0.42, cam[1] * 0.9) : size.y * 0.42), at.z);
   const side = v.side ?? 1;
   const dir = s.live ? liveDir.clone() : new THREE.Vector3(...(s.dir ?? [0, 0, 1]));
   const across = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize().multiplyScalar(side);
