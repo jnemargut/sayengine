@@ -193,4 +193,4 @@ Overall: from the plaza it is "a downtown that ends at a domed capitol". Someone
   - The world test's shading-class bound went from 8 to 12, for `led`, `shop`, `flood` and `pool`.
   - The look test now expects v3's magenta (`#ff4fb0`).
   - The proof test's draw-call bound went from 60 to 80. Its 3-block test town now draws 70 calls from the aerial: the new classes add a primitive per chunk, plus the pools node. The real game budget is 1500.
-- **Running the suite inside a 10-port Chrome range takes `STUDIO_CHROME_SPAN=10`.** A 3-port span made parallel test Chromes collide, and the proof test then timed out.
+- **Running the suite inside a 10-port Chrome range takes `STUDIO_CHROME_SPAN=10` and `--test-concurrency=2`.** That run is 169/169 green. With a 3-port span, or with full parallelism, test Chromes collide: the proof and web-runtime tests then flake, and they pass when run alone.
