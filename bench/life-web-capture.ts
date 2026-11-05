@@ -1,6 +1,6 @@
 // Pocket Raleigh (web): stills and frame sequences of town life for the checkpoint, the same shots as
-// games/pocket-raleigh/game/life_capture.gd (bench/life-shots.json). Bundles the game, serves it on port
-// 4641, drives it in Chrome (GPU) with the clock stepped by hand: 30 fps of game time per frame.
+// games/pocket-raleigh/game/life_capture.gd (bench/life-shots.json). Bundles the game, serves it on a local port
+// (LIFE_WEB_PORT, default 4692), drives it in Chrome (GPU) with the clock stepped by hand: 30 fps of game time per frame.
 //   node bench/life-web-capture.ts <shots.json> <out dir>
 import fs from 'node:fs';
 import http from 'node:http';
@@ -24,11 +24,11 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' });
   fs.createReadStream(file).pipe(res);
 });
-await new Promise<void>((r) => server.listen(4641, '127.0.0.1', () => r()));
+await new Promise<void>((r) => server.listen(Number(process.env.LIFE_WEB_PORT ?? 4692), '127.0.0.1', () => r()));
 const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.on('pageerror', (e) => console.log('page error', e.message));
-await page.goto('http://127.0.0.1:4641/');
+await page.goto(`http://127.0.0.1:${process.env.LIFE_WEB_PORT ?? 4692}/`);
 await page.waitForFunction(() => (window as any).life && (window as any).__game, null, { timeout: 180000 });
 await page.evaluate(() => {
   const g = (window as any).__game;

@@ -470,6 +470,8 @@ export class LifeRuntime {
       // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
       // (or anyone held up 8 s in a knot: they edge past whoever is in the way)
       if ((st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5 && A.owner === undefined && this.data.agents[j].owner === undefined) || st.blocked > 8) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
+      // still shoulder in shoulder when the slip runs out: it lasts until they're clear
+      if (st.slip > this.t && o.slip > this.t) { const cx0 = o.x - st.x, cz0 = o.z - st.z, rr = A.r + this.data.agents[j].r - 0.1; if (cx0 * cx0 + cz0 * cz0 < rr * rr) { st.slip = Math.max(st.slip, this.t + 0.5); o.slip = Math.max(o.slip, this.t + 0.5); } }
       // slipping past: shoulders turned, but never through each other (0.15 m between centres)
       // friends out together walk close (arms brushing: 0.42 m between centres)
       const friends = j === A.pal || j === A.owner;
@@ -527,6 +529,7 @@ export class LifeRuntime {
         const ox = this.agents[j].x - tx, oz = this.agents[j].z - tz, r = A.r + this.data.agents[j].r + 0.05;
         if (ox * ox + oz * oz < r * r) { st.visible = false; return; }
       }
+      if (this.player.on) { const ox = this.player.x - tx, oz = this.player.z - tz, r = A.r + this.player.r + 0.05; if (ox * ox + oz * oz < r * r) { st.visible = false; return; } }
       st.x = tx; st.y = ty; st.z = tz; st.yaw = face; st.seg = 0; st.fromX = tx; st.fromY = ty; st.fromZ = tz;
     }
     st.visible = true;

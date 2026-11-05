@@ -433,6 +433,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       const away: P2 = others.length ? norm([sl.at[0] - others.reduce((a, o) => a + o.at[0], 0) / others.length, sl.at[1] - others.reduce((a, o) => a + o.at[1], 0) / others.length]) : [-f[1], f[0]];
       const cands: P2[] = pl.kind === 'bench' ? [[sl.at[0] + away[0] * 0.95 + f[0] * 0.3, sl.at[1] + away[1] * 0.95 + f[1] * 0.3], [sl.at[0] + f[0] * 1.1 + away[0] * 0.3, sl.at[1] + f[1] * 1.1 + away[1] * 0.3]]
         : pl.kind === 'stall' ? [[sl.at[0] + away[0] * 0.75 + f[0] * 0.15, sl.at[1] + away[1] * 0.75 + f[1] * 0.15], [sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8]]
+        : pl.kind === 'busstop' ? [[sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8]]
         : [[sl.at[0] - f[0] * 0.8, sl.at[1] - f[1] * 0.8], [sl.at[0] + away[0] * 0.75, sl.at[1] + away[1] * 0.75]];
       for (const c of cands) {
         const lc: P2 = [c[0] - off[0], c[1] - off[2]];

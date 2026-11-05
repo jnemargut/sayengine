@@ -658,6 +658,13 @@ func _free(i: int, cx: float, cz: float) -> bool:
 		if (st["blocked"] > 3.0 and o["blocked"] > 3.0 and st["fx"] * o["fx"] + st["fz"] * o["fz"] < -0.5 and not A.has("owner") and not A_[j].has("owner")) or st["blocked"] > 8.0:
 			st["slip"] = t + 2.5
 			o["slip"] = t + 2.5
+		if st["slip"] > t and o["slip"] > t:
+			var cx0: float = o["x"] - st["x"]
+			var cz0: float = o["z"] - st["z"]
+			var rr0: float = ar + float(A_[j]["r"]) - 0.1
+			if cx0 * cx0 + cz0 * cz0 < rr0 * rr0:
+				st["slip"] = max(float(st["slip"]), t + 0.5)
+				o["slip"] = max(float(o["slip"]), t + 0.5)
 		var r: float = (min(squeeze, ar + float(A_[j]["r"]))) if squeeze > 0.0 else ar + float(A_[j]["r"])
 		if st["slip"] > t and o["slip"] > t:
 			r = 0.15
@@ -744,6 +751,13 @@ func _step_buddy(i: int, dt: float) -> void:
 			var oz: float = agents[j]["z"] - tz
 			var rr: float = ar + float(A_[j]["r"]) + 0.05
 			if ox * ox + oz * oz < rr * rr:
+				st["visible"] = false
+				return
+		if player["on"]:
+			var pox: float = player["x"] - tx
+			var poz: float = player["z"] - tz
+			var prr: float = ar + float(player["r"]) + 0.05
+			if pox * pox + poz * poz < prr * prr:
 				st["visible"] = false
 				return
 		st["x"] = tx
