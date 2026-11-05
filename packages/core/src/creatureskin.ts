@@ -66,6 +66,21 @@ export function creatureIkInfo(c: Creature): CreatureIkInfo {
   };
 }
 
+/** How a creature goes into a game (`studio game import`): skinned with live IK when it has something
+ *  the live runtime drives (legs, or a reaching chain), else the node-per-bone baked clips. The caller
+ *  also falls back to baked when the skinned GLB doesn't validate. */
+export type CreatureGamePath = 'skinned-live' | 'baked';
+export function creatureGamePath(c: Creature): { path: CreatureGamePath; reason: string } {
+  const kinds = new Set(c.def.parts.map((p) => p.kind));
+  const shaderSway = c.def.parts.some((p) => p.kind === 'sway' && (p as SwayPartSpec).mode === 'shader');
+  if (shaderSway) return { path: 'baked', reason: 'shader sway (grass) plays from the node-per-bone export' };
+  const ik = creatureIkInfo(c);
+  if (ik.legs.length && ik.gait) return { path: 'skinned-live', reason: `${ik.legs.length} legs step and plant live (TwoBoneIK3D)${ik.chains.length ? `, ${ik.chains.length} chain(s) can reach` : ''}` };
+  if (ik.chains.length) return { path: 'skinned-live', reason: `${ik.chains.length} chain(s) can reach live (FABRIK3D); no legs` };
+  if (kinds.has('wheels')) return { path: 'baked', reason: 'wheels are not live in Godot yet (baked drive clip)' };
+  return { path: 'baked', reason: 'no legs or chains for the live runtime to drive' };
+}
+
 export interface CreatureSkinOpts { terrain?: { size: number; along?: number }; checks?: Record<string, MotionCheck[]> }
 
 /** A creature as a skinned GLB: one skin over its bones (plus weightless .tip joints), one mesh, the same

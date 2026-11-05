@@ -73,6 +73,11 @@ export const DAEMON_TOOLS: DaemonTool[] = [
     flags: { type: 'object', properties: {} },
   },
   {
+    name: 'game-creatures',
+    description: 'Every creature in the scene as its own game GLB (what `studio game import` writes to assets/studio/creatures/): skinned with extras.ik for the live legs and reach when it can be (studio/creature_ik.gd), else the node-per-bone baked clips. Returns, per creature, the file, which path it took and why, where it stands, and its motions. --out-dir folder; --baked true forces the baked path.',
+    flags: { type: 'object', properties: { outDir: { type: 'string' }, baked: { type: 'boolean', default: false } }, required: ['outDir'] },
+  },
+  {
     name: 'game-data',
     description: 'What `studio game import` writes besides the GLB (Phase 9): every effect with its position and resolved colours, the UI kit (tokens, HUD layout, icons), and every recorded character line with its audio as base64 WAV.',
     flags: { type: 'object', properties: {} },

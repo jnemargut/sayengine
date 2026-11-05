@@ -164,3 +164,10 @@ test('web runtime: named, hold, say, effects, UI and controls none in headless C
   assert.equal(res.length, 7, JSON.stringify(t).slice(0, 800));
   fs.rmSync(studioDir, { recursive: true, force: true });
 });
+
+test('web effects under a graded look compile for linear light: Godot\'s dot, no alpha exponent, linear colours', () => {
+  const def: any = { id: 'sparks', name: 'sparks', ...EFFECT_PRESETS.sparks.make() };
+  const tag = (lin: boolean) => { const em: any[] = []; parseQuarks(JSON.parse(JSON.stringify(quarksJSON({ def, at: [0, 0, 0], colours: DEFAULT_FIRE_PALETTE }, { linear: lin })))).traverse((o: any) => { if (o.type === 'ParticleEmitter') em.push(o); }); return em.map((e) => e.userData); };
+  assert.ok(tag(false).some((u) => (u.streak ?? u.dot) && Math.abs((u.streak ?? u.dot) - 1 / 2.2) < 0.01), 'sRGB canvas: alpha^(1/2.2)');
+  assert.ok(tag(true).every((u) => (u.streak ?? u.dot ?? 1) === 1), 'linear target: exponent 1');
+});

@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { creatureWithClips } from '../src/creatures.ts';
-import { creatureSkinnedGLB, creatureIkInfo } from '../src/creatureskin.ts';
+import { creatureSkinnedGLB, creatureIkInfo, creatureGamePath } from '../src/creatureskin.ts';
+import { exportGameCreatures } from '../src/gamecreatures.ts';
+import { initKernel, Studio } from '../src/index.ts';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const json = (glb: Uint8Array) => {
   const dv = new DataView(glb.buffer, glb.byteOffset, glb.byteLength);
@@ -36,4 +41,30 @@ test('crab IK info: tripod groups (3 + 3), step numbers from the leg reach', () 
   assert.equal(ik.legs.length, 6);
   assert.equal(ik.legs.filter((l) => l.group === 0).length, 3);
   assert.ok(ik.gait && ik.gait.stepTrigger > 0.05 && ik.gait.stepTime > 0.2);
+});
+
+test('game path: legged and reaching creatures go skinned (live IK); wheels and shader grass stay baked', () => {
+  const path_ = (n: string) => creatureGamePath(creatureWithClips(n).c).path;
+  assert.equal(path_('crab'), 'skinned-live');
+  assert.equal(path_('spider'), 'skinned-live');
+  assert.equal(path_('octopus'), 'skinned-live');
+  assert.equal(path_('car'), 'baked');
+  assert.equal(path_('windmill'), 'baked');
+});
+
+test('game creatures: each creature in the scene its own GLB, the path and reason reported; --baked forces the fallback', async () => {
+  await initKernel();
+  const s = new Studio();
+  for (const preset of ['crab', 'car']) assert.ok(s.call('new-creature', { preset, id: preset }).ok);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-creatures-'));
+  try {
+    const list: any[] = await exportGameCreatures(s.doc(), dir);
+    assert.deepEqual(list.map((c) => [c.id, c.path]), [['crab', 'skinned-live'], ['car', 'baked']]);
+    assert.ok(list.every((c) => c.reason && fs.existsSync(path.join(dir, c.file)) && Object.keys(c.motions).length > 0));
+    const crab = json(new Uint8Array(fs.readFileSync(path.join(dir, 'crab.glb'))));
+    assert.ok(crab.skins?.length === 1 && crab.nodes[0].extras.ik.legs.length === 6, 'the skinned crab carries extras.ik');
+    const forced: any[] = await exportGameCreatures(s.doc(), dir, { baked: true });
+    assert.ok(forced.every((c) => c.path === 'baked'));
+    assert.ok(!json(new Uint8Array(fs.readFileSync(path.join(dir, 'crab.glb')))).skins?.length, 'baked crab: node per bone, no skin');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

@@ -20,6 +20,11 @@ fs.mkdirSync(outDir, { recursive: true });
 const studio = new Studio();
 const step = (t: string, a: object) => { const r: any = studio.call(t, a); if (!r.ok) throw new Error(`${t} ${JSON.stringify(a)}: ${r.error}`); return r.result; };
 buildForge(step);
+// v1.3: the same lighting in both engines. The yard gets a studio look (sun, ambient, sky, fog, tonemap,
+// grade), the way Pocket Raleigh does, so neither engine falls back to its own default environment (the
+// web's rendered the yard ~23 % darker before any effect was drawn). The outline is off: it's an art
+// choice, not lighting, and would ink the particle edges. FX_NO_LOOK=1 gives the v1.2 setup.
+if (!process.env.FX_NO_LOOK) { step('look-new', { preset: 'day-toy' }); step('look-set', { set: { outline: { enabled: false } } }); }
 // the Fire's Dying effects, placed in the yard (the fire bed is cut 10 cm into the hearth's top)
 step('add-effect', { id: 'forge-fire', preset: 'forge-fire', at: [-1.9, 0.76, -1.65], value: 'fire' });
 step('add-effect', { id: 'sparks', preset: 'sparks', at: [-0.02, 0.78, -0.5], triggers: [{ on: 'Blacksmith:strike@impact', layer: 'burst' }] });

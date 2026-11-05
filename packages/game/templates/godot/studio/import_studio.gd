@@ -12,7 +12,16 @@ extends EditorScenePostImport
 func _post_import(scene: Node) -> Object:
 	var studio := _studio_materials(get_source_file())
 	var is_player := get_source_file().get_file() == "player.glb"
-	var report := {"file": get_source_file().get_file(), "meshes": 0, "triangles": 0, "materials": [], "objects": [], "collision": 0, "characters": [], "animations": 0, "applied": [], "notCarried": []}
+	# a creature (assets/studio/creatures/) moves on its own: no static collision of its own (its live
+	# feet cast rays onto the game's colliders, and a body of its own would be in their way)
+	var is_creature := get_source_file().get_base_dir().get_file() == "creatures"
+	var report := {"file": get_source_file().get_file(), "meshes": 0, "triangles": 0, "materials": [], "objects": [], "collision": 0, "characters": [], "animations": 0, "applied": [], "notCarried": [], "skeletons": scene.find_children("*", "Skeleton3D", true, false).size()}
+	if scene.has_meta("extras") and scene.get_meta("extras") is Dictionary and scene.get_meta("extras").has("ik"):
+		report["ik"] = true
+	for n in scene.find_children("*", "", true, false):
+		if n.has_meta("extras") and n.get_meta("extras") is Dictionary and n.get_meta("extras").has("ik"):
+			report["ik"] = true
+			break
 	for ap in scene.find_children("*", "AnimationPlayer", true, false):
 		report.animations += (ap as AnimationPlayer).get_animation_list().size()
 	var mats := {}
@@ -35,7 +44,7 @@ func _post_import(scene: Node) -> Object:
 		report.triangles += tris
 		var node := mi if mi.get_parent() == scene or mi.get_parent().get_parent() == null else mi.get_parent()
 		report.objects.append({"name": String(node.name), "triangles": tris})
-		if is_player:
+		if is_player or is_creature:
 			continue
 		if mi.skin != null or mi.get_parent() is Skeleton3D:
 			_character_capsule(scene, mi, report)

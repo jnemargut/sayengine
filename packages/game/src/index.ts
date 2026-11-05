@@ -34,6 +34,8 @@ export interface GameContext {
   gameData?(): Promise<GameData | null>;
   /** Call a studio tool (game effect --against saves the parity review on the effect). */
   studioCall?(tool: string, args: Record<string, unknown>): Promise<{ ok: boolean; error?: string; result?: any }>;
+  /** Every studio creature as its own game GLB in `outDir` (skinned + extras.ik for live IK, else baked). */
+  creatures?(outDir: string, opts?: { baked?: boolean }): Promise<any[]>;
 }
 
 /**
@@ -97,6 +99,20 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
           if (!pe.ok) return out({ ok: false, ...base, error: `player export failed: ${pe.error}` });
           player = { id: info.id, name: info.name, start: info.position, rotation: info.rotation };
         } else fs.rmSync(playerGlb, { force: true });
+        // creatures (Godot): each its own GLB, skinned with extras.ik so studio/creature_ik.gd steps and
+        // plants it live, or the baked clips when it can't be (the result says which, and why)
+        const creaturesDir = path.join(dir, 'assets', 'studio', 'creatures');
+        const creaturesJson = path.join(dir, 'assets', 'studio', 'creatures.json');
+        let creatures: any[] = [];
+        if (config.engine === 'godot' && !args.file && !args.object && ctx.creatures) {
+          fs.rmSync(creaturesDir, { recursive: true, force: true });
+          creatures = await ctx.creatures(creaturesDir, { baked: args.baked === true || args.baked === 'true' });
+          const bad = creatures.filter((c) => c.error);
+          if (bad.length) return out({ ok: false, ...base, error: `these creatures don't build: ${bad.map((c) => `${c.name}: ${c.error}`).join('; ')}` });
+        }
+        if (creatures.length) fs.writeFileSync(creaturesJson, JSON.stringify({ creatures }, null, 2) + '\n');
+        else { fs.rmSync(creaturesJson, { force: true }); fs.rmSync(creaturesDir, { recursive: true, force: true }); }
+        const exclude = [...(player ? [player.id] : []), ...creatures.map((c) => c.id)];
         let source: string;
         if (args.file) {
           const f = path.resolve(ctx.studioDir, String(args.file));
@@ -104,7 +120,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
           fs.copyFileSync(f, dest);
           source = path.relative(ctx.studioDir, f);
         } else {
-          const e = await ctx.exportGlb(dest, args.object, config.engine, player ? { exclude: [player.id] } : undefined);
+          const e = await ctx.exportGlb(dest, args.object, config.engine, exclude.length ? { exclude } : undefined);
           if (!e.ok) return out({ ok: false, ...base, error: `studio export failed: ${e.error}` });
           source = args.object ? `studio object ${args.object}` : 'studio scene';
           if (e.result?.skipped?.length) return out({ ok: false, ...base, error: `these objects don't evaluate, fix them in the studio first: ${e.result.skipped.join(', ')}` });
@@ -122,7 +138,7 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         writeConfig(dir, config);
         return out({
           ok: !failures.length, ...base,
-          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(!ctx.gameData && !args.file ? { note: 'no studio game data reached the import (the caller passed no gameData()): effects, the UI kit and line audio were written empty' } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})`), roundTrip: report },
+          result: { file: dest, source, ...(cutscenes.length ? { cutscenes: cutscenes.map((f) => path.relative(dir, f)) } : {}), ...(ctx.gameData && !args.file ? { assets: summariseAssets(dir, extra) } : {}), ...(!ctx.gameData && !args.file ? { note: 'no studio game data reached the import (the caller passed no gameData()): effects, the UI kit and line audio were written empty' } : {}), ...(player ? { player: { name: player.name, file: playerGlb, start: player.start } } : {}), characters: charactersManifest(dest, null).characters.map((c: any) => `${c.name} (${Object.keys(c.clips).join(', ') || 'no clips'})${config.engine === 'godot' && c.footIk ? ', live feet (foot_ik)' : ''}`), ...(creatures.length ? { creatures: creatures.map((c) => ({ name: c.name, file: `assets/studio/creatures/${c.file}`, path: c.path, reason: c.reason, motions: Object.keys(c.motions), ...(report.creatures?.[c.file] ? { engine: report.creatures[c.file] } : {}) })) } : {}), roundTrip: report },
           ...(failures.length ? { error: `round trip into ${config.engine} reported ${report.errors.length} error(s) and ${report.warnings.length} warning(s)`, failures, hint: 'fix the asset in the studio and import again — never edit the engine copy' + (strict && !report.errors.length ? ' (or --strict false to accept warnings)' : '') } : {}),
         });
       }
@@ -220,6 +236,21 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         if (par && ctx.studioCall) { const sv = await ctx.studioCall('effect-review', { id, score: par.score, detail: par.detail }); saved = !!sv.ok; }
         return out({ ...base, ok: true, result: { godot: gd.result, web: wb.result, parity: par, card, savedToStudio: saved }, summary: `${id}: ${par ? par.detail : 'no parity (a render is missing)'}` });
       }
+      case 'game-feet': {
+        if (config.engine !== 'godot') return out({ ok: false, ...base, error: 'game feet checks the Godot live IK; this is a web game' });
+        const parse = (v: any) => (typeof v === 'string' && /^[\[{]/.test(v) ? JSON.parse(v) : v);
+        const video = args.video === true || args.video === 'true';
+        const frameDir = video ? path.join(workDir(dir, 'video'), `${stamp()}-feet`) : '';
+        if (video) fs.mkdirSync(frameDir, { recursive: true });
+        const look = args.look ? parse(args.look) : null;
+        const cmd: any = { cmd: 'feet', seconds: Number(args.seconds ?? (args.walk ? 20 : 6)), ...(args.walk !== undefined ? { walk: parseTarget(args.walk) } : {}), ...(args.from ? { from: parse(args.from) } : {}), ik: !(args.ik === false || args.ik === 'false'), ...(args.trace ? { trace: true } : {}), ...(video ? { frames: frameDir } : {}), ...(look ? { look } : {}) };
+        if (video && !args.walk && !look) return out({ ok: false, ...base, error: '--video without --walk needs --look {center, radius, dir}' });
+        const r = await godot.runnerCommand(dir, cmd, { windowed: video, size: video ? 1280 : undefined, timeoutMs: 400000 });
+        if (video && r.ok) Object.assign(r.result ?? {}, framesToVideo(frameDir, 30));
+        const subs: any[] = r.result?.subjects ?? [];
+        const summary = r.ok ? (subs.length ? subs.map((x) => `${x.name} ${x.pass ? 'ok' : 'FAILS'} (float p95 ${x.floatP95Cm} cm, sink p95 ${x.sinkP95Cm} cm, limit ${x.limitCm.join('/')})`).join('; ') : r.result?.detail) : undefined;
+        return out({ ...base, ...r, ok: r.ok && (r.result?.failed ?? 1) === 0, ...(summary ? { summary } : {}) });
+      }
       case 'game-test': {
         const assertions = typeof args.assertions === 'string' ? JSON.parse(args.assertions) : args.assertions ?? [];
         if (!Array.isArray(assertions)) return out({ ok: false, ...base, error: '--assertions must be a JSON array of {kind, …}' });
@@ -279,7 +310,7 @@ export function charactersManifest(sceneGlb: string, player: { id: string; name:
       }
       let lo = Infinity, hi = -Infinity;
       for (const p of j.meshes[n.mesh].primitives) { const acc = j.accessors[p.attributes.POSITION]; if (acc?.min) { lo = Math.min(lo, acc.min[1]); hi = Math.max(hi, acc.max[1]); } }
-      chars.push({ name: n.name, prefix, height: Number.isFinite(hi - lo) ? +(hi - lo).toFixed(3) : 1.7, clips, play: clips.idle ? 'idle' : null });
+      chars.push({ name: n.name, prefix, ...(c.footIk ? { footIk: true } : {}), height: Number.isFinite(hi - lo) ? +(hi - lo).toFixed(3) : 1.7, clips, play: clips.idle ? 'idle' : null });
     }
     return chars;
   };

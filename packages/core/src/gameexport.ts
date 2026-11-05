@@ -309,6 +309,15 @@ const trisOf = (res: EvalResult, parts: string[]) => {
 };
 
 /** Export objects as one game-ready GLB. Throws with a readable message when something can't be made game-ready. */
+/** The legs live foot planting drives in an engine (Godot studio/foot_ik.gd reads extras.character.footIk):
+ *  a kit humanoid's hips, and per side its upper leg, lower leg, foot and toes. */
+function footIkInfo(res: EvalResult): { footIk?: { hips: string; legs: Array<{ side: string; upper: string; lower: string; foot: string; toes: string | null }> } } {
+  const names = new Set(res.rig?.rig.bones.map((b) => b.name) ?? []);
+  const sides = ['Left', 'Right'].filter((s) => ['UpperLeg', 'LowerLeg', 'Foot'].every((b) => names.has(s + b)));
+  if (!names.has('Hips') || sides.length !== 2) return {};
+  return { footIk: { hips: 'Hips', legs: sides.map((s) => ({ side: s, upper: `${s}UpperLeg`, lower: `${s}LowerLeg`, foot: `${s}Foot`, toes: names.has(`${s}Toes`) ? `${s}Toes` : null })) } };
+}
+
 export async function exportGame(items: GameExportItem[], opts: GameExportOpts): Promise<GameExportResult> {
   const B = new GlbBuilder();
   const reports: ObjectReport[] = [];
@@ -436,7 +445,7 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     }
     let node: any;
     if (skin) {
-      const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}), motions: Object.keys(obj.character?.motions ?? {}), ...(characterCount > 1 ? { clipPrefix: `${obj.id}:` } : {}) } }, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' });
+      const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}), motions: Object.keys(obj.character?.motions ?? {}), ...(characterCount > 1 ? { clipPrefix: `${obj.id}:` } : {}), ...footIkInfo(res) } }, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' });
       charNodes.set(obj.id, { obj, res, info: skin });
       node = B.gltf.nodes[roots[0]];
       B.gltf.scenes[0].nodes.push(...roots);
