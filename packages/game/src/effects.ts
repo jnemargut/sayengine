@@ -11,7 +11,6 @@ import { STUDIO_ROOT } from './project.ts';
 import { writeLook } from './look.ts';
 
 export const QUARKS_VERSION = '0.17.1';
-export const ALPHA_GAMMA = 1.6;
 
 // three.quarks prints a banner with console.log when it loads, which would corrupt the CLI's JSON on
 // stdout: load it on first use, with console.log muted for that moment.
@@ -28,7 +27,27 @@ export async function loadQuarks() {
 // quarks' particle shader ends without three's colour-space step, so it writes its colours straight to
 // the screen: hand it the palette's sRGB values as they are (a linearised colour came out darker than
 // Godot's — the sparks and embers by about 20%)
-const v4 = (hex: string, a: number) => { const c = new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace); return new Q.Vector4(c.r, c.g, c.b, a); };
+const v3 = (hex: string) => { const c = new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace); return new Q.Vector3(c.r, c.g, c.b); };
+
+/** The exponent on a layer's alpha that makes the web's sRGB blend land where Godot's linear-light blend
+ *  does, at half alpha:
+ *  - additive: Godot adds a·lin(c), which reads as about c·a^(1/2.2) on screen (sparks and embers were
+ *    15–25 % darker on the web with plain alpha);
+ *  - alpha: over a light scene (sRGB 0.78, the review yard), the web alpha that gives Godot's colour.
+ *    A dark puff comes out ≈ 1.35 (it reads denser on the web), a pale drop ≈ 1 (the old rule split dark
+ *    and pale at a linear luminance of 0.5, so rain's pale blue, 0.41 linear, was thinned as if dark). */
+export function alphaGamma(blend: 'add' | 'alpha', hex: string): number {
+  if (blend === 'add') return 1 / 2.2;
+  const toLin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const toSrgb = (v: number) => (v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+  const n = parseInt(hex.slice(1, 7), 16);
+  const lum = 0.2126 * ((n >> 16) / 255) + 0.7152 * (((n >> 8) & 255) / 255) + 0.0722 * ((n & 255) / 255);
+  const bg = 0.78;
+  if (Math.abs(bg - lum) < 0.04) return 1;
+  const godot = toSrgb(toLin(bg) * 0.5 + toLin(lum) * 0.5);
+  const web = (bg - godot) / (bg - lum);
+  return Math.min(2, Math.max(0.5, Math.log(Math.min(0.99, Math.max(0.01, web))) / Math.log(0.5)));
+}
 
 /** One quarks ParticleSystem per particle layer, under a group named after the effect. Emitters face
  *  their layer's direction (quarks emits along local +Z). */
@@ -39,12 +58,11 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
   for (const l of b.def.layers) {
     if (l.kind !== 'particles') continue;
     const L = l as ParticleLayer;
-    // Godot blends see-through layers in linear light, three in the sRGB canvas: there a half-clear dark
-    // puff reads denser than in Godot and a pale drop fainter, so alpha-blended layers carry
-    // alpha^ALPHA_GAMMA when dark and alpha^(1/ALPHA_GAMMA) when pale
-    const lum = (() => { const c = new THREE.Color().setStyle(b.colours[L.colour[0]], THREE.LinearSRGBColorSpace); return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; })();
-    const gam = lum < 0.5 ? ALPHA_GAMMA : 1 / ALPHA_GAMMA;
-    const a = (L.alpha ?? [1, 1]).map((x) => (L.blend === 'alpha' ? Math.pow(x, gam) : x));
+    // Godot blends in linear light, three in the sRGB canvas: each layer's alpha carries an exponent that
+    // makes the web blend land where Godot's does (alphaGamma), over its whole life (several keys, since
+    // a two-key ramp from 1 to 0 has nothing for an exponent to bend) and across the particle's soft dot
+    const gam = alphaGamma(L.blend, b.colours[L.colour[0]]);
+    const a = (L.alpha ?? [1, 1]) as [number, number];
     const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, blending: L.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending });
     const spread = THREE.MathUtils.degToRad(Math.min(89, L.spread ?? 0));
     const shape = L.shape.type === 'sphere' ? new Q.SphereEmitter({ radius: L.shape.radius ?? 0.1 })
@@ -53,7 +71,9 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
       : L.shape.type === 'box' ? new Q.GridEmitter({ width: L.shape.size?.[0] ?? 1, height: L.shape.size?.[2] ?? 1, column: 64, row: 64 })
       : new Q.ConeEmitter({ radius: L.shape.type === 'point' ? 0.001 : L.shape.radius ?? 0.05, angle: Math.max(0.001, spread), thickness: 1 });
     const behaviors: any[] = [
-      new Q.ColorOverLife(new Q.ColorRange(v4(b.colours[L.colour[0]], a[0]), v4(b.colours[L.colour[1]], a[1]))),
+      new Q.ColorOverLife(new Q.Gradient(
+        [[v3(b.colours[L.colour[0]]), 0], [v3(b.colours[L.colour[1]]), 1]],
+        [0, 0.15, 0.35, 0.6, 0.8, 1].map((t) => [Math.pow(Math.max(0, a[0] + (a[1] - a[0]) * t), gam), t]))),
       new Q.SizeOverLife(new Q.PiecewiseBezier([[new Q.Bezier(1, 1 + ((L.sizeEnd ?? 1) - 1) / 3, 1 + (2 * ((L.sizeEnd ?? 1) - 1)) / 3, L.sizeEnd ?? 1), 0]])),
     ];
     if (L.gravity) behaviors.push(new Q.ApplyForce(new Q.Vector3(0, -1, 0), new Q.ConstantValue(L.gravity)));
@@ -75,7 +95,8 @@ export function quarksGroup(b: EffectBundle): THREE.Group {
     } as any);
     const e = ps.emitter;
     e.name = L.id;
-    e.userData = { layer: L.id, rate: L.rate, oneShot };
+    // the runtime draws each particle with Godot's dot (alpha falling linearly to the rim) raised to `dot`
+    e.userData = { layer: L.id, rate: L.rate, oneShot, dot: +gam.toFixed(3) };
     const dir = new THREE.Vector3(...(L.direction ?? [0, 1, 0])).normalize();
     e.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     e.position.set(...(L.offset ?? [0, 0, 0]));

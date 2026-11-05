@@ -4,6 +4,7 @@
 // from the same review camera, measured, and put side by side; the UI kit gets its sheet and the HUD
 // over the forge in both engines. Skips an engine that isn't installed.
 // Run: node bench/effects.ts [outDir]   (also: npm run bench:effects)
+//      FX_ONLY=rain,sparks node bench/effects.ts [outDir]   only those side-by-sides (no strike, UI tasks)
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -76,7 +77,8 @@ const runs: Array<{ id: string; args: object; expect?: (r: any) => string | null
   { id: 'embers', args: { seconds: 4, events: [{ at: 0.5, name: 'fed' }, { at: 2.2, name: 'fed' }] } },
   { id: 'rain', args: { seconds: 3 } },
 ];
-if (have.godot && have.web) for (const x of runs) {
+const only = process.env.FX_ONLY ? process.env.FX_ONLY.split(',') : null;
+if (have.godot && have.web) for (const x of runs.filter((r) => !only || only.includes(r.id))) {
   await task(`effect ${x.id}: Godot and web side by side`, async () => {
     const r = await call('game-effect', { project: 'fx-godot', id: x.id, against: 'fx-web', ...x.args });
     const g = r.result.godot, w = r.result.web;
@@ -94,7 +96,7 @@ if (have.godot && have.web) for (const x of runs) {
 }
 // sparks on the strike: the blacksmith's strike clip loops and the motion trigger fires at its impact
 for (const engine of ['godot', 'web'] as const) {
-  if (!have[engine]) continue;
+  if (!have[engine] || only) continue;
   await task(`${engine}: sparks fire on the blacksmith's strike (motion trigger at the impact)`, async () => {
     const r = await call('game-effect', { project: `fx-${engine}`, id: 'sparks', seconds: 4, play: [{ character: 'Blacksmith', clip: 'strike' }] });
     const n = r.result.fired?.['sparks:burst'] ?? 0;
@@ -102,13 +104,13 @@ for (const engine of ['godot', 'web'] as const) {
     return n >= 2 ? null : `bursts fired in 4 s of strikes: ${n} (want 2: the clip is 1.8 s)`;
   });
 }
-if (have.godot) await task('godot: the CPU fallback draws the fire', async () => {
+if (have.godot && !only) await task('godot: the CPU fallback draws the fire', async () => {
   const r = await call('game-effect', { project: 'fx-godot', id: 'forge-fire', value: 0.8, seconds: 3, cpu: true });
   report.effects['forge-fire'].cpuFallback = { video: keep(r.result.video, 'forge-fire-godot-cpu.mp4'), stats: r.result.stats };
   return r.result.cpu && r.result.stats?.coverage > 0 ? null : `cpu ${r.result.cpu}, stats ${JSON.stringify(r.result.stats)}`;
 });
 
-await task('UI kit sheet: parts, HUD on a phone (pseudolocalised), icons scored', async () => {
+if (!only) await task('UI kit sheet: parts, HUD on a phone (pseudolocalised), icons scored', async () => {
   const r = await call('game-ui-sheet', { out: path.join(outDir, 'ui-sheet') });
   report.ui.sheet = r.result.png;
   report.ui.iconScores = r.result.scores;
@@ -116,7 +118,7 @@ await task('UI kit sheet: parts, HUD on a phone (pseudolocalised), icons scored'
   return bad.length ? `icons: ${bad.map(([k, s]: any) => `${k} ${s.notes.join(', ')}`).join('; ')}` : null;
 });
 for (const engine of ['godot', 'web'] as const) {
-  if (!have[engine]) continue;
+  if (!have[engine] || only) continue;
   await task(`${engine}: the HUD and a speech bubble over the forge (whole-page capture)`, async () => {
     const r = await call('game-screenshot', { project: `fx-${engine}`, page: true, size: 1280, seconds: 1.5, values: { fire: 0.7 }, bubbles: [{ character: 'Blacksmith', text: 'Good lad. Now hold it still.' }] });
     report.ui[`${engine}Page`] = keep(r.result.images?.[0]?.file, `ui-over-forge-${engine}.png`);
