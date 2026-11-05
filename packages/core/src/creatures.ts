@@ -92,11 +92,11 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     const skin = '#c7563f', under = '#efb79a';
     const arms: PartSpec[] = Array.from({ length: 8 }, (_, i) => {
       const a = ((i + 0.5) * 45 * Math.PI) / 180;
-      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.1, Math.cos(a)], length: 0.5, segments: 10, r0: 0.04, r1: 0.007, color: skin, under, motion: 'curl', plane: 'pitch', amp: 75, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
+      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.6, segments: 10, r0: 0.04, r1: 0.007, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
     });
-    const potC: V3 = [0.14, 0.2 + 0.052, 0.72];
-    const grip: V3 = [0.14, 0.255, 0.645];
-    const spout: V3 = [0.055, 0.3, 0.72];
+    const potC: V3 = [0.13, 0.2 + 0.052, 0.71];
+    const grip: V3 = [0.13, 0.255, 0.635];
+    const spout: V3 = [0.045, 0.3, 0.71];
     return {
       describe: 'an octopus (mantle, eyes, eight curling arms with suckers) beside a low table with a teapot and a cup (props it can pick up)',
       def: {
@@ -114,8 +114,8 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
             ] },
           ...arms,
           { kind: 'prop', id: 'table', at: [0, 0.2, 0.75], surface: 0.2, shapes: [
-            { shape: { kind: 'box', c: [0, 0.185, 0.75], size: [0.6, 0.03, 0.36] }, color: '#8a6a4a' },
-            ...[[0.27, 0.6], [-0.27, 0.6], [0.27, 0.9], [-0.27, 0.9]].map(([x, z]) => ({ shape: { kind: 'seg' as const, a: [x, 0, z] as V3, b: [x, 0.172, z] as V3, r1: 0.016, r2: 0.016, sides: 10 }, color: '#6f533a' })),
+            { shape: { kind: 'box', c: [0, 0.185, 0.75], size: [0.6, 0.03, 0.34] }, color: '#8a6a4a' },
+            ...[[0.15, 0.62], [-0.15, 0.62], [0.15, 0.88], [-0.15, 0.88]].map(([x, z]) => ({ shape: { kind: 'seg' as const, a: [x, 0, z] as V3, b: [x, 0.172, z] as V3, r1: 0.016, r2: 0.016, sides: 10 }, color: '#6f533a' })),
           ] },
           { kind: 'prop', id: 'teapot', at: grip, shapes: [
             { shape: { kind: 'ball', c: potC, r: 0.062, scale: [1, 0.84, 1], sides: 22 }, color: '#4f8a8b' },
@@ -126,12 +126,12 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
             { shape: { kind: 'seg', a: add(grip, [0, 0.012, 0]), b: add(grip, [0, -0.025, 0.005]), r1: 0.008, r2: 0.008, sides: 8 }, color: '#e9dfc9' },
             { shape: { kind: 'seg', a: add(grip, [0, -0.025, 0.005]), b: add(potC, [0, -0.02, -0.05]), r1: 0.008, r2: 0.008, sides: 8 }, color: '#e9dfc9' },
           ] },
-          { kind: 'prop', id: 'tea', parent: 'teapot', at: spout, fx: { hide: [0, -3, 0] }, shapes: [{ shape: { kind: 'seg', a: add(spout, [0, 0.002, 0]), b: add(spout, [0, -0.17, 0]), r1: 0.006, r2: 0.0045, sides: 8 }, color: '#9a6232' }] },
-          { kind: 'prop', id: 'cup', at: [-0.1, 0.2, 0.7], shapes: [
-            { shape: { kind: 'seg', a: [-0.1, 0.2, 0.7], b: [-0.1, 0.262, 0.7], r1: 0.028, r2: 0.036, sides: 18 }, color: '#f1ebe0' },
-            { shape: { kind: 'seg', a: [-0.1, 0.255, 0.7], b: [-0.1, 0.2635, 0.7], r1: 0.031, r2: 0.033, sides: 18 }, color: '#7a4a24' },
-            { shape: { kind: 'seg', a: [-0.137, 0.25, 0.7], b: [-0.146, 0.222, 0.7], r1: 0.006, r2: 0.006, sides: 8 }, color: '#f1ebe0' },
-            { shape: { kind: 'ball', c: [-0.1, 0.2, 0.7], r: 0.046, scale: [1, 0.08, 1], sides: 18 }, color: '#f1ebe0' },
+          { kind: 'prop', id: 'tea', parent: 'teapot', at: spout, fx: { hide: [0, -3, 0] }, shapes: [{ shape: { kind: 'seg', a: add(spout, [0, 0.002, 0]), b: add(spout, [0, -0.1, 0]), r1: 0.006, r2: 0.0045, sides: 8 }, color: '#9a6232' }] },
+          { kind: 'prop', id: 'cup', at: [-0.1, 0.2, 0.69], shapes: [
+            { shape: { kind: 'seg', a: [-0.1, 0.2, 0.69], b: [-0.1, 0.262, 0.69], r1: 0.028, r2: 0.036, sides: 18 }, color: '#f1ebe0' },
+            { shape: { kind: 'seg', a: [-0.1, 0.255, 0.69], b: [-0.1, 0.2635, 0.69], r1: 0.031, r2: 0.033, sides: 18 }, color: '#7a4a24' },
+            { shape: { kind: 'seg', a: [-0.137, 0.25, 0.69], b: [-0.146, 0.222, 0.69], r1: 0.006, r2: 0.006, sides: 8 }, color: '#f1ebe0' },
+            { shape: { kind: 'ball', c: [-0.1, 0.2, 0.69], r: 0.046, scale: [1, 0.08, 1], sides: 18 }, color: '#f1ebe0' },
           ] },
         ],
       },

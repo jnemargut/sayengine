@@ -511,21 +511,35 @@ export function twoBoneKnee(hip: V3, target: V3, l1: number, l2: number, pole: V
 }
 
 /** FABRIK: joint positions of a chain from `base` reaching `target` (keeps segment lengths). */
-export function fabrik(points: V3[], target: V3, iters = 12): V3[] {
+export function fabrik(points: V3[], target: V3, iters = 12, limit?: { deg: number; baseDir: V3 }): V3[] {
   const p = points.map((x) => [...x] as V3);
   const L = p.slice(1).map((x, i) => len(sub(x, p[i])));
   const base = p[0];
   const total = L.reduce((a, b) => a + b, 0);
-  if (len(sub(target, base)) >= total) {
+  if (!limit && len(sub(target, base)) >= total) {
     const d = norm(sub(target, base));
     for (let i = 1; i < p.length; i++) p[i] = add(p[i - 1], mul(d, L[i - 1]));
     return p;
   }
+  // a cone limit per joint: a segment turns at most `deg` from the one before it (the first from baseDir)
+  const cone = (prev: V3, d: V3): V3 => {
+    if (!limit) return d;
+    const c0 = Math.cos(limit.deg * D2R), k = dot(prev, d);
+    if (k >= c0) return d;
+    let perp = sub(d, mul(prev, k));
+    if (len(perp) < 1e-9) perp = Math.abs(prev[1]) < 0.9 ? cross(prev, [0, 1, 0]) : cross(prev, [1, 0, 0]);
+    return norm(add(mul(prev, c0), mul(norm(perp), Math.sin(limit.deg * D2R))));
+  };
   for (let it = 0; it < iters; it++) {
     p[p.length - 1] = target;
     for (let i = p.length - 2; i >= 0; i--) p[i] = add(p[i + 1], mul(norm(sub(p[i], p[i + 1])), L[i]));
     p[0] = base;
-    for (let i = 1; i < p.length; i++) p[i] = add(p[i - 1], mul(norm(sub(p[i], p[i - 1])), L[i - 1]));
+    let prev = limit ? norm(limit.baseDir) : [0, 0, 0] as V3;
+    for (let i = 1; i < p.length; i++) {
+      const d = cone(prev, norm(sub(p[i], p[i - 1])));
+      p[i] = add(p[i - 1], mul(d, L[i - 1]));
+      prev = d;
+    }
     if (len(sub(p[p.length - 1], target)) < 1e-4) break;
   }
   return p;
@@ -539,8 +553,10 @@ export function chainLocals(c: Creature, names: string[], joints: V3[], parentWo
     const b = c.bones[c.index.get(n)!];
     const rest = norm(sub(b.tail, b.head));
     const want = norm(sub(joints[i + 1], joints[i]));
-    const world = qArc(rest, want);
-    const local = qMul(qInv(pw), world);
+    // the smallest turn from where the parent carries this bone: no twist builds up down the chain,
+    // so a joint's angle is its bend (what a cone limit means)
+    const local = qArc(rest, qRot(qInv(pw), want));
+    const world = qMul(pw, local);
     out.push(local);
     pw = world;
   });
@@ -1060,7 +1076,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
     const near = (a: number, b: number) => a === b || c.parents[a] === b || c.parents[b] === a || (c.parents[a] >= 0 && c.parents[a] === c.parents[b]) || (c.parents[a] >= 0 && c.parents[c.parents[a]] === b) || (c.parents[b] >= 0 && c.parents[c.parents[b]] === a);
     const wbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
-    let ww = 0, sw = 0;
+    let ww = 0, sw = 0, pair = '';
     const isContactBone = new Set(c.contacts.map((cd) => c.index.get(cd.bone)!));
     // a held prop touches the chain holding it: that pair is not a collision
     const holders = new Map<number, Set<number>>();
@@ -1089,11 +1105,11 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         // only pieces that don't overlap at rest can collide (rest overlaps are how the body is built)
         const restD = len(sub(spheres[i].c, spheres[j].c));
         const restOverlap = spheres[i].r + spheres[j].r - restD;
-        if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; sw = Math.max(sw, overlap); }
+        if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; if (overlap > sw) { sw = overlap; pair = `${c.bones[spheres[i].b].name} × ${c.bones[spheres[j].b].name}`; } }
       }
     }
     out.push(mk('nothing sinks into the ground', wbad, ww, CHECK_LIMITS.penetrate, '× piece radius', 'body pieces stay above the ground'));
-    out.push(mk('nothing passes through itself', sbad, sw, CHECK_LIMITS.penetrate * 2, '× piece radius', 'parts that don\'t touch at rest don\'t collide in motion'));
+    out.push(mk('nothing passes through itself', sbad, sw, CHECK_LIMITS.penetrate * 2, '× piece radius', pair ? `deepest: ${pair}` : 'parts that don\'t touch at rest don\'t collide in motion'));
   }
   // ── balance: with three or more feet down, the centre of mass is over them ──
   if (c.legs.length >= 4) {

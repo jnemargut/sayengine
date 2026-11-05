@@ -197,6 +197,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
   const rot: Q[][] = [], off: V3[][] = [], contacts: boolean[][] = [], held: Array<Record<string, string>> = [], grip: Array<Record<string, number>> = [];
   let reachMiss = 0;
   const spinAngle: Record<string, number> = {};
+  const lastJoints = new Map<string, V3[]>();
   const holdState: Record<string, { chain: string; offset: V3 } | null> = {};
   const propWorld: Record<string, V3> = Object.fromEntries(props.map((p) => [p.id, [0, 0, 0] as V3]));
   const segOf = (t: number) => { let i = 0; while (i + 1 < states.length && states[i + 1].t <= t) i++; return i; };
@@ -277,11 +278,26 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
         const d = len(sub(ga, gb));
         if (d > 0.05) T = add(T, [0, Math.sin(Math.PI * e) * 0.22 * d * S, 0]);
       } else if (gb) { T = gb; w = e; } else if (ga) { T = ga; w = 1 - e; }
-      const goal = T ? lerp3(idleTip, T, w) : idleTip;
-      const P = follow(`reach.${ch.id}`, goal as number[], dt) as V3;
-      if (len(sub(P, idleTip)) < 1e-4) continue;
-      const solved = fabrik(joints, P, 24);
+      // the goal and how much the chain follows it are smoothed separately, so a chain at rest plays
+      // its own motion exactly and a reach eases in and out of it
+      const tKey = `reach.${ch.id}`;
+      const Tf = T ? follow(tKey, T as number[], dt) as V3 : (followers.get(tKey)?.x as V3 | undefined);
+      const [wf] = follow(`w.${ch.id}`, [w], dt);
+      if (!Tf || wf < 1e-3) { followers.delete(tKey); lastJoints.delete(ch.id); continue; }
+      const P = lerp3(idleTip, Tf, clamp(wf, 0, 1));
       const parentRot = c.parents[first] >= 0 ? fk.rot[c.parents[first]] : qIdentity();
+      const lim = c.limits[names[0]];
+      // FABRIK from the chain's own pose, then relax the kinks (a few smoothing rounds, re-reaching each
+      // time) so slack in a long tentacle spreads along it instead of folding one joint
+      const segL = joints.slice(1).map((q, k) => len(sub(q, joints[k])));
+      let solved = fabrik(joints, P, 24);
+      for (let r = 0; r < 3; r++) {
+        const sm = solved.map((q, k) => (k === 0 || k === solved.length - 1 ? q : lerp3(q, lerp3(solved[k - 1], solved[k + 1], 0.5), 0.6)));
+        // back to the true segment lengths (smoothing shortens them), then reach again
+        for (let k = 1; k < sm.length; k++) sm[k] = add(sm[k - 1], mul(norm(sub(sm[k], sm[k - 1])), segL[k - 1]));
+        solved = fabrik(sm, P, 30);
+      }
+      void lim; void lastJoints;
       const locals = chainLocals(c, names, solved, parentRot);
       names.forEach((nm, k) => { R[bi(nm)] = locals[k]; });
     }

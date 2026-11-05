@@ -6,6 +6,7 @@ import { freeSpot, type ToolDef } from './tools.ts';
 import type { SceneObject } from './types.ts';
 import { bakeCreature, buildCreature, creatureChecks, CHECK_LIMITS, type CreatureDef, type CreatureMotion, type MotionCheck, type PartSpec } from './rigparts.ts';
 import { BODY_PLAN_PARTS, CREATURE_PRESETS, creatureFromPreset } from './creatures.ts';
+import { applyNotes, describeAction } from './actions.ts';
 import { bakeMotion, clipPose, motionReport, qAngle, type MotionClip } from './motion.ts';
 import { qIdentity, qRot, type Rig, type V3 } from './rig.ts';
 
@@ -24,6 +25,10 @@ const PART_HELP = `Part kinds (each brings its own motion and checks):
   slider  {kind:'slider', id, parent?, at, axis, range:[a,b], period, shapes}
   spring  {kind:'spring', id, parent?, at, dir, length, r, color, hz?, damp?} — antennae, ears, aerials: lag and settle
   sway    {kind:'sway', id, area:[x0,z0,x1,z1], count, height, color, wind?, strength?} — grass and flags
+  wing    {kind:'wing', id, at:[x,y,z] (left shoulder), length, chord, color, tipColor?, flapHz?, stroke?} — a mirrored pair: fold, flap, glide, hover; beat rate and flight cycle from the proportions
+  fin     {kind:'fin', id, parent?, at, dir, length, width, taper?, normal?, mirror?, motion:'flutter'|'still', amp?} — tail fins, dorsals, pectorals
+  prop    {kind:'prop', id, at (grip point), shapes, surface?, parent?, fx?:{hide}} — things an action picks up (a teapot), stands on (a table) or shows (a tea stream)
+  (chain motion 'swim' with swim:'fish'|'eel' makes a swimming body; 'curl' curls arms upward)
 Shapes: {kind:'box',c,size} {kind:'seg',a,b,r1,r2} {kind:'ball',c,r} {kind:'wheel',c,r,w} {kind:'blade',a,b,w}. Object space, faces +Z, y up, ground y = 0.`;
 
 function asCreature(o: SceneObject): SceneObject {
@@ -90,14 +95,33 @@ export function characterMotionChecks(rig: Rig, clip: MotionClip): MotionCheck[]
   return out;
 }
 
+const ACTION_HELP = `Key moments (Decision 53): a list of {t, label, ease?, body?, reach?, hold?, props?, wings?, legs?, spin?, creak?, fx?}. Everything carries forward until a later key changes it.
+  t        seconds; label names the moment ("grab the handle", "pour") so notes can refer to it; ease: smooth|in|out|back|linear (the move into this key)
+  body     {at:[x,y,z] offset from rest (m), turn, pitch (+ nose down), roll} degrees
+  reach    {chainId: [x,y,z] | null}: where a chain's tip goes (object space, the creature faces +Z); null hands it back to its own motion. FABRIK solves the chain
+  hold     {propId: chainId | null}: from this key the prop rides that chain's tip (keep the tip on the prop's grip point first); null lets go
+  props    {propId: {tilt: deg, axis: [x,y,z]}}: tilt a prop about its grip point (pour)
+  wings    fold | flap | glide | hover | spread;  legs: plant (feet under the body; a foot that can't reach lifts) | tuck (flight)
+  spin     {hingeId: rpm} keyed speeds, integrated (ease 'out' into rpm 0 winds it down); creak 0..1: stick-slip judder
+  fx       {effectPropId: true|false}: show/hide an effect prop (the tea stream)
+Then: style {tempo, weight 0..1, size}; notes in words ("slower", "more weight", "hold the pour longer") with action-note.`;
+
+/** Bake one motion and its checks (for tool output). */
+function bakeAndCheck(def: CreatureDef, id: string, m: CreatureMotion) {
+  const c = buildCreature(def);
+  const clip = bakeCreature(c, id, m);
+  const checks = creatureChecks(c, clip);
+  return { c, clip, checks, failing: checks.filter((k) => !k.pass) };
+}
+
 export const PART_TOOLS: ToolDef[] = [
   {
     name: 'new-creature', mode: 'create', mutates: true,
-    description: `Make anything that moves from rig parts (Decision 52 A): legs ×N, chains (tails, tentacles, snakes), wheels with suspension, hinges and sliders with limits, springs, swaying grass. Each part brings its own procedural motion and checks. --preset ${Object.keys(CREATURE_PRESETS).join('|')} starts from a ready combo, or --parts '[…]' builds your own. --motions '{"walk":{"kind":"walk","speed":0.4}}' (kinds: walk, idle, drive, slither, still; dir [x,y,z] to walk sideways). Then studio creature-preview --video true to watch it, and motion-checks for the timeline.\n${PART_HELP}`,
+    description: `Make anything that moves from rig parts (Decision 52 A): legs ×N, chains (tails, tentacles, snakes), wheels with suspension, hinges and sliders with limits, springs, swaying grass. Each part brings its own procedural motion and checks. --preset ${Object.keys(CREATURE_PRESETS).join('|')} starts from a ready combo, or --parts '[…]' builds your own. --motions '{"walk":{"kind":"walk","speed":0.4}}' (kinds: walk, idle, drive, slither, still, fly, glide, hover, swim; dir [x,y,z] to walk sideways). Then studio creature-preview --video true to watch it, and motion-checks for the timeline.\n${PART_HELP}`,
     input: z.object({
       name: z.string().optional(), id: z.string().optional(), preset: z.enum(Object.keys(CREATURE_PRESETS) as [string, ...string[]]).optional(),
       parts: z.array(z.record(z.string(), z.any())).optional().describe('part specs (see the description)'),
-      motions: z.record(z.string(), z.object({ kind: z.enum(['walk', 'idle', 'drive', 'slither', 'still']), speed: z.number().optional(), dir: z.tuple([z.number(), z.number(), z.number()]).optional(), duration: z.number().optional(), energy: z.number().optional() })).optional(),
+      motions: z.record(z.string(), z.object({ kind: z.enum(['walk', 'idle', 'drive', 'slither', 'still', 'fly', 'glide', 'hover', 'swim']), speed: z.number().optional(), dir: z.tuple([z.number(), z.number(), z.number()]).optional(), duration: z.number().optional(), energy: z.number().optional(), altitude: z.number().optional() })).optional(),
       terrain: z.object({ period: z.number(), bumps: z.array(z.object({ amp: z.number(), k: z.number(), phase: z.number().optional(), kx: z.number().optional() })) }).optional(),
       position: z.tuple([z.number(), z.number(), z.number()]).optional(),
     }),
@@ -148,18 +172,75 @@ export const PART_TOOLS: ToolDef[] = [
   },
   {
     name: 'set-creature-motion', mode: 'modify', mutates: true,
-    description: 'Add or change a creature motion: --id walk --kind walk|idle|drive|slither|still [--speed m/s] [--dir x,y,z] [--duration s] [--energy 0..1]. Gaits, rolling, slithering and swaying come from the parts; the checks run on the result.',
-    input: z.object({ object: ObjRef, id: z.string(), kind: z.enum(['walk', 'idle', 'drive', 'slither', 'still']), speed: z.number().optional(), dir: z.tuple([z.number(), z.number(), z.number()]).optional(), duration: z.number().optional(), energy: z.number().min(0).max(1).optional() }),
+    description: 'Add or change a creature motion: --id walk --kind walk|idle|drive|slither|still|fly|glide|hover|swim [--speed m/s] [--dir x,y,z] [--duration s] [--energy 0..1] [--altitude m]. Gaits, rolling, slithering, flight (beat rate, stroke and flap/glide bursts from the wing proportions), swimming (a body wave from the length and speed) and swaying come from the parts; the checks run on the result. One-off actions: perform-action.',
+    input: z.object({ object: ObjRef, id: z.string(), kind: z.enum(['walk', 'idle', 'drive', 'slither', 'still', 'fly', 'glide', 'hover', 'swim']), speed: z.number().optional(), dir: z.tuple([z.number(), z.number(), z.number()]).optional(), duration: z.number().optional(), energy: z.number().min(0).max(1).optional(), altitude: z.number().optional() }),
     example: `studio set-creature-motion --object robot-crab --id scuttle --kind walk --speed 0.5 --dir '[1,0,0]'`,
     run(ctx, a) {
       const o = asCreature(ctx.obj(a.object));
-      const m: CreatureMotion = { kind: a.kind, ...(a.speed !== undefined ? { speed: a.speed } : {}), ...(a.dir ? { dir: a.dir as V3 } : {}), ...(a.duration ? { duration: a.duration } : {}), ...(a.energy !== undefined ? { energy: a.energy } : {}) };
+      const m: CreatureMotion = { kind: a.kind, ...(a.speed !== undefined ? { speed: a.speed } : {}), ...(a.dir ? { dir: a.dir as V3 } : {}), ...(a.duration ? { duration: a.duration } : {}), ...(a.energy !== undefined ? { energy: a.energy } : {}), ...(a.altitude !== undefined ? { altitude: a.altitude } : {}) };
       const c = buildCreature(o.creature!.def);
       const k = creatureChecks(c, bakeCreature(c, a.id, m));
       ctx.set(['objects', o.id, 'creature'], { ...o.creature!, motions: { ...o.creature!.motions, [a.id]: m } });
       const failing = k.filter((x) => !x.pass);
       ctx.summary(`${o.name}: motion "${a.id}" (${a.kind}) — ${failing.length ? `${failing.length} check(s) fail: ${failing.map((x) => x.name).join(', ')}` : 'all checks pass'}`);
       return { checks: k };
+    },
+  },
+  {
+    name: 'perform-action', mode: 'modify', mutates: true,
+    description: `A one-off action (Decision 53): "the octopus pours tea". You write the key moments as part goals; the studio solves every frame on top of the creature's idle (FABRIK for reaching chains, IK legs, wing poses blended between modes, spin integrated from keyed speeds), adds weight with a follow-through spring, and runs the universal motion checks plus the props' (held props stay in the grip; let go, they rest on something). The result is a motion like any other: creature-preview --motions <id> --video true gives the clip and a still at every key moment. Then action-note steers it in words. On a kit character the keys are the character action format ({at: 0..1, bones, drop, shift, yaw, pitch, feet, hands}) with --duration; see the studio skill.\n${ACTION_HELP}`,
+    input: z.object({ object: ObjRef, action: z.string().describe('what happens, in words: "the octopus pours tea"'), id: z.string().optional(), keys: z.array(z.record(z.string(), z.any())), style: z.object({ tempo: z.number().optional(), weight: z.number().optional(), size: z.number().optional() }).optional(), notes: z.array(z.string()).optional(), duration: z.number().optional() }),
+    example: `studio perform-action --object octopus --action "the octopus pours tea" --keys '[{"t":0,"label":"start"},{"t":1.2,"label":"grab the handle","reach":{"arm1":[0.14,0.255,0.645]}},{"t":1.5,"label":"grip","hold":{"teapot":"arm1"}},{"t":2.4,"label":"lift","reach":{"arm1":[0.06,0.42,0.63]}},{"t":3.2,"label":"pour","props":{"teapot":{"tilt":45,"axis":[0,0,1]}},"fx":{"tea":true}}]'`,
+    run(ctx, a) {
+      const o = ctx.obj(a.object);
+      const id = a.id ?? slug(a.action).split('-').filter((w: string) => !['the', 'a', 'an'].includes(w)).slice(0, 4).join('-');
+      if (o.character) {
+        const spec: any = { kind: 'action', label: a.action, keys: a.keys, ...(a.duration ? { duration: a.duration } : {}), ...(a.notes ? { notes: a.notes } : {}) };
+        ctx.set(['objects', o.id, 'character', 'motions'], { ...(o.character.motions ?? {}), [id]: spec });
+        const r = ctx.studio.evaluate(ctx.doc.objects[o.id]);
+        if (!r.rig) throw new Error(`${o.name} does not build`);
+        const clip = bakeMotion(id, spec, r.rig.rig, ctx.doc.objects[o.id].character);
+        const checks = characterMotionChecks(r.rig.rig, clip);
+        const failing = checks.filter((k) => !k.pass);
+        ctx.summary(`${o.name}: action "${a.action}" as motion "${id}" (${clip.duration.toFixed(2)} s) — ${failing.length ? `failing: ${failing.map((k) => k.name).join(', ')}` : 'every motion check passes'}`);
+        return { id, duration: clip.duration, checks, next: `studio motion-preview --object ${o.id} --motions ${id} --video true` };
+      }
+      const cr = asCreature(o).creature!;
+      const m: CreatureMotion = { kind: 'action', action: { label: a.action, keys: a.keys as any, ...(a.style ? { style: a.style } : {}), ...(a.notes ? { notes: a.notes } : {}) } };
+      const { clip, checks, failing } = bakeAndCheck(cr.def, id, m);
+      ctx.set(['objects', o.id, 'creature'], { ...cr, motions: { ...cr.motions, [id]: m } });
+      ctx.summary(`${o.name}: "${a.action}" as motion "${id}" — ${describeAction(clip)} — ${failing.length ? `${failing.length} check(s) fail: ${failing.map((k) => `${k.name} (frames ${k.frames.map(([x, y]) => (x === y ? x : `${x}–${y}`)).join(',')})`).join('; ')}` : 'every motion check passes'}`);
+      return { id, duration: clip.duration, keys: clip.keys, notes: clip.notes, checks, next: `studio creature-preview --object ${o.id} --motions ${id} --video true` };
+    },
+  },
+  {
+    name: 'action-note', mode: 'modify', mutates: true,
+    description: 'Steer an action in words (Decision 53): "slower", "much faster", "more weight" (more lag, overshoot and settle), "lighter", "bigger", "subtler", "snappier", "hold the pour longer", "pause before the lift". Notes stack in order and re-solve the action; the checks run again. --clear true drops every note. Kit characters: slower/faster change the duration, hold/pause stretch the keys.',
+    input: z.object({ object: ObjRef, motion: z.string(), note: z.string().optional(), clear: z.boolean().optional() }),
+    example: `studio action-note --object octopus --motion octopus-pours-tea --note "slower, more weight"`,
+    run(ctx, a) {
+      const o = ctx.obj(a.object);
+      if (o.character) {
+        const spec: any = o.character.motions?.[a.motion];
+        if (!spec || spec.kind !== 'action') throw new Error(`${o.name} has no action "${a.motion}"`);
+        const notes = a.clear ? [] : [...(spec.notes ?? []), ...(a.note ? [a.note] : [])];
+        ctx.set(['objects', o.id, 'character', 'motions', a.motion], { ...spec, notes });
+        const r = ctx.studio.evaluate(ctx.doc.objects[o.id]);
+        const clip = bakeMotion(a.motion, { ...spec, notes }, r.rig!.rig, ctx.doc.objects[o.id].character);
+        const checks = characterMotionChecks(r.rig!.rig, clip);
+        ctx.summary(`${o.name} "${a.motion}": ${notes.length ? notes.join('; ') : 'no notes'} → ${clip.duration.toFixed(2)} s`);
+        return { notes, duration: clip.duration, checks };
+      }
+      const cr = asCreature(o).creature!;
+      const m = cr.motions[a.motion];
+      if (!m || m.kind !== 'action' || !m.action) throw new Error(`${o.name} has no action "${a.motion}" (actions: ${Object.entries(cr.motions).filter(([, x]) => x.kind === 'action').map(([k]) => k).join(', ') || 'none'})`);
+      const notes = a.clear ? [] : [...(m.action.notes ?? []), ...(a.note ? [a.note] : [])];
+      const next: CreatureMotion = { ...m, action: { ...m.action, notes } };
+      const { changes } = applyNotes(next.action!);
+      const { clip, checks, failing } = bakeAndCheck(cr.def, a.motion, next);
+      ctx.set(['objects', o.id, 'creature'], { ...cr, motions: { ...cr.motions, [a.motion]: next } });
+      ctx.summary(`${o.name} "${a.motion}": ${changes.join(', ') || 'no notes'} → ${clip.duration.toFixed(2)} s; ${failing.length ? `failing: ${failing.map((k) => k.name).join(', ')}` : 'every check passes'}`);
+      return { notes, changes, duration: clip.duration, keys: clip.keys, checks };
     },
   },
   {

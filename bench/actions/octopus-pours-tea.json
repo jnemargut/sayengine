@@ -1,0 +1,176 @@
+{
+ "action": "the octopus pours tea",
+ "id": "pour-tea",
+ "keys": [
+  {
+   "t": 0,
+   "label": "start"
+  },
+  {
+   "t": 0.9,
+   "label": "eye the pot",
+   "body": {
+    "at": [
+     0,
+     0.03,
+     0.04
+    ],
+    "pitch": 4,
+    "turn": -3
+   }
+  },
+  {
+   "t": 1.7,
+   "label": "reach for the handle",
+   "reach": {
+    "arm1": [
+     0.14,
+     0.32,
+     0.6
+    ]
+   },
+   "body": {
+    "at": [
+     0,
+     0.05,
+     0.07
+    ],
+    "pitch": 6,
+    "turn": -4
+   }
+  },
+  {
+   "t": 2.3,
+   "label": "grab the handle",
+   "reach": {
+    "arm1": [
+     0.13,
+     0.255,
+     0.635
+    ]
+   }
+  },
+  {
+   "t": 2.6,
+   "label": "grip",
+   "hold": {
+    "teapot": "arm1"
+   }
+  },
+  {
+   "t": 3.4,
+   "label": "lift",
+   "reach": {
+    "arm1": [
+     0.09,
+     0.39,
+     0.62
+    ]
+   }
+  },
+  {
+   "t": 4.2,
+   "label": "over the cup",
+   "reach": {
+    "arm1": [
+     -0.008,
+     0.388,
+     0.615
+    ],
+    "arm8": [
+     -0.1,
+     0.235,
+     0.64
+    ]
+   },
+   "body": {
+    "turn": 0
+   }
+  },
+  {
+   "t": 4.9,
+   "label": "tip",
+   "props": {
+    "teapot": {
+     "tilt": 45,
+     "axis": [
+      0,
+      0,
+      1
+     ]
+    }
+   }
+  },
+  {
+   "t": 5.15,
+   "label": "pour",
+   "fx": {
+    "tea": true
+   },
+   "ease": "linear"
+  },
+  {
+   "t": 6.4,
+   "label": "stop pouring",
+   "fx": {
+    "tea": false
+   },
+   "ease": "linear"
+  },
+  {
+   "t": 6.9,
+   "label": "tilt back",
+   "props": {
+    "teapot": {
+     "tilt": 0
+    }
+   }
+  },
+  {
+   "t": 7.7,
+   "label": "carry back",
+   "reach": {
+    "arm1": [
+     0.13,
+     0.31,
+     0.635
+    ],
+    "arm8": null
+   }
+  },
+  {
+   "t": 8.4,
+   "label": "set it down",
+   "reach": {
+    "arm1": [
+     0.13,
+     0.255,
+     0.635
+    ]
+   }
+  },
+  {
+   "t": 8.7,
+   "label": "let go",
+   "hold": {
+    "teapot": null
+   }
+  },
+  {
+   "t": 9.6,
+   "label": "settle",
+   "reach": {
+    "arm1": null
+   },
+   "body": {
+    "at": [
+     0,
+     0,
+     0
+    ],
+    "pitch": 0,
+    "turn": 0
+   }
+  }
+ ]
+}
