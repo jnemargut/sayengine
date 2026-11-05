@@ -1,0 +1,74 @@
+{
+  "about": "Trigger evals for the game planning skills (decision 35). For the router: prompts that should and should not auto-invoke /x-decide-gaming. For the four manual-only children: prompts the router should and should not hand to that child, given a game with .decisions/ at the stated road step. Run them with `claude plugin eval` (or by hand in a fresh session) and record the hit rate; the shape is checked in packages/cli/test/skills.test.ts.",
+  "skills": {
+    "x-decide-gaming": {
+      "shouldTrigger": [
+        "I have an idea for a cozy game where you deliver bread at dawn",
+        "let's make a little game about a goose stealing hats",
+        "help me plan a first playable for my platformer idea",
+        "I want to prototype a game where you push a cart up hills",
+        "playtest my bread game",
+        "what's next for my game?"
+      ],
+      "shouldNotTrigger": [
+        "make a walnut stool, dining height",
+        "export the vase as an STL for my printer",
+        "I want to build a tool-sharing app for my neighborhood",
+        "fix the failing test in packages/core",
+        "make the blacksmith's apron less stiff"
+      ]
+    },
+    "x-game-concept": {
+      "shouldTrigger": [
+        "[no .decisions] a game where you are a lighthouse keeper's cat",
+        "[step 1] what's the fantasy for this?",
+        "[step 5] it's getting too big, what's in v1?",
+        "[step 5] next"
+      ],
+      "shouldNotTrigger": [
+        "[step 3] the camera feels too low",
+        "[step 2] build the toy",
+        "[step 4] I played it, here are my notes"
+      ]
+    },
+    "x-game-design": {
+      "shouldTrigger": [
+        "[step 3] next",
+        "[step 3] the cart feels too floaty",
+        "[step 6] what should it look like?",
+        "[step 4] what's the loop around the cart?"
+      ],
+      "shouldNotTrigger": [
+        "[no .decisions] a game about a sleepy dragon",
+        "[step 2] make the toy so I can play it",
+        "[step 7] get a newcomer to try it"
+      ]
+    },
+    "x-game-build": {
+      "shouldTrigger": [
+        "[step 2] build it",
+        "[step 2] next",
+        "[step 3] I changed my mind on handling, rebuild",
+        "[step 7] make the first version"
+      ],
+      "shouldNotTrigger": [
+        "[step 1] what are the pillars?",
+        "[step 4] I played it, it felt slow on hills",
+        "[step 6] which look should it have?"
+      ]
+    },
+    "x-playtest": {
+      "shouldTrigger": [
+        "[step 4] I played it for five minutes, the brake is great but the third hill felt like work",
+        "[step 4] playtest it",
+        "[step 7] is it fun? let's test with my sister",
+        "[step 2] is the toy fun?"
+      ],
+      "shouldNotTrigger": [
+        "[step 2] build the toy",
+        "[step 3] show me camera options",
+        "[no .decisions] a game where you water plants on Mars"
+      ]
+    }
+  }
+}
