@@ -909,6 +909,13 @@ Built in main's codebase for Fire's Dying to adopt in its v1.1 pass (the game br
 - **Proof:** `npm run bench:effects`, 13 tasks, all passing.
   - Godot vs web parity: forge fire matches (0.09). Embers 0.28, sparks 0.43 and smoke 0.43 drift. Rain differs at 0.77.
   - Tripwire D56: smoke, sparks and rain drift visibly between engines. Next, tune them, or try Effekseer for those types.
+- **Parity v1.2 (2026-11-05, branch `godot/parity-live-ik`; `checkpoint-effects-ui/v1.2/`).** Compilers and the review capture changed; no effect files changed.
+  - Fire 0.087 (was 0.09), sparks **0.143** (0.30), embers **0.143** (0.28), smoke **0.313** (0.52), rain **0.419** (0.45).
+  - Smoke rising short in Godot was its turbulence. Godot turns velocity toward a noise direction each step, so puffs stopped rising. The influence is now sized to the web's wobble.
+  - On the web: additive layers fade on a^(1/2.2), and see-through layers carry an exponent from the blend equation.
+  - In both engines: stretched particles are streaks. Godot streaks align to their velocity; every spark used to stand upright.
+  - Web review frames are PNG (JPEG had washed out 1 px rain).
+  - Smoke and rain are still over 0.25. The web renders the review yard about 23 % darker (wall 0.65 vs 0.84), and the score compares absolute colours and a fixed diff threshold. Next: match the yard's lighting (a look on the forge bench), or score against each engine's own backdrop. Effekseer is not needed for these.
 
 ### Effects (weeks 15–16)
 - [x] First, a one-hour Mac test: GPU particles, trails and turbulence in Godot's web renderer.

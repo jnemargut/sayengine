@@ -1,0 +1,172 @@
+{
+  "forge-fire": {
+    "score": 0.087,
+    "detail": "coverage 1.3% vs 1.2% of the screen (4% apart), colour 4% apart, centre 0.3% of the screen apart \u2192 match (0.087)",
+    "godot": {
+      "frames": 150,
+      "coverage": 0.0127,
+      "peakCoverage": 0.0158,
+      "colour": [
+        0.916,
+        0.743,
+        0.431
+      ],
+      "centroid": [
+        0.498,
+        0.715
+      ],
+      "top": 0.33
+    },
+    "web": {
+      "frames": 150,
+      "coverage": 0.0122,
+      "peakCoverage": 0.0149,
+      "colour": [
+        0.894,
+        0.714,
+        0.497
+      ],
+      "centroid": [
+        0.501,
+        0.715
+      ],
+      "top": 0.1
+    }
+  },
+  "sparks": {
+    "score": 0.143,
+    "detail": "coverage 0.5% vs 0.5% of the screen (13% apart), colour 7% apart, centre 0.6% of the screen apart \u2192 match (0.143)",
+    "godot": {
+      "frames": 90,
+      "coverage": 0.0053,
+      "peakCoverage": 0.0158,
+      "colour": [
+        0.787,
+        0.671,
+        0.509
+      ],
+      "centroid": [
+        0.5,
+        0.539
+      ],
+      "top": 0.325
+    },
+    "web": {
+      "frames": 90,
+      "coverage": 0.0046,
+      "peakCoverage": 0.0119,
+      "colour": [
+        0.69,
+        0.598,
+        0.484
+      ],
+      "centroid": [
+        0.506,
+        0.541
+      ],
+      "top": 0.335
+    }
+  },
+  "chimney-smoke": {
+    "score": 0.313,
+    "detail": "coverage 1.1% vs 0.5% of the screen (53% apart), colour 16% apart, centre 5.3% of the screen apart \u2192 differ (0.313)",
+    "godot": {
+      "frames": 180,
+      "coverage": 0.0112,
+      "peakCoverage": 0.0164,
+      "colour": [
+        0.718,
+        0.679,
+        0.649
+      ],
+      "centroid": [
+        0.496,
+        0.619
+      ],
+      "top": 0.41
+    },
+    "web": {
+      "frames": 180,
+      "coverage": 0.0053,
+      "peakCoverage": 0.0081,
+      "colour": [
+        0.584,
+        0.514,
+        0.481
+      ],
+      "centroid": [
+        0.503,
+        0.672
+      ],
+      "top": 0.25
+    }
+  },
+  "embers": {
+    "score": 0.143,
+    "detail": "coverage 0.3% vs 0.4% of the screen (29% apart), colour 6% apart, centre 2.7% of the screen apart \u2192 match (0.143)",
+    "godot": {
+      "frames": 120,
+      "coverage": 0.0025,
+      "peakCoverage": 0.008,
+      "colour": [
+        0.721,
+        0.497,
+        0.277
+      ],
+      "centroid": [
+        0.5,
+        0.563
+      ],
+      "top": 0.07
+    },
+    "web": {
+      "frames": 120,
+      "coverage": 0.0035,
+      "peakCoverage": 0.0116,
+      "colour": [
+        0.657,
+        0.459,
+        0.346
+      ],
+      "centroid": [
+        0.499,
+        0.536
+      ],
+      "top": 0
+    }
+  },
+  "rain": {
+    "score": 0.419,
+    "detail": "coverage 0.9% vs 0.5% of the screen (38% apart), colour 1% apart, centre 21.0% of the screen apart \u2192 differ (0.419)",
+    "godot": {
+      "frames": 90,
+      "coverage": 0.0087,
+      "peakCoverage": 0.0107,
+      "colour": [
+        0.628,
+        0.569,
+        0.531
+      ],
+      "centroid": [
+        0.498,
+        0.656
+      ],
+      "top": 0.18
+    },
+    "web": {
+      "frames": 90,
+      "coverage": 0.0054,
+      "peakCoverage": 0.0067,
+      "colour": [
+        0.611,
+        0.559,
+        0.525
+      ],
+      "centroid": [
+        0.514,
+        0.447
+      ],
+      "top": 0.14
+    }
+  }
+}
