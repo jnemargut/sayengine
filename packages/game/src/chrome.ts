@@ -50,7 +50,8 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
   // a random start inside the range: test files run in parallel, and two Chromes racing for one free port
   // would leave one of them driving the other's page
   const base = Number(process.env.STUDIO_CHROME_PORT ?? 9370);
-  const port = await freePort(base + Math.floor(Math.random() * 30), base + 50);
+  const span = Number(process.env.STUDIO_CHROME_SPAN ?? 50);   // ports base…base+span (a shared machine gives each agent a small range)
+  const port = await freePort(base + Math.floor(Math.random() * Math.max(1, Math.round(span * 0.6))), base + span);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-game-chrome-'));
   const child: ChildProcess = spawn(bin, [
     '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
