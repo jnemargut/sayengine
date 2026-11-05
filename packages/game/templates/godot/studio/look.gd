@@ -92,6 +92,7 @@ static func apply(root: Node3D, rec: Dictionary = {}) -> bool:
 			e.adjustment_contrast = 1.0
 			e.adjustment_saturation = 1.0
 			e.adjustment_color_correction = lut
+	_glow(e, L.get("bloom", null))
 	env.environment = e
 	root.add_child(env)
 	var sun := DirectionalLight3D.new()
@@ -110,10 +111,30 @@ static func apply(root: Node3D, rec: Dictionary = {}) -> bool:
 		root.add_child(_outline(ol))
 	return true
 
+## Glow around bright lights (look.bloom): Godot's own glow in additive mode with linear upscaling. The
+## web build runs a matched mip-chain pass (same threshold curve, same 7-tap blur, same level weights).
+static func _glow(e: Environment, b) -> void:
+	if not (b is Dictionary) or not bool(b.get("enabled", true)) or not _graded_renderer():
+		e.glow_enabled = false
+		return
+	e.glow_enabled = true
+	e.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	e.glow_normalized = false
+	e.glow_intensity = float(b.get("intensity", 0.8))
+	e.glow_strength = 1.0
+	e.glow_bloom = 0.0
+	e.glow_hdr_threshold = float(b.get("threshold", 1.0))
+	e.glow_hdr_scale = float(b.get("softness", 2.0))
+	e.glow_hdr_luminance_cap = 12.0
+	var lv: Array = b.get("levels", [0, 0, 1, 0, 1, 0, 0])
+	for i in 7:
+		e.set_glow_level(i, float(lv[i]) if i < lv.size() else 0.0)
+	RenderingServer.environment_glow_set_use_bicubic_upscale(false)
+
 ## Flat town layers (ground, streets, parks, water) never cast shadows: at shadow-map resolution they
 ## shadow the road just above them (acne). Same rule as the web.
 static func _flat_no_shadow(root: Node) -> void:
-	var flat := RegEx.create_from_string("(Ground|Streets|Parks[ _]and[ _]plazas|Water)$")
+	var flat := RegEx.create_from_string("(Ground|Streets|Parks[ _]and[ _]plazas|Water|Light[ _]pools)$")
 	for n in root.find_children("*", "MeshInstance3D", true, false):
 		var mi := n as MeshInstance3D
 		if flat.search(String(mi.name)) or (mi.get_parent() and flat.search(String(mi.get_parent().name))):
@@ -138,6 +159,9 @@ static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:
 			if not (t is Dictionary):
 				continue
 			var b := m as BaseMaterial3D
+			if key.ends_with("pool"):
+				_pool(b, t)
+				continue
 			if t.has("emission"):
 				b.emission_enabled = true
 				b.emission = _col(t.emission)
@@ -148,6 +172,21 @@ static func _tweak_materials(root: Node, tweaks: Dictionary) -> void:
 				b.metallic = float(t.metalness)
 			if t.has("tint"):
 				b.albedo_color = b.albedo_color * _col(t.tint)
+
+## Light pools on the ground: unshaded, additive, vertex colour × emissionEnergy (× the emission colour as a
+## tint), no fog, no depth writes. Without a pool tweak they stay invisible (alpha 0 from the import).
+static func _pool(b: BaseMaterial3D, t: Dictionary) -> void:
+	var k := float(t.get("emissionEnergy", 0.0))
+	var tint := _col(t.get("emission", "#ffffff"))
+	b.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	b.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	b.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	b.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	b.vertex_color_use_as_albedo = true
+	b.vertex_color_is_srgb = false
+	b.disable_fog = true
+	b.disable_receive_shadows = true
+	b.albedo_color = Color(tint.r * k, tint.g * k, tint.b * k, 1.0)
 
 ## A full-screen outline from the depth buffer: the same test as the web pass (a jump in 1/depth's
 ## Laplacian), drawn before tonemapping like the web's.

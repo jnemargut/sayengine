@@ -93,8 +93,10 @@ function linear(hex: string): [number, number, number] {
 function shadeClass(m: { name: string; roughness: number; metalness?: number }) {
   if (m.name === 'water') return { name: 'water', roughness: 0.12, metalness: 0 };
   // classes a look can light up (Decision 29 material tweaks): lit windows, lamps, neon, signs
-  const special = /(^|\s)(lit|lamp|neon|sign)$/.exec(m.name);
-  if (special) return { name: special[2], roughness: special[2] === 'lit' ? 0.28 : 0.5, metalness: 0 };
+  // (flood: floodlit stone on landmarks; shop: shop windows lit from inside; led: white LED lamp heads;
+  //  pool: light pools on the ground, additive, invisible unless a look lights them)
+  const special = /(^|\s)(lit|lamp|led|neon|sign|flood|shop|pool)$/.exec(m.name);
+  if (special) return { name: special[2], roughness: special[2] === 'lit' || special[2] === 'shop' ? 0.28 : special[2] === 'flood' ? 0.88 : 0.5, metalness: 0 };
   if ((m.metalness ?? 0) >= 0.3) return { name: 'metal', roughness: 0.55, metalness: 0.5 };
   if (m.roughness < 0.45) return { name: 'glossy', roughness: 0.28, metalness: 0.05 };
   return { name: 'matte', roughness: 0.9, metalness: 0 };
@@ -108,7 +110,8 @@ function addSoups(prims: Map<string, Prim>, soups: TownNode['soups'], shift: V3)
     for (let i = 0; i < s.positions.length; i += 3) {
       p.positions.push(s.positions[i] + shift[0], s.positions[i + 1] + shift[1], s.positions[i + 2] + shift[2]);
       p.normals.push(s.normals[i], s.normals[i + 1], s.normals[i + 2]);
-      p.colors.push(col[0], col[1], col[2]);
+      if (s.colors) p.colors.push(s.colors[i], s.colors[i + 1], s.colors[i + 2]);
+      else p.colors.push(col[0], col[1], col[2]);
     }
   }
 }
@@ -147,7 +150,9 @@ export function addTownsToGlb(B: GlbBuilder, towns: ReturnType<typeof worldNodes
       const prims = n.prims.filter((p) => p.positions.length).map((p) => {
         let mi = matIdx.get(p.mat.name);
         if (mi === undefined) {
-          B.gltf.materials.push({ name: `world ${p.mat.name}`, pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: p.mat.metalness, roughnessFactor: p.mat.roughness }, extras: { world: true, vertexColors: true } });
+          const pool = p.mat.name === 'pool';
+          B.gltf.materials.push({ name: `world ${p.mat.name}`, pbrMetallicRoughness: { baseColorFactor: pool ? [0, 0, 0, 0] : [1, 1, 1, 1], metallicFactor: p.mat.metalness, roughnessFactor: p.mat.roughness }, ...(pool ? { alphaMode: 'BLEND', extensions: { KHR_materials_unlit: {} } } : {}), extras: { world: true, vertexColors: true, ...(pool ? { lightPool: true } : {}) } });
+          if (pool) { B.gltf.extensionsUsed ??= []; if (!B.gltf.extensionsUsed.includes('KHR_materials_unlit')) B.gltf.extensionsUsed.push('KHR_materials_unlit'); }
           mi = B.gltf.materials.length - 1;
           matIdx.set(p.mat.name, mi);
         }

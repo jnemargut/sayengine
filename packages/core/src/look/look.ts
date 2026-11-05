@@ -45,7 +45,14 @@ export const LookZ = z.object({
     sun: z.object({ color: Hex, energy: z.number().min(0).max(8), elevation: z.number().min(-10).max(90), azimuth: z.number(), shadows: z.boolean().default(true) }),
     ambient: z.object({ color: Hex, energy: z.number().min(0).max(4) }),
   }),
-  materials: z.record(z.string(), MaterialTweakZ).default({}).describe('tweaks by shading class (matte, glossy, metal, water, lit, lamp, neon) or material name'),
+  materials: z.record(z.string(), MaterialTweakZ).default({}).describe('tweaks by shading class (matte, glossy, metal, water, lit, lamp, led, neon, sign, flood, shop, pool) or material name; pool (light pools on the ground) is additive and only drawn when a look gives it emissionEnergy'),
+  bloom: z.object({
+    enabled: z.boolean().default(true),
+    threshold: z.number().min(0).max(16).default(1).describe('HDR level where glow starts (Godot glow_hdr_threshold)'),
+    softness: z.number().min(0).max(8).default(2).describe('how far above the threshold glow reaches full strength (Godot glow_hdr_scale)'),
+    intensity: z.number().min(0).max(8).default(0.8),
+    levels: z.array(z.number().min(0).max(4)).length(7).default([0, 0, 1, 0, 1, 0, 0]).describe('weights of the 7 glow levels (half, quarter, … resolution)'),
+  }).optional().describe('glow around bright lights: Godot Environment glow (additive) and a matched mip-chain pass on the web'),
   fallback: z.enum(['auto', 'grade', 'bake']).default('auto').describe('auto: grade where the renderer can, bake into colours where it cannot'),
   board: BoardZ.optional(),
 });

@@ -34,7 +34,7 @@ export async function serve<T>(dir: string, fn: (url: string) => Promise<T>): Pr
     if (req.method === 'HEAD') { res.end(); return; }
     fs.createReadStream(file).pipe(res);
   });
-  await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
+  await new Promise<void>((r) => server.listen(Number(process.env.STUDIO_WEB_PORT ?? 0), '127.0.0.1', () => r()));
   const port = (server.address() as any).port;
   try { return await fn(`http://127.0.0.1:${port}/`); } finally { server.close(); }
 }
