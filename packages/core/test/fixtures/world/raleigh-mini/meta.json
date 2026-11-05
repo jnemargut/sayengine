@@ -1,0 +1,16 @@
+{
+ "area": "raleigh-mini",
+ "bbox": {
+  "west": -78.6402,
+  "south": 35.776,
+  "east": -78.638,
+  "north": 35.7778
+ },
+ "fetchedAt": "2026-11-05T10:03:54.606Z",
+ "note": "test fixture cut from raleigh-city-plaza (bench/world-fixture.py)",
+ "licences": [
+  "Overture: ODbL-1.0",
+  "OpenStreetMap: ODbL-1.0",
+  "USGS 3DEP: public domain"
+ ]
+}

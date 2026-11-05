@@ -196,14 +196,18 @@ const PERF_FN = `async (o) => {
   for (let i = 0; i + 1 < path.length; i++) { const a = path[i], b = path[i + 1]; const l = Math.hypot(b[0]-a[0], b[2]-a[2]); seg.push([a, b, l, L]); L += l; }
   const at = (d) => { d = Math.max(0, Math.min(L - 0.001, d)); for (const [a, b, l, s] of seg) if (d <= s + l) { const t = (d - s) / l; return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; } return path[path.length-1]; };
   cam.far = Math.max(cam.far, 1500); cam.updateProjectionMatrix();
+  // walk on the real ground: the path's heights are a hint, the colliders say where the street is
+  const hits = new Map();
+  const ground = (p, y0) => { const k = Math.round(p[0]) + ',' + Math.round(p[2]); if (hits.has(k)) return hits.get(k); let y = y0; try { const R = g.RAPIER; const h = g.world.castRay(new R.Ray({ x: p[0], y: y0 + 60, z: p[2] }, { x: 0, y: -1, z: 0 }), 200, true); if (h) y = y0 + 60 - h.timeOfImpact; } catch {} hits.set(k, y); return y; };
   const times = []; let calls = 0, tris = 0;
   await new Promise((res) => {
     let last = performance.now(); const t0 = last;
     const f = (now) => {
       const dt = now - last; last = now; if (now !== t0) times.push(dt);
       const d = ((now - t0) / 1000) / secs * L;
-      const p = at(d), q = at(d + (o.lookAhead || 25));
-      cam.position.set(p[0], p[1] + (o.height || 1.7), p[2]); cam.lookAt(q[0], q[1] + (o.height || 1.7) - 0.3, q[2]);
+      const la = o.lookAhead || 25, p = at(Math.min(d, L - la)), q = at(Math.min(d, L - la) + la);
+      const gy = ground(p, p[1]), qy = ground(q, q[1]);
+      cam.position.set(p[0], gy + (o.height || 1.7), p[2]); cam.lookAt(q[0], qy + (o.height || 1.7) - 0.3, q[2]);
       g.renderer.render(g.scene, cam);
       calls = Math.max(calls, g.renderer.info.render.calls); tris = Math.max(tris, g.renderer.info.render.triangles);
       if (now - t0 < secs * 1000) requestAnimationFrame(f); else res(0);
@@ -234,11 +238,11 @@ export async function phone(studioDir: string, project: string, opts: { seconds?
     for (const which of ['webkit', 'chrome-throttled'] as const) {
       let browser: any;
       try {
-        browser = which === 'webkit' ? await pw.webkit.launch() : await pw.chromium.launch({ executablePath: findChrome() ?? undefined, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+        browser = which === 'webkit' ? await pw.webkit.launch() : await pw.chromium.launch({ executablePath: findChrome() ?? undefined, args: ['--use-angle=metal', '--enable-gpu', '--ignore-gpu-blocklist', '--enable-unsafe-webgpu'] });
         const ctx = await browser.newContext(which === 'webkit' ? phoneCtx : { ...phoneCtx, userAgent: undefined });
         const page = await ctx.newPage();
         const logs: string[] = [];
-        page.on('console', (m: any) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`${m.type()}: ${m.text()}`); });
+        page.on('console', (m: any) => { if ((m.type() === 'error' || m.type() === 'warning') && !/GL Driver Message|GPU stall due to ReadPixels/.test(m.text())) logs.push(`${m.type()}: ${m.text()}`); });
         page.on('pageerror', (e: any) => logs.push(`error: ${e.message}`));
         if (which === 'chrome-throttled') { const cdp = await ctx.newCDPSession(page); await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle }); }
         const t0 = Date.now();

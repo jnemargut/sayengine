@@ -356,7 +356,9 @@ func _record(rec: Dictionary, player: Node3D) -> void:
 	if rec.i % rec.every != 0:
 		return
 	var p := player.global_position
-	var look := p.lerp(Vector3(rec.target.x, 0, rec.target.z), 0.3) + Vector3(0, 0.95, 0)
+	# frame the walker a little ahead of itself (at most 1.5 m, so long walks keep it in shot), at its own height
+	var ahead := Vector3(rec.target.x - p.x, 0, rec.target.z - p.z)
+	var look := p + ahead.limit_length(min(1.5, ahead.length() * 0.3)) + Vector3(0, 0.95, 0)
 	var cam: Camera3D = rec.cam
 	cam.look_at_from_position(look + rec.side * 3.6 - rec.fwd * 1.2 + Vector3(0, 1.0, 0), look, Vector3.UP)
 	await RenderingServer.frame_post_draw
