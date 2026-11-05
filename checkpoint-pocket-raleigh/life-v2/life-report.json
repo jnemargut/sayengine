@@ -1,0 +1,192 @@
+{
+  "stats": {
+    "places": 203,
+    "benches": 95,
+    "stalls": 10,
+    "piers": 2,
+    "busStops": 3,
+    "doors": 93,
+    "walkNodes": 2990,
+    "walkEdges": 4982,
+    "crossings": 86,
+    "carEdges": 257,
+    "signals": 21,
+    "folk": 280,
+    "dogs": 2,
+    "cars": 17,
+    "buses": 1,
+    "trips": 2783,
+    "outings": 576,
+    "pairs": 50
+  },
+  "bakeMs": 59555,
+  "day": {
+    "from": 9.5,
+    "hours": 1,
+    "ms": 18514,
+    "peak": {
+      "folk": 80,
+      "cars": 11
+    },
+    "byHour": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      64,
+      73.5,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "checks": [
+      {
+        "name": "no two folk in one spot",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "people closer than their two radii"
+      },
+      {
+        "name": "few squeeze-pasts",
+        "pass": false,
+        "count": 310,
+        "worst": 0,
+        "limit": 61,
+        "unit": "samples",
+        "detail": "two folk face to face in a pinch slipping past each other (shoulders through shoulders for a moment; at most one sample a minute)"
+      },
+      {
+        "name": "nobody inside a building",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a walking person (or a dog) inside a footprint"
+      },
+      {
+        "name": "folk stay on the walk",
+        "pass": true,
+        "count": 3,
+        "worst": 0,
+        "limit": 26,
+        "unit": "samples",
+        "detail": "a walking person off the sidewalks, plazas and crossings (a few grazes at corners allowed)",
+        "at": [
+          35387,
+          37558,
+          37687
+        ]
+      },
+      {
+        "name": "no pops",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "ticks",
+        "detail": "no jump beyond the body's speed + 0.3 m in a 0.1 s tick"
+      },
+      {
+        "name": "no car hits anyone",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a person inside a car's footprint"
+      },
+      {
+        "name": "no two cars in one spot",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "two vehicle footprints overlapping"
+      },
+      {
+        "name": "nobody runs a red",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "crossings",
+        "detail": "a vehicle crossing its stop line after 3 s of red"
+      },
+      {
+        "name": "no gridlock",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "vehicles",
+        "detail": "a vehicle stopped for more than 150 s"
+      },
+      {
+        "name": "dog at leash length",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "the dog stays 0.55–2 m from its walker"
+      },
+      {
+        "name": "one sitter per seat",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "two people in one slot"
+      },
+      {
+        "name": "folk make room for the player",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "a person inside the player"
+      },
+      {
+        "name": "cars brake for the player",
+        "pass": true,
+        "count": 0,
+        "worst": 0,
+        "limit": 0,
+        "unit": "samples",
+        "detail": "the player inside a car's footprint"
+      }
+    ]
+  },
+  "parity": {
+    "seconds": 120,
+    "snapshots": 25,
+    "positions": 2004,
+    "worstMetres": 0.6526303850153781,
+    "visibilityMismatches": 0,
+    "godotMs": 55210,
+    "godot": "4.7.2.stable.official.ed1daf0bf",
+    "pass": false
+  }
+}

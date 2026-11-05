@@ -720,7 +720,7 @@ func _step_buddy(i: int, dt: float) -> void:
 	if g != null and g["k"] == "move":
 		var P: Dictionary = paths[int(g["p"])]
 		var s: float = w["s"]
-		var lat: float = float(w["lat"]) - 0.68
+		var lat: float = float(w["lat"]) - 0.6731
 		if lat < 0.05 or w["wait"] or w["onCross"]:
 			s = max(0.0, float(w["s"]) - 0.95)
 			lat = w["lat"]

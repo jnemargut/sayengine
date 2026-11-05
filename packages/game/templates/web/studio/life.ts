@@ -510,7 +510,7 @@ export class LifeRuntime {
     let tx = st.x, tz = st.z, ty = st.y, face = st.yaw, pose = 'idle';
     if (g && g.k === 'move') {
       const P = this.paths[g.p];
-      let s = w.s, lat = w.lat - 0.68;
+      let s = w.s, lat = w.lat - 0.6731;   // (not a round number: a tie with someone else's clamp would let the engines differ in the last bit)
       // side by side would take the oncoming side, or they're at (or on) a crossing: fall in behind
       if (lat < 0.05 || w.wait || w.onCross) { s = Math.max(0, w.s - 0.95); lat = w.lat; }
       const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);

@@ -300,6 +300,18 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - Cast GLBs are ~5–7 MB each (face shapes and clips ride along): ~49 MB per game, heavy for the phone.
 - The bake takes ~40 s for both towns; the Godot runtime costs ~10 ms per 0.1 s tick for 190 agents (dictionaries; not optimised).
 
+### Status (2026-11-05): life polish on `phase4/life-polish`
+**Built:** a polish pass on everything the life build reported as weak (`checkpoint-pocket-raleigh/life-v2/`).
+- **The headless day.** Fixed the four red checks: benches no longer sit at corners where a crosswalk ran through the sitter; walk half-widths are measured every 0.4 m (corner grazes); blends into and out of a spot are speed-limited (`bl`), so a long step never pops; the runtime no longer replays a finished plan when a day starts between two segments; a turning vehicle waits at the line for anyone on or walking up to a crossing where it turns, the bus also for any vehicle where its body swings (others hold 6 m back while it turns); no vehicle drives its body into anyone or another vehicle a moment ahead (`poseAhead`); folk caught on a crossing by a stopped vehicle step back; a knot (anyone held 8 s) slips past at 0.15 m; the scripted player is solid like the game's player. HOUR_RESULT
+- **Busier and less robotic.** More folk (160 + 70, up from 120 + 50) and friends out in pairs (~18%: side by side on the walk, single file at a crossing, standing at their friend's spot and chatting at benches, stalls and stops), each walker at their own distance from the middle (`lane`), strolls that stop now and then for a look (`look` acts), the market as a ring of stalls round the plaza's middle. The views add idle variety (now-and-then nod, shrug, point, pick-up, look-around while standing, browsing, tending or chatting, and a slow turn of the body), fade folk in and out at doors (0.5 s), and anglers hold a rod in the right hand (the `hold` tool; shown only while fishing) in a reworked `fish` pose instead of arms out.
+- **Vehicles.** The studio evaluator keyed its cache without a creature's definition, so a second creature exported at the origin came out with the first one's body: fixed (`studio.ts` `evalKey`; `creatures.ts` untouched); the whole cast now exports from one daemon session (`bench/life-export.sh`; `life-export-vehicles.sh` is gone). `bench/life-slim.ts` splits each vehicle's wheels into `steer-*`/`wheel-*` nodes, and both views spin them with the ground and steer the front ones from the turn rate.
+- **Weight.** `life/slim.ts` drops the face shapes crowds never use, stores 8-bit weights/joints and 16-bit UVs, single-keys still channels and, for the web, quantizes positions and normals (KHR_mesh_quantization, folded exactly into the inverse bind matrices; Godot's glTF import has no such extension, so it keeps floats). SIZE_RESULT
+- **Cameras.** `bench/life-shots.ts` flies every follow camera frame by frame the way the engines do and takes the first framing whose line of sight never passes through a tree crown or trunk or a building; the Raleigh market gets a fixed camera from the open side of its ring.
+
+**D30 tripwire:** PARITY_RESULT
+
+**Weak (honest):** WEAK_RESULT
+
 ### Week 9: world, real
 - [x] Town plan format: streets, lots, buildings (height, floors, roof type, use), water, parks, with a stable ID on every feature. *(`world/plan.ts`; ids `ov:<GERS>`, `osm:w<id>`, `inv:<seed>:<lot>`)*
 - [x] Real source: fetch and cache Overture buildings, USGS 3DEP ground, and OSM roads, water and parks for an area. *(`studio world-fetch`; overturemaps CLI, the 3DEP ImageServer as raw float32, Overpass; cached in `.studio/cache/world/<area>`; a 56 KB offline test fixture)*
