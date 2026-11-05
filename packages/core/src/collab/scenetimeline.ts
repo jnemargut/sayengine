@@ -19,7 +19,8 @@ import type { SoundDef } from '../sounds.ts';
 import { stamp } from './address.ts';
 import { clipTimeline } from './timelines.ts';
 import { lifeCast } from '../life/view.ts';
-import { reelsOf, reelShots, cameraAt } from '../reels.ts';
+import { reelsOf, reelShots } from '../reels.ts';
+import { cameraAt } from '../../../reel/src/camera.ts';
 import { TL_TICKS, toTicks, framesToTicks, firesAt, peaks, type SceneTimeline, type TlTrack, type TlCheck, type TlMarker } from './movetimeline.ts';
 
 export interface RenderedSound { sr: number; mono: Float32Array; wav: Uint8Array; bpm?: number; bars?: number; seconds: number }

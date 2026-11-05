@@ -28,6 +28,19 @@ Decisions 61–64. The same few habits for any asset: models, looks, actions, so
 - A clicked building is `town:<town>/<stable id>`; a HUD element is `ui/<id>`; a spot on the picture under a look is a note with a `region` (look, 3D point, screen spot) on whatever was under it. Describe them in words, never ids.
 - Sliders in the view (look knobs, UI element tokens) make **one step per release** with a note like "warmer: white balance 6200 K → 5600 K" or "bigger text: pump text size 24 → 44 px". Match that style when you change the same things.
 
+## Pointing at people in town and at trailer shots (Phase 10 step 3b)
+
+- A person in town is `person:<id>` on the **day** clock (seconds since midnight, 24,000 ticks a second; the view
+  says "09:20"). Their plan's stops are the clock's named moments, so a clicked person is anchored to the stop they
+  are at: `person:raleigh-3@day 09:18 ~Shop_761604`. Type a time of day as `09:30`. A note anchored to a stop
+  follows it when a redirect moves it; a person who is gone goes stale.
+- A redirect ("go to the café at 9 instead") is **one step** with the words as its note (`studio life-redirect
+  --who <id> --words "…"`); nobody else's day moves, and the headless day checks re-run and come back with the
+  step. Say what changed in their plan and how the checks came out; don't batch several people into one step.
+- A trailer shot is `reel:<id>` on the `shot:<id>` clock ("shot 2 +0.5 s"). Keep, redo and "show me three" are per
+  shot: `reel-keep`, `reel-redo` (a new take of that shot only, one step), `reel-three` (three camera moves at
+  least 15% apart; the pick is logged to taste like any other three).
+
 ## Steps: one word note, one step
 
 - Each step answers about one word note: "slower", "warmer", "swap the clink". Pass the note with

@@ -40,4 +40,24 @@ export const TIMELINE_CSS = `
 .tl-side .ask { border:1px solid var(--color-200); border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:5px; }
 .tl-side .ask .q { color:var(--color-900); font-weight:600; }
 .tl-side .muted { color:var(--color-500); }
+.tl-side code { font-family:var(--font-mono); font-size:10px; }
+.tl-bar .tl-shotcam { display:none; }
+.tl-dock.no-tracks .tl-bar, .tl-dock.no-tracks .tl-body { display:none; }
+.tl-dock.no-tracks .tl-day { border-bottom:none; }
+.tl-dock.no-tracks { grid-template-columns:minmax(0,1fr); }
+.tl-dock.no-tracks .tl-side { display:none; }
+.tl-dock.no-tracks .tl-main { border-right:none; }
+.tl-dock.has-shots .tl-bar .tl-shotcam { display:inline-block; }
+.tl-three { position:absolute; left:12px; right:12px; top:12px; z-index:6; background:var(--color-50); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); padding:10px 12px; font-size:var(--text-xs); color:var(--color-700); }
+.tl-three .q { font-weight:600; color:var(--color-900); margin-bottom:8px; } .tl-three .q span { font-weight:400; color:var(--color-500); }
+.tl-three .row { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; }
+.tl-three .tk { display:flex; flex-direction:column; gap:5px; }
+.tl-three .img { aspect-ratio:32/9; background:var(--color-100); border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; gap:2px; color:var(--color-400); }
+.tl-three .img img { width:50%; height:100%; object-fit:cover; display:block; }
+.tl-three .se { display:flex; justify-content:space-around; font-size:10px; color:var(--color-500); margin-top:-3px; }
+.tl-frame { position:absolute; left:0; right:0; top:50%; transform:translateY(-50%); aspect-ratio:16/9; max-height:100%; margin:auto; box-shadow:0 0 0 2000px rgba(0,0,0,.28); outline:1px solid rgba(255,255,255,.55); pointer-events:none; z-index:2; }
+.tl-three b { color:var(--color-900); }
+.tl-three button { font:inherit; border:1px solid var(--color-200); background:var(--color-50); color:var(--color-800); border-radius:999px; padding:3px 10px; cursor:pointer; align-self:flex-start; }
+.tl-three .tk button { background:var(--color-800); color:var(--color-50); border-color:var(--color-800); }
+.tl-three .foot { display:flex; gap:10px; align-items:center; margin-top:8px; color:var(--color-500); }
 `;

@@ -291,6 +291,7 @@ export function lifeForView(doc: SceneDoc) {
     i, id: a.id, name: L.names[i], kind: a.kind, model: a.model,
     colours: a.kind === 'dog' ? { body: colourOf(doc, a.model, 'torso', '#8a6a4a') } : { shirt: colourOf(doc, a.model, 'torso', '#6f8fa8'), trousers: colourOf(doc, a.model, '*UpperLeg', '#3f4654'), skin: colourOf(doc, a.model, 'Head', '#d9a77a'), hair: colourOf(doc, a.model, 'hair', '#4a3022') },
     height: (doc as any).objects?.[a.model]?.params?.height?.value ?? 1.7, scale: a.scale ?? 1,
+    info: personInfo(L, i), stops: personPlan(L, i).map((x) => ({ ...x, from: Math.round(x.from), to: Math.round(x.to) })),
   }));
   const vehicles = D.vehicles.map((v, i) => ({ i, id: v.id, kind: v.kind, len: v.len, wid: v.wid, colour: colourOf(doc, v.model, '', v.kind === 'bus' ? '#d9a23a' : '#b8382c') }));
   return {
@@ -306,5 +307,6 @@ export function lifeForView(doc: SceneDoc) {
 export function lifeForState(doc: SceneDoc) {
   const s = lifeSettings(doc);
   if (!s) return null;
-  return { stamp: stamp({ towns: (doc as any).world?.towns ?? null, cast: castModels(doc).map((m) => m.id), life: s }), settings: s, redirects: (s.redirects ?? []).length };
+  const cast = castModels(doc).map((m) => m.id);
+  return { stamp: stamp({ towns: (doc as any).world?.towns ?? null, cast, life: s }), settings: s, redirects: (s.redirects ?? []).length, cast };
 }
