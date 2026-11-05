@@ -138,7 +138,7 @@ func _step_up(motion: Vector3) -> void:
 	if test_move(global_transform, up):
 		return
 	var raised := global_transform.translated(up)
-	var ahead := motion.normalized() * max(motion.length(), radius * 0.5)
+	var ahead: Vector3 = motion.normalized() * maxf(motion.length(), radius * 0.5)
 	if test_move(raised, ahead):
 		return
 	var over := raised.translated(ahead)

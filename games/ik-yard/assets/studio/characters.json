@@ -1,0 +1,63 @@
+{
+  "player": {
+    "name": "Apprentice",
+    "prefix": "",
+    "footIk": true,
+    "height": 1.965,
+    "clips": {
+      "pose": {
+        "line": false,
+        "loop": false
+      },
+      "idle": {
+        "motion": "idle",
+        "loop": true,
+        "speed": 0,
+        "duration": 6
+      },
+      "walk": {
+        "motion": "walk",
+        "loop": true,
+        "speed": 1.0118,
+        "duration": 1.2667
+      },
+      "start": {
+        "motion": "start",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.8,
+        "travel": [
+          0,
+          0,
+          0.3555
+        ],
+        "then": "walk",
+        "phase": 0.5
+      },
+      "stop": {
+        "motion": "stop",
+        "loop": false,
+        "speed": 0,
+        "duration": 0.9,
+        "travel": [
+          -0.0215,
+          0,
+          0.2853
+        ],
+        "then": "idle"
+      }
+    },
+    "play": "idle",
+    "id": "apprentice",
+    "file": "player.glb",
+    "start": [
+      0,
+      0,
+      -3.4
+    ],
+    "rotation": 0,
+    "walkSpeed": 1.0118,
+    "runSpeed": null
+  },
+  "characters": []
+}

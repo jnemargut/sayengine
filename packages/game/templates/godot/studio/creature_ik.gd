@@ -231,9 +231,25 @@ func _process(delta: float) -> void:
 		var err := wrapf(atan2(to.x, to.z) - atan2(sd.x, sd.z) - creature.rotation.y, -PI, PI)
 		turn = clampf(rad_to_deg(err) * 1.2, -max_turn, max_turn)
 		speed = walk_speed * clampf(cos(err), 0.2, 1.0)
+	if not enabled:
+		_play_baked()
 	creature.rotation.y += deg_to_rad(turn) * delta
 	var d := strafe.normalized() if strafe.length() > 0.001 else Vector3(0, 0, 1)
 	creature.global_position += Basis(Vector3.UP, creature.rotation.y) * (d * speed * delta)
+
+## Without the live legs, travel plays the baked walk (at the speed it moves) and standing the idle.
+func _play_baked() -> void:
+	var aps := creature.find_children("*", "AnimationPlayer", true, false)
+	if aps.is_empty():
+		return
+	var ap := aps[0] as AnimationPlayer
+	var want := "walk" if speed > 0.01 and ap.has_animation("walk") else ("idle" if ap.has_animation("idle") else "")
+	if want == "":
+		return
+	if ap.current_animation != want:
+		ap.play(want, 0.2)
+		ap.get_animation(want).loop_mode = Animation.LOOP_LINEAR
+	ap.speed_scale = clampf(speed / maxf(walk_speed, 0.01), 0.3, 2.0) if want == "walk" else 1.0
 
 func _smooth(u: float) -> float:
 	var t := clampf(u, 0.0, 1.0)
@@ -395,7 +411,7 @@ func _record() -> void:
 	owner_ik.frames.append({"feet": ft, "targets": tg, "rot": rot, "pos": pos, "down": down, "root": [o.x, o.y, o.z], "yaw": owner_ik.creature.rotation.y})
 
 ## Per foot as drawn last frame: {name, planted, gap}. Planted: the runtime's own plant (live), or a tip
-## that barely moves (< 0.05 m/s, the baked clip); gap: the tip's height over the ground under it (+ floats,
+## that barely moves (< 0.1 m/s, the baked clip); gap: the tip's height over the ground under it (+ floats,
 ## - sinks). Call once per physics frame.
 func contacts(dt: float) -> Array:
 	var out := []
@@ -404,7 +420,7 @@ func contacts(dt: float) -> Array:
 		var g := ground_at(f.x, f.z, f.y + 1.0)
 		var prev: Vector3 = _prev_feet[i] if i < _prev_feet.size() else f
 		var v := Vector2(f.x - prev.x, f.z - prev.z).length() / maxf(dt, 0.0001)
-		var planted: bool = bool(legs[i]["down"]) if enabled and i < legs.size() else v < 0.05
+		var planted: bool = bool(legs[i]["down"]) if enabled and i < legs.size() else v < 0.1
 		out.append({"name": "%s leg %d" % [String(creature.name), i], "planted": planted, "gap": f.y - g})
 	_prev_feet = drawn_feet.duplicate()
 	return out

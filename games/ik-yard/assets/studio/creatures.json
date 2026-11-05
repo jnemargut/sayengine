@@ -1,0 +1,93 @@
+{
+  "creatures": [
+    {
+      "id": "crab",
+      "name": "Crab",
+      "file": "crab.glb",
+      "path": "skinned-live",
+      "reason": "6 legs step and plant live (TwoBoneIK3D), 3 chain(s) can reach",
+      "position": [
+        3.1,
+        0,
+        -0.7
+      ],
+      "rotation": 0,
+      "motions": {
+        "walk": {
+          "kind": "walk",
+          "loop": true,
+          "speed": 0.3185,
+          "dir": [
+            1,
+            0,
+            0
+          ],
+          "duration": 2.333
+        },
+        "idle": {
+          "kind": "idle",
+          "loop": true,
+          "speed": 0,
+          "dir": [
+            0,
+            0,
+            1
+          ],
+          "duration": 2.6
+        }
+      },
+      "legs": 6,
+      "chains": [
+        "claw.L",
+        "claw.R",
+        "tail"
+      ],
+      "size": 1.1085,
+      "bytes": 1470416
+    },
+    {
+      "id": "spider",
+      "name": "Spider",
+      "file": "spider.glb",
+      "path": "skinned-live",
+      "reason": "8 legs step and plant live (TwoBoneIK3D), 2 chain(s) can reach",
+      "position": [
+        4.2,
+        0,
+        0.8
+      ],
+      "rotation": 0,
+      "motions": {
+        "walk": {
+          "kind": "walk",
+          "loop": true,
+          "speed": 0.2986,
+          "dir": [
+            0,
+            0,
+            1
+          ],
+          "duration": 2.333
+        },
+        "idle": {
+          "kind": "idle",
+          "loop": true,
+          "speed": 0,
+          "dir": [
+            0,
+            0,
+            1
+          ],
+          "duration": 3
+        }
+      },
+      "legs": 8,
+      "chains": [
+        "palp.L",
+        "palp.R"
+      ],
+      "size": 0.63,
+      "bytes": 3225468
+    }
+  ]
+}
