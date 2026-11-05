@@ -35,7 +35,7 @@ const BOT = `window.__bot = {
     const F = window.__fires;
     for (let i = 0; i < n; i++) { this.decide(kind); this.n++; F.advance(dt, 1, i === n - 1); }
     const s = F.state;
-    return { mode: F.mode, card: F.card, t: s ? +s.t.toFixed(1) : 0, fire: s ? +s.fire.toFixed(2) : 0, done: s ? s.done : 0, request: s ? s.request : null, carrying: F.carrying, phase: s ? s.phase : null };
+    return { at: F.playerScreen, mode: F.mode, card: F.card, t: s ? +s.t.toFixed(1) : 0, fire: s ? +s.fire.toFixed(2) : 0, done: s ? s.done : 0, request: s ? s.request : null, carrying: F.carrying, phase: s ? s.phase : null };
   },
 };
 window.__fires.pause();
@@ -70,9 +70,13 @@ await serve(GAME, (url) => withPage(url + 'index.html', { width: 1280, height: 7
       await page.eval('window.__fires.begin(false)');
       const every = 6;
       let lastLog = -10;
+      const closeups: Record<string, { frame: number; at: [number, number]; wait: number }> = {};
       for (let i = 0; i < 30 * 480; i += every) {
         st = await page.eval(`__bot.chunk('${kind}', ${every}, ${DT})`);
-        await shot();
+        const f = await shot();
+        // close-ups of the first time each thing is carried (is it in the hand?)
+        if (st.carrying && !closeups[st.carrying]) closeups[st.carrying] = { frame: f, at: st.at, wait: 2 };
+        else if (st.carrying && closeups[st.carrying].wait > 0 && --closeups[st.carrying].wait === 0) { closeups[st.carrying].frame = f; closeups[st.carrying].at = st.at; }
         if (st.t - lastLog >= 10) { lastLog = st.t; log.push({ t: st.t, fire: st.fire, done: st.done, request: st.request, carrying: st.carrying }); }
         if (st.mode === 'end') break;
       }
@@ -83,6 +87,10 @@ await serve(GAME, (url) => withPage(url + 'index.html', { width: 1280, height: 7
       const card = st.card;
       await page.eval('window.__fires.press()');
       for (let i = 0; i < 15; i++) { st = await page.eval(`__bot.chunk('idle', 3, ${DT})`); const f = await shot(); if (i === 10) marks.again = f; }
+      for (const [item, c] of Object.entries(closeups)) {
+        const x = Math.max(0, Math.min(1280 - 320, c.at[0] - 160)), y = Math.max(0, Math.min(720 - 240, c.at[1] - 130));
+        if (kind === 'win') execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', path.join(dir, `${String(c.frame).padStart(5, '0')}.jpg`), '-vf', `crop=320:240:${x}:${y},scale=640:-2`, path.join(OUT, `carry-${item}.jpg`)]);
+      }
       report[kind] = { state: end, card, playAgain: { mode: st.mode, t: st.t, phase: st.phase, card: st.card }, log };
       console.log(kind, JSON.stringify(end), `card "${card}", after Play again: ${st.mode} t=${st.t}`);
     }

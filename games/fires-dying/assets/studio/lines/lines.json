@@ -1,0 +1,109 @@
+{
+  "Blacksmith": {
+    "call-tongs": {
+      "text": "Tongs! Quick!",
+      "clip": "line:call-tongs",
+      "duration": 1.77,
+      "sync": -20,
+      "file": "blacksmith/call-tongs.wav"
+    },
+    "call-hammer": {
+      "text": "Fetch me the big hammer.",
+      "clip": "line:call-hammer",
+      "duration": 2.25,
+      "sync": -50,
+      "file": "blacksmith/call-hammer.wav"
+    },
+    "call-file": {
+      "text": "Hand me the file.",
+      "clip": "line:call-file",
+      "duration": 1.85,
+      "sync": -20,
+      "file": "blacksmith/call-file.wav"
+    },
+    "call-chisel": {
+      "text": "Chisel, lad. The cold one.",
+      "clip": "line:call-chisel",
+      "duration": 2.77,
+      "sync": 20,
+      "file": "blacksmith/call-chisel.wav"
+    },
+    "call-whetstone": {
+      "text": "Bring the whetstone.",
+      "clip": "line:call-whetstone",
+      "duration": 1.92,
+      "sync": -30,
+      "file": "blacksmith/call-whetstone.wav"
+    },
+    "call-bellows": {
+      "text": "Work the bellows! I need heat!",
+      "clip": "line:call-bellows",
+      "duration": 2.8,
+      "sync": 10,
+      "file": "blacksmith/call-bellows.wav"
+    },
+    "call-quench": {
+      "text": "Water in the tub, lad. Time to quench.",
+      "clip": "line:call-quench",
+      "duration": 3.45,
+      "sync": -30,
+      "file": "blacksmith/call-quench.wav"
+    },
+    "call-charcoal": {
+      "text": "More charcoal, the fire is dying!",
+      "clip": "line:call-charcoal",
+      "duration": 3.07,
+      "sync": -10,
+      "file": "blacksmith/call-charcoal.wav"
+    },
+    "intro": {
+      "text": "The fire's dying, lad. Keep it fed, and fetch whatever I call for.",
+      "clip": "line:intro",
+      "duration": 5.22,
+      "sync": 10,
+      "file": "blacksmith/intro.wav"
+    },
+    "good": {
+      "text": "Good lad.",
+      "clip": "line:good",
+      "duration": 1.5,
+      "sync": -130,
+      "file": "blacksmith/good.wav"
+    },
+    "hiss": {
+      "text": "Hear it hiss. Good.",
+      "clip": "line:hiss",
+      "duration": 2.25,
+      "sync": -10,
+      "file": "blacksmith/hiss.wav"
+    },
+    "wrong": {
+      "text": "Not that one!",
+      "clip": "line:wrong",
+      "duration": 1.8,
+      "sync": 10,
+      "file": "blacksmith/wrong.wav"
+    },
+    "late": {
+      "text": "Come on! The iron's going cold!",
+      "clip": "line:late",
+      "duration": 2.97,
+      "sync": 10,
+      "file": "blacksmith/late.wav"
+    },
+    "win": {
+      "text": "Look at that. Finest blade I've made.",
+      "clip": "line:win",
+      "duration": 3.35,
+      "sync": -30,
+      "file": "blacksmith/win.wav"
+    },
+    "lose": {
+      "text": "The fire's out. We start again tomorrow.",
+      "clip": "line:lose",
+      "duration": 3.4,
+      "sync": 10,
+      "file": "blacksmith/lose.wav"
+    }
+  }
+}

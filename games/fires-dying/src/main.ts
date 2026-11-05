@@ -167,9 +167,9 @@ async function start(): Promise<StudioGame> {
     const src = station(k).node, copy = src.clone(true);
     copy.userData = { ...src.userData, studioName: `${ITEMS[k].object} (carried)` };
     copy.traverse((o: any) => { if (o.name?.endsWith('_collision')) o.visible = false; });
+    if (k === 'charcoal') copy.scale.multiplyScalar(0.55); else if (k === 'bucket') copy.scale.multiplyScalar(0.8);   // a scoop of it; a part-full bucket
     scene.add(copy);
     held = hold(game, PLAYER, copy.userData.studioName, 'right');
-    if (k === 'charcoal') held.scale.setScalar(0.55); else if (k === 'bucket') held.scale.setScalar(0.8);
     if (k !== 'charcoal') src.visible = false;
   };
   const pickClip = sc.avatar?.animations.find((a: THREE.AnimationClip) => a.name === 'pickup');
@@ -246,9 +246,9 @@ async function start(): Promise<StudioGame> {
   }
   const endCard = () => {
     const s = state!, won = s.phase === 'won';
-    const extra = [s.wrongs ? `${s.wrongs} wrong tool${s.wrongs > 1 ? 's' : ''}` : '', s.late ? `kept him waiting ${s.late} time${s.late > 1 ? 's' : ''}` : ''].filter(Boolean).join(', ');
+    const extra = [s.wrongs ? `handed him ${s.wrongs} wrong tool${s.wrongs > 1 ? 's' : ''}` : '', s.late ? `kept him waiting ${s.late} time${s.late > 1 ? 's' : ''}` : ''].filter(Boolean).join(' and ');
     showCard(won ? 'The blade is done' : "The fire's out", won
-      ? [`${GOAL} jobs in ${Math.floor(s.t / 60)}:${String(Math.round(s.t % 60)).padStart(2, '0')}. You fed the forge ${s.fed} times and worked the bellows ${s.pumped}.`, extra ? `(${extra})` : 'Not one slip.']
+      ? [`${GOAL} jobs in ${Math.floor(s.t / 60)}:${String(Math.floor(s.t % 60)).padStart(2, '0')}. You fed the forge ${s.fed} time${s.fed === 1 ? '' : 's'}${s.pumped ? ` and pumped the bellows ${s.pumped} time${s.pumped === 1 ? '' : 's'}` : ''}.`, extra ? `You ${extra}.` : 'Not one slip.']
       : [`${s.done} of ${GOAL} jobs done in ${Math.round(s.t)} seconds.`, s.fed ? 'Feed the forge before he has to shout for charcoal.' : 'The forge needs charcoal from the sack: it never fed once.'],
     'Play again', () => begin(false));
   };
@@ -358,6 +358,8 @@ async function start(): Promise<StudioGame> {
     begin: (intro = false) => begin(intro), endIntro, act, stations: () => stations.map((s) => s.key),
     goTo(key: Key) { const s = stations.find((x) => x.key === key); if (target?.station !== s) via = null; target = s ? { station: s } : null; return !!s; },
     get busy() { return !!target; },
+    /** where the apprentice's chest is on screen, in CSS px (captures crop close-ups around it) */
+    get playerScreen() { const f = player.feet(); const v = new THREE.Vector3(f[0], f[1] + 1, f[2]).project(camera); return [Math.round((v.x * 0.5 + 0.5) * innerWidth), Math.round((-v.y * 0.5 + 0.5) * innerHeight)]; },
     pause() { game.paused = true; },
     advance(dt: number, n = 1, draw = true) { for (let i = 0; i < n; i++) game.tick(dt); if (draw) renderer.render(scene, camera); },
   };
