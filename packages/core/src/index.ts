@@ -29,3 +29,6 @@ export * from './glyphs.ts';
 export * from './printtools.ts';
 export * from './cutscene.ts';
 export * from './performance.ts';
+export * from './rigparts.ts';
+export * from './creatures.ts';
+export { PART_TOOLS, characterMotionChecks } from './parttools.ts';

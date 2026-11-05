@@ -21,6 +21,7 @@ export const OP_NAMES = [
   'mesh',
   'collision', 'lod',
   'character',
+  'creature',
   'text', 'hole', 'split', 'chamfer',
 ] as const;
 /** Ops that make a side product (a physics shape, a distance version) instead of feeding the output. */
@@ -96,6 +97,7 @@ export interface SceneObject {
   orientation?: [number, number, number, number]; // full 3D rotation (quaternion x,y,z,w); set by "held" placement, overrides rotation
   grip?: GripSocket;             // where a hand holds this object (props)
   character?: CharacterState;    // pose, expression, hands and dialogue lines (characters)
+  creature?: { def: import('./rigparts.ts').CreatureDef; motions: Record<string, import('./rigparts.ts').CreatureMotion>; preset?: string }; // rig-part creatures (Decision 52)
   rules: Rule[];
 }
 

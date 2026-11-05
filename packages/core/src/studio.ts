@@ -18,6 +18,7 @@ import { compilePerformance, performanceReport } from './performance.ts';
 import { apronReport, bakeMotion, motionReport, checkFrames } from './motion.ts';
 import { fingerPenetration } from './grip.ts';
 import { lineChecks } from './lipsync.ts';
+import { bakeCreature, buildCreature, creatureChecks } from './rigparts.ts';
 
 export interface CallResult {
   ok: boolean;
@@ -128,11 +129,34 @@ export class Studio {
     if (o.role === 'reference') {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }
-    const core = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc)];
+    const core = [...runChecks(o, r), ...this.sceneChecks(o, doc), ...this.characterChecks(o, doc), ...this.creatureMotionChecks(o)];
     const base = o.print ? adjustForPrint(o, r, [...core, ...printChecks(o, r, core.some((c) => c.pending))]) : core;
     if (!o.profile) return base;
     const midBuild = base.some((c) => c.pending);
     return [...base, ...profileChecks(o, r, { evaluateOp: (x, id) => this.evaluateOp(x, id), overlap: (a, b) => overlapVolume(a, b) }, midBuild)];
+  }
+
+  private creatureCache = new Map<string, CheckResult[]>();
+  /** A creature's motions against its part checks and the universal ones (Decision 54), one row per motion. */
+  creatureMotionChecks(o: SceneObject): CheckResult[] {
+    if (!o.creature) return [];
+    const key = JSON.stringify(o.creature);
+    const hit = this.creatureCache.get(key);
+    if (hit) return hit;
+    let out: CheckResult[];
+    try {
+      const c = buildCreature(o.creature.def);
+      out = Object.entries(o.creature.motions).map(([mid, m]) => {
+        const ks = creatureChecks(c, bakeCreature(c, mid, m));
+        const bad = ks.filter((k) => !k.pass);
+        return { id: `creature-${mid}`, label: `Motion "${mid}": ${ks.length} motion checks`, pass: !bad.length, detail: bad.length ? bad.map((k) => `${k.name} ${k.worst}${k.unit} > ${k.limit} at frames ${k.frames.map(([a, b]) => (a === b ? a : `${a}–${b}`)).join(',')}`).join('; ') : ks.map((k) => k.name).join(', ') };
+      });
+    } catch (e: any) {
+      out = [{ id: 'creature', label: 'Creature parts', pass: false, detail: e.message }];
+    }
+    if (this.creatureCache.size > 30) this.creatureCache.delete(this.creatureCache.keys().next().value!);
+    this.creatureCache.set(key, out);
+    return out;
   }
 
   private poseCache = new Map<string, PoseCheck[]>();

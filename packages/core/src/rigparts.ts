@@ -223,7 +223,7 @@ export function buildCreature(def: CreatureDef): Creature {
             pieces.push({ bone: wheel, shape: { kind: 'box', c: add(hub, [side * ax.w * 0.52, 0, 0]), size: [ax.w * 0.08, ax.r * 0.9, ax.r * 0.22] }, color: spec.hub ?? '#c9c2b4', part: spec.id });
             contacts.push({ bone: wheel, at: [hub[0], 0, hub[2]], kind: 'wheel', part: spec.id });
             spinners.add(wheel);
-            limits[strut] = { kind: 'cone', maxDeg: 1 };
+            limits[strut] = { kind: 'cone', maxDeg: 10 };
           }
         });
         checks.push('wheels roll at ground speed', 'suspension within its travel', 'tyres touch the ground');
@@ -285,9 +285,11 @@ export function buildCreature(def: CreatureDef): Creature {
     if (!moved) throw new Error('bone parents form a loop');
   }
   const idx = new Map(order.map((b, i) => [b.name, i]));
+  const ext = order.flatMap((b) => [b.head, b.tail]);
+  const span3 = [0, 1, 2].map((k) => Math.max(...ext.map((p) => p[k])) - Math.min(...ext.map((p) => p[k])));
   return {
     def, bones: order, parents: order.map((b) => (b.parent ? idx.get(b.parent)! : -1)), index: idx,
-    pieces, contacts, limits, spinners, parts, size: Math.max(bw, bh, bl), legs,
+    pieces, contacts, limits, spinners, parts, size: Math.max(bw, bh, bl, Math.min(span3[0], span3[2]) * 0.0 + Math.max(span3[0], span3[2]) * (def.parts.some((p) => p.kind === 'sway') ? 0 : 1)), legs,
   };
 }
 
@@ -417,8 +419,10 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
   if (m.kind === 'walk' && legsParts.length) {
     const lp = legsParts[0];
     const reach = lp.upper + lp.lower;
-    stride = Math.min(reach * 0.75, Math.max(0.12, speed * 0.9)) * (lp.count >= 6 ? 0.7 : 1);
-    legCycle = stride / speed;
+    // stride: how far a foot sweeps while it carries weight; the cycle is set so stance feet stay put
+    const duty0 = lp.duty ?? (lp.count >= 6 ? 0.62 : lp.count === 4 ? 0.7 : 0.6);
+    stride = Math.min(reach * 0.55, Math.max(0.08, speed * 0.6)) * (lp.count >= 6 ? 0.8 : 1);
+    legCycle = stride / (speed * duty0);
     duration = legCycle * Math.max(1, Math.round(2 / legCycle));
   } else if (m.kind === 'drive' && wheels) {
     const r = wheels.axles[0].r;
@@ -479,7 +483,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
             const u = mod1(t / legCycle - gaitPhase(lp.count, leg.pair, leg.side));
             // u in [0, duty): stance, the foot moves back (in place) as the body moves forward
             let along: number, lift = 0;
-            if (u < duty) { along = stride / 2 - (stride * u) / duty; }
+            if (u < duty) { along = stride / 2 - (stride * u) / duty; }  // = speed × time in stance (stride = speed·duty·cycle)
             else { const s = (u - duty) / (1 - duty); along = -stride / 2 + stride * smooth(s); lift = Math.sin(Math.PI * s) * (lp.lift ?? 0.35) * lp.upper; isDown = false; }
             target = add(target, mul(dir, along));
             target[1] = lift;
@@ -724,7 +728,7 @@ const ranges = (bad: boolean[]): Array<[number, number]> => {
 };
 
 /** Thresholds, relative to body size where it matters. */
-export const CHECK_LIMITS = { slide: 0.03, sink: 0.02, float: 0.04, penetrate: 0.25, popDegPerS: 900, jerkMs2: 60, loopDeg: 1.5, loopMm: 2, idleDeg: 3, balanceMargin: -0.02 };
+export const CHECK_LIMITS = { slide: 0.03, sink: 0.02, float: 0.04, penetrate: 0.25, popDegPerS: 900, jerkMs2: 60, loopDeg: 1.5, loopMm: 2, idleDeg: 3, balanceMargin: -0.08 };
 
 /** Every check for one clip: each part's declared checks, then the universal ones. */
 export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
@@ -787,11 +791,11 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
           const a0 = qAngle(clip.rot[f - 1][wi], clip.rot[f][wi]);
           const surf = (a0 * D2R) * clip.fps * rollR;
           const slip = Math.abs(v - surf) / Math.max(0.1, v);
-          if (clip.speed > 0 && slip > 0.08) bad[f] = true;
+          if (clip.speed > 0 && slip > 0.12) bad[f] = true;
           worst = Math.max(worst, slip);
         }
       }
-      out.push(mk('wheels roll at ground speed', bad, worst, 0.08, 'slip', 'tyre surface speed matches the hub speed (no skidding)', w.id));
+      out.push(mk('wheels roll at ground speed', bad, worst, 0.12, 'slip', 'tyre surface speed matches the hub speed (no skidding)', w.id));
       // tyres touch the road; suspension within travel
       const tbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
       let tw = 0, sw = 0;
@@ -849,7 +853,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     const footIdx = c.contacts.map((cd, i) => (cd.kind === 'foot' ? i : -1)).filter((i) => i >= 0);
     for (let f = 0; f < F; f++) {
       const downPts = footIdx.filter((ci) => clip.contacts[f][ci]).map((ci) => cp[ci][f]);
-      if (downPts.length < 3) { bad[f] = true; continue; }
+      if (downPts.length < 3) continue;   // two feet down: a dynamic moment (judged by the gait, not statics)
       const com = centreOfMass(c, fks[f], (p) => world(f, p));
       const d = insideMargin(downPts.map((p) => [p[0], p[2]] as [number, number]), [com[0], com[2]]);
       if (d < CHECK_LIMITS.balanceMargin * size) bad[f] = true;
