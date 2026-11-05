@@ -74,7 +74,7 @@ export const COLLAB_TOOLS: ToolDef[] = [
       const c = ctx.studio.collab;
       const act = a.action ?? (a.text ? 'add' : 'list');
       if (act === 'list') {
-        const rules = c.tasteRules();
+        const rules = c.tasteRules({ seed: true });
         ctx.summary(`${rules.length} taste rule(s)`);
         return { rules: rules.map((r: any) => ({ text: r.text, source: sourceText(r.source), topics: r.topics, scope: r.scope })), files: c.io.where?.() };
       }

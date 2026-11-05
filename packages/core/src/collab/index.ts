@@ -127,9 +127,10 @@ export class Collab {
   }
 
   // taste
-  tasteRules(): TasteRule[] {
+  /** Both taste files. A missing studio-wide file reads as the seeded verdicts; `seed` writes it out (the taste tool does). */
+  tasteRules(opts: { seed?: boolean } = {}): TasteRule[] {
     let studioMd = this.io.readTaste('studio');
-    if (studioMd === null) { studioMd = formatTaste(SEED_TASTE, 'studio'); this.io.writeTaste('studio', studioMd); }
+    if (studioMd === null) { studioMd = formatTaste(SEED_TASTE, 'studio'); if (opts.seed) this.io.writeTaste('studio', studioMd); }
     return [...parseTaste(studioMd, 'studio'), ...parseTaste(this.io.readTaste('project') ?? '', 'project')];
   }
 
