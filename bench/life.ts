@@ -81,7 +81,7 @@ if (godot) {
   void r;
 }
 const report = { stats: bake.stats, bakeMs, day: { from: from / 3600, hours, ms: day.ms, peak: day.peak, byHour: day.byHour, checks: day.checks.map((c) => ({ name: c.name, pass: c.pass, count: c.count, worst: c.worst, limit: c.limit })) }, parity };
-const repDir = path.join(ROOT, 'checkpoint-pocket-raleigh/life');
+const repDir = path.join(ROOT, 'checkpoint-pocket-raleigh/life-v2');
 fs.mkdirSync(repDir, { recursive: true });
 fs.writeFileSync(path.join(repDir, 'life-report.json'), JSON.stringify(report, null, 2) + '\n');
 if (day.checks.some((c) => !c.pass) || (parity && !parity.pass)) process.exitCode = 1;

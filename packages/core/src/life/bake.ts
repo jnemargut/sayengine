@@ -112,7 +112,8 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           const q: P2 = [p[0] + nn[0] * (s.width / 2 + 0.6), p[1] + nn[1] * (s.width / 2 + 0.6)];
           const along2: P2 = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
           const pq: P2 = [q[0] + along2[0] * 6 + nn[0] * 0.6, q[1] + along2[1] * 6 + nn[1] * 0.6];
-          const okP = plan.buildings.every((bb) => !pointInPoly(pq, bb.footprint) && nearestOn([...bb.footprint, bb.footprint[0]], pq).d > 1.5) && plan.streets.every((oo) => oo === s || oo.kind === 'footway' || nearestOn(oo.points, pq).d > oo.width / 2 + 1);
+          // not at a corner: a bench there sits in the crosswalk's path (folk crossing would walk into the sitter)
+          const okP = junctions.every((J) => Math.hypot(J.at[0] - pq[0], J.at[1] - pq[1]) > 15) && plan.buildings.every((bb) => !pointInPoly(pq, bb.footprint) && nearestOn([...bb.footprint, bb.footprint[0]], pq).d > 1.5) && plan.streets.every((oo) => oo === s || oo.kind === 'footway' || nearestOn(oo.points, pq).d > oo.width / 2 + 1);
           if (okP) {
             const bq: P2 = [pq[0] + along2[0] * 3, pq[1] + along2[1] * 3];
             ws.blocked.push({ c: pq, dir: along2, len: 2.2, wid: 1.0 }, { c: [bq[0] - nn[0] * 0.1, bq[1] - nn[1] * 0.1], dir: along2, len: 1.8, wid: 0.6 });
@@ -386,7 +387,10 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           const a = n.p, b = graph.nodes[seq[k]].p, L = Math.hypot(b[0] - a[0], b[1] - a[1]);
           if (L > 24 || !ws.segWalkable(a, b, 0.3)) break;
           const dir: P2 = [(b[0] - a[0]) / (L || 1), (b[1] - a[1]) / (L || 1)];
-          const h = Math.min(...[0, 0.25, 0.5, 0.75, 1].map((tt) => ws.freeHalf([a[0] + (b[0] - a[0]) * tt, a[1] + (b[1] - a[1]) * tt], dir, 1.6)));
+          // the free half-width all along the shortcut (every 0.4 m: a corner between samples is where folk graze)
+          let h = 9;
+          const nS = Math.max(4, Math.ceil(L / 0.4));
+          for (let q = 0; q <= nS && h >= 0.6; q++) h = Math.min(h, ws.freeHalf([a[0] + (b[0] - a[0]) * q / nS, a[1] + (b[1] - a[1]) * q / nS], dir, 1.6));
           if (h < 0.6) break;
           j = k; hw = h;
         }

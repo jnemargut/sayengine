@@ -350,7 +350,9 @@ export function walkGraph(ws: WalkSpace, junctions: Junction[], extra: Array<{ p
       }
     }
     const dir: P2 = [(B[0] - A[0]) / (len || 1), (B[1] - A[1]) / (len || 1)];
-    const hw = cross ? 1.3 : Math.min(...[0, 0.17, 0.33, 0.5, 0.67, 0.83, 1].map((t) => ws.freeHalf([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t], dir)));
+    // the free half-width all along the link (every 0.4 m, so a corner between samples isn't missed)
+    let hw = 1.3;
+    if (!cross) { hw = 9; const nS = Math.max(6, Math.ceil(len / 0.4)); for (let q = 0; q <= nS && hw >= 0.45; q++) hw = Math.min(hw, ws.freeHalf([A[0] + (B[0] - A[0]) * q / nS, A[1] + (B[1] - A[1]) * q / nS], dir)); }
     if (hw < 0.45) return false;
     edges.push({ a, b, len, hw, ...(cross ? { cross } : {}) });
     return true;

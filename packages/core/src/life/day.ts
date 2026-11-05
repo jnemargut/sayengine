@@ -17,7 +17,7 @@ function playerAt(ps: PlayerScript, t: number): P2 {
   for (let i = 1; i < ps.pts.length; i++) L.push(L[i - 1] + Math.hypot(ps.pts[i][0] - ps.pts[i - 1][0], ps.pts[i][1] - ps.pts[i - 1][1]));
   const total = L[L.length - 1] || 1;
   // there and back
-  let s = (t * ps.speed) % (2 * total);
+  let s = (((t * ps.speed) % (2 * total)) + 2 * total) % (2 * total);
   if (s > total) s = 2 * total - s;
   for (let i = 1; i < L.length; i++) if (s <= L[i]) { const u = (s - L[i - 1]) / (L[i] - L[i - 1] || 1); return [ps.pts[i - 1][0] + (ps.pts[i][0] - ps.pts[i - 1][0]) * u, ps.pts[i - 1][1] + (ps.pts[i][1] - ps.pts[i - 1][1]) * u]; }
   return ps.pts[ps.pts.length - 1];
@@ -69,15 +69,32 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
   const byHour = new Array(24).fill(0), seen = new Array(24).fill(0);
   let peakF = 0, peakC = 0, brakes = 0, ticks = 0;
   const pr = o.player?.r ?? 0.4;
-  let ps = 0, walkSamples = 0;
+  let ps = 0, walkSamples = 0, pdir = 1, poff = 0, pstuck = 0;
   for (let t = from; t < to; t += LIFE_DT) {
     if (o.player && t >= (o.player.from ?? 0) && t < (o.player.to ?? 1e9)) {
-      // the scripted player is solid like the game's: a car or a person in the way holds it up
-      const p = playerAt(o.player, ps + LIFE_DT);
-      let free = true;
-      for (let i = 0; i < rt.vehicles.length && free; i++) if (rt.vehicles[i].visible && circleInRect(p[0], p[1], pr, { x: rt.vehicles[i].x, z: rt.vehicles[i].z, yaw: rt.vehicles[i].yaw, l: D.vehicles[i].len, w: D.vehicles[i].wid })) free = false;
-      if (free) ps += LIFE_DT;
-      const q = playerAt(o.player, ps);
+      // the scripted player is solid like the game's: a car or a person in the way holds it up. Like someone
+      // at the controls it steps around folk in its way (up to 0.9 m aside) and turns back after 2.5 s stuck
+      const solid = (x: number, z: number) => {
+        for (let i = 0; i < rt.vehicles.length; i++) if (rt.vehicles[i].visible && circleInRect(x, z, pr, { x: rt.vehicles[i].x, z: rt.vehicles[i].z, yaw: rt.vehicles[i].yaw, l: D.vehicles[i].len, w: D.vehicles[i].wid })) return true;
+        for (let i = 0; i < rt.agents.length; i++) {
+          const a = rt.agents[i];
+          if (!a.visible) continue;
+          const dn = Math.hypot(a.x - x, a.z - z);
+          if (dn < D.agents[i].r + pr && dn < Math.hypot(a.x - rt.player.x, a.z - rt.player.z)) return true;
+        }
+        return false;
+      };
+      const p0 = playerAt(o.player, ps), p1 = playerAt(o.player, ps + pdir * LIFE_DT);
+      const dl = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1, nx = -(p1[1] - p0[1]) / dl, nz = (p1[0] - p0[0]) / dl;
+      let moved = false;
+      for (const off of [poff - Math.sign(poff) * Math.min(0.05, Math.abs(poff)), poff, poff + 0.25, poff - 0.25]) {
+        if (Math.abs(off) > 0.9) continue;
+        if (!solid(p1[0] + nx * off, p1[1] + nz * off)) { ps += pdir * LIFE_DT; poff = off; moved = true; break; }
+      }
+      if (moved || !rt.player.on) pstuck = 0; else if ((pstuck += LIFE_DT) > 2.5) { pdir = -pdir; pstuck = 0; }
+      const q0 = playerAt(o.player, ps), q1 = playerAt(o.player, ps + pdir * LIFE_DT);
+      const ql = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]) || 1;
+      const q: P2 = [q0[0] - (q1[1] - q0[1]) / ql * poff, q0[1] + (q1[0] - q0[0]) / ql * poff];
       rt.setPlayer(q[0], q[1], pr, true);
     } else rt.setPlayer(0, 0, pr, false);
     rt.step();
@@ -141,7 +158,7 @@ export function runDay(bake: LifeBake, o: { from?: number; to?: number; player?:
       }
       if (rt.player.on) {
         const d = Math.hypot(A[i].x - rt.player.x, A[i].z - rt.player.z), lim = D.agents[i].r + pr - 0.08;
-        if (d < lim) { cnt.player++; worst.player = Math.max(worst.player, lim - d); note('player', t); }
+        if (d < lim) { cnt.player++; worst.player = Math.max(worst.player, lim - d); note('player', t); if (process.env.LIFE_DEBUG) { const g = D.agents[i].plan[A[i].seg] as any; console.log('PLAYER', (t / 3600).toFixed(4), i, D.agents[i].kind, g?.k, g?.pose ?? '', A[i].pose, 'v', A[i].v.toFixed(2), 'blk', A[i].blocked.toFixed(1), 'wait', A[i].wait, d.toFixed(2)); } }
       }
     }
     // one sitter per seat

@@ -19,7 +19,7 @@ export interface LifeCross { s0: number; s1: number; sig: number; group: number 
 export interface LifeMove { k: 'move'; t: number; p: number; cross?: LifeCross[] }
 export interface LifeAct { k: 'act'; t: number; t1: number; at: [number, number, number]; face: number; pose: string; slot: number; place?: string }
 export type LifeSeg = LifeMove | LifeAct;
-export interface LifeAgent { id: string; town?: number; kind: 'person' | 'dog'; r: number; speed: number; owner?: number; model: string; tint?: string; scale?: number; plan: LifeSeg[] }
+export interface LifeAgent { id: string; town?: number; kind: 'person' | 'dog'; r: number; speed: number; owner?: number; lane?: number; model: string; tint?: string; scale?: number; plan: LifeSeg[] }
 export interface LifeTrip { t: number; edges: number[] }
 export interface LifeVehicle { id: string; town?: number; kind: 'car' | 'bus'; len: number; wid: number; model: string; tint?: string; loop?: boolean; trips: LifeTrip[] }
 export interface LifeData {
@@ -36,6 +36,7 @@ export interface AgentState {
   slot: number; blocked: number; wait: boolean; stay: boolean; onCross: boolean;
   fx: number; fz: number;                 // the walking frame: turns smoothly, so a sharp corner never flips our side
   slip: number;                           // until then, a head-on pair stuck in a pinch may slip past each other
+  bl: number;                             // seconds to blend into (or out of) a spot: longer for a longer step, so nobody pops
 }
 export interface VehicleState { visible: boolean; trip: number; leg: number; s: number; v: number; x: number; y: number; z: number; yaw: number; dwell: number; stopDone: number; brake: boolean; waitUntil: number }
 
@@ -170,7 +171,7 @@ export class LifeRuntime {
   }
 
   freshAgent(): AgentState {
-    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0 };
+    return { visible: false, seg: -1, s: 0, lat: 0, v: 0, x: 0, y: 0, z: 0, yaw: 0, pose: 'idle', actStart: 0, actEnd: 0, moveStart: 0, fromX: 0, fromY: 0, fromZ: 0, slot: -1, blocked: 0, wait: false, stay: false, onCross: false, fx: 0, fz: 1, slip: 0, bl: SIT_BLEND };
   }
 
   firstTrip(i: number, t: number): number {
@@ -184,9 +185,11 @@ export class LifeRuntime {
     const A = this.data.agents[i], st = this.agents[i];
     if (A.kind === 'dog') return;                         // dogs follow their walker (placed in step)
     st.seg = -1; st.visible = false;
+    let last = -1;
     for (let k = 0; k < A.plan.length; k++) {
       const g = A.plan[k];
       if (g.t > t) break;
+      last = k;
       const end = g.k === 'act' ? g.t1 : g.t + this.paths[g.p].len / A.speed;
       if (t < end) {
         st.seg = k; st.visible = true;
@@ -196,16 +199,28 @@ export class LifeRuntime {
           st.lat = Math.min(0.4, P[3] * 0.4);
           this.placeOnPath(i, g.p);
           st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
-        } else {
-          st.actStart = g.t - 10; st.actEnd = g.t1; st.visible = g.pose !== 'inside';
-          st.x = g.at[0]; st.y = g.at[1]; st.z = g.at[2]; st.yaw = g.face; st.pose = g.pose;
-          st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
-          if (g.slot >= 0) { if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; } else { st.pose = 'idle'; } }
-        }
+        } else this.placeAct(i, g);
         return;
       }
-      if (k === A.plan.length - 1) return;                  // the plan is over: indoors
     }
+    if (last < 0) return;                                   // not out yet
+    if (last === A.plan.length - 1) { st.seg = A.plan.length; return; }   // the day is over: indoors
+    // between two segments (a walk that ended early): stand where the last one left us
+    const g = A.plan[last];
+    st.seg = last; st.visible = true;
+    if (g.k === 'move') {
+      st.s = this.paths[g.p].len; st.moveStart = g.t - 10; st.lat = 0;
+      this.placeOnPath(i, g.p);
+      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
+    } else this.placeAct(i, g);
+  }
+
+  placeAct(i: number, g: LifeAct) {
+    const st = this.agents[i];
+    st.actStart = g.t - 10; st.actEnd = g.t1; st.visible = g.pose !== 'inside';
+    st.x = g.at[0]; st.y = g.at[1]; st.z = g.at[2]; st.yaw = g.face; st.pose = g.pose;
+    st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z;
+    if (g.slot >= 0) { if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; } else { st.pose = 'idle'; } }
   }
 
   placeOnPath(i: number, p: number) {
@@ -220,7 +235,8 @@ export class LifeRuntime {
     const dt = LIFE_DT;
     this.prevX = []; this.prevZ = [];
     for (let i = 0; i < this.agents.length; i++) { this.prevX.push(this.agents[i].x); this.prevZ.push(this.agents[i].z); }
-    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person') this.stepPerson(i, dt);
+    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person' && this.data.agents[i].owner === undefined) this.stepPerson(i, dt);
+    for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'person' && this.data.agents[i].owner !== undefined) this.stepBuddy(i, dt);
     for (let i = 0; i < this.agents.length; i++) if (this.data.agents[i].kind === 'dog') this.stepDog(i, dt);
     for (let i = 0; i < this.vehicles.length; i++) this.stepVehicle(i, dt);
     this.t += dt;
@@ -238,15 +254,21 @@ export class LifeRuntime {
     if (g.k === 'move') {
       st.s = 0; st.blocked = 0; st.wait = false;
       // walking on from one leg into the next: carry on where we are (no blend, keep our side)
+      st.bl = SIT_BLEND;
       if (wasMove) {
         st.moveStart = this.t - 10;
         const P0 = pointAt(this.paths[g.p], 4, 0);
         st.lat = clamp((st.x - P0[0]) * -st.fz + (st.z - P0[2]) * st.fx, -P0[3] + A.r, P0[3] - A.r);
-      } else { st.moveStart = this.t; st.lat = 0; const D0 = dirAt(this.paths[g.p], 4, 0); st.fx = D0[0]; st.fz = D0[1]; }
+      } else {
+        st.moveStart = this.t; st.lat = 0; const D0 = dirAt(this.paths[g.p], 4, 0); st.fx = D0[0]; st.fz = D0[1];
+        const P0 = pointAt(this.paths[g.p], 4, 0), bx = P0[0] - st.x, bz = P0[2] - st.z;
+        st.bl = Math.max(SIT_BLEND, Math.sqrt(bx * bx + bz * bz) / 1.1);
+      }
     }
     else {
       st.actStart = this.t; st.actEnd = Math.max(g.t1, this.t + 3);
       st.pose = g.pose;
+      { const bx = g.at[0] - st.x, bz = g.at[2] - st.z; st.bl = Math.max(SIT_BLEND, Math.sqrt(bx * bx + bz * bz) / 1.1); }
       if (g.pose === 'inside') { st.visible = false; st.actEnd = g.t1; }
       if (g.slot >= 0) {
         if (this.slotBusy[g.slot] < 0) { this.slotBusy[g.slot] = i; st.slot = g.slot; }
@@ -274,13 +296,13 @@ export class LifeRuntime {
       }
       st.visible = true; st.s = 0; st.lat = 0; st.v = 0;
       this.placeOnPath(i, g.p);
-      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.moveStart = this.t - 10; st.yaw = this.headingOf(g.p, 0);
+      st.fromX = st.x; st.fromY = st.y; st.fromZ = st.z; st.moveStart = this.t - 10; st.bl = SIT_BLEND; st.yaw = this.headingOf(g.p, 0);
       return;
     }
     if (g.k === 'act') {
       if (g.pose === 'inside') { st.v = 0; if (this.t >= st.actEnd) this.nextSeg(i); return; }
-      let k = st.stay ? 0 : clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
-      if (k > 0 && k < 1 + dt / SIT_BLEND) {
+      let k = st.stay ? 0 : clamp((this.t - st.actStart) / st.bl, 0, 1);
+      if (k > 0 && k < 1 + dt / st.bl) {
         // settling into the spot: wait while someone stands in it
         const cx = st.fromX + (g.at[0] - st.fromX) * k, cz = st.fromZ + (g.at[2] - st.fromZ) * k;
         for (let j = 0; j < this.agents.length; j++) {
@@ -289,7 +311,7 @@ export class LifeRuntime {
           const dx = this.agents[j].x - cx, dz = this.agents[j].z - cz, ex = this.agents[j].x - st.x, ez = this.agents[j].z - st.z;
           if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) {
             st.actStart += dt; st.actEnd += dt; st.blocked += dt;
-            k = clamp((this.t - st.actStart) / SIT_BLEND, 0, 1);
+            k = clamp((this.t - st.actStart) / st.bl, 0, 1);
             if (st.blocked > 4) { st.actEnd = this.t; st.stay = true; k = 0; }
             break;
           }
@@ -315,7 +337,7 @@ export class LifeRuntime {
     }
     const D = [st.fx, st.fz];
     const hw = pt[3];
-    let want = A.speed, latT = Math.min(0.45, hw - A.r);           // keep right: the two directions use their own sides
+    let want = A.speed, latT = Math.min(A.lane ?? 0.45, hw - A.r);  // keep right (each at their own distance from the middle): the two directions use their own sides
     // crossings: wait at the curb for the walk signal
     st.wait = false; st.onCross = false;
     if (g.cross) for (const c of g.cross) {
@@ -376,7 +398,7 @@ export class LifeRuntime {
     // where that puts us (rising from a seat or a spot: blended from where the act left us)
     const P2 = pointAt(P, 4, ns);
     let cx = P2[0] - D[1] * st.lat, cz = P2[2] + D[0] * st.lat;
-    const k = clamp((this.t - st.moveStart) / SIT_BLEND, 0, 1);
+    const k = clamp((this.t - st.moveStart) / st.bl, 0, 1);
     if (k < 1) { cx = st.fromX + (cx - st.fromX) * k; cz = st.fromZ + (cz - st.fromZ) * k; }
     // never step into someone (or the player): stay put this tick instead
     let ok = this.free(i, cx, cz);
@@ -405,7 +427,7 @@ export class LifeRuntime {
     // held up a while: squeeze past, shoulders brushing (never closer than 0.46 m between centres)
     const squeeze = st.blocked > 2.5 ? 0.46 : -1;
     for (let j = 0; j < this.agents.length; j++) {
-      if (j === i || !this.agents[j].visible || this.data.agents[j].owner === i) continue;
+      if (j === i || !this.agents[j].visible || (this.data.agents[j].owner === i && this.data.agents[j].kind === 'dog')) continue;
       const o = this.agents[j];
       // two folk face to face in a pinch for 3 s: they turn their shoulders and slip past (2.5 s)
       if (st.blocked > 3 && o.blocked > 3 && st.fx * o.fx + st.fz * o.fz < -0.5) { st.slip = this.t + 2.5; o.slip = this.t + 2.5; }
@@ -421,7 +443,8 @@ export class LifeRuntime {
       if (!vv.visible) continue;
       const Vd = this.data.vehicles[j];
       const dn = boxDist(cx, cz, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid);
-      if (dn < A.r + 0.2 && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) return false;
+      // a stopped car may be passed close (a car stopped for us at the crosswalk: walk on past its nose)
+      if (dn < A.r + (vv.v < 0.05 ? 0.06 : 0.2) && dn < boxDist(st.x, st.z, vv.x, vv.z, vv.yaw, Vd.len, Vd.wid)) return false;
     }
     if (this.player.on) {
       const r = A.r + this.player.r + 0.05;
@@ -430,6 +453,53 @@ export class LifeRuntime {
       if (dx * dx + dz * dz < r * r && dx * dx + dz * dz < ex * ex + ez * ez) return false;
     }
     return true;
+  }
+
+  // ── companions: walk beside their friend (or just behind where it's narrow), stand by them and chat ──
+  stepBuddy(i: number, dt: number) {
+    const A = this.data.agents[i], st = this.agents[i];
+    const w = this.agents[A.owner!], W = this.data.agents[A.owner!];
+    st.wait = w.wait; st.onCross = w.onCross;
+    if (!w.visible) { st.visible = false; st.seg = -1; st.v = 0; return; }
+    const g = w.seg >= 0 && w.seg < W.plan.length ? W.plan[w.seg] : null;
+    let tx = st.x, tz = st.z, ty = st.y, face = st.yaw, pose = 'idle';
+    if (g && g.k === 'move') {
+      const P = this.paths[g.p];
+      let s = w.s, lat = w.lat - 0.68;
+      if (lat < -pointAt(P, 4, s)[3] + A.r) { s = Math.max(0, w.s - 0.95); lat = w.lat; }   // too narrow side by side: fall in behind
+      const Q = pointAt(P, 4, s), E = dirAt(P, 4, s);
+      lat = clamp(lat, -Q[3] + A.r, Q[3] - A.r);
+      tx = Q[0] - E[1] * lat; tz = Q[2] + E[0] * lat; ty = Q[1]; face = Math.atan2(E[0], E[1]);
+    } else if (g && g.k === 'act') {
+      const fx = Math.sin(g.face), fz = Math.cos(g.face);
+      if (g.pose === 'sit') {
+        // in front of the bench, a little to one side, facing them: a chat
+        tx = g.at[0] + fx * 1.05 - fz * 0.35; tz = g.at[2] + fz * 1.05 + fx * 0.35; ty = g.at[1];
+        face = Math.atan2(g.at[0] - tx, g.at[2] - tz); pose = 'chat';
+      } else {
+        // beside them, turned a little toward them
+        tx = g.at[0] - fz * 0.7 + fx * 0.2; tz = g.at[2] + fx * 0.7 + fz * 0.2; ty = g.at[1];
+        face = g.face + 0.5; pose = g.pose === 'fish' ? 'idle' : g.pose === 'browse' || g.pose === 'tend' ? 'browse' : 'chat';
+      }
+    }
+    if (st.seg < 0) {
+      // out of the door with them, once there's room
+      if (!this.free(i, tx, tz)) { st.visible = false; return; }
+      st.x = tx; st.y = ty; st.z = tz; st.yaw = face; st.seg = 0; st.fromX = tx; st.fromY = ty; st.fromZ = tz;
+    }
+    st.visible = true;
+    const dx = tx - st.x, dz = tz - st.z, d = Math.sqrt(dx * dx + dz * dz);
+    const stp = Math.min(d, A.speed * 1.35 * dt);
+    let moved = 0;
+    if (d > 1e-6) {
+      const nx = st.x + dx / d * stp, nz = st.z + dz / d * stp;
+      if (this.free(i, nx, nz)) { st.x = nx; st.z = nz; moved = stp; st.blocked = 0; } else st.blocked += dt;
+    }
+    st.y += clamp(ty - st.y, -1.5 * dt, 1.5 * dt);
+    st.v = moved / dt;
+    if (st.v > 0.1 && d > 0.05) st.yaw = angleTo(st.yaw, Math.atan2(dx, dz), 5 * dt); else st.yaw = angleTo(st.yaw, face, 3 * dt);
+    st.fx = Math.sin(st.yaw); st.fz = Math.cos(st.yaw);
+    st.pose = st.v > 0.05 ? 'walk' : d < 0.3 ? pose : 'idle';
   }
 
   headingOf(p: number, s: number): number { const D = dirAt(this.paths[p], 4, s); return Math.atan2(D[0], D[1]); }
