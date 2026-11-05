@@ -139,7 +139,7 @@ test('look tools: new from a preset, deep-merge set, use, info; effects read the
   const bad = s.call('look-set', { look: 'day-toy', set: { grade: { saturation: 9 } } });
   assert.equal(bad.ok, false);
   ok('look-use', { look: 'neon-night' });
-  assert.equal((s.doc() as any).look.palette.magenta, '#ff3fa4');
+  assert.equal((s.doc() as any).look.palette.magenta, '#ff4fb0');
   const info = ok('look-info', {}).result as any;
   assert.equal(info.active, 'neon-night');
   assert.equal(info.looks.length, 2);

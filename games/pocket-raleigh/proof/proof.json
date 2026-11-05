@@ -133,6 +133,62 @@
         -100
       ],
       "fov": 50
+    },
+    {
+      "name": "eye-north-capitol",
+      "position": [
+        4.5,
+        1.6,
+        -12
+      ],
+      "target": [
+        23,
+        13,
+        -459
+      ],
+      "fov": 55
+    },
+    {
+      "name": "eye-south-pac",
+      "position": [
+        6.5,
+        1.6,
+        -40
+      ],
+      "target": [
+        -19,
+        7,
+        540
+      ],
+      "fov": 55
+    },
+    {
+      "name": "capitol-close",
+      "position": [
+        17,
+        6.0,
+        -330
+      ],
+      "target": [
+        23,
+        19,
+        -459
+      ],
+      "fov": 55
+    },
+    {
+      "name": "pac-close",
+      "position": [
+        -13,
+        -0.4,
+        405
+      ],
+      "target": [
+        -19,
+        6,
+        540
+      ],
+      "fov": 55
     }
   ],
   "phone": {

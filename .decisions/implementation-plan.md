@@ -344,6 +344,30 @@ Each module is a folder in the monorepo with its own ops, checks, CLI tool group
 - Toon shading is not drawn. Window lighting is per pane, at one constant warm colour.
 - Bake fallback: textures keep only a graded factor, not graded texels.
 
+### Status (2026-11-05): Raleigh craft pass on `phase4/raleigh-craft` (not merged)
+Checkpoint: `checkpoint-pocket-raleigh/craft/` (README, eye-level sheet, all 14 views per look and engine with parity, the A/B sheets and picks, recipes).
+- **Landmarks from references** (NRHP nomination, NC History, Wikipedia, NC DNCR, SkyscraperPage, venue history; sources in the checkpoint README):
+  - the NC State Capitol closes the north vista at Union Square (cruciform, gneiss, east and west Doric porticoes, a five-bay south front, a penny-bronze dome after the 2023–24 re-cladding);
+  - the Duke Energy Center (Memorial Auditorium portico on the axis, with the Meymandi and Fletcher wings) closes the south end;
+  - PNC Plaza is revised to stacked blue-glass boxes with a pyramid and a lit spire;
+  - Wells Fargo Capitol Center is revised to a dark rose-granite grid with a triangular gable. The old copper hip was wrong.
+- **Two neighbouring real towns** (Union Square, South Fayetteville) carry the street to them. A new `seam` option on `world-town` feathers a neighbour's ground to meet the main town's built ground, removing 0.8–3 m steps at the seams.
+- **Night v3.1** (A/B picks: v3 over v2, v3.1 over v3):
+  - a near-black navy sky and neutral ambient;
+  - sodium and white-LED lamp heads;
+  - lit shop windows and floodlit landmarks (`shop`, `led`, `flood` classes).
+- **Light** in Godot (Environment glow) and three.js (a mip chain fitted to Godot: gain 0.6, mean FLIP 0.114 vs 0.150 without glow).
+  - Glow comes from a new `look.bloom`.
+  - Light pools on the ground under lamps and masts, and shop spill, are an additive `pool` class in a "Light pools" node. They are invisible without a look.
+- **Storefront variety:** four front kinds, six frame colours, and fabric, metal or no canopy.
+- **Town meshes are indexed:** the GLB went from 50.2 to 38.6 MB, under the 40 MB budget.
+- **Parity** (Godot vs web FLIP, 14 views): day ≤ 0.110, night ≤ 0.121. Both are within the 0.15 target.
+- **Weak:** see the checkpoint README.
+  - At eye level, the Capitol reads clearly only from the head of the street. From City Plaza it is a small floodlit shape at the vista end.
+  - The PAC is too far away to read from the plaza, and close up it is a civic box with a portico.
+  - The big plaza-side shopfront is still too hot at night.
+  - The pools are flat (no falloff onto walls). Pools and glow are not real lights, so they light no facades.
+
 ### Week 12: life, people
 - [x] Smart places: benches, stalls, piers, dog walks. *(plus bus stops and doors; each place lists its offers and slots: bench `sit ×2`, stall `browse ×2 + tend`, pier `fish ×2`, park `walk-dog` for a pair, bus stop `wait ×3`)*
 - [x] Seeded cast and schedules by hour, season and event. *(`life/bake.ts`: roles (stall keepers, anglers, dog walkers, folk), 2–4 outings each from an hourly density per day type, the season's dusk, the Saturday market 8–13; slots booked so nobody shares a seat)*

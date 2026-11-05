@@ -82,7 +82,7 @@ test('projects: init writes the template, never clobbers game files, refreshes m
 });
 
 test('CLI + MCP: game commands are typed, discoverable and correct bad input without starting anything', () => {
-  const run = (args: string[], input?: string) => spawnSync(process.execPath, [CLI, ...args], { input, encoding: 'utf8', cwd: tmp(), env: { ...process.env, STUDIO_PORT: '4595' }, timeout: 30000 });
+  const run = (args: string[], input?: string) => spawnSync(process.execPath, [CLI, ...args], { input, encoding: 'utf8', cwd: tmp(), env: { ...process.env, STUDIO_PORT: process.env.TEST_GAME_PORT ?? '4595' }, timeout: 30000 });
   const near = JSON.parse(run(['game', 'wlak-to']).stdout);
   assert.deepEqual(near.didYouMean, ['walk-to']);
   const flag = JSON.parse(run(['game', 'walk-to', '--taget', 'x']).stdout);

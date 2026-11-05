@@ -6,7 +6,7 @@ import { applyRules } from './rules.ts';
 import { applyFixes, type Fix, type FixReport } from './fixes.ts';
 import { inventedPlan, realPlan, remixPlan, type RawArea, type Sketch } from './sources.ts';
 import { townNodes, nodeTriangles, type ModelMesh, type TownNode, type V3 } from './mesh.ts';
-import type { TownPlan } from './plan.ts';
+import { groundAt, type TownPlan } from './plan.ts';
 
 export interface TownSpec {
   name: string;
@@ -18,6 +18,9 @@ export interface TownSpec {
   sketch?: Sketch;
   blocks?: number;
   offset?: [number, number, number];   // where the town sits in the scene (metres)
+  /** meet a neighbouring town's ground along the shared edge: this town's ground is feathered over
+   *  `feather` metres toward the neighbour's built ground (two DEM grids never sample alike) */
+  seam?: { town: string; feather?: number };
   fixes: Fix[];
 }
 export interface WorldState { towns: Record<string, TownSpec> }
@@ -47,18 +50,48 @@ export function listAreas(): Array<{ area: string; bbox: any; fetchedAt: string 
 
 export interface BuiltTown { spec: TownSpec; plan: TownPlan; fixes: FixReport; key: string }
 const built = new Map<string, BuiltTown>();
+const knownSpecs = new Map<string, TownSpec>();
+
+/** Feather a plan's ground toward a neighbour's ground along the neighbour's outline (before the rules). */
+function applySeam(plan: TownPlan, spec: TownSpec, other: BuiltTown): void {
+  const g = plan.ground, og = other.plan.ground;
+  const off = spec.offset ?? [0, 0, 0], oo = other.spec.offset ?? [0, 0, 0];
+  const at: [number, number, number] = [off[0] - oo[0], off[1] - oo[1], off[2] - oo[2]];   // this local + at = other local
+  const feather = spec.seam?.feather ?? 60;
+  const ox0 = og.x0, ox1 = og.x0 + og.dx * (og.nx - 1), oz0 = og.z0, oz1 = og.z0 + og.dz * (og.nz - 1);
+  const before = g.heights.slice();
+  const tg = { ...g, heights: before };
+  for (let j = 0; j < g.nz; j++) for (let i = 0; i < g.nx; i++) {
+    const x = g.x0 + i * g.dx, z = g.z0 + j * g.dz;
+    // nearest point of the neighbour's ground rectangle (in its local frame)
+    const px = Math.min(ox1, Math.max(ox0, x + at[0])), pz = Math.min(oz1, Math.max(oz0, z + at[2]));
+    const d = Math.hypot(px - (x + at[0]), pz - (z + at[2]));
+    if (d >= feather) continue;
+    const target = groundAt(og, px, pz) - at[1];
+    const mine = groundAt(tg, px - at[0], pz - at[2]);
+    const w = 1 - d / feather, s = w * w * (3 - 2 * w);
+    g.heights[j * g.nx + i] = +(before[j * g.nx + i] + (target - mine) * s).toFixed(3);
+  }
+}
 
 /** Build (or reuse) a town's plan: source, rules, then the fix layer. */
-export function buildTown(spec: TownSpec): BuiltTown {
+export function buildTown(spec: TownSpec, world?: WorldState): BuiltTown {
+  knownSpecs.set(spec.name, spec);
+  let seamWith: BuiltTown | null = null;
+  if (spec.seam) {
+    const os = world?.towns?.[spec.seam.town] ?? knownSpecs.get(spec.seam.town);
+    if (os && os.name !== spec.name) seamWith = buildTown(os, world);
+  }
   let stamp = '';
   if (spec.area) { try { stamp = String(nodeFs().statSync(nodePath().join(worldCacheDir(), spec.area, 'meta.json')).mtimeMs); } catch { /* reported by loadArea */ } }
-  const key = JSON.stringify([spec.source, spec.area, spec.style, spec.seed, spec.description, spec.sketch, spec.blocks, spec.fixes, stamp]);
+  const key = JSON.stringify([spec.source, spec.area, spec.style, spec.seed, spec.description, spec.sketch, spec.blocks, spec.fixes, stamp, spec.seam, spec.offset, seamWith?.key ?? '', seamWith?.spec.offset ?? '']);
   const hit = built.get(spec.name);
   if (hit && hit.key === key) return { ...hit, spec };
   let plan: TownPlan;
   if (spec.source === 'real') plan = realPlan(spec.name, loadArea(spec.area!), spec.style);
   else if (spec.source === 'remix') plan = remixPlan(spec.name, loadArea(spec.area!), { style: spec.style, seed: spec.seed });
   else plan = inventedPlan(spec.name, { style: spec.style, seed: spec.seed, description: spec.description, sketch: spec.sketch, blocks: spec.blocks });
+  if (seamWith) applySeam(plan, spec, seamWith);
   applyRules(plan);
   const fixes = applyFixes(plan, spec.fixes ?? []);
   const b = { spec, plan, fixes, key };
@@ -70,7 +103,7 @@ export function buildTown(spec: TownSpec): BuiltTown {
 export function worldNodes(world: WorldState | undefined, models: Record<string, ModelMesh> = {}, detail: 'full' | 'low' = 'full'): Array<{ town: string; offset: V3; nodes: TownNode[]; plan: TownPlan }> {
   if (!world) return [];
   return Object.values(world.towns).map((spec) => {
-    const t = buildTown(spec);
+    const t = buildTown(spec, world);
     return { town: spec.name, offset: (spec.offset ?? [0, 0, 0]) as V3, nodes: townNodes(t.plan, { models, detail }), plan: t.plan };
   });
 }
@@ -93,8 +126,10 @@ function linear(hex: string): [number, number, number] {
 function shadeClass(m: { name: string; roughness: number; metalness?: number }) {
   if (m.name === 'water') return { name: 'water', roughness: 0.12, metalness: 0 };
   // classes a look can light up (Decision 29 material tweaks): lit windows, lamps, neon, signs
-  const special = /(^|\s)(lit|lamp|neon|sign)$/.exec(m.name);
-  if (special) return { name: special[2], roughness: special[2] === 'lit' ? 0.28 : 0.5, metalness: 0 };
+  // (flood: floodlit stone on landmarks; shop: shop windows lit from inside; led: white LED lamp heads;
+  //  pool: light pools on the ground, additive, invisible unless a look lights them)
+  const special = /(^|\s)(lit|lamp|led|neon|sign|flood|shop|pool)$/.exec(m.name);
+  if (special) return { name: special[2], roughness: special[2] === 'lit' || special[2] === 'shop' ? 0.28 : special[2] === 'flood' ? 0.88 : 0.5, metalness: 0 };
   if ((m.metalness ?? 0) >= 0.3) return { name: 'metal', roughness: 0.55, metalness: 0.5 };
   if (m.roughness < 0.45) return { name: 'glossy', roughness: 0.28, metalness: 0.05 };
   return { name: 'matte', roughness: 0.9, metalness: 0 };
@@ -108,9 +143,24 @@ function addSoups(prims: Map<string, Prim>, soups: TownNode['soups'], shift: V3)
     for (let i = 0; i < s.positions.length; i += 3) {
       p.positions.push(s.positions[i] + shift[0], s.positions[i + 1] + shift[1], s.positions[i + 2] + shift[2]);
       p.normals.push(s.normals[i], s.normals[i + 1], s.normals[i + 2]);
-      p.colors.push(col[0], col[1], col[2]);
+      if (s.colors) p.colors.push(s.colors[i], s.colors[i + 1], s.colors[i + 2]);
+      else p.colors.push(col[0], col[1], col[2]);
     }
   }
+}
+
+/** Weld identical corners (same position, normal and colour) of a soup into an indexed mesh. */
+export function indexSoup(p: { positions: number[]; normals: number[]; colors: number[] }) {
+  const n = p.positions.length / 3, map = new Map<string, number>();
+  const pos: number[] = [], nor: number[] = [], col: number[] = [], idx = new Uint32Array(n);
+  for (let i = 0; i < n; i++) {
+    const k = i * 3;
+    const key = `${p.positions[k]},${p.positions[k + 1]},${p.positions[k + 2]},${p.normals[k]},${p.normals[k + 1]},${p.normals[k + 2]},${p.colors[k]},${p.colors[k + 1]},${p.colors[k + 2]}`;
+    let v = map.get(key);
+    if (v === undefined) { v = pos.length / 3; map.set(key, v); pos.push(p.positions[k], p.positions[k + 1], p.positions[k + 2]); nor.push(p.normals[k], p.normals[k + 1], p.normals[k + 2]); col.push(p.colors[k], p.colors[k + 1], p.colors[k + 2]); }
+    idx[i] = v;
+  }
+  return { positions: new Float32Array(pos), normals: new Float32Array(nor), colors: new Float32Array(col), indices: idx };
 }
 
 export interface ChunkNode { name: string; semanticType: string; at: V3; prims: Prim[]; extras: Record<string, unknown> }
@@ -147,11 +197,15 @@ export function addTownsToGlb(B: GlbBuilder, towns: ReturnType<typeof worldNodes
       const prims = n.prims.filter((p) => p.positions.length).map((p) => {
         let mi = matIdx.get(p.mat.name);
         if (mi === undefined) {
-          B.gltf.materials.push({ name: `world ${p.mat.name}`, pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: p.mat.metalness, roughnessFactor: p.mat.roughness }, extras: { world: true, vertexColors: true } });
+          const pool = p.mat.name === 'pool';
+          B.gltf.materials.push({ name: `world ${p.mat.name}`, pbrMetallicRoughness: { baseColorFactor: pool ? [0, 0, 0, 0] : [1, 1, 1, 1], metallicFactor: p.mat.metalness, roughnessFactor: p.mat.roughness }, ...(pool ? { alphaMode: 'BLEND', extensions: { KHR_materials_unlit: {} } } : {}), extras: { world: true, vertexColors: true, ...(pool ? { lightPool: true } : {}) } });
+          if (pool) { B.gltf.extensionsUsed ??= []; if (!B.gltf.extensionsUsed.includes('KHR_materials_unlit')) B.gltf.extensionsUsed.push('KHR_materials_unlit'); }
           mi = B.gltf.materials.length - 1;
           matIdx.set(p.mat.name, mi);
         }
-        return { attributes: { POSITION: B.accessor(new Float32Array(p.positions), 'VEC3', true), NORMAL: B.accessor(new Float32Array(p.normals), 'VEC3'), COLOR_0: B.accessor(new Float32Array(p.colors), 'VEC3') }, material: mi };
+        // flat-shaded soups share many identical corners (quads, fans): index them (about a third smaller)
+        const ix = indexSoup(p);
+        return { attributes: { POSITION: B.accessor(ix.positions, 'VEC3', true), NORMAL: B.accessor(ix.normals, 'VEC3'), COLOR_0: B.accessor(ix.colors, 'VEC3') }, indices: B.typed(ix.indices, 'SCALAR', { target: 34963 }), material: mi };
       });
       if (!prims.length) continue;
       primitives += prims.length;
@@ -175,7 +229,7 @@ export function creditsText(world: WorldState | undefined): string {
   if (!world) return '';
   const lines: string[] = [];
   for (const spec of Object.values(world.towns)) {
-    const t = buildTown(spec);
+    const t = buildTown(spec, world);
     if (!t.plan.credits.length) { lines.push(`${spec.name}: invented (${spec.style}, seed ${spec.seed ?? 1}); no outside data.`); continue; }
     lines.push(`${spec.name}: ${t.plan.source === 'remix' ? 'real streets with invented buildings' : 'built from open data'}${t.plan.bbox ? ` for ${[t.plan.bbox.west, t.plan.bbox.south, t.plan.bbox.east, t.plan.bbox.north].join(', ')}` : ''}.`);
     for (const c of t.plan.credits) lines.push(`  - ${c.text} ${c.url}`);

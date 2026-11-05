@@ -61,7 +61,7 @@ export function landmarkMeshes(studio: any, doc: any): Record<string, ModelMesh>
 /** World checks (studio check): fixes that lost their building, overlaps, budgets. */
 export function worldChecks(spec: TownSpec, doc?: any): CheckResult[] {
   let t;
-  try { t = buildTown(spec); } catch (e: any) { return [{ id: 'world-build', label: 'Town builds', pass: false, detail: e.message }]; }
+  try { t = buildTown(spec, doc?.world); } catch (e: any) { return [{ id: 'world-build', label: 'Town builds', pass: false, detail: e.message }]; }
   const out: CheckResult[] = [];
   const orphans = t.fixes.orphaned;
   out.push({ id: 'world-fixes', label: 'Every fix finds its building', pass: !orphans.length, detail: orphans.length ? orphans.map((o) => `fix #${o.index}${o.note ? ` (${o.note})` : ''}: ${o.reason}`).join('; ') : `${t.fixes.applied.length} fix${t.fixes.applied.length === 1 ? '' : 'es'} applied${t.fixes.applied.some((a) => a.by === 'position') ? ` (${t.fixes.applied.filter((a) => a.by === 'position').length} by position: the id changed, re-key with world-fix --id)` : ''}` });
@@ -114,6 +114,7 @@ export const WORLD_TOOLS: ToolDef[] = [
       sketch: z.object({ streets: z.array(z.object({ name: z.string().optional(), kind: z.enum(['primary', 'secondary', 'tertiary', 'residential', 'service', 'pedestrian', 'footway']).optional(), points: z.array(P2Z).min(2) })).min(1), river: z.object({ points: z.array(P2Z).min(2), width: z.number().positive() }).optional(), green: z.array(P2Z).min(3).optional(), size: z.object({ w: z.number(), d: z.number() }).optional() }).optional(),
       blocks: z.number().int().min(1).max(6).optional(),
       offset: z.tuple([z.number(), z.number(), z.number()]).optional(),
+      seam: z.string().optional().describe('a neighbouring town (by name) whose ground this town meets along the shared edge: the ground is feathered over 60 m so two DEM grids join without a step'),
     }),
     example: 'studio world-town --name "Pocket Raleigh" --source real --area raleigh-fayetteville --style raleigh-downtown',
     run(ctx, a) {
@@ -128,9 +129,10 @@ export const WORLD_TOOLS: ToolDef[] = [
         ...(a.area ? { area: a.area } : {}), ...(a.source !== 'real' ? { seed: a.seed ?? prev?.seed ?? 1 } : {}),
         ...(a.description ? { description: a.description } : {}), ...(a.sketch ? { sketch: a.sketch } : {}), ...(a.blocks ? { blocks: a.blocks } : {}),
         ...(a.offset ?? prev?.offset ? { offset: a.offset ?? prev!.offset } : {}),
+        ...(a.seam ?? prev?.seam ? { seam: a.seam ? { town: a.seam } : prev!.seam } : {}),
         fixes: prev?.fixes ?? [],
       };
-      const t = buildTown(spec);
+      const t = buildTown(spec, world(ctx));
       ctx.set(['world', 'towns', a.name], spec);
       const s = summary(t);
       ctx.summary(`${prev ? 'Rebuilt' : 'Built'} ${a.name}: ${s.buildings} buildings, ${s.streets} streets, ${s.trees} trees (${a.source}, ${spec.style})${spec.fixes.length ? `; ${t.fixes.applied.length}/${spec.fixes.length} fixes landed` : ''}`);

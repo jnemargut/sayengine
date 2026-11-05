@@ -8,7 +8,7 @@ import { stable, styleFor, type Style } from './styles.ts';
 
 export type V3 = [number, number, number];
 export interface Mat { color: string; roughness: number; metalness?: number; name: string }
-export interface Soup { mat: Mat; positions: number[]; normals: number[] }
+export interface Soup { mat: Mat; positions: number[]; normals: number[]; colors?: number[] }   // colors: linear RGB per vertex (light pools)
 export interface TownNode {
   name: string;
   semanticType: 'ground' | 'roads' | 'water' | 'parks' | 'trees' | 'building' | 'landmark' | 'street-furniture';
@@ -22,6 +22,14 @@ export interface ModelMesh { soups: Soup[]; size: V3 }
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const nrm = (v: V3): V3 => { const l = Math.hypot(...v) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+
+/** Push a triangle that faces up (+y) with per-vertex colours (colour × falloff). */
+function triUp(s: Soup, o: V3, color: [number, number, number], a: V3, fa: number, b: V3, fb: number, c: V3, fc: number) {
+  const ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+  if (Math.abs(ny) < 1e-9) return;
+  if (ny < 0) { [b, c] = [c, b]; [fb, fc] = [fc, fb]; }
+  for (const [p, f] of [[a, fa], [b, fb], [c, fc]] as Array<[V3, number]>) { s.positions.push(p[0] - o[0], p[1] - o[1], p[2] - o[2]); s.normals.push(0, 1, 0); s.colors!.push(color[0] * f, color[1] * f, color[2] * f); }
+}
 
 /** Collects flat-shaded triangles per material, relative to an origin. */
 export class SoupBuilder {
@@ -80,6 +88,45 @@ export class SoupBuilder {
       else this.tri(m, p(r0, a0, 0), p(r0, a1, 0), [c[0], c[1] + h, c[2]], out);
       if (caps && r1 > 1e-4) this.tri(m, [c[0], c[1] + h, c[2]], p(r1, a0, h), p(r1, a1, h), [0, 1, 0]);
       if (caps) this.tri(m, [c[0], c[1], c[2]], p(r0, a0, 0), p(r0, a1, 0), [0, -1, 0]);
+    }
+  }
+  /** A flat light pool on the ground: a fan of rings whose vertex colours fall off from `color` at the centre
+   *  to black at the rim (additive in a night look). `y(p)` drapes it; `sx`/`sz` stretch it along `dir`. */
+  pool(m: Mat, c: P2, radius: number, color: [number, number, number], y: (p: P2) => number, opts: { dir?: P2; along?: number; across?: number; offset?: number } = {}) {
+    const k = `${m.name}|pool`;
+    let s = this.soups.get(k);
+    if (!s) { s = { mat: m, positions: [], normals: [], colors: [] }; this.soups.set(k, s); }
+    const d = opts.dir ?? [1, 0], e: P2 = [-d[1], d[0]], A = opts.along ?? 1, B = opts.across ?? 1, off = opts.offset ?? 0;
+    const rings = [0, 0.22, 0.45, 0.7, 1], fall = [1, 0.72, 0.38, 0.12, 0];
+    const seg = 18, o = this.origin;
+    const P = (r: number, a: number): { p: V3; f: number } => {
+      const u = Math.cos(a) * r * radius * A, v = Math.sin(a) * r * radius * B + off;
+      const q: P2 = [c[0] + d[0] * u + e[0] * v, c[1] + d[1] * u + e[1] * v];
+      return { p: [q[0], y(q), q[1]], f: 0 };
+    };
+    for (let ri = 0; ri + 1 < rings.length; ri++) for (let i = 0; i < seg; i++) {
+      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+      const p00 = P(rings[ri], a0).p, p01 = P(rings[ri], a1).p, p10 = P(rings[ri + 1], a0).p, p11 = P(rings[ri + 1], a1).p;
+      if (ri === 0) { triUp(s, o, color, p00, fall[0], p10, fall[1], p11, fall[1]); continue; }
+      triUp(s, o, color, p00, fall[ri], p10, fall[ri + 1], p11, fall[ri + 1]);
+      triUp(s, o, color, p00, fall[ri], p11, fall[ri + 1], p01, fall[ri]);
+    }
+  }
+  /** A light spill strip in front of a shopfront: bright along the facade a→b, fading out over `depth`. */
+  spill(m: Mat, a: P2, b: P2, out: P2, depth: number, color: [number, number, number], y: (p: P2) => number) {
+    const k = `${m.name}|pool`;
+    let s = this.soups.get(k);
+    if (!s) { s = { mat: m, positions: [], normals: [], colors: [] }; this.soups.set(k, s); }
+    const o = this.origin, n = 6;
+    const at = (t: number, w: number): V3 => { const q: P2 = [a[0] + (b[0] - a[0]) * t + out[0] * w, a[1] + (b[1] - a[1]) * t + out[1] * w]; return [q[0], y(q), q[1]]; };
+    const edge = (t: number) => Math.min(1, Math.min(t, 1 - t) * 6);   // fade the ends
+    const rows = [0.05, depth * 0.4, depth], fr = [1, 0.4, 0];
+    for (let r = 0; r + 1 < rows.length; r++) for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n;
+      const q00 = at(t0, rows[r]), q10 = at(t1, rows[r]), q01 = at(t0, rows[r + 1]), q11 = at(t1, rows[r + 1]);
+      const f00 = fr[r] * edge(t0), f10 = fr[r] * edge(t1), f01 = fr[r + 1] * edge(t0), f11 = fr[r + 1] * edge(t1);
+      triUp(s, o, color, q00, f00, q10, f10, q11, f11);
+      triUp(s, o, color, q00, f00, q11, f11, q01, f01);
     }
   }
   result(): Soup[] { return [...this.soups.values()].filter((s) => s.positions.length); }
@@ -147,7 +194,8 @@ export function townNodes(plan: TownPlan, opts: BuildOpts = {}): TownNode[] {
   }
   nodes.push({ name: 'Streets', semanticType: 'roads', at: [0, 0, 0], soups: roads(plan, style).result(), extras: { streets: plan.streets.map((s) => s.id) } });
   if (plan.trees.length) nodes.push({ name: 'Trees', semanticType: 'trees', at: [0, 0, 0], soups: trees(plan, style).result(), extras: { count: plan.trees.length } });
-  const lights = streetLights(plan, style);
+  const lampSpots: LampSpot[] = [];
+  const lights = streetLights(plan, style, lampSpots);
   if (lights.triangles) nodes.push({ name: 'Street furniture', semanticType: 'street-furniture', at: [0, 0, 0], soups: lights.result(), extras: {} });
   const life = streetLife(plan, style);
   if (life.triangles) nodes.push({ name: 'Street life', semanticType: 'street-furniture', at: [0, 0, 0], soups: life.result(), extras: { parkedCars: true } });
@@ -164,6 +212,8 @@ export function townNodes(plan: TownPlan, opts: BuildOpts = {}): TownNode[] {
     }
     nodes.push({ name: `Prop ${pr.model} ${pr.fix}`, semanticType: 'landmark', at: [pr.at[0], base, pr.at[1]], soups: sb.result(), extras: { model: pr.model, fixes: [pr.fix] } });
   }
+  const pools = lightPools(plan, style, lampSpots, opts.models ?? {});
+  if (pools.triangles) nodes.push({ name: 'Light pools', semanticType: 'street-furniture', at: [0, 0, 0], soups: pools.result(), extras: { lamps: lampSpots.length } });
   const names = new Set<string>();
   for (const b of plan.buildings) {
     if (b.hidden) continue;
@@ -226,6 +276,7 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
   // the odd blank bay, paired windows and a smaller attic row on older blocks: no two facades alike
   const W = style.life?.windows;
   const litM = M('glass lit', pal.glass, 0.25, 0.1);
+  const shopM = M('storefront shop', pal.glass, 0.25, 0.1);   // shop windows: lit from inside in a night look
   const pairs = !!W && scheme === 'punched' && stable(b.id, 'pairs') < W.pairs;
   const litFloor = (f: number) => (stable(b.id, `lf${f}`) < 0.45 ? 1.7 : 0.35);
   const win = (face: number, f: number, k: number, t0: number, t1: number, yb: number, yt: number, pane: (t0: number, t1: number, yb: number, yt: number, m: Mat, o?: number) => void, allowBlank = true) => {
@@ -259,14 +310,43 @@ function building(sb: SoupBuilder, b: Building, plan: TownPlan, style: Style, de
     if (b.storefront && isFront && b.height > 4) {
       const bays = Math.max(1, Math.round(len / 4.2));
       const awn = M('awning', pal.accent ?? style.colors.awning[Math.floor(stable(b.id, 'awning') * style.colors.awning.length)], 0.8);
+      // shopfront habits, stable per facade: plain plate glass; a painted frame with a kick plate and a
+      // transom; mullioned panes; a recessed door bay. Awnings are fabric, a flat metal canopy, or none.
+      const kind = stable(b.id, 'shopkind' + i);
+      const shopKind = kind < 0.3 ? 'plate' : kind < 0.6 ? 'framed' : kind < 0.82 ? 'mullion' : 'recessed';
+      const frameCols = ['#24221f', '#5a2620', '#23443a', '#d9d0bd', '#2b3a4f', '#6b4a2e'];
+      const frameM = M('shop frame', frameCols[Math.floor(stable(b.id, 'frame' + i) * frameCols.length)], 0.6);
+      const canopy = stable(b.id, 'canopy' + i);
+      const canopyKind = b.use === 'shop' || b.use === 'hotel' ? (canopy < 0.6 ? 'fabric' : 'metal') : canopy < 0.3 ? 'fabric' : canopy < 0.55 ? 'metal' : 'none';
+      const door = Math.floor(stable(b.id, 'door' + i) * bays);
+      const yTop = floor0 + gf * 0.68, yBot = floor0 + 0.45;
       for (let k = 0; k < bays; k++) {
         const t0 = (k + 0.12) / bays, t1 = (k + 0.88) / bays;
-        pane(t0, t1, floor0 + 0.45, floor0 + gf * 0.68, glassM);
-        if (b.use === 'shop' || b.use === 'hotel' || stable(b.id + k, 'awn') < 0.35) {
-          const yA = floor0 + gf * 0.74, depth = 1.25;
+        if (shopKind === 'plate') pane(t0, t1, yBot, yTop, shopM);
+        else if (shopKind === 'framed') {
+          pane(t0 - 0.02 / bays, t1 + 0.02 / bays, floor0 + 0.05, yTop + 0.55, frameM, 0.05);   // painted surround
+          pane(t0, t1, floor0 + 0.75, yTop - 0.05, shopM);                                     // over a kick plate
+          pane(t0, t1, yTop + 0.1, yTop + 0.45, shopM, 0.065);                                 // transom
+        } else if (shopKind === 'mullion') {
+          pane(t0, t1, yBot, yTop, shopM);
+          for (const f of [1 / 3, 2 / 3]) { const tm = t0 + (t1 - t0) * f; pane(tm - 0.012, tm + 0.012, yBot, yTop, frameM, 0.075); }
+          pane(t0, t1, yTop - 0.75, yTop - 0.68, frameM, 0.075);
+        } else {
+          // a recessed entrance: the door bay sits back in a dark reveal, the others are plate glass
+          if (k === door) { pane(t0, t1, floor0, yTop, darkM, 0.03); pane(t0 + 0.08 / bays, t1 - 0.08 / bays, floor0 + 0.02, yTop - 0.3, shopM, 0.035); }
+          else pane(t0, t1, yBot, yTop, shopM);
+        }
+        const yA = floor0 + gf * 0.74;
+        if (canopyKind === 'fabric' && (b.use === 'shop' || b.use === 'hotel' || stable(b.id + k, 'awn') < 0.6)) {
+          const depth = 1.25;
           sb.quad(awn, off(t0, 0.08, yA + 0.5), off(t1, 0.08, yA + 0.5), off(t1, depth, yA), off(t0, depth, yA), [out[0], 1, out[1]]);
           sb.quad(awn, off(t0, depth, yA), off(t1, depth, yA), off(t1, depth, yA - 0.3), off(t0, depth, yA - 0.3), [out[0], 0, out[1]]);
         }
+      }
+      if (canopyKind === 'metal') {
+        // one flat metal canopy along the whole front, hung on two rods
+        const d = 1.6, cy = floor0 + gf * 0.76, mid = off(0.5, d / 2 + 0.05, cy);
+        sb.box(M('canopy', '#3b3f44', 0.5, 0.4), mid, [len * 0.96, 0.16, d], Math.atan2(c[1] - a[1], c[0] - a[0]));
       }
       const signs = style.life?.signs;
       if (signs && b.use !== 'civic' && stable(b.id, 'signband' + i) < 0.55) {
@@ -623,9 +703,10 @@ function trees(plan: TownPlan, style: Style): SoupBuilder {
   return sb;
 }
 
-function streetLights(plan: TownPlan, style: Style): SoupBuilder {
+export interface LampSpot { at: P2; y: number; h: number; kind: 'sodium' | 'led'; base: number }
+function streetLights(plan: TownPlan, style: Style, spots: LampSpot[] = []): SoupBuilder {
   const sb = new SoupBuilder();
-  const pole = M('lamp post', '#2c3030', 0.6, 0.6), lamp = M('lamp', '#f3e6c2', 0.4);
+  const pole = M('lamp post', '#2c3030', 0.6, 0.6), lamp = M('lamp', '#f3e6c2', 0.4), led = M('lamp led', '#eef0f0', 0.4);
   const planter = M('planter', '#8f877a', 0.9), shrub = M('shrub', style.colors.leaves[0], 0.9), bench = M('bench', '#7a5a3e', 0.85);
   const spacing = 26;
   for (const s of plan.streets) {
@@ -643,7 +724,11 @@ function streetLights(plan: TownPlan, style: Style): SoupBuilder {
         const clear = plan.buildings.every((bb) => !pointInPoly(q, bb.footprint)) && plan.streets.every((o) => o === s || o.kind === 'footway' || distToPolyline(q, o.points) > o.width / 2 + 0.5);
         if (clear) {
           sb.frustum(pole, [q[0], y, q[1]], 0.09, 0.07, 4.6, 5);
-          sb.box(lamp, [q[0] - nn[0] * 0.5, y + 4.6, q[1] - nn[1] * 0.5], [0.45, 0.22, 0.45]);
+          // older sodium heads and newer LED heads mixed along a street (Raleigh is part-way through the swap)
+          const kind = hash32(`lamp${s.id}:${Math.round(d)}`) % 100 < 45 ? 'led' : 'sodium';
+          const head: P2 = [q[0] - nn[0] * 0.5, q[1] - nn[1] * 0.5];
+          sb.box(kind === 'led' ? led : lamp, [head[0], y + 4.6, head[1]], [0.45, 0.22, 0.45]);
+          spots.push({ at: head, y: y + 4.6, h: 4.6, kind, base: y });
           const ban = style.life?.banners;
           if (ban) {
             // a city banner on the pole, hanging over the sidewalk side
@@ -731,6 +816,47 @@ function streetLife(plan: TownPlan, style: Style): SoupBuilder {
       }
     }
   }
+  return sb;
+}
+
+// ── light on the ground (a night look lights these; they are invisible otherwise) ──
+const POOL_COLORS: Record<string, string> = { sodium: '#ffa64d', led: '#ffe9cf', mast: '#fff4e2' };
+const SHOP_COLORS = ['#ffc98a', '#ffe2b8', '#fff3e0', '#ffd4a0', '#dfe9ff'];
+/** Pools of light under street lamps and lantern props (light masts), and the spill of lit shop windows
+ * onto the sidewalk: flat additive fans with a soft falloff, 20 cm up (lower, they z-fight the graded road in Godot). */
+function lightPools(plan: TownPlan, style: Style, lamps: LampSpot[], models: Record<string, ModelMesh>): SoupBuilder {
+  const sb = new SoupBuilder();
+  const m = M('pool', '#000000', 1);
+  const lin = (hex: string): [number, number, number] => { const n = parseInt(hex.slice(1), 16); const f = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return [f(((n >> 16) & 255) / 255), f(((n >> 8) & 255) / 255), f((n & 255) / 255)]; };
+  const flat = (y: number) => () => y;
+  for (const l of lamps) sb.pool(m, l.at, l.kind === 'led' ? 5.5 : 6.5, lin(POOL_COLORS[l.kind]), flat(l.base + 0.2));
+  // lantern props (City Plaza light masts): a wide pool under the highest lamp part
+  for (const pr of plan.props ?? []) {
+    const mm = models[pr.model];
+    if (!mm) continue;
+    let top = 0;
+    for (const s of mm.soups) if (/(^|\s)lamp$/.test(s.mat.name)) for (let i = 1; i < s.positions.length; i += 3) top = Math.max(top, s.positions[i]);
+    if (!top) continue;
+    const base = pr.base ?? groundAt(plan.ground, pr.at[0], pr.at[1]);
+    sb.pool(m, pr.at, Math.min(10, Math.max(7, top * 0.55)), lin(POOL_COLORS.mast), flat(base + 0.2));
+  }
+  // shop windows spill onto the sidewalk in front of them
+  for (const b of plan.buildings) {
+    if (b.hidden || b.model || !b.storefront || !(b.height > 4)) continue;
+    const fp = b.footprint, n = fp.length;
+    const nearStreet = (a: P2, c: P2) => { const q: P2 = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2]; return plan.streets.reduce((d, s) => Math.min(d, distToPolyline(q, s.points) - s.width / 2 - s.sidewalk), Infinity); };
+    const sd = fp.map((a, i) => nearStreet(a, fp[(i + 1) % n]));
+    const front = Math.min(...sd);
+    const col = lin(SHOP_COLORS[Math.floor(stable(b.id, 'shoplight') * SHOP_COLORS.length)]);
+    const c = centroid(fp);
+    const base = b.base ?? groundAt(plan.ground, c[0], c[1]);
+    for (let i = 0; i < n; i++) {
+      const a = fp[i], d = fp[(i + 1) % n];
+      if (!(sd[i] < front + 6 && sd[i] < 18) || Math.hypot(d[0] - a[0], d[1] - a[1]) < 2.4) continue;
+      sb.spill(m, a, d, outward(fp, a, d), 3.6, col, (q) => Math.max(groundAt(plan.ground, q[0], q[1]) + 0.2, base + 0.03));
+    }
+  }
+  void style;
   return sb;
 }
 

@@ -18,6 +18,7 @@ The user's request: **$ARGUMENTS**
 ## Invented and remixed towns
 
 - `./studio world-town --name "River Twin" --source invented --seed 7 --description "mill town on a river, 1920s, 3 blocks" --offset '[380,0,0]'`
+- Extending a real town past its edge (a landmark a few blocks on): fetch the neighbouring area with a bbox that shares the edge, then `world-town --name <neighbour> --source real --area <it> --offset [dx, dyRef, dz] --seam "<main town>"` — the offset is the shift between bbox centres plus the difference of the DEM reference heights; `--seam` feathers the neighbour's ground to meet the main town's (two DEM grids never sample alike).
 - Or write the street sketch yourself: `--sketch '{"streets":[{"name":"Main Street","kind":"tertiary","points":[[-120,0],[120,0]]}],"river":{"points":[[-150,60],[150,60]],"width":26},"green":[[-30,-60],[30,-60],[30,-15],[-30,-15]]}'`.
 - `--source remix --area <fetched area>` keeps the real streets and ground and invents the buildings.
 - Building IDs are `inv:<seed>:<street>:<side><n>`: the same seed and sketch give the same lots, so fixes survive a regenerate. A new `--seed` is a new town.
