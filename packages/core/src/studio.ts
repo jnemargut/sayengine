@@ -22,6 +22,7 @@ import { lineChecks } from './lipsync.ts';
 import { bakeCreature, buildCreature, creatureChecks } from './rigparts.ts';
 import { Collab, stamp, stepAssets, type Clock } from './collab/index.ts';
 import { townsForState } from './world/view.ts';
+import { lifeForState } from './life/view.ts';
 import { uiChecks, type UiKit } from './uikit.ts';
 
 export interface CallResult {
@@ -636,6 +637,9 @@ export class Studio {
       // Phase 10 step 3: towns (meshes come from /api/town, by stamp) and the UI kit with its checks per profile
       towns: townsForState((main as any).world),
       ui: (main as any).ui ? uiForView((main as any).ui) : null,
+      // Phase 10 step 3b: town life (the day plays from /api/life, by stamp) and trailers (on the timeline's shots track)
+      life: lifeForState(main),
+      reels: Object.keys((main as any).reels ?? {}),
     };
   }
 }

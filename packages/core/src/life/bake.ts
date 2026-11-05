@@ -22,10 +22,16 @@ export interface LifeOptions {
   busTowns?: number[];              // which towns run a bus (default: the first)
   dogs?: number[];                  // dog walkers per town
   models: CastModel[];
+  /** plan edits from the view ("go to the café at 9 instead"): applied after everyone's day is drawn,
+   *  each with its own random source, so nobody else's day moves */
+  redirects?: Redirect[];
 }
+/** One person sent somewhere else: at `at` (hours) they leave home for `place` and stay `stay` minutes;
+ *  the outings that overlap it are dropped, the rest of their day stays as it was. */
+export interface Redirect { who: string; at: number; place: string; stay?: number; note?: string }
 
 export interface Slot { id: number; at: P2; y: number; face: number; pose: string; approach: number; busy: Array<[number, number]> }
-export interface Place { id: string; town: number; kind: 'bench' | 'stall' | 'pier' | 'park' | 'busstop' | 'door'; at: P2; y: number; yaw: number; offers: Array<{ action: string; who: 'person' | 'dog' | 'pair'; slots: number }>; slots: Slot[]; node: number; nodes?: number[] }
+export interface Place { id: string; town: number; kind: 'bench' | 'stall' | 'pier' | 'park' | 'busstop' | 'door'; at: P2; y: number; yaw: number; offers: Array<{ action: string; who: 'person' | 'dog' | 'pair'; slots: number }>; slots: Slot[]; node: number; nodes?: number[]; building?: string }
 export interface Prop { kind: 'stall' | 'pier' | 'busstop' | 'signal' | 'rod'; at: [number, number, number]; yaw: number; size?: [number, number]; colour?: string; sig?: number; group?: number; town: number }
 export interface CastMember { id: string; town: number; model: string; scale: number; speed: number; home: string; role: string; outings: number }
 
@@ -37,6 +43,8 @@ export interface LifeBake {
   walk: Array<{ kind: string; town: number; poly: number[] }>;       // flat x,y,z (scene space)
   stats: Record<string, number>;
   towns: Array<{ ws: WalkSpace; graph: WalkGraph; junctions: Junction[]; lanes: CarEdge[]; offset: [number, number, number] }>;
+  /** the redirects that were applied, and any that couldn't be (in words) */
+  redirected?: Array<{ who: string; ok: boolean; why?: string }>;
 }
 
 const HOURS: Record<string, number[]> = {
@@ -60,7 +68,11 @@ export function density(o: LifeOptions, hour: number): number {
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number, number] }>, o: LifeOptions): LifeBake {
-  const R = rng(o.seed * 7919 + 17);
+  // one random source for the whole day; a redirect swaps in its own while it plans (see Redirect)
+  const R0 = rng(o.seed * 7919 + 17);
+  let Rsrc = R0;
+  const R = () => Rsrc();
+  const redirected: NonNullable<LifeBake['redirected']> = [];
   const pick = <T>(a: T[]) => a[Math.floor(R() * a.length)];
   const between = (a: number, b: number) => a + (b - a) * R();
   const places: Place[] = [], props: Prop[] = [], cast: CastMember[] = [];
@@ -252,7 +264,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     }
 
     // doors: where folk come out of the buildings
-    const doors: Array<{ at: P2; face: number; id: string }> = [];
+    const doors: Array<{ at: P2; face: number; id: string; building: string }> = [];
     for (const b of plan.buildings) {
       if (b.hidden || b.use === 'parking') continue;
       let best: { at: P2; face: number; d: number } | null = null;
@@ -267,7 +279,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
         const sd = Math.min(...ws.walkers.map((s) => nearestOn(s.points, at).d));
         if (!best || sd < best.d) best = { at, face: Math.atan2(n[0], n[1]), d: sd };
       }
-      if (best) doors.push({ at: best.at, face: best.face, id: `door:${ti}:${doors.length}` });
+      if (best) doors.push({ at: best.at, face: best.face, id: `door:${ti}:${doors.length}`, building: b.id });
     }
 
     const skipExtra = extra.length;     // pier walkway nodes come first
@@ -300,7 +312,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     for (const d of doors) {
       const nid = xi++;
       if (!reach(nid)) continue;
-      const pl: Place = { id: d.id, town: ti, kind: 'door', at: X(d.at), y: graph.nodes[nid].y, yaw: d.face, offers: [{ action: 'come-and-go', who: 'person', slots: 0 }], slots: [], node: nid };
+      const pl: Place = { id: d.id, town: ti, kind: 'door', at: X(d.at), y: graph.nodes[nid].y, yaw: d.face, offers: [{ action: 'come-and-go', who: 'person', slots: 0 }], slots: [], node: nid, building: d.building };
       places.push(pl); doorPlaces.push(pl);
     }
     // parks: dog walks (a loop of park nodes)
@@ -454,6 +466,29 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       let now = t;
       for (const act0 of acts) {
         const act = act0 === 'sit' && !m.sits ? 'stroll' : act0;       // no sit clip: a stroll instead
+        if (act.startsWith('visit|')) {
+          // a redirect: this one place (a bench, a stall, a door to go in at), for `stay` seconds
+          const [, pid, st] = act.split('|');
+          const pl = townPlaces.find((p) => p.id === pid);
+          if (!pl) continue;
+          const stay = Number(st) || 1800;
+          const free = pl.slots.filter((s) => s.pose !== 'tend');
+          const sl = free.find((s) => slotFree(s, now - 40, now + stay + 600)) ?? null;
+          const goal = sl ? sl.approach : pl.node;
+          const r = route(at, goal);
+          if (!r) continue;
+          if (r.length >= 2) { const [seg, d] = makeMove(r, now, m.speed); segs.push(seg); now += d; }
+          if (sl) {
+            book(sl, now - 20, now + stay + 20);
+            const palAt = friendSpot(pl, sl);
+            segs.push({ k: 'act', t: r2(now), t1: r2(now + stay), at: [r2(sl.at[0]), r2(sl.y + off[1]), r2(sl.at[1])], face: r2(sl.face), pose: sl.pose, slot: sl.id, place: pl.id, ...(palAt ? { pal: palAt } : {}) });
+          } else {
+            const n = graph.nodes[goal];
+            segs.push({ k: 'act', t: r2(now), t1: r2(now + stay), at: [r2(n.p[0] + off[0]), r2(n.y + off[1]), r2(n.p[1] + off[2])], face: r2(pl.kind === 'door' ? pl.yaw + Math.PI : pl.yaw), pose: pl.kind === 'door' ? 'inside' : 'look', slot: -1, place: pl.id });
+          }
+          now += stay + 1; at = goal;
+          continue;
+        }
         let target: { place: Place; slot: Slot | null; node: number; dur: number; pose: string } | null = null;
         const tries = act === 'sit' ? benches : act === 'browse' || act === 'tend' ? stalls : act === 'fish' ? piers : act === 'wait-bus' ? stops : [];
         if (act === 'stroll' || act === 'walk-dog') {
@@ -523,6 +558,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
     };
 
     const plans: Array<{ idx: number; segs: LifeSeg[]; home: Place }> = [];
+    const outingsOf = new Map<string, { idx: number; home: Place; mm: { speed: number; sits: boolean; role: string }; outs: Array<{ t0: number; t1: number; segs: LifeSeg[] }> }>();
     const doorBusy = new Map<string, number[]>();
     const leaveAt = (door: Place, t: number) => { const l = doorBusy.get(door.id) ?? []; let tt = t; while (l.some((x) => Math.abs(x - tt) < 6)) tt += 6; l.push(tt); doorBusy.set(door.id, l); return tt; };
     if (!doorPlaces.length) return;
@@ -556,6 +592,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       const home = doorPlaces.find((d) => d.id === member.home)!;
       const mm = { speed: member.speed, sits: M.sits !== false, role };
       const segs: LifeSeg[] = [];
+      const outs: Array<{ t0: number; t1: number; segs: LifeSeg[] }> = [];
       let free = 0;
       const starts: Array<{ t: number; acts: string[] }> = [];
       if (role === 'vendor') {
@@ -592,6 +629,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
           segs.push({ k: 'act', t: r2(free), t1: r2(t0), at: [r2(home.at[0]), r2(home.y + off[1]), r2(home.at[1])], face: r2(home.yaw), pose: 'inside', slot: -1 });
         }
         segs.push(...out.segs);
+        outs.push({ t0, t1: out.t, segs: out.segs });
         free = out.t;
         member.outings++;
         stats.outings++;
@@ -599,6 +637,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
       if (!segs.length) { cast.pop(); continue; }
       const idx = addAgent({ id: member.id, town: ti, kind: 'person', r: 0.26, speed: member.speed, lane: r2(between(0.25, 0.85)), model: member.model, scale: member.scale, plan: segs });
       plans.push({ idx, segs, home });
+      outingsOf.set(member.id, { idx, home, mm, outs });
       stats.folk++;
       // some go out with a friend: side by side on the walk, standing by them for a chat when they stop
       if (role === 'folk' && R() < (o.pairs ?? 0.18)) {
@@ -613,6 +652,28 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
         addAgent({ id: `${member.id}-dog`, town: ti, kind: 'dog', r: 0.22, speed: 2.4, owner: idx, model: dm.id, scale: r2(between(0.9, 1.1)), plan: [] });
         stats.dogs++;
       }
+    }
+
+    // ── redirects (plan edits from the view): after everyone's day, each with its own random source ──
+    for (const rd of o.redirects ?? []) {
+      const rec = outingsOf.get(rd.who);
+      if (!rec) { if (ti === towns.length - 1 && !redirected.some((x) => x.who === rd.who)) redirected.push({ who: rd.who, ok: false, why: `nobody called ${rd.who} in town` }); continue; }
+      if (!townPlaces.some((p) => p.id === rd.place)) { redirected.push({ who: rd.who, ok: false, why: `no place ${rd.place} in their town` }); continue; }
+      const T0 = Math.round(rd.at * 3600);
+      Rsrc = rng(hash32(`${o.seed}|${rd.who}|${rd.place}|${rd.at}`));
+      const out = outing(rec.mm, rec.home, leaveAt(rec.home, T0), [`visit|${rd.place}|${Math.round((rd.stay ?? 30) * 60)}`]);
+      Rsrc = R0;
+      if (!out) { redirected.push({ who: rd.who, ok: false, why: `no way from their door to ${rd.place}` }); continue; }
+      const t0 = (out.segs[0] as any).t as number;
+      const kept = rec.outs.filter((x) => x.t1 + 60 < t0 || x.t0 > out.t + 60);
+      rec.outs = [...kept, { t0, t1: out.t, segs: out.segs }].sort((a, b) => a.t0 - b.t0);
+      const home = rec.home, next: LifeSeg[] = [];
+      rec.outs.forEach((x, k) => {
+        if (k) next.push({ k: 'act', t: r2(rec.outs[k - 1].t1), t1: r2(x.t0), at: [r2(home.at[0]), r2(home.y + off[1]), r2(home.at[1])], face: r2(home.yaw), pose: 'inside', slot: -1 });
+        next.push(...x.segs);
+      });
+      agents[rec.idx].plan = next;
+      redirected.push({ who: rd.who, ok: true });
     }
 
     // ── vehicles: cars on portal-to-portal trips through the day, and a bus on its loop ──
@@ -644,7 +705,7 @@ export function bakeLife(towns: Array<{ plan: TownPlan; offset?: [number, number
   stats.places = places.length;
 
   const data: LifeData = { version: 1, dt: LIFE_DT, start: Math.round((o.start ?? 10.6) * 3600), slots: slots.length, signals, edges, paths, agents, vehicles };
-  return { data, places, props, cast, walk, stats, towns: outTowns };
+  return { data, places, props, cast, walk, stats, towns: outTowns, ...(o.redirects?.length ? { redirected } : {}) };
 }
 
 // ── small helpers ─────────────────────────────────────────────────────────────

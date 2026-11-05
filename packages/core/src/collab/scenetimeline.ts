@@ -18,6 +18,8 @@ import { lineWords } from '../performance.ts';
 import type { SoundDef } from '../sounds.ts';
 import { stamp } from './address.ts';
 import { clipTimeline } from './timelines.ts';
+import { lifeCast } from '../life/view.ts';
+import { reelsOf, reelShots, cameraAt } from '../reels.ts';
 import { TL_TICKS, toTicks, framesToTicks, firesAt, peaks, type SceneTimeline, type TlTrack, type TlCheck, type TlMarker } from './movetimeline.ts';
 
 export interface RenderedSound { sr: number; mono: Float32Array; wav: Uint8Array; bpm?: number; bars?: number; seconds: number }
@@ -75,10 +77,11 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
   if (opts.cutscene && !cs) throw new Error(`no cutscene "${opts.cutscene}" (cutscenes: ${Object.keys((doc as any).cutscenes ?? {}).join(', ') || 'none'})`);
   const cut = cs ? cutsceneTimeline(studio, doc, cs) : null;
 
-  // ── motion: kit characters and rig-part creatures ─────────────────────────────────────────────────
+  // ── motion: kit characters and rig-part creatures (life's cast plays in the town on the day clock instead) ──
+  const cast = new Set(lifeCast(doc));
   for (const id of doc.objectOrder) {
     const o = doc.objects[id];
-    if (!o || (!o.character?.motions && !o.creature)) continue;
+    if (!o || (!o.character?.motions && !o.creature) || cast.has(id)) continue;
     const motions: Record<string, any> = (o.character?.motions ?? o.creature?.motions ?? {}) as any;
     if (!Object.keys(motions).length) continue;
     const want = opts.play?.[id];
@@ -164,6 +167,22 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
     for (const t of tracks) if (t.system === 'motion') t.loop = false;
   }
 
+  // ── trailers: shots as segments on a "shots" track with beat marks (the shot clock), cameras for the view ──
+  if (!cut) for (const [rid, sr] of Object.entries(reelsOf(doc))) {
+    let rs: ReturnType<typeof reelShots>;
+    try { rs = reelShots(sr); } catch (e: any) { tracks.push({ id: `shots:${rid}`, system: 'shots', label: `${sr.reel.title} · shots`, thing: `reel:${rid}`, clock: `shot:${rid}`, start: 0, length: toTicks(1), loop: false, markers: [], version: stamp(sr.reel), error: e.message }); continue; }
+    const markers: TlMarker[] = [];
+    for (const sh of rs.shots) markers.push({ name: `${sh.index} ${sh.take}${sh.kept ? ' ✓' : ''}`, at: toTicks(sh.start), len: toTicks(sh.end - sh.start), kind: 'shot' });
+    if (rs.endCard) markers.push({ name: 'end card', at: toTicks(rs.endCard.start), len: toTicks(rs.endCard.end - rs.endCard.start), kind: 'shot' });
+    rs.beats.forEach((b, k) => markers.push(k % 4 === 0 ? { name: `bar ${k / 4 + 1}`, at: toTicks(b), len: toTicks(240 / rs.bpm), kind: 'bar' } : { name: `beat ${(k % 4) + 1}`, at: toTicks(b), kind: 'beat' }));
+    const takes = Object.fromEntries(sr.reel.takes.filter((t) => rs.shots.some((s) => s.take === t.id)).map((t) => [t.id, t]));
+    tracks.unshift({
+      id: `shots:${rid}`, system: 'shots', label: `${sr.reel.title} · ${rs.shots.length} shots`, thing: `reel:${rid}`, clock: `shot:${rid}`, start: 0, length: toTicks(rs.duration), loop: false,
+      markers: markers.sort((a, b) => a.at - b.at), version: stamp(sr.reel), bpm: rs.bpm, beatsPerBar: 4,
+      reel: { id: rid, title: sr.reel.title, shots: rs.shots, endCard: rs.endCard, takes, mid: Object.fromEntries(rs.shots.map((s) => { const t = takes[s.take]; return [s.index, cameraAt(t, Math.min(1, (s.in + (s.end - s.start) / 2) / t.seconds))]; })), warnings: rs.warnings },
+    });
+  }
+
   // master length: a cutscene's own; a scene: the longest one-shot, at least MIN_SCENE s (loops repeat)
   const oneShots = tracks.filter((t) => !t.loop).map((t) => t.start + t.length);
   const length = cut ? toTicks(cut.duration) : Math.max(toTicks(MIN_SCENE), ...oneShots);
@@ -224,5 +243,5 @@ export function buildSceneTimeline(studio: any, doc: SceneDoc, opts: BuildOpts =
 /** The recipe parts a scene timeline depends on (cheap): if this stamp is unchanged, the timeline is too. */
 export function timelineInputs(doc: SceneDoc, opts: BuildOpts = {}): string {
   const moving = doc.objectOrder.map((id) => doc.objects[id]).filter((o) => o && (o.character || o.creature || o.place?.kind === 'held'));
-  return stamp({ moving, effects: (doc as any).effects ?? null, sounds: (doc as any).sounds ?? null, cutscenes: opts.cutscene ? (doc as any).cutscenes?.[opts.cutscene] : null, play: opts.play ?? null, cutscene: opts.cutscene ?? null, look: (doc as any).look?.palette ?? null, ticks: TL_TICKS });
+  return stamp({ moving, life: lifeCast(doc), reels: (doc as any).reels ?? null, effects: (doc as any).effects ?? null, sounds: (doc as any).sounds ?? null, cutscenes: opts.cutscene ? (doc as any).cutscenes?.[opts.cutscene] : null, play: opts.play ?? null, cutscene: opts.cutscene ?? null, look: (doc as any).look?.palette ?? null, ticks: TL_TICKS });
 }

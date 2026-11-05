@@ -9,7 +9,7 @@ import type { SceneDoc } from '../types.ts';
 import { stamp } from './address.ts';
 import { assetRecord } from './timelines.ts';
 
-export type AssetKind = 'model' | 'character' | 'creature' | 'look' | 'cutscene' | 'effect' | 'ui' | 'town' | 'sound' | 'scene';
+export type AssetKind = 'model' | 'character' | 'creature' | 'look' | 'cutscene' | 'effect' | 'ui' | 'town' | 'sound' | 'life' | 'reel' | 'scene';
 export interface AssetRef { kind: AssetKind; id: string; thing: string; section?: string }
 
 /** Which asset a change touches, and which section of it ("params", "motions/pours-tea", "grade"). */
@@ -34,6 +34,12 @@ export function assetOfChange(c: Change, doc?: SceneDoc): AssetRef {
     case 'sounds': return { kind: 'sound', id: a, thing: `sound:${a}`, ...(b ? { section: b } : {}) };
     case 'ui': return { kind: 'ui', id: 'ui', thing: 'ui', ...(a ? { section: a } : {}) };
     case 'world': return { kind: 'town', id: b ?? 'world', thing: `town:${b ?? ''}`, ...(rest[0] ? { section: rest[0] } : {}) };
+    case 'life': {
+      // a redirect is about one person: the step points at them
+      const r = a === 'redirects' && Array.isArray(c.after) ? (c.after as any[]).find((x) => !(Array.isArray(c.before) ? (c.before as any[]) : []).some((y) => JSON.stringify(y) === JSON.stringify(x))) : null;
+      return r ? { kind: 'life', id: r.who, thing: `person:${r.who}`, section: 'plan' } : { kind: 'life', id: 'life', thing: 'life', ...(a ? { section: a } : {}) };
+    }
+    case 'reels': return { kind: 'reel', id: a, thing: `reel:${a}`, ...(b ? { section: [b, ...rest.slice(0, 2)].join('/') } : {}) };
     case 'objectOrder': return { kind: 'scene', id: 'order', thing: 'scene' };
     default: return { kind: 'scene', id: root, thing: 'scene' };
   }
