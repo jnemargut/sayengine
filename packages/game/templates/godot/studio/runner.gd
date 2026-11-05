@@ -138,6 +138,38 @@ func _view_dir(view: String) -> Vector3:
 		"low": return Vector3(0.9, 0.12, 1.1)
 		_: return Vector3(1, 0.75, 1.15)   # iso / hero
 
+## Proof views (Decision 31): fixed cameras [{name, position, target, fov}], the clock pinned (a fixed
+## number of physics steps from load, then the tree is paused) so two runs give the same pixels. Returns
+## PNGs and what each view cost to draw.
+func _cmd_views(c: Dictionary) -> Dictionary:
+	var out_dir: String = c.get("outDir", "user://shots")
+	var prefix: String = c.get("prefix", "view")
+	seed(int(c.get("seed", 1)))
+	for i in int(c.get("steps", 0)):
+		await get_tree().physics_frame
+	get_tree().paused = true
+	var cam := Camera3D.new()
+	cam.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(cam)
+	cam.current = true
+	var files := []
+	var stats := []
+	for v in c.get("views", []):
+		cam.fov = float(v.get("fov", 50.0))
+		cam.near = float(v.get("near", 0.1))
+		cam.far = float(v.get("far", 3000.0))
+		cam.look_at_from_position(_arr3(v["position"]), _arr3(v["target"]), Vector3.UP)
+		for i in 3:
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var vp := get_viewport().get_viewport_rid()
+		stats.append({"view": v["name"], "drawCalls": RenderingServer.viewport_get_render_info(vp, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME), "triangles": RenderingServer.viewport_get_render_info(vp, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME)})
+		var img := get_viewport().get_texture().get_image()
+		var f := "%s/%s-%s.png" % [out_dir, prefix, v["name"]]
+		files.append({"view": v["name"], "file": ProjectSettings.globalize_path(f), "ok": img.save_png(f) == OK})
+	get_tree().paused = false
+	return {"ok": true, "images": files, "stats": stats, "memory": {"videoMB": snappedf(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_VIDEO_MEM_USED) / 1048576.0, 0.1)}}
+
 func _cmd_screenshot(c: Dictionary) -> Dictionary:
 	var views: Array = c.get("views", ["iso"])
 	var out_dir: String = c.get("outDir", "user://shots")
@@ -190,6 +222,10 @@ func _spawn_player(at: Vector3) -> CharacterBody3D:
 	p.name = "StudioPlayer"
 	main.add_child(p)
 	p.global_position = Vector3(at.x, max(at.y, 0.0) + 0.05, at.z)
+	# stand on whatever ground is there (a town's streets aren't at y = 0)
+	var hit := get_viewport().world_3d.direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(at.x, at.y + 80.0, at.z), Vector3(at.x, at.y - 80.0, at.z)))
+	if not hit.is_empty():
+		p.global_position.y = hit.position.y + 0.05
 	return p
 
 func _xz_dist_to_box(p: Vector3, b: AABB) -> float:

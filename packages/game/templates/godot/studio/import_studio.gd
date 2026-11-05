@@ -137,6 +137,9 @@ func _apply(m: Material, src: Dictionary, report: Dictionary) -> void:
 			b.albedo_color.a = clamp(1.0 - t * 0.85, 0.12, 1.0)
 			report.applied.append("%s: transmission %.2f as alpha %.2f" % [name, t, b.albedo_color.a])
 	var extras: Dictionary = src.get("extras", {})
+	if extras.get("vertexColors", false) and not b.vertex_color_use_as_albedo:
+		# towns (the world module) carry their colours per vertex: a few materials for a whole block
+		b.vertex_color_use_as_albedo = true
 	if extras.has("woodGrain") and b.albedo_texture == null:
 		report.notCarried.append("%s: procedural wood grain (shows as flat colour until the studio bakes it into a texture)" % name)
 

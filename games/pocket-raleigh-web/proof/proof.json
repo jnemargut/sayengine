@@ -1,0 +1,17 @@
+{
+  "seed": 1,
+  "steps": 30,
+  "size": 960,
+  "views": [
+    { "name": "fayetteville-north", "position": [1.5, 1.2, 40], "target": [11, 6, -160] },
+    { "name": "fayetteville-south", "position": [6, 2.1, -60], "target": [-4, 2, 200] },
+    { "name": "martin-west", "position": [80, 2.2, -73], "target": [-150, 2, -79] },
+    { "name": "raleigh-aerial", "position": [-210, 170, 280], "target": [10, 0, -10] },
+    { "name": "twin-main-street", "position": [260, 2.1, 14], "target": [480, 3, 16] },
+    { "name": "twin-aerial", "position": [550, 120, 240], "target": [380, 0, 0] },
+    { "name": "twin-river", "position": [400, 4, 108], "target": [350, 4, 0] },
+    { "name": "both-towns", "position": [190, 380, 620], "target": [190, 0, 0] }
+  ],
+  "phone": { "path": [[13, 2.6, -215], [7, 0.4, -75], [0, -0.6, 72], [-6, -1.5, 200]], "seconds": 8, "throttle": 4 },
+  "budgets": { "drawCalls": 1500, "triangles": 1500000, "glbMB": 40, "phoneP50Ms": 34, "phoneP95Ms": 70 }
+}

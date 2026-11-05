@@ -243,7 +243,7 @@ export function squareUp(poly: P2[], opts: { rectFill?: number; tolDeg?: number 
 export function inset(poly: P2[], d: number): P2[] {
   const p = ccw(poly), n = p.length, out: P2[] = [];
   // ccw seen from above with z south: interior is to the left of each edge in (x, -z)… compute via sign
-  const s = signedArea(p) < 0 ? 1 : -1;
+  const s = signedArea(p) < 0 ? -1 : 1;
   for (let i = 0; i < n; i++) {
     const a = p[(i + n - 1) % n], b = p[i], c = p[(i + 1) % n];
     const n1 = norm([-(b[1] - a[1]) * s, (b[0] - a[0]) * s]), n2 = norm([-(c[1] - b[1]) * s, (c[0] - b[0]) * s]);

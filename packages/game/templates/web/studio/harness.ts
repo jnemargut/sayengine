@@ -339,6 +339,10 @@ export class Player {
       this.name = info.name;
     }
     this.heading = heading;
+    // stand on whatever ground is there (a town's streets aren't at y = 0)
+    (g.world as any).updateSceneQueries?.();
+    const hit = g.world.castRay(new R.Ray({ x: at[0], y: at[1] + 80, z: at[2] }, { x: 0, y: -1, z: 0 }), 160, true);
+    if (hit) at = [at[0], at[1] + 80 - hit.timeOfImpact, at[2]];
     this.body = g.world.createRigidBody(R.RigidBodyDesc.kinematicPositionBased().setTranslation(at[0], at[1] + this.half + this.radius + 0.02, at[2]));
     this.collider = g.world.createCollider(R.ColliderDesc.capsule(this.half, this.radius), this.body);
     this.ctrl = g.world.createCharacterController(0.01);
@@ -521,6 +525,34 @@ const commands = {
     let frames = 0;
     for (let t = 0; t < seconds; t += 1 / 60) { g.step(1 / 60); frames++; }
     return { ...commands.info(g), seconds, frames };
+  },
+
+  /** Proof views (Decision 31): fixed cameras ({name, position, target, fov}), the clock pinned (the game is
+   *  paused; a fixed number of steps from load), so two runs of the same build give the same pixels.
+   *  Returns PNGs plus what each view cost to draw (draw calls, triangles). */
+  views(g: StudioGame, c: any) {
+    const w = Math.round(c.size ?? 960), h = Math.round(w * 0.625);
+    const prev = new THREE.Vector2();
+    g.renderer.getSize(prev);
+    g.renderer.setSize(w, h, false);
+    for (let i = 0; i < (c.steps ?? 0); i++) { g.step(1 / 60); g.characters?.update(1 / 60); }
+    const images: any[] = [];
+    const stats: any[] = [];
+    for (const v of c.views ?? []) {
+      const cam = new THREE.PerspectiveCamera(v.fov ?? 50, w / h, v.near ?? 0.1, v.far ?? 3000);
+      cam.position.set(v.position[0], v.position[1], v.position[2]);
+      cam.lookAt(v.target[0], v.target[1], v.target[2]);
+      cam.updateProjectionMatrix();
+      g.renderer.info.reset();
+      const auto = g.renderer.info.autoReset;
+      g.renderer.info.autoReset = false;
+      g.renderer.render(g.scene, cam);
+      stats.push({ view: v.name, drawCalls: g.renderer.info.render.calls, triangles: g.renderer.info.render.triangles });
+      g.renderer.info.autoReset = auto;
+      images.push({ view: v.name, dataUrl: g.renderer.domElement.toDataURL('image/png') });
+    }
+    g.renderer.setSize(prev.x, prev.y, false);
+    return { ok: true, images, stats, memory: { geometries: g.renderer.info.memory.geometries, textures: g.renderer.info.memory.textures } };
   },
 
   screenshot(g: StudioGame, c: any) {

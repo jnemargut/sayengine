@@ -81,34 +81,85 @@ export function landmarkObjects(world: WorldState | undefined): string[] {
   return [...new Set(Object.values(world.towns).flatMap((t) => (t.fixes ?? []).map((f) => f.model).filter(Boolean) as string[]))];
 }
 
-/** Add towns to a GLB under one group node each ("<name> (town)"). Materials are shared by colour. */
-export function addTownsToGlb(B: GlbBuilder, towns: ReturnType<typeof worldNodes>): Array<{ town: string; nodes: number; triangles: number; materials: number; buildings: number }> {
+interface Prim { mat: { name: string; roughness: number; metalness: number }; positions: number[]; normals: number[]; colors: number[] }
+const srgbToLinear = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+const linCache = new Map<string, [number, number, number]>();
+function linear(hex: string): [number, number, number] {
+  let c = linCache.get(hex);
+  if (!c) { const n = parseInt(hex.replace('#', ''), 16); c = [srgbToLinear(((n >> 16) & 255) / 255), srgbToLinear(((n >> 8) & 255) / 255), srgbToLinear((n & 255) / 255)]; linCache.set(hex, c); }
+  return c;
+}
+/** Shading class of a material: colours ride as vertex colours, so a whole chunk needs only a few materials. */
+function shadeClass(m: { name: string; roughness: number; metalness?: number }) {
+  if (m.name === 'water') return { name: 'water', roughness: 0.12, metalness: 0 };
+  if ((m.metalness ?? 0) >= 0.3) return { name: 'metal', roughness: 0.55, metalness: 0.5 };
+  if (m.roughness < 0.45) return { name: 'glossy', roughness: 0.28, metalness: 0.05 };
+  return { name: 'matte', roughness: 0.9, metalness: 0 };
+}
+function addSoups(prims: Map<string, Prim>, soups: TownNode['soups'], shift: V3) {
+  for (const s of soups) {
+    const cls = shadeClass(s.mat);
+    let p = prims.get(cls.name);
+    if (!p) { p = { mat: cls, positions: [], normals: [], colors: [] }; prims.set(cls.name, p); }
+    const col = linear(s.mat.color);
+    for (let i = 0; i < s.positions.length; i += 3) {
+      p.positions.push(s.positions[i] + shift[0], s.positions[i + 1] + shift[1], s.positions[i + 2] + shift[2]);
+      p.normals.push(s.normals[i], s.normals[i + 1], s.normals[i + 2]);
+      p.colors.push(col[0], col[1], col[2]);
+    }
+  }
+}
+
+export interface ChunkNode { name: string; semanticType: string; at: V3; prims: Prim[]; extras: Record<string, unknown> }
+/** Merge a town's building nodes into chunks (cells of `cell` metres): few draw calls, phone-friendly. */
+export function chunkNodes(nodes: TownNode[], cell = 110): ChunkNode[] {
+  const out: ChunkNode[] = [];
+  const cells = new Map<string, { at: V3; prims: Map<string, Prim>; buildings: any[] }>();
+  for (const n of nodes) {
+    if (n.semanticType !== 'building') {
+      const prims = new Map<string, Prim>();
+      addSoups(prims, n.soups, [0, 0, 0]);
+      out.push({ name: n.name, semanticType: n.semanticType, at: n.at, prims: [...prims.values()], extras: n.extras });
+      continue;
+    }
+    const ix = Math.floor(n.at[0] / cell), iz = Math.floor(n.at[2] / cell);
+    const key = `${ix},${iz}`;
+    let c = cells.get(key);
+    if (!c) { c = { at: [(ix + 0.5) * cell, 0, (iz + 0.5) * cell], prims: new Map(), buildings: [] }; cells.set(key, c); }
+    addSoups(c.prims, n.soups, [n.at[0] - c.at[0], n.at[1] - c.at[1], n.at[2] - c.at[2]]);
+    c.buildings.push({ name: n.name, at: n.at.map((v) => +v.toFixed(2)), ...n.extras });
+  }
+  for (const [key, c] of [...cells.entries()].sort()) out.push({ name: `Buildings ${key}`, semanticType: 'buildings', at: c.at, prims: [...c.prims.values()], extras: { buildings: c.buildings } });
+  return out;
+}
+
+/** Add towns to a GLB under one group node each ("<name> (town)"). Colours are vertex colours; materials are shared by shading class. */
+export function addTownsToGlb(B: GlbBuilder, towns: ReturnType<typeof worldNodes>): Array<{ town: string; nodes: number; triangles: number; materials: number; buildings: number; primitives: number }> {
   const matIdx = new Map<string, number>();
   const report = [];
   for (const t of towns) {
     const children: number[] = [];
-    for (const n of t.nodes) {
-      const prims = n.soups.map((s) => {
-        const key = `${s.mat.name}|${s.mat.color}|${s.mat.roughness}|${s.mat.metalness ?? 0}`;
-        let mi = matIdx.get(key);
+    let primitives = 0;
+    for (const n of chunkNodes(t.nodes)) {
+      const prims = n.prims.filter((p) => p.positions.length).map((p) => {
+        let mi = matIdx.get(p.mat.name);
         if (mi === undefined) {
-          const c = s.mat.color.replace('#', '');
-          const lin = [0, 2, 4].map((k) => { const v = parseInt(c.slice(k, k + 2), 16) / 255; return +(v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).toFixed(5); });
-          B.gltf.materials.push({ name: `${s.mat.name} ${s.mat.color}`, pbrMetallicRoughness: { baseColorFactor: [...lin, 1], metallicFactor: s.mat.metalness ?? 0, roughnessFactor: s.mat.roughness }, extras: { world: true } });
+          B.gltf.materials.push({ name: `world ${p.mat.name}`, pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: p.mat.metalness, roughnessFactor: p.mat.roughness }, extras: { world: true, vertexColors: true } });
           mi = B.gltf.materials.length - 1;
-          matIdx.set(key, mi);
+          matIdx.set(p.mat.name, mi);
         }
-        return { attributes: { POSITION: B.accessor(new Float32Array(s.positions), 'VEC3', true), NORMAL: B.accessor(new Float32Array(s.normals), 'VEC3') }, material: mi };
+        return { attributes: { POSITION: B.accessor(new Float32Array(p.positions), 'VEC3', true), NORMAL: B.accessor(new Float32Array(p.normals), 'VEC3'), COLOR_0: B.accessor(new Float32Array(p.colors), 'VEC3') }, material: mi };
       });
       if (!prims.length) continue;
+      primitives += prims.length;
       B.gltf.meshes.push({ name: n.name, primitives: prims });
-      B.gltf.nodes.push({ name: n.name, mesh: B.gltf.meshes.length - 1, translation: n.at.map((v) => +v.toFixed(4)), extras: { studioName: n.name, semanticType: n.semanticType, town: t.town, ...n.extras } });
+      B.gltf.nodes.push({ name: `${t.town} ${n.name}`, mesh: B.gltf.meshes.length - 1, translation: n.at.map((v) => +v.toFixed(4)), extras: { studioName: `${t.town}: ${n.name}`, semanticType: n.semanticType, town: t.town, ...n.extras } });
       children.push(B.gltf.nodes.length - 1);
     }
     const credits = t.plan.credits.map((c) => `${c.name} (${c.licence})`);
     B.gltf.nodes.push({ name: `${t.town} (town)`, children, translation: t.offset, extras: { studioName: t.town, semanticType: 'town', source: t.plan.source, style: t.plan.style, size: t.plan.size, credits } });
     B.gltf.scenes[0].nodes.push(B.gltf.nodes.length - 1);
-    report.push({ town: t.town, nodes: children.length, triangles: nodeTriangles(t.nodes), materials: matIdx.size, buildings: t.nodes.filter((n) => n.semanticType === 'building' || n.semanticType === 'landmark').length });
+    report.push({ town: t.town, nodes: children.length, triangles: nodeTriangles(t.nodes), materials: matIdx.size, buildings: t.nodes.filter((n) => n.semanticType === 'building' || n.semanticType === 'landmark').length, primitives });
   }
   if (towns.some((t) => t.plan.credits.length)) {
     B.gltf.asset.copyright = [...new Set(towns.flatMap((t) => t.plan.credits.map((c) => c.text)))].join(' ');
