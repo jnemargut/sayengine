@@ -103,7 +103,7 @@ export function wingPose(spec: WingPartSpec, mode: WingMode, phase: number, t: n
   if (mode === 'spread') return { arm: qIdentity(), fore: qIdentity(), hand: qIdentity(), bob: 0 };
   if (mode === 'fold') {
     const f = spec.fold ?? {};
-    return { arm: qMul(Y(f.sweep ?? 80), qMul(Z(f.drop ?? -6), X(f.twist ?? -112))), fore: Y(-158), hand: Y(160), bob: 0 };
+    return { arm: qMul(Y(f.sweep ?? 80), qMul(Z(f.drop ?? -6), X(f.twist ?? -95))), fore: Y(152), hand: Y(-150), bob: 0 };
   }
   if (mode === 'glide') {
     const g = Math.sin((TAU * t) / 2.3);

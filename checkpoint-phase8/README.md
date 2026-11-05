@@ -1,19 +1,20 @@
 # Phase 8 bench proofs: animate anything
 
-Four things that aren't people, each one built from rig parts with the real CLI and daemon. Each is checked and then rendered by `creature-preview --video true` (headless Chrome, frame by frame).
+Things that aren't people (and one person tripping), each built from rig parts with the real CLI and daemon, checked, then rendered by `creature-preview --video true` or `motion-preview --video true` (headless Chrome, frame by frame).
 
-To regenerate one, run `node bench/creatures.ts crab` (or `snake`, `car`, `windmill`). With no argument it runs all four.
+Regenerate with `node bench/creatures.ts <task …>`. With no argument it runs every task: crab, spider, octopus, bird, fish, windmill, snake, car, trip. The key moments Claude wrote for the actions are in `bench/actions/*.json`.
 
 | Folder | What it shows |
 |---|---|
-| `crab/robot-crab.mp4` | The six-legged robot crab: tripod gait, a whip tail and spring antennae. It plays in this order: the baked sideways walk, idle, a live steered walk over bumps from the TypeScript runtime (feet step when they fall out of reach), then the walk replayed 1.6× too fast. In that last part the timeline turns red where the feet slide. |
-| `snake/snake.mp4` | Serpentine slither. The body follows its own path, and the belly slides only along itself. |
-| `car/little-car.mp4` | Wheels roll at ground speed over a bumpy road (whole wheel turns per road loop). The body pitches and bounces on damped springs, and the aerial lags behind. Then a live segment steers over bumps. |
-| `windmill/windmill.mp4` | Sails spin at 15 rpm, and the cap swings within its ±15° limit. The grass sways using shader sway, with two fields of blades bent in the vertex shader. |
+| `crab/` | The crab after its craft pass: an oval shell, claws that pinch, eyes on stalks, tapered legs on a tripod gait, a whip tail. Plays the sideways walk, idle, a live steered walk over bumps, then a walk replayed 1.6× too fast, where the timeline turns red. |
+| `spider/` | Eight tapered legs on alternating tetrapods, plus an abdomen and pedipalps. Walk, idle and a live walk. |
+| `octopus/` | Idle (arms curl), then **"the octopus pours tea"**: a one-off action from 15 key moments. It reaches, grips, lifts, tips, pours (the stream shows), tilts back, sets down and lets go. The second arm steadies the cup. Then a live segment where an arm follows a moving yellow goal through the runtime. There is a still for every key moment. |
+| `octopus-noted/` | The same action after `action-note "slower, more weight"` and `"hold the pour longer"`. |
+| `bird/` | Folded idle, then the flight cycle (four beats, then a glide, from the wing's proportions), a glide and a hover. |
+| `bird-takeoff/` | **"The bird takes off, flies and lands"**: crouch, wings open, jump (the feet push off until they can't reach), climb, fly, glide, descend, flare, touch down, fold. |
+| `fish/`, `eel/` | Carangiform and anguilliform swimming (travelling body waves), with fins. |
+| `windmill/` | Sails turning with shader grass, then **"the windmill creaks to a stop"** (keyed rpm with stick-slip creak and a heavy settle). |
+| `trip/` | **"Make him trip over the bucket"**: a kit humanoid (Tom, the blacksmith preset) catches his toe, lurches with his arms flung out, takes a catch step, steps around the bucket, steadies, and looks back. |
+| `snake/`, `car/` | From weeks 13–14, unchanged. |
 
-Each folder also holds:
-- `stills/`: three frames per segment
-- `creature.glb`: a node per bone and a clip per motion. It passes the glTF validator and imports into Godot 4.7.2 with no warnings.
-- `*.sway.gdshader`: the windmill's grass shader for Godot
-
-The strip at the bottom right of each frame is the check timeline. There is one row per check across the clip's frames. A row is green where the check passes and red where it fails, and the black bar is the playhead.
+Each folder also holds `stills/` (three per loop segment, one per key moment for actions) and `creature.glb` (a node per bone, a clip per motion). The strip at the bottom right of each frame is the check timeline: one row per check across the clip's frames, red where it fails, with the playhead as a black bar.
