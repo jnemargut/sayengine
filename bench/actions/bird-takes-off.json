@@ -1,0 +1,18 @@
+{
+  "action": "the bird takes off, flies and lands",
+  "id": "takeoff-fly-land",
+  "keys": [
+    { "t": 0, "label": "perched" },
+    { "t": 0.6, "label": "crouch", "body": { "at": [0, -0.05, 0], "pitch": 14 } },
+    { "t": 0.85, "label": "open the wings", "wings": "spread", "body": { "at": [0, -0.06, 0.01], "pitch": 10 } },
+    { "t": 1.3, "label": "jump", "wings": "flap", "body": { "at": [0, 0.22, 0.25], "pitch": -12 } },
+    { "t": 1.7, "label": "climb", "legs": "tuck", "body": { "at": [0, 0.8, 1.5], "pitch": -14 } },
+    { "t": 2.7, "label": "fly", "body": { "at": [0, 1.25, 4.4], "pitch": 0 } },
+    { "t": 3.7, "label": "glide", "wings": "glide", "body": { "at": [0, 1.2, 8.0], "pitch": 4 } },
+    { "t": 4.7, "label": "descend", "body": { "at": [0, 0.75, 11.0], "pitch": 8 } },
+    { "t": 5.5, "label": "flare", "wings": "hover", "body": { "at": [0, 0.3, 12.3], "pitch": -32 } },
+    { "t": 6.1, "label": "touch down", "legs": "plant", "ease": "out", "body": { "at": [0, -0.03, 12.7], "pitch": -6 } },
+    { "t": 6.5, "label": "fold the wings", "wings": "fold", "body": { "at": [0, -0.01, 12.7], "pitch": 4 } },
+    { "t": 7.2, "label": "settle", "body": { "at": [0, 0, 12.7], "pitch": 0 } }
+  ]
+}

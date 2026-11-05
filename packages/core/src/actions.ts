@@ -104,6 +104,7 @@ interface KeyState {
   at: V3; turn: number; pitch: number; roll: number;
   reach: Record<string, V3 | null>; hold: Record<string, string | null>; tilt: Record<string, { tilt: number; axis: V3 }>;
   wings: WingMode; legs: 'plant' | 'tuck'; spin: Record<string, number>; creak: number; fx: Record<string, boolean>;
+  plant: { at: V3; turn: number };
 }
 
 /** A damped spring that follows a goal: weight → lower frequency, less damping (lag, overshoot, settle). */
@@ -161,7 +162,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     const p = states[states.length - 1];
     const s: KeyState = p ? { ...p, reach: { ...p.reach }, hold: { ...p.hold }, tilt: { ...p.tilt }, spin: { ...p.spin }, fx: { ...p.fx } } : {
       t: 0, label: '', ease: 'smooth', at: [0, 0, 0], turn: 0, pitch: 0, roll: 0, reach: {}, hold: {}, tilt: {}, wings: 'fold', legs: 'plant',
-      spin: Object.fromEntries(hinges.filter((h) => h.motion.kind === 'spin').map((h) => [h.id, (h.motion as any).rpm])), creak: 0, fx: {},
+      spin: Object.fromEntries(hinges.filter((h) => h.motion.kind === 'spin').map((h) => [h.id, (h.motion as any).rpm])), creak: 0, fx: {}, plant: { at: [0, 0, 0], turn: 0 },
     };
     s.t = k.t * tempo; s.label = k.label ?? `key ${states.length + 1}`; s.ease = k.ease ?? 'smooth';
     if (k.body?.at) s.at = mul(k.body.at, S);
@@ -173,6 +174,7 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     for (const [pid, v] of Object.entries(k.props ?? {})) s.tilt[pid] = { tilt: (v.tilt ?? s.tilt[pid]?.tilt ?? 0) * (v.tilt !== undefined ? S : 1), axis: norm(v.axis ?? s.tilt[pid]?.axis ?? [0, 0, 1]) };
     if (k.wings) s.wings = k.wings;
     if (k.legs) s.legs = k.legs;
+    if (!p || k.legs === 'plant') s.plant = { at: [...s.at] as V3, turn: s.turn };   // feet land where the body is at this key
     Object.assign(s.spin, k.spin ?? {});
     if (k.creak !== undefined) s.creak = k.creak;
     Object.assign(s.fx, k.fx ?? {});
@@ -223,7 +225,9 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     if (wingSpec) {
       const pa = wingPose(wingSpec, a.wings, beatHz * t, t), pb = wingPose(wingSpec, b.wings, beatHz * t, t);
       const k = a.wings === b.wings ? 0 : e;
-      const arm = qSlerp(pa.arm, pb.arm, k), fore = qSlerp(pa.fore, pb.fore, k), hand = qSlerp(pa.hand, pb.hand, k);
+      // folding and unfolding lift the wing clear of the body on the way (birds raise them to unfold)
+      const lift = (a.wings === 'fold') !== (b.wings === 'fold') ? 36 * Math.sqrt(Math.sin(Math.PI * k)) : 0;
+      const arm = qMul(qAxisAngle([0, 0, 1], lift), qSlerp(pa.arm, pb.arm, k)), fore = qSlerp(pa.fore, pb.fore, k), hand = qSlerp(pa.hand, pb.hand, k);
       for (const w of c.wings) {
         const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
         R[bi(w.arm)] = mq(arm); R[bi(w.fore)] = mq(fore); R[bi(w.hand)] = mq(hand);
@@ -233,20 +237,28 @@ export function bakeAction(c: Creature, id: string, m: CreatureMotion, fps = 30)
     const bHead = add(bodyRest, O[B]);
     // ── legs: planted under where the body is at each key, or tucked; a leg that can't reach lifts ──
     if (legSpec) {
-      const reachL = legSpec.upper + legSpec.lower;
       for (const leg of c.legs) {
         const hipB = c.bones[bi(leg.hip)], kneeB = c.bones[bi(leg.knee)];
         const l1 = len(sub(hipB.tail, hipB.head)), l2 = len(sub(kneeB.tail, kneeB.head));
+        const reachL = l1 + l2;
         const hipW = add(bHead, qRot(R[B], sub(hipB.head, bodyRest)));
-        const plantAt = (s: KeyState): V3 => { const p = add(rotY(leg.foot, s.turn), [s.at[0], 0, s.at[2]]); return [p[0], ground(p[0], p[2]), p[2]]; };
+        const plantAt = (s: { at: V3; turn: number }): V3 => { const p = add(rotY(leg.foot, s.turn), [s.at[0], 0, s.at[2]]); return [p[0], ground(p[0], p[2]), p[2]]; };
         const tuckAt = (): V3 => add(bHead, qRot(R[B], sub(legTuck(c, leg), bodyRest)));
-        const A = a.legs === 'plant' ? plantAt(a) : tuckAt(), Bt = b.legs === 'plant' ? plantAt(b) : tuckAt();
+        const A = a.legs === 'plant' ? plantAt(a.plant) : tuckAt(), Bt = b.legs === 'plant' ? plantAt(b.plant) : tuckAt();
         let target = lerp3(A, Bt, a.legs === b.legs ? e : e);
         const moved = a.legs === 'plant' && b.legs === 'plant' && len(sub(A, Bt)) > 0.01;
         if (moved) target[1] += Math.sin(Math.PI * e) * (legSpec.lift ?? 0.35) * legSpec.upper;
         let isDown = a.legs === 'plant' && b.legs === 'plant' && !moved;
         if (a.legs === 'plant' && b.legs === 'tuck' && e < 0.02) isDown = true;
-        if (len(sub(target, hipW)) > reachL * 0.985) { target = add(hipW, mul(norm(sub(target, hipW)), reachL * 0.985)); isDown = false; }
+        if (len(sub(target, hipW)) > reachL * 0.94) { target = add(hipW, mul(norm(sub(target, hipW)), Math.min(len(sub(target, hipW)), reachL * 0.985))); isDown = false; }
+        // a foot in the air eases toward its target (no snaps); a planted one stays exactly put
+        // (followed in the body's frame, so a flying bird's tucked feet don't trail behind it)
+        const fkey = `foot.${leg.hip}`;
+        if (isDown) followers.delete(fkey);
+        else {
+          const local = follow(fkey, qRot(qInv(R[B]), sub(target, bHead)) as number[], dt) as V3;
+          target = add(bHead, qRot(R[B], local));
+        }
         const ik = twoBoneKnee(hipW, target, l1, l2, legPole(leg, R[B]));
         if (isDown) reachMiss = Math.max(reachMiss, ik.miss);
         const locals = chainLocals(c, [leg.hip, leg.knee], [hipW, ik.knee, ik.foot], R[B]);
