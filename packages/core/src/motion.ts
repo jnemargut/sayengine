@@ -81,7 +81,12 @@ type Step = Array<['x' | 'y' | 'z', number]>;
 /** One key of a library action. `ease` shapes the move INTO this key: smooth (default), in (accelerating:
  *  a strike), out (decelerating: settling into a wind-up), back (overshoots, then settles). `shift` moves
  *  the weight (hips, m × body scale: x to the character's left, z forward); `yaw` turns the hips. */
-interface ActionKey { at: number; bones?: Record<string, Step>; drop?: number; hands?: { left?: string; right?: string }; ease?: 'smooth' | 'in' | 'out' | 'back'; shift?: [number, number]; yaw?: number }
+export interface ActionKey {
+  at: number; bones?: Record<string, Step>; drop?: number; hands?: { left?: string; right?: string }; ease?: 'smooth' | 'in' | 'out' | 'back'; shift?: [number, number]; yaw?: number;
+  label?: string;                                  // names the moment (stills, notes)
+  pitch?: number;                                  // hips tip forward (deg): a stumble, a bow
+  feet?: { left?: [number, number, number]; right?: [number, number, number] };   // a foot's offset from where it stands (m × body scale; y lifts it). Carries to later keys
+}
 export interface ActionDef { label: string; duration: number; keys: ActionKey[] }
 const armUp = (side: 'Left' | 'Right', fwd: number, raise: number): Step => [['y', side === 'Left' ? -fwd : fwd], ['x', -raise]];
 export const ACTIONS: Record<string, ActionDef> = {
@@ -146,6 +151,17 @@ export const ACTIONS: Record<string, ActionDef> = {
   },
 };
 
+/** Notes on a character action, in words: slower / faster stretch or squeeze its duration. */
+export function actionTempo(notes: string[]): number {
+  let k = 1;
+  for (const n of notes) for (const p of n.toLowerCase().split(/\s*(?:,|;| and )\s*/)) {
+    if (/much slower|way slower/.test(p)) k *= 1.5; else if (/slower|take (his|her|its|their) time/.test(p)) k *= 1.25;
+    else if (/much faster|way faster/.test(p)) k /= 1.5; else if (/faster|quicker|snappier/.test(p)) k /= 1.25;
+    else throw new Error(`note "${p}" not understood for a character action (slower, much slower, faster, much faster)`);
+  }
+  return k;
+}
+
 /** Easing of a move into a key: smoothstep; accelerating (in); decelerating (out); overshoot and settle (back). */
 export function keyEase(kind: ActionKey['ease'], u: number): number {
   const t = clamp(u);
@@ -193,9 +209,14 @@ export function motionSettings(spec: MotionSpec): MotionClip['settings'] {
   num('speed', spec.kind === 'run' ? 1.8 : 0.3, spec.kind === 'run' ? 7 : 2.2);
   num('stride', 0.3, 4); num('bounce', 0, 0.12); num('armSwing', 0, 70); num('lean', -10, 25); num('sway', 0, 0.08);
   num('energy', 0, 1); num('duration', 0.5, 30); num('turn', -180, 180); num('flap', 0, 6);
-  if (spec.kind === 'action') {
-    if (!spec.action) throw new Error(`an action motion needs --action (${Object.keys(ACTIONS).join(', ')})`);
+  if (spec.kind === 'action' && !spec.keys) {
+    if (!spec.action) throw new Error(`an action motion needs --action (${Object.keys(ACTIONS).join(', ')}) or its own keys (perform-action)`);
     if (!ACTIONS[spec.action]) throw new Error(`no action "${spec.action}" — library: ${Object.keys(ACTIONS).join(', ')}`);
+  }
+  if (spec.kind === 'action' && spec.keys) {
+    if (!Array.isArray(spec.keys) || spec.keys.length < 2) throw new Error('an action needs at least two keys');
+    if (spec.keys[0].at !== 0 || spec.keys[spec.keys.length - 1].at !== 1) throw new Error('action keys run from at: 0 to at: 1 (fractions of --duration)');
+    for (let i = 1; i < spec.keys.length; i++) if (spec.keys[i].at < spec.keys[i - 1].at) throw new Error('action keys must be in order of "at"');
   }
   if (spec.kind === 'turn' && spec.turn === undefined) throw new Error('a turn motion needs --turn degrees (+ = to the left)');
   if (spec.style !== undefined && !GAIT_STYLES[spec.style]) throw new Error(`motion style must be one of ${Object.keys(GAIT_STYLES).filter(Boolean).join(', ')}`);
@@ -344,17 +365,29 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       if (!run) {
         // a walk vaults over the planted leg (an inverted pendulum): the hips ride as high as the
         // planted leg reaches nearly straight, highest at mid-stance, lowest where both feet are down
-        // (a soft minimum rounds that corner), never above standing height
+        // (a soft minimum rounds that corner), never above standing height. Averaged over a short window
+        // of the cycle, so a foot landing or lifting doesn't move the hips in one frame (bird legs did)
         const k = 0.012 * s;
-        let acc = 0;
-        for (const [side, f] of [['Left', fl], ['Right', fr]] as const) {
-          if (!f.down) continue;
-          const hx = (side === 'Left' ? L : R).hip[0] + swayX;
-          const dx = f.p[0] - hx, dz = f.p[2];
-          const top = f.p[1] + Math.sqrt(Math.max(0, walkReach ** 2 - dx * dx - dz * dz)) - hipDrop;
-          acc += Math.exp(-(top - hipsRest[1]) / k);
-        }
-        hipY = Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+        const hipAt = (pp: number) => {
+          const ql = footPath('Left', ((pp % 1) + 1) % 1), qr = footPath('Right', (((pp + 0.5) % 1) + 1) % 1);
+          const sx = sway * Math.cos(2 * Math.PI * pp - Math.PI * duty);
+          let acc = 0;
+          for (const [side, f] of [['Left', ql], ['Right', qr]] as const) {
+            if (!f.down) continue;
+            const hx = (side === 'Left' ? L : R).hip[0] + sx;
+            const dx = f.p[0] - hx, dz = f.p[2];
+            const top = f.p[1] + Math.sqrt(Math.max(0, walkReach ** 2 - dx * dx - dz * dz)) - hipDrop;
+            acc += Math.exp(-(top - hipsRest[1]) / k);
+          }
+          return Math.min(hipsRest[1] - 0.003 * s, acc > 0 ? hipsRest[1] - k * Math.log(acc) : baseY);
+        };
+        // the lowest height over a short window, then averaged: never higher than the legs reach at this
+        // frame (each window minimum covers it), and a dip arrives over a few frames instead of one
+        const d = 0.012;
+        const raw = new Map<number, number>();
+        const at = (i: number) => { if (!raw.has(i)) raw.set(i, hipAt(p + i * d)); return raw.get(i)!; };
+        const ero = (j: number) => Math.min(at(j - 2), at(j - 1), at(j), at(j + 1), at(j + 2));
+        hipY = (ero(-2) + 2 * ero(-1) + 3 * ero(0) + 2 * ero(1) + ero(2)) / 9;
         // a bouncy gait dips into each step (where both feet are down)
         if (SM.dip) hipY -= SM.dip * s * (1 + Math.cos(4 * Math.PI * (p - duty / 2 + 0.25))) / 2;
       }
@@ -531,10 +564,16 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       };
     }
   } else {
-    const def = ACTIONS[S.action!];
-    duration = S.duration ?? def.duration;
+    const def: ActionDef = S.keys ? { label: S.label ?? 'action', duration: S.duration ?? 3, keys: S.keys } : ACTIONS[S.action!];
+    duration = (S.duration ?? def.duration) * actionTempo(S.notes ?? []);
     frames = Math.max(4, Math.round(duration * fps)); duration = frames / fps; loop = false;
     const fl = restFoot('Left', 1.08), fr = restFoot('Right', 1.08);
+    // feet carry from key to key (a step stays where it landed)
+    const feetAt: Array<{ left: V3; right: V3 }> = [];
+    for (const k of def.keys) {
+      const p = feetAt[feetAt.length - 1] ?? { left: [0, 0, 0] as V3, right: [0, 0, 0] as V3 };
+      feetAt.push({ left: (k.feet?.left ?? p.left) as V3, right: (k.feet?.right ?? p.right) as V3 });
+    }
     const keyAt = (u: number) => { let i = 0; while (i + 1 < def.keys.length - 1 && def.keys[i + 1].at <= u) i++; return i; };
     const handOf = (k: ActionKey, side: 'left' | 'right') => (holds[side] ? restHands[side] : k.hands?.[side] ? NAMED_HAND_POSES[k.hands[side]!] : restHands[side]);
     make = (t) => {
@@ -556,7 +595,18 @@ export function bakeMotion(id: string, spec: MotionSpec, rig: Rig, state: Charac
       const drop = lerpK(a.drop, c.drop) * s;
       const sx = lerpK(a.shift?.[0], c.shift?.[0]) * s, sz = lerpK(a.shift?.[1], c.shift?.[1]) * s;
       const hands = { left: lerpHand(handOf(a, 'left'), handOf(c, 'left'), clamp(f)), right: lerpHand(handOf(a, 'right'), handOf(c, 'right'), clamp(f)) };
-      return { hipsOff: [sx, -0.012 * s - drop, -drop * 0.35 + sz], hipsQ: Y(lerpK(a.yaw, c.yaw)), body, hands, feet: { left: { p: fl, q: flat, down: true }, right: { p: fr, q: flat, down: true } } };
+      // feet: from one key's spot to the next; a foot that moves lifts in an arc, and is down only
+      // while it stays on the floor in both keys
+      const ia = def.keys.indexOf(a), ic = def.keys.indexOf(c);
+      const foot = (side: 'left' | 'right', rest: V3) => {
+        const A = feetAt[ia][side], C = feetAt[ic][side];
+        const moved = Math.hypot(A[0] - C[0], A[2] - C[2]) > 0.005;
+        const lift = moved ? Math.sin(Math.PI * clamp(f)) * 0.05 : 0;
+        const p: V3 = [rest[0] + (A[0] + (C[0] - A[0]) * f) * s, rest[1] + (Math.max(0, A[1] + (C[1] - A[1]) * f) + lift) * s, rest[2] + (A[2] + (C[2] - A[2]) * f) * s];
+        return { p, q: flat, down: !moved && A[1] <= 0.001 && C[1] <= 0.001 };
+      };
+      const pitch = lerpK(a.pitch, c.pitch);
+      return { hipsOff: [sx, -0.012 * s - drop, -drop * 0.35 + sz], hipsQ: qMul(Y(lerpK(a.yaw, c.yaw)), X(pitch)), body, hands, feet: { left: foot('left', fl), right: foot('right', fr) } };
     };
   }
 
@@ -786,7 +836,7 @@ export function checkFrames(clip: MotionClip): number[] {
   if (clip.kind === 'sit' || clip.kind === 'lie') return [clip.frames];
   if (clip.kind === 'idle') return [Math.round(clip.frames * 0.25)];
   if (clip.kind === 'turn' || clip.kind === 'start' || clip.kind === 'stop') return [Math.round(clip.frames * 0.5)];
-  const def = ACTIONS[clip.settings.action!];
+  const def = clip.settings.keys ? { keys: clip.settings.keys } : ACTIONS[clip.settings.action!];
   return def.keys.filter((k) => k.bones).map((k) => Math.min(clip.frames, Math.round(k.at * clip.frames))).filter((f, i, a) => a.indexOf(f) === i).slice(0, 3);
 }
 

@@ -142,8 +142,8 @@ test('every kit body plan is a part combo, and its clips pass the universal chec
       for (const k of characterMotionChecks(rig, bakeMotion(mid, spec, rig, o.character))) if (!k.pass) problems.push(`${preset} ${mid}: ${k.name} ${k.worst}${k.unit} > ${k.limit} ${JSON.stringify(k.frames.slice(0, 3))} ${k.detail}`);
     }
   }
-  // one real finding the new checks surfaced in an existing clip (left as is: no motion change in this
-  // phase): the birdfolk walk's hips drop 57 mm then jump back in one frame at each heel strike, and the
-  // spring tail whips with it. Logged in the Phase 8 notes.
-  assert.deepEqual(problems.map((p) => p.split(':').slice(0, 2).join(':')), ['birdfolk walk: no pops (joint speed) 1950°/s > 1260 [[4,5],[19,20]] fastest']);
+  // the one finding the checks surfaced in Phase 8 (the birdfolk walk's hips dropped 57 mm in one frame at
+  // each heel strike, and the spring tail whipped at 1950°/s) is fixed in the walk planner: every kit clip
+  // now passes the universal checks, leg reach included
+  assert.deepEqual(problems, []);
 });

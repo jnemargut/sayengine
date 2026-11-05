@@ -1,0 +1,12 @@
+{
+  "action": "the windmill creaks to a stop",
+  "id": "creak-to-a-stop",
+  "style": { "weight": 0.8 },
+  "keys": [
+    { "t": 0, "label": "turning", "spin": { "sails": 15 } },
+    { "t": 2.0, "label": "the wind drops", "spin": { "sails": 14 }, "creak": 0.15 },
+    { "t": 5.5, "label": "creaking", "spin": { "sails": 5 }, "creak": 0.65, "ease": "out" },
+    { "t": 8.0, "label": "last groan", "spin": { "sails": 1.2 }, "creak": 0.9, "ease": "out" },
+    { "t": 9.0, "label": "stopped", "spin": { "sails": 0 }, "creak": 0.9, "ease": "out" }
+  ]
+}

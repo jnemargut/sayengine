@@ -13,7 +13,8 @@ interface CheckRow { name: string; pass: boolean; frames: Array<[number, number]
 interface Segment {
   id: string; label: string; show: number;
   motion?: string; duration?: number; frames?: number; loop?: boolean; speed?: number; dir?: [number, number, number]; travelScale?: number;
-  live?: { input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec };
+  cam?: Array<[number, number, number]>; fps?: number; keys?: Array<{ t: number; label: string }>;
+  live?: { input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec; reach?: { chain: string; centre: [number, number, number]; radius: number } };
   checks: CheckRow[];
 }
 interface Config { name: string; glb: string; def: CreatureDef; motions: Record<string, CreatureMotion>; terrain?: TerrainSpec; segments: Segment[]; view?: { dist?: number; height?: number; side?: number } }
@@ -122,6 +123,9 @@ function groundFor(t: TerrainSpec | undefined, centre: [number, number], extent:
   return m;
 }
 
+const goalMark = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 12), new THREE.MeshStandardMaterial({ color: '#f2c14e', emissive: '#6b4a00' }));
+goalMark.visible = false;
+scene.add(goalMark);
 const camera = new THREE.PerspectiveCamera(30, W / H, 0.05, 120);
 const live = new Map<string, { rt: CreatureRuntime; t: number }>();
 const liveDir = new THREE.Vector3(0, 0, 1);
@@ -143,9 +147,20 @@ function place(s: Segment, t: number): THREE.Vector3 {
     const inp = s.live.input;
     while (st.t < t || !pose) {
       const turn = (inp.turn ?? 0) * (inp.turnWave ? Math.sin((2 * Math.PI * st.t) / inp.turnWave) : 1);
+      const rc = s.live.reach;
+      if (rc) {
+        // the goal circles in front of the creature; the chain follows it live (FABRIK in the runtime)
+        const on = st.t > 0.6 && st.t < s.show - 1.6;
+        st.rt.reach(rc.chain, on ? [rc.centre[0] + rc.radius * Math.cos(0.9 * st.t), rc.centre[1] + 0.06 * Math.sin(1.7 * st.t), rc.centre[2] + rc.radius * Math.sin(0.9 * st.t)] : null);
+      }
       pose = st.rt.step(dt, { speed: inp.speed, turn, strafe: inp.strafe });
       st.t += dt;
     }
+    if (s.live.reach) {
+      const rc = s.live.reach, tt = st.t, on = tt > 0.6 && tt < s.show - 1.6;
+      goalMark.visible = on;
+      goalMark.position.set(rc.centre[0] + rc.radius * Math.cos(0.9 * tt), rc.centre[1] + 0.06 * Math.sin(1.7 * tt), rc.centre[2] + rc.radius * Math.sin(0.9 * tt));
+    } else goalMark.visible = false;
     for (const a of actions.values()) a.enabled = false;
     boneObj.forEach((o, i) => { o.quaternion.set(...pose!.rot[i]); o.position.copy(restPos[i]).add(new THREE.Vector3(...pose!.off[i])); });
     holder.position.set(pose.pos[0], 0, pose.pos[2]);
@@ -156,7 +171,7 @@ function place(s: Segment, t: number): THREE.Vector3 {
     return holder.position.clone();
   }
   for (const [id, a] of actions) {
-    if (id === s.motion) { a.enabled = true; a.play(); a.paused = true; a.time = t % s.duration!; a.setEffectiveWeight(1); }
+    if (id === s.motion) { a.enabled = true; a.play(); a.paused = true; a.time = s.loop === false ? Math.min(t, s.duration! - 1e-4) : t % s.duration!; a.setEffectiveWeight(1); }
     else a.enabled = false;
   }
   mixer.update(0);
@@ -165,8 +180,17 @@ function place(s: Segment, t: number): THREE.Vector3 {
   holder.position.set(d[0] * k, 0, d[2] * k);
   holder.rotation.set(0, 0, 0);
   const travel = (s.speed ?? 0) * (s.travelScale ?? 1) * s.show;
-  groundFor(cfg.terrain, [d[0] * travel / 2, d[2] * travel / 2], travel / 2 + reach * 3 + 4).visible = true;
-  return holder.position.clone();
+  const cam = camAt(s, t);
+  const span = cam ? Math.max(...s.cam!.map((p) => Math.hypot(p[0], p[2]))) : 0;
+  groundFor(cfg.terrain, [d[0] * travel / 2, d[2] * travel / 2], travel / 2 + reach * 3 + 4 + span).visible = true;
+  return cam ? holder.position.clone().add(new THREE.Vector3(cam[0], 0, cam[2])) : holder.position.clone();
+}
+// the smoothed body position at t (in place, before travel)
+function camAt(s: Segment, t: number): [number, number, number] | null {
+  if (!s.cam?.length || s.live) return null;
+  const F = s.cam.length - 1, ft = s.loop === false ? Math.min(F, t * (s.fps ?? 30)) : ((t * (s.fps ?? 30)) % F);
+  const f0 = Math.floor(ft), f1 = Math.min(F, f0 + 1), u = ft - f0;
+  return [0, 1, 2].map((k) => s.cam![f0][k] + (s.cam![f1][k] - s.cam![f0][k]) * u) as [number, number, number];
 }
 
 function frame(s: Segment, t: number) {
@@ -174,8 +198,9 @@ function frame(s: Segment, t: number) {
   // a three-quarter view from the side the creature passes, following along
   const v = cfg.view ?? {};
   const flat = size.y < reach * 0.25;                // snakes, lizards: closer, from higher up
-  const dist = v.dist ?? (flat ? Math.max(1.2, reach * 1.45) : Math.max(2.4, reach * 2.6));
-  const tgt = new THREE.Vector3(at.x, (v.height ?? size.y * 0.42), at.z);
+  const dist = v.dist ?? (flat ? Math.max(1.2, reach * 1.45) : Math.max(1.7, reach * 2.0));
+  const cam = camAt(s, t);
+  const tgt = new THREE.Vector3(at.x, v.height ?? (cam ? Math.max(size.y * 0.42, cam[1] * 0.9) : size.y * 0.42), at.z);
   const side = v.side ?? 1;
   const dir = s.live ? liveDir.clone() : new THREE.Vector3(...(s.dir ?? [0, 0, 1]));
   const across = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), dir).normalize().multiplyScalar(side);
@@ -217,7 +242,7 @@ function timeline(s: Segment, t: number) {
     for (const [a, b] of k.frames) ctx2d.fillRect(bx + (a / F) * barW, y + 2, Math.max(2, ((b - a + 1) / F) * barW), rowH - 5);
   });
   if (s.duration && !s.live) {
-    const px = x0 + pad + labelW + ((t % s.duration) / s.duration) * barW;
+    const px = x0 + pad + labelW + ((s.loop === false ? Math.min(t, s.duration) : t % s.duration) / s.duration) * barW;
     ctx2d.fillStyle = '#1c1917';
     ctx2d.fillRect(px - 1, y0 + pad + 16, 2, rowH * s.checks.length + 2);
   }

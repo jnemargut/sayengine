@@ -274,14 +274,22 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         if (!res.ok || !res.rig) return { ok: false, tool: name, error: `${obj.name} does not build` };
         // the character alone, at the origin and facing +Z, so the page can walk it along its own axis
         const solo = { ...obj, position: [0, 0, 0] as [number, number, number], rotation: 0 };
-        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }], {});
+        // --with: other scene objects to stand beside it (a bucket to trip over), placed relative to the
+        // character (--at [x,y,z] for the first, else where they are relative to it)
+        const extras = (args.with ? String(args.with).split(',').map((x) => x.trim()).filter(Boolean) : []).map((ref, i) => {
+          const o = studio.findObject(doc, ref);
+          const at = i === 0 && args.at ? (typeof args.at === 'string' ? JSON.parse(args.at) : args.at) : [o.position[0] - obj.position[0], o.position[1] - obj.position[1], o.position[2] - obj.position[2]];
+          const moved = { ...o, position: at as [number, number, number] };
+          return { obj: moved, res: studio.evaluate(moved) };
+        });
+        const glb = toGLB([{ obj: solo, res: studio.evaluate(solo) }, ...extras], {});
         const validation = await validateGlb(glb);
         if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
         const { bakeMotion } = await import('../../core/src/motion.ts');
         const mp = await import('./motionplayer/make.ts');
         const motions = picked.map(([id, spec]) => {
           const c = bakeMotion(id, spec, res.rig!.rig, obj.character);
-          const what = spec.kind === 'action' ? spec.action! : spec.kind;
+          const what = spec.kind === 'action' ? (spec.label ?? spec.action!) : spec.kind;
           return { id, kind: spec.kind, label: `${obj.name}: ${id}${id === what ? '' : ` (${what})`}${c.speed ? `, ${c.speed.toFixed(2)} m/s` : ''}`, duration: c.duration, loop: c.loop, speed: c.speed, show: mp.showTime(c) };
         });
         const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-motions`);
@@ -304,6 +312,12 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
         const live: any[] = [];
         if (args.live !== false && legs) live.push({ id: 'live-walk', label: `${def.name}: live, steered in a curve over bumps (runtime)`, show: 8, input: { speed: walk?.[1].speed ?? 0.3, strafe: walk?.[1].dir ?? [0, 0, 1], turn: 16 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), terrain: bumpy });
         if (args.live !== false && wheels) live.push({ id: 'live-drive', label: `${def.name}: live, steering over bumps (runtime)`, show: 8, input: { speed: 1.4, turn: 18, turnWave: 8 }, terrain: { ...bumpy, bumps: bumpy.bumps.map((b) => ({ ...b, amp: b.amp * 1.4 })) } });
+        // a reaching chain (a tentacle, a trunk): a live segment where it follows a moving goal
+        const reacher = !legs && !wheels ? def.parts.find((p: any) => p.kind === 'chain' && p.motion !== 'swim' && p.motion !== 'serpent' && p.segments >= 4) as any : null;
+        if (args.live !== false && reacher) {
+          const tipRest = [reacher.at[0] + reacher.dir[0] * reacher.length * 0.6, reacher.at[1] + 0.3, reacher.at[2] + reacher.dir[2] * reacher.length * 0.6];
+          live.push({ id: 'live-reach', label: `${def.name}: live, ${reacher.id} follows the yellow goal (runtime)`, show: 8, input: { speed: 0 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), reach: { chain: reacher.id, centre: tipRest, radius: reacher.length * 0.18 } });
+        }
         const broken = args.demoFailure && walk ? [{ id: 'broken-walk', motion: walk[0], label: `${def.name}: ${walk[0]} replayed 1.6× too fast (feet slide: the checks catch it)`, travelScale: 1.6 }] : [];
         const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-creature`);
         try {

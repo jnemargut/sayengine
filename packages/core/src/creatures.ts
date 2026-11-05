@@ -19,21 +19,180 @@ const norm = (a: V3): V3 => { const l = len(a) || 1; return [a[0] / l, a[1] / l,
 export interface CreaturePreset { def: CreatureDef; motions: Record<string, CreatureMotion>; describe: string }
 
 export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
-  /** Six legs and a whip tail: a robot crab that walks sideways on alternating tripods. */
-  crab: () => ({
-    describe: 'a six-legged robot crab with a whip tail (legs ×6 + chain + two spring antennae)',
+  /** Six legs, two claws and a whip tail: a crab that walks sideways on alternating tripods. */
+  crab: () => {
+    const shell = '#d0623a', leg = '#bb5431', dark = '#5a2618';
+    const claw = (side: 1 | -1): PartSpec[] => {
+      const tag = side > 0 ? 'L' : 'R';
+      const at: V3 = [side * 0.15, 0.225, 0.13], d = norm([side * 0.55, 0.15, 1]);
+      const tip = add(at, mul(d, 0.2));
+      const palm = add(tip, mul(d, 0.05));
+      return [
+        { kind: 'chain', id: `claw.${tag}`, at, dir: d, length: 0.2, segments: 2, r0: 0.026, r1: 0.032, color: leg, motion: 'wave', plane: 'yaw', amp: 12, freq: 0.4, phase: side > 0 ? 0 : 0.5, limit: 40,
+          tip: [
+            { shape: { kind: 'ball', c: palm, r: 0.06, scale: [0.85, 0.62, 1], sides: 16 }, color: shell },
+            { shape: { kind: 'seg', a: add(palm, [side * 0.012, -0.01, 0.04]), b: add(palm, [side * 0.006, -0.012, 0.115]), r1: 0.022, r2: 0.004, sides: 10, round: true, squash: [1, 0.7] }, color: dark },
+          ] },
+        { kind: 'hinge', id: `pincer.${tag}`, parent: `claw.${tag}.2`, at: add(palm, [0, 0.02, 0.035]), axis: [1, 0, 0],
+          shapes: [{ shape: { kind: 'seg', a: add(palm, [-side * 0.012, 0.02, 0.035]), b: add(palm, [-side * 0.004, 0.012, 0.11]), r1: 0.017, r2: 0.004, sides: 10, round: true, squash: [1, 0.7] }, color: dark }],
+          motion: { kind: 'swing', min: -22, max: 0, period: 1.3 }, limit: { min: -25, max: 2 } },
+      ];
+    };
+    return {
+      describe: 'a crab: a rounded shell, six tapered legs on alternating tripods, two claws with pinching pincers, eyes on stalks, spring antennae and a whip tail',
+      def: {
+        name: 'Robot Crab',
+        parts: [
+          { kind: 'body', shape: 'ball', size: [0.5, 0.15, 0.36], height: 0.24, color: shell, style: { bob: 0.01 },
+            extras: [
+              { shape: { kind: 'ball', c: [0, 0.262, -0.015], r: 0.225, scale: [1, 0.3, 0.7], sides: 28 }, color: '#df7448' },
+              { shape: { kind: 'ball', c: [0, 0.205, 0.0], r: 0.22, scale: [1, 0.22, 0.72], sides: 24 }, color: '#efc79a' },
+              { shape: { kind: 'seg', a: [-0.12, 0.27, 0.135], b: [0.12, 0.27, 0.135], r1: 0.018, r2: 0.018, sides: 10, round: true }, color: shell },
+            ] },
+          { kind: 'legs', id: 'legs', count: 6, upper: 0.2, lower: 0.28, spread: 0.22, span: 0.68, kneeUp: 0.12, radius: 0.022, taper: 0.22, squash: [1, 0.72], color: leg, footColor: dark, lift: 0.32, hipX: 0.8 },
+          ...claw(1), ...claw(-1),
+          { kind: 'chain', id: 'tail', at: [0, 0.25, -0.16], dir: [0, 0.35, -1], length: 0.6, segments: 7, r0: 0.026, r1: 0.007, color: leg, motion: 'whip', plane: 'yaw', amp: 70, freq: 0.9 },
+          { kind: 'spring', id: 'antenna.L', at: [0.035, 0.27, 0.15], dir: [0.3, 1, 0.9], length: 0.15, r: 0.005, color: '#e7a86a', hz: 2.4, damp: 0.18 },
+          { kind: 'spring', id: 'antenna.R', at: [-0.035, 0.27, 0.15], dir: [-0.3, 1, 0.9], length: 0.15, r: 0.005, color: '#e7a86a', hz: 2.4, damp: 0.18 },
+          { kind: 'hinge', id: 'eyes', at: [0, 0.28, 0.14], axis: [0, 1, 0], shapes: [
+            { shape: { kind: 'seg', a: [0.06, 0.265, 0.14], b: [0.075, 0.345, 0.155], r1: 0.011, r2: 0.009, sides: 10, round: true }, color: shell },
+            { shape: { kind: 'seg', a: [-0.06, 0.265, 0.14], b: [-0.075, 0.345, 0.155], r1: 0.011, r2: 0.009, sides: 10, round: true }, color: shell },
+            { shape: { kind: 'ball', c: [0.076, 0.355, 0.158], r: 0.022, sides: 14 }, color: '#1d1a16' },
+            { shape: { kind: 'ball', c: [-0.076, 0.355, 0.158], r: 0.022, sides: 14 }, color: '#1d1a16' },
+            { shape: { kind: 'ball', c: [0.083, 0.364, 0.174], r: 0.006, sides: 8 }, color: '#f4efe6' },
+            { shape: { kind: 'ball', c: [-0.069, 0.364, 0.174], r: 0.006, sides: 8 }, color: '#f4efe6' },
+          ], motion: { kind: 'swing', min: -20, max: 20, period: 2.6 }, limit: { min: -25, max: 25 } },
+        ],
+      },
+      motions: { walk: { kind: 'walk', speed: 0.32, dir: [1, 0, 0] }, idle: { kind: 'idle', duration: 2.6 } },
+    };
+  },
+  /** Eight legs, a round abdomen: a spider on alternating tetrapods. */
+  spider: () => ({
+    describe: 'a spider: cephalothorax and abdomen, eight long tapered legs (alternating tetrapods), pedipalps',
     def: {
-      name: 'Robot Crab',
+      name: 'Spider',
       parts: [
-        { kind: 'body', shape: 'box', size: [0.46, 0.16, 0.36], height: 0.24, color: '#c65d3b', style: { bob: 0.01 } },
-        { kind: 'legs', id: 'legs', count: 6, upper: 0.2, lower: 0.28, spread: 0.24, span: 0.8, kneeUp: 0.11, radius: 0.022, color: '#3b3f46', lift: 0.32 },
-        { kind: 'chain', id: 'tail', at: [0, 0.27, -0.17], dir: [0, 0.35, -1], length: 0.62, segments: 7, r0: 0.03, r1: 0.008, color: '#3b3f46', motion: 'whip', plane: 'yaw', amp: 70, freq: 0.9 },
-        { kind: 'spring', id: 'antenna.L', at: [0.08, 0.32, 0.17], dir: [0.25, 1, 0.5], length: 0.16, r: 0.007, color: '#e7c35a', hz: 2.4, damp: 0.18 },
-        { kind: 'spring', id: 'antenna.R', at: [-0.08, 0.32, 0.17], dir: [-0.25, 1, 0.5], length: 0.16, r: 0.007, color: '#e7c35a', hz: 2.4, damp: 0.18 },
-        { kind: 'hinge', id: 'eyes', at: [0, 0.33, 0.17], axis: [0, 1, 0], shapes: [{ shape: { kind: 'box', c: [0, 0.335, 0.175], size: [0.2, 0.045, 0.05] }, color: '#2b2f36' }, { shape: { kind: 'ball', c: [0.06, 0.34, 0.2], r: 0.022, sides: 8 }, color: '#7fe0ff' }, { shape: { kind: 'ball', c: [-0.06, 0.34, 0.2], r: 0.022, sides: 8 }, color: '#7fe0ff' }], motion: { kind: 'swing', min: -20, max: 20, period: 2.6 }, limit: { min: -25, max: 25 } },
+        { kind: 'body', shape: 'ball', size: [0.15, 0.09, 0.17], height: 0.17, color: '#3d302a', style: { bob: 0.006 },
+          extras: [
+            { shape: { kind: 'ball', c: [0, 0.205, -0.175], r: 0.115, scale: [0.82, 0.72, 1], sides: 24 }, color: '#4a3a30' },
+            { shape: { kind: 'ball', c: [0, 0.26, -0.185], r: 0.052, scale: [0.6, 0.35, 1.3], sides: 16 }, color: '#a8794a' },
+            { shape: { kind: 'seg', a: [0, 0.18, -0.06], b: [0, 0.19, -0.1], r1: 0.03, r2: 0.035, sides: 10 }, color: '#2e2420' },
+            ...[[0.025, 0.215, 0.08, 0.014], [-0.025, 0.215, 0.08, 0.014], [0.052, 0.207, 0.068, 0.009], [-0.052, 0.207, 0.068, 0.009]].map(([x, y, z, r]) => ({ shape: { kind: 'ball' as const, c: [x, y, z] as V3, r, sides: 10 }, color: '#0d0a09' })),
+          ] },
+        { kind: 'legs', id: 'legs', count: 8, upper: 0.2, lower: 0.27, spread: 0.22, span: 1.1, fan: 2.1, kneeUp: 0.15, radius: 0.0125, taper: 0.35, color: '#3d302a', footColor: '#1c1512', hipX: 0.75, lift: 0.3 },
+        { kind: 'chain', id: 'palp.L', at: [0.025, 0.15, 0.085], dir: [0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1 },
+        { kind: 'chain', id: 'palp.R', at: [-0.025, 0.15, 0.085], dir: [-0.3, -0.5, 1], length: 0.08, segments: 2, r0: 0.01, r1: 0.007, color: '#3d302a', motion: 'wave', plane: 'pitch', amp: 18, freq: 1.1, phase: 0.5 },
       ],
     },
-    motions: { walk: { kind: 'walk', speed: 0.32, dir: [1, 0, 0] }, idle: { kind: 'idle', duration: 2.6 } },
+    motions: { walk: { kind: 'walk', speed: 0.3 }, idle: { kind: 'idle', duration: 3 } },
+  }),
+  /** An octopus at a low table with a teapot and a cup (props for its actions). */
+  octopus: () => {
+    const skin = '#c7563f', under = '#efb79a';
+    const arms: PartSpec[] = Array.from({ length: 8 }, (_, i) => {
+      const a = ((i + 0.5) * 45 * Math.PI) / 180;
+      return { kind: 'chain', id: `arm${i + 1}`, at: [0.1 * Math.sin(a), 0.072, 0.1 * Math.cos(a)], dir: [Math.sin(a), -0.085, Math.cos(a)], length: 0.6, segments: 10, r0: 0.04, r1: 0.007, color: skin, under, motion: 'curl', plane: 'pitch', amp: 62, freq: 0.32, phase: i / 8, limit: 80 } as PartSpec;
+    });
+    const potC: V3 = [0.13, 0.2 + 0.052, 0.71];
+    const grip: V3 = [0.13, 0.255, 0.635];
+    const spout: V3 = [0.045, 0.3, 0.71];
+    return {
+      describe: 'an octopus (mantle, eyes, eight curling arms with suckers) beside a low table with a teapot and a cup (props it can pick up)',
+      def: {
+        name: 'Octopus',
+        parts: [
+          { kind: 'body', shape: 'ball', size: [0.26, 0.2, 0.26], height: 0.2, color: skin, style: { bob: 0.01 },
+            extras: [
+              { shape: { kind: 'ball', c: [0, 0.33, -0.05], r: 0.15, scale: [0.95, 1.05, 1.15], sides: 28 }, color: skin },
+              { shape: { kind: 'ball', c: [0, 0.11, 0], r: 0.14, scale: [1.05, 0.42, 1.05], sides: 24 }, color: skin },
+              ...[1, -1].flatMap((sd) => [
+                { shape: { kind: 'ball' as const, c: [sd * 0.085, 0.235, 0.085] as V3, r: 0.048, sides: 18 }, color: '#f2d9b8' },
+                { shape: { kind: 'ball' as const, c: [sd * 0.098, 0.238, 0.118] as V3, r: 0.022, scale: [1, 0.55, 0.7] as V3, sides: 14 }, color: '#18120f' },
+                { shape: { kind: 'seg' as const, a: [sd * 0.05, 0.285, 0.1] as V3, b: [sd * 0.12, 0.28, 0.09] as V3, r1: 0.014, r2: 0.01, sides: 10, round: true }, color: '#b14a35' },
+              ]),
+            ] },
+          ...arms,
+          { kind: 'prop', id: 'table', at: [0, 0.2, 0.75], surface: 0.2, shapes: [
+            { shape: { kind: 'box', c: [0, 0.185, 0.75], size: [0.6, 0.03, 0.34] }, color: '#8a6a4a' },
+            ...[[0.15, 0.62], [-0.15, 0.62], [0.15, 0.88], [-0.15, 0.88]].map(([x, z]) => ({ shape: { kind: 'seg' as const, a: [x, 0, z] as V3, b: [x, 0.172, z] as V3, r1: 0.016, r2: 0.016, sides: 10 }, color: '#6f533a' })),
+          ] },
+          { kind: 'prop', id: 'teapot', at: grip, shapes: [
+            { shape: { kind: 'ball', c: potC, r: 0.062, scale: [1, 0.84, 1], sides: 22 }, color: '#4f8a8b' },
+            { shape: { kind: 'ball', c: add(potC, [0, 0.05, 0]), r: 0.03, scale: [1, 0.45, 1], sides: 16 }, color: '#4f8a8b' },
+            { shape: { kind: 'ball', c: add(potC, [0, 0.068, 0]), r: 0.009, sides: 10 }, color: '#e9dfc9' },
+            { shape: { kind: 'seg', a: add(potC, [-0.045, -0.005, 0]), b: spout, r1: 0.016, r2: 0.007, sides: 12 }, color: '#4f8a8b' },
+            { shape: { kind: 'seg', a: add(potC, [0, 0.03, -0.045]), b: add(grip, [0, 0.012, 0]), r1: 0.008, r2: 0.008, sides: 8 }, color: '#e9dfc9' },
+            { shape: { kind: 'seg', a: add(grip, [0, 0.012, 0]), b: add(grip, [0, -0.025, 0.005]), r1: 0.008, r2: 0.008, sides: 8 }, color: '#e9dfc9' },
+            { shape: { kind: 'seg', a: add(grip, [0, -0.025, 0.005]), b: add(potC, [0, -0.02, -0.05]), r1: 0.008, r2: 0.008, sides: 8 }, color: '#e9dfc9' },
+          ] },
+          { kind: 'prop', id: 'tea', parent: 'teapot', at: spout, fx: { hide: [0, -3, 0] }, shapes: [{ shape: { kind: 'seg', a: add(spout, [0, 0.002, 0]), b: add(spout, [0, -0.1, 0]), r1: 0.006, r2: 0.0045, sides: 8 }, color: '#9a6232' }] },
+          { kind: 'prop', id: 'cup', at: [-0.1, 0.2, 0.69], shapes: [
+            { shape: { kind: 'seg', a: [-0.1, 0.2, 0.69], b: [-0.1, 0.262, 0.69], r1: 0.028, r2: 0.036, sides: 18 }, color: '#f1ebe0' },
+            { shape: { kind: 'seg', a: [-0.1, 0.255, 0.69], b: [-0.1, 0.2635, 0.69], r1: 0.031, r2: 0.033, sides: 18 }, color: '#7a4a24' },
+            { shape: { kind: 'seg', a: [-0.137, 0.25, 0.69], b: [-0.146, 0.222, 0.69], r1: 0.006, r2: 0.006, sides: 8 }, color: '#f1ebe0' },
+            { shape: { kind: 'ball', c: [-0.1, 0.2, 0.69], r: 0.046, scale: [1, 0.08, 1], sides: 18 }, color: '#f1ebe0' },
+          ] },
+        ],
+      },
+      motions: { idle: { kind: 'idle', duration: 4 } },
+    };
+  },
+  /** A bird: wings that fold, flap, glide and hover; legs that tuck in flight. */
+  bird: () => ({
+    describe: 'a bird: body, head and beak, a fan tail, two legs (knees back, toes), and wings (flap, glide, fold, hover; a flight cycle from their proportions)',
+    def: {
+      name: 'Bird',
+      parts: [
+        { kind: 'body', shape: 'ball', size: [0.15, 0.15, 0.3], height: 0.25, color: '#5b6f8a', style: { bob: 0.008 },
+          extras: [
+            { shape: { kind: 'ball', c: [0, 0.235, 0.06], r: 0.08, scale: [0.9, 1.0, 1.05], sides: 22 }, color: '#d9c7ad' },
+            { shape: { kind: 'seg', a: [0, 0.28, 0.09], b: [0, 0.35, 0.135], r1: 0.05, r2: 0.045, sides: 16 }, color: '#5b6f8a' },
+            { shape: { kind: 'ball', c: [0, 0.365, 0.145], r: 0.062, scale: [0.95, 1, 1.05], sides: 22 }, color: '#4f6380' },
+            { shape: { kind: 'seg', a: [0, 0.358, 0.192], b: [0, 0.35, 0.262], r1: 0.019, r2: 0.003, sides: 12, round: true, squash: [0.9, 0.75] }, color: '#e3a234' },
+            { shape: { kind: 'ball', c: [0.042, 0.38, 0.172], r: 0.012, sides: 10 }, color: '#16120f' },
+            { shape: { kind: 'ball', c: [-0.042, 0.38, 0.172], r: 0.012, sides: 10 }, color: '#16120f' },
+            { shape: { kind: 'ball', c: [0.046, 0.384, 0.179], r: 0.0035, sides: 6 }, color: '#f4efe6' },
+            { shape: { kind: 'ball', c: [-0.046, 0.384, 0.179], r: 0.0035, sides: 6 }, color: '#f4efe6' },
+          ] },
+        { kind: 'fin', id: 'tail', at: [0, 0.27, -0.13], dir: [0, 0.18, -1], length: 0.15, width: 0.07, taper: 1.7, normal: [0, 1, 0.15], color: '#3f4f66', motion: 'still' },
+        { kind: 'legs', id: 'legs', count: 2, upper: 0.12, lower: 0.15, spread: -0.025, span: 0, radius: 0.011, taper: 0.7, color: '#c9893a', toes: '#b07a33', knee: [0.004, -0.085, -0.06], pole: [0, -0.2, -1], foot: 0.03, hipX: 0.6, lift: 0.4, bend: 100 },
+        { kind: 'wing', id: 'wings', at: [0.068, 0.312, 0.05], length: 0.36, chord: 0.15, color: '#4d6080', tipColor: '#26303f', edgeColor: '#5b6f8a' },
+      ],
+    },
+    motions: { idle: { kind: 'idle', duration: 3 }, walk: { kind: 'walk', speed: 0.22 }, fly: { kind: 'fly', altitude: 1.4 }, glide: { kind: 'glide', altitude: 1.4 }, hover: { kind: 'hover', altitude: 0.8 } },
+  }),
+  /** A fish: the tail does the swimming (carangiform), fins flutter. */
+  fish: () => ({
+    describe: 'a fish: a deep body, a tail that carries a travelling wave (carangiform), a fan tail fin, a dorsal fin and fluttering pectorals',
+    def: {
+      name: 'Fish',
+      parts: [
+        { kind: 'body', shape: 'ball', size: [0.1, 0.16, 0.26], height: 0.45, color: '#e58a38', style: { eyes: '#15120f', eyeSize: 0.85, bob: 0.006 },
+          extras: [
+            { shape: { kind: 'ball', c: [0, 0.425, 0.01], r: 0.12, scale: [0.4, 0.5, 1], sides: 24 }, color: '#f6d9a8' },
+            { shape: { kind: 'seg', a: [0.0, 0.43, 0.125], b: [0, 0.432, 0.135], r1: 0.014, r2: 0.008, sides: 10, round: true }, color: '#b55c2a' },
+          ] },
+        { kind: 'chain', id: 'spine', at: [0, 0.45, -0.07], dir: [0, 0, -1], length: 0.26, segments: 6, r0: 0.07, r1: 0.014, squash: [0.6, 1.0], color: '#e58a38', motion: 'swim', swim: 'fish', limit: 45 },
+        { kind: 'fin', id: 'tailfin', parent: 'spine.6', at: [0, 0.45, -0.325], dir: [0, 0, -1], length: 0.1, width: 0.06, taper: 2.3, normal: [1, 0, 0], color: '#f2a150', motion: 'flutter', amp: 7 },
+        { kind: 'fin', id: 'dorsal', at: [0, 0.515, 0.0], dir: [0, 0.55, -1], length: 0.13, width: 0.045, taper: 0.25, normal: [1, 0, 0], color: '#f2a150', motion: 'still' },
+        { kind: 'fin', id: 'pectoral', mirror: true, at: [0.04, 0.42, 0.04], dir: [0.8, -0.35, -0.7], length: 0.065, width: 0.035, taper: 0.6, normal: [0.3, 1, 0], color: '#f2a150', motion: 'flutter', amp: 22 },
+      ],
+    },
+    motions: { swim: { kind: 'swim' }, idle: { kind: 'idle', duration: 3 } },
+  }),
+  /** An eel: the whole body waves (anguilliform). */
+  eel: () => ({
+    describe: 'an eel: a small head and a long body that waves along its whole length (anguilliform)',
+    def: {
+      name: 'Eel',
+      parts: [
+        { kind: 'body', shape: 'ball', size: [0.06, 0.065, 0.13], height: 0.3, color: '#5f6a3c', style: { eyes: '#15120f', bob: 0.004 } },
+        { kind: 'chain', id: 'spine', at: [0, 0.3, -0.04], dir: [0, 0, -1], length: 1.0, segments: 16, r0: 0.03, r1: 0.006, squash: [0.75, 1.15], color: '#66713f', under: '#c9c08a', motion: 'swim', swim: 'eel', limit: 40 },
+        { kind: 'fin', id: 'tailfin', parent: 'spine.16', at: [0, 0.3, -1.04], dir: [0, 0, -1], length: 0.07, width: 0.035, taper: 0.4, normal: [1, 0, 0], color: '#4e5832', motion: 'still' },
+      ],
+    },
+    motions: { swim: { kind: 'swim' }, idle: { kind: 'idle', duration: 3 } },
   }),
   /** A snake: a small head and a long ground chain that carries it in serpentine waves. */
   snake: () => ({
@@ -122,7 +281,7 @@ export function creatureFromPreset(name: string): CreaturePreset {
 
 // ── low-poly meshes (flat-shaded triangles, object space) ───────────────────────────────────────
 
-export interface TriMesh { pos: number[]; idx: number[] }
+export interface TriMesh { pos: number[]; idx: number[]; nrm?: number[] }   // nrm: smooth per-vertex normals (else faceted)
 
 function basis(z: V3): [V3, V3, V3] {
   const zz = norm(z);
@@ -130,6 +289,53 @@ function basis(z: V3): [V3, V3, V3] {
   const x = norm(cross(helper, zz));
   const y = cross(zz, x);
   return [x, y, zz];
+}
+
+/** A smooth tapered segment: elliptical cross-section (squash), side normals that follow the taper,
+ *  domed (round) or flat ends. */
+function smoothSeg(s: Extract<PartShape, { kind: 'seg' }>): TriMesh {
+  const pos: number[] = [], idx: number[] = [], nrm: number[] = [];
+  const v = (p: V3, nn: V3) => { pos.push(p[0], p[1], p[2]); nrm.push(nn[0], nn[1], nn[2]); return pos.length / 3 - 1; };
+  const n = Math.max(6, s.sides ?? 12);
+  const [x, y, z] = basis(sub(s.b, s.a));
+  const L = len(sub(s.b, s.a)) || 1e-6;
+  const [sx, sy] = s.squash ?? [1, 1];
+  const phiSide = Math.atan2(s.r1 - s.r2, L);
+  // a ring: centre c, radius r, latitude phi (normal tilts toward ±z)
+  const ring = (c: V3, r: number, phi: number) => Array.from({ length: n }, (_, i) => {
+    const a = (TAU * i) / n, ca = Math.cos(a), sa = Math.sin(a);
+    const p = add(c, add(mul(x, ca * r * sx), mul(y, sa * r * sy)));
+    const radial = norm(add(mul(x, ca / sx), mul(y, sa / sy)));
+    return v(p, norm(add(mul(radial, Math.cos(phi)), mul(z, Math.sin(phi)))));
+  });
+  const strip: Array<number[] | number> = [];
+  const m = Math.max(2, Math.round(n / 4));
+  const k = Math.min(sx, sy);
+  if (s.round) {
+    strip.push(v(add(s.a, mul(z, -s.r1 * k)), mul(z, -1)));
+    for (let j = m - 1; j >= 1; j--) { const ph = (Math.PI / 2) * (j / m); strip.push(ring(add(s.a, mul(z, -s.r1 * k * Math.sin(ph))), s.r1 * Math.cos(ph), -ph)); }
+  } else {
+    strip.push(v(s.a, mul(z, -1)));
+    strip.push(Array.from({ length: n }, (_, i) => { const a = (TAU * i) / n; return v(add(s.a, add(mul(x, Math.cos(a) * s.r1 * sx), mul(y, Math.sin(a) * s.r1 * sy))), mul(z, -1)); }));
+  }
+  strip.push(ring(s.a, s.r1, phiSide), ring(s.b, s.r2, phiSide));
+  if (s.round) {
+    for (let j = 1; j < m; j++) { const ph = (Math.PI / 2) * (j / m); strip.push(ring(add(s.b, mul(z, s.r2 * k * Math.sin(ph))), s.r2 * Math.cos(ph), ph)); }
+    strip.push(v(add(s.b, mul(z, s.r2 * k)), z));
+  } else {
+    strip.push(Array.from({ length: n }, (_, i) => { const a = (TAU * i) / n; return v(add(s.b, add(mul(x, Math.cos(a) * s.r2 * sx), mul(y, Math.sin(a) * s.r2 * sy))), z); }));
+    strip.push(v(s.b, z));
+  }
+  for (let r = 0; r + 1 < strip.length; r++) {
+    const P = strip[r], Q = strip[r + 1];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      if (typeof P === 'number' && Array.isArray(Q)) idx.push(P, Q[j], Q[i]);
+      else if (Array.isArray(P) && typeof Q === 'number') idx.push(P[i], P[j], Q);
+      else if (Array.isArray(P) && Array.isArray(Q)) idx.push(P[i], P[j], Q[j], P[i], Q[j], Q[i]);
+    }
+  }
+  return { pos, idx, nrm };
 }
 
 /** A closed triangle mesh for a shape (object space). */
@@ -148,6 +354,7 @@ export function shapeMesh(s: PartShape): TriMesh {
       break;
     }
     case 'seg': {
+      if (!s.flat) return smoothSeg(s);
       const n = s.sides ?? 8;
       const [x, y, z] = basis(sub(s.b, s.a));
       const A = ring(s.a, x, y, s.r1, n), B = ring(s.b, x, y, s.r2, n);
@@ -163,11 +370,14 @@ export function shapeMesh(s: PartShape): TriMesh {
     case 'ball': {
       const n = s.sides ?? 10, rings = Math.max(3, Math.round(n / 2));
       const k = s.scale ?? [1, 1, 1];
-      const top = v([s.c[0], s.c[1] + s.r * k[1], s.c[2]]), bot = v([s.c[0], s.c[1] - s.r * k[1], s.c[2]]);
+      const nrm: number[] = [];
+      const smooth = !s.flat;
+      const vn = (p: V3) => { const i = v(p); if (smooth) { const d = sub(p, s.c); const nn = norm([d[0] / (k[0] * k[0]), d[1] / (k[1] * k[1]), d[2] / (k[2] * k[2])]); nrm.push(...nn); } return i; };
+      const top = vn([s.c[0], s.c[1] + s.r * k[1], s.c[2]]), bot = vn([s.c[0], s.c[1] - s.r * k[1], s.c[2]]);
       const R: number[][] = [];
       for (let j = 1; j < rings; j++) {
         const th = (Math.PI * j) / rings;
-        R.push(Array.from({ length: n }, (_, i) => { const a = (TAU * i) / n; return v([s.c[0] + Math.sin(th) * Math.cos(a) * s.r * k[0], s.c[1] + Math.cos(th) * s.r * k[1], s.c[2] + Math.sin(th) * Math.sin(a) * s.r * k[2]]); }));
+        R.push(Array.from({ length: n }, (_, i) => { const a = (TAU * i) / n; return vn([s.c[0] + Math.sin(th) * Math.cos(a) * s.r * k[0], s.c[1] + Math.cos(th) * s.r * k[1], s.c[2] + Math.sin(th) * Math.sin(a) * s.r * k[2]]); }));
       }
       for (let i = 0; i < n; i++) {
         const j = (i + 1) % n;
@@ -175,6 +385,7 @@ export function shapeMesh(s: PartShape): TriMesh {
         for (let r = 0; r < R.length - 1; r++) { tri(R[r][i], R[r][j], R[r + 1][j]); tri(R[r][i], R[r + 1][j], R[r + 1][i]); }
         tri(bot, R[R.length - 1][i], R[R.length - 1][j]);
       }
+      if (smooth) return { pos, idx, nrm };
       break;
     }
     case 'wheel': {
@@ -238,7 +449,11 @@ function flat(m: TriMesh, origin: V3): { p: Float32Array; n: Float32Array } {
   for (let t = 0; t < m.idx.length; t += 3) {
     const vs = [0, 1, 2].map((k) => { const i = m.idx[t + k]; return [m.pos[i * 3] - origin[0], m.pos[i * 3 + 1] - origin[1], m.pos[i * 3 + 2] - origin[2]] as V3; });
     const nn = norm(cross(sub(vs[1], vs[0]), sub(vs[2], vs[0])));
-    vs.forEach((vv, k) => { p.set(vv, (t + k) * 3); n.set(nn, (t + k) * 3); });
+    vs.forEach((vv, k) => {
+      p.set(vv, (t + k) * 3);
+      const i = m.idx[t + k];
+      n.set(m.nrm ? [m.nrm[i * 3], m.nrm[i * 3 + 1], m.nrm[i * 3 + 2]] : nn, (t + k) * 3);
+    });
   }
   return { p, n };
 }
@@ -285,9 +500,11 @@ export function creatureGLB(c: Creature, clips: CreatureClip[], opts: CreatureGl
   for (const [bi, byColor] of byBone) {
     const prims: any[] = [];
     for (const [color, meshes] of byColor) {
-      const merged: TriMesh = { pos: [], idx: [] };
-      for (const m of meshes) { const base = merged.pos.length / 3; merged.pos.push(...m.pos); merged.idx.push(...m.idx.map((i) => i + base)); }
-      const { p, n } = flat(merged, c.bones[bi].head);
+      const parts = meshes.map((m) => flat(m, c.bones[bi].head));
+      const total = parts.reduce((s2, x) => s2 + x.p.length, 0);
+      const p = new Float32Array(total), n = new Float32Array(total);
+      let o = 0;
+      for (const x of parts) { p.set(x.p, o); n.set(x.n, o); o += x.p.length; }
       prims.push({ attributes: { POSITION: B.accessor(p, 'VEC3', true), NORMAL: B.accessor(n, 'VEC3') }, material: matOf(color) });
     }
     g.meshes.push({ name: `${c.bones[bi].name}.mesh`, primitives: prims });

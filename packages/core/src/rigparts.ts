@@ -8,6 +8,9 @@
 // Faces +Z, Y up, ground at y = 0. DOM-free.
 import { qAxisAngle, qIdentity, qMul, qRot, type BoneDef, type Q, type V3 } from './rig.ts';
 import { qAngle, qArc, qInv, qSlerp } from './motion.ts';
+import type { ActionSpec } from './actions.ts';
+import { bakeAction, propChecks } from './actions.ts';
+import { finAxis, finBuild, flightPlan, propBuild, swimChecks, swimJoints, swimPlan, wingBuild, wingChecks, wingPose, mirrorQ, legTuck, type WingPoseOut } from './wings.ts';
 
 const D2R = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -30,8 +33,8 @@ const mod1 = (x: number) => x - Math.floor(x);
 /** A body shape in object space (rest pose). */
 export type PartShape =
   | { kind: 'box'; c: V3; size: V3 }
-  | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides?: number }
-  | { kind: 'ball'; c: V3; r: number; sides?: number; scale?: V3 }
+  | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides?: number; squash?: [number, number]; round?: boolean; flat?: boolean }   // squash: cross-section scale (side, up); round: domed ends; flat: faceted (robots)
+  | { kind: 'ball'; c: V3; r: number; sides?: number; scale?: V3; flat?: boolean }
   | { kind: 'wheel'; c: V3; r: number; w: number; spokes?: number }        // axle along X
   | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number };   // a thin slab (grass, sails); taper = tip width ÷ base width
 
@@ -52,7 +55,11 @@ export type JointLimit = { kind: 'cone'; maxDeg: number } | { kind: 'hinge'; axi
 
 // ── part specs ───────────────────────────────────────────────────────────────────────────────────
 
-export interface BodyPartSpec { kind: 'body'; id?: string; shape: 'box' | 'ball' | 'capsule'; size: V3; height: number; color: string; style?: { bob?: number; sway?: number; eyes?: string } }
+export interface BodyPartSpec {
+  kind: 'body'; id?: string; shape: 'box' | 'ball' | 'capsule'; size: V3; height: number; color: string;
+  style?: { bob?: number; sway?: number; eyes?: string; eyeSize?: number };
+  extras?: Array<{ shape: PartShape; color: string }>;  // more shapes riding the body (a head, a beak, a shell ridge), object space
+}
 export interface LegsPartSpec {
   kind: 'legs'; id: string; count: number;            // 2, 4, 6 or 8 (pairs on the body's sides)
   upper: number; lower: number;                        // segment lengths (m)
@@ -62,17 +69,67 @@ export interface LegsPartSpec {
   radius: number; color: string;
   lift?: number;                                       // swing foot height (× upper)
   duty?: number;                                       // fraction of a cycle each foot carries weight
+  taper?: number;                                      // foot-end radius ÷ hip radius (0.25: pointed tips)
+  squash?: [number, number];                           // leg cross-section (side, up): flattened crab legs
+  joints?: boolean;                                    // knee balls (default true)
+  footColor?: string;                                  // a darker tip
+  hipX?: number;                                       // hips' distance out from the centre (× half body width, default 0.9)
+  fan?: number;                                        // feet's spread along the body (× the hips' spread, default 1.15): a spider's fan out
+  bend?: number;                                       // joint limit (deg, default 70 at the hip, 85 at the knee)
+  knee?: V3;                                           // the knee's rest offset from the hip (left leg; default up and out). A bird's points back: [0, -0.1, -0.06]
+  pole?: V3;                                           // which way the knee bends (body space, left leg; default out and up). A bird's: [0, 0, -1]
+  toes?: string;                                       // three toes at each foot, this colour (birds)
+  foot?: number;                                       // feet's forward offset from the hip (m, birds stand with their feet under the body)
 }
 export interface ChainPartSpec {
   kind: 'chain'; id: string; parent?: string;          // attach bone (default Body)
   at: V3; dir: V3; length: number; segments: number;
   r0: number; r1: number; color: string;
-  motion?: 'wave' | 'whip' | 'coil' | 'reach' | 'serpent' | 'follow';
+  motion?: 'wave' | 'whip' | 'coil' | 'reach' | 'serpent' | 'follow' | 'curl' | 'swim';
   plane?: 'yaw' | 'pitch';                             // which way it bends (yaw: side to side; pitch: up and down)
   amp?: number; freq?: number;                         // degrees at the tip; cycles per second (wave/whip)
   target?: V3;                                         // reach: object-space point the tip reaches for
   ground?: boolean;                                    // serpent: the chain lies on the ground and carries the body
   wavelength?: number;                                 // serpent: path wavelength (m)
+  phase?: number;                                      // wave/curl: phase offset (cycles), so eight arms don't move as one
+  swim?: 'fish' | 'eel';                               // swim: carangiform (the tail does the work) or anguilliform (the whole body waves)
+  squash?: [number, number];                           // cross-section (side, up): a fish's tail is taller than wide
+  limit?: number;                                      // bend limit per joint (deg)
+  tip?: Array<{ shape: PartShape; color: string }>;    // shapes riding the last segment (a claw, a sucker pad), object space
+  under?: string;                                      // a lighter strip along the underside, this colour (an octopus's suckers, a belly)
+}
+/** A pair of wings (left given, right mirrored): arm, forearm and hand bones with feathers. Flap, glide,
+ *  fold and hover poses, and a flight cycle, are computed from the wing's proportions (wings.ts). */
+export interface WingPartSpec {
+  kind: 'wing'; id: string; parent?: string;
+  at: V3;                                              // the left shoulder (x > 0)
+  length: number;                                      // one wing, shoulder to tip (m)
+  chord: number;                                       // depth of the wing at the shoulder (m)
+  color: string; tipColor?: string; edgeColor?: string;
+  flapHz?: number;                                     // wingbeats per second (default from the wing's size)
+  stroke?: number;                                     // stroke amplitude (deg, default from proportions)
+  fold?: { sweep?: number; twist?: number; drop?: number };   // the folded pose (defaults fit a bird)
+}
+/** A fin: a thin blade on a bone that flutters, sculls or rides along (pectorals mirror). */
+export interface FinPartSpec {
+  kind: 'fin'; id: string; parent?: string;            // attach bone (default Body; a tail fin rides the last spine segment)
+  at: V3; dir: V3;                                     // root, and root → tip direction
+  length: number; width: number; taper?: number;       // taper = tip width ÷ root width (>1: a fan tail)
+  normal?: V3;                                         // the fin's flat side faces this way (default up)
+  color: string;
+  mirror?: boolean;                                    // a left/right pair (at.x > 0 is the left one)
+  motion?: 'flutter' | 'still';
+  amp?: number; freq?: number;                         // degrees; cycles per second (default: the swim's beat)
+  axis?: V3;                                           // the axis it flutters about (default: along its root)
+}
+/** A prop a creature can pick up (a teapot, a cup) or that stays put (a table). It has its own bone with
+ *  no parent (it stays where it is in the world), unless a part holds it during an action. */
+export interface PropPartSpec {
+  kind: 'prop'; id: string; parent?: string;           // parent: rides another prop or bone (the tea stream rides the pot)
+  at: V3;                                              // grip point (object space; the bone's head)
+  shapes: Array<{ shape: PartShape; color: string }>;
+  surface?: number;                                    // height of its top, when things can stand on it (a table)
+  fx?: { hide: V3 };                                   // an effect (a stream of tea): hidden by this offset unless an action shows it
 }
 export interface WheelsPartSpec {
   kind: 'wheels'; id: string;
@@ -109,7 +166,7 @@ export function swayDeg(p: SwayPartSpec, t: number, x: number, z: number, i = 0,
   const ph = (TAU / 2.5) * (x * w[0] + z * w[2]);
   return str * (0.55 + 0.45 * Math.sin(TAU * per * t - ph)) + 3 * Math.sin(TAU * per * 3 * t + i);
 }
-export type PartSpec = BodyPartSpec | LegsPartSpec | ChainPartSpec | WheelsPartSpec | HingePartSpec | SliderPartSpec | SpringPartSpec | SwayPartSpec;
+export type PartSpec = BodyPartSpec | LegsPartSpec | ChainPartSpec | WheelsPartSpec | HingePartSpec | SliderPartSpec | SpringPartSpec | SwayPartSpec | WingPartSpec | FinPartSpec | PropPartSpec;
 
 /** Uneven ground: sums of sines, periodic along Z with `period` so a driving loop closes. */
 export interface TerrainSpec { period: number; bumps: Array<{ amp: number; k: number; phase?: number; kx?: number }>; color?: string }
@@ -136,7 +193,11 @@ export interface Creature {
   spinners: Set<string>;           // bones that turn continuously (wheels, sails): no pop or loop-angle limits
   parts: BuiltPart[];
   size: number;                    // the body's longest dimension (checks scale with it)
-  legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number }>;
+  legs: Array<{ part: string; hip: string; knee: string; foot: V3; side: 1 | -1; pair: number; pole: V3 }>;
+  fast: Record<string, number>;    // bones allowed to turn faster than the pop limit (wings beat): °/s
+  wings: Array<{ part: string; side: 1 | -1; arm: string; fore: string; hand: string }>;
+  props: Set<string>;              // prop bones (no parent unless held)
+  fx: Set<string>;                 // effect bones (a tea stream): left out of collision checks
 }
 
 function addBone(c: { bones: BoneDef[] }, name: string, parent: string | null, head: V3, tail: V3) {
@@ -153,6 +214,9 @@ export function buildCreature(def: CreatureDef): Creature {
   const spinners = new Set<string>();
   const parts: BuiltPart[] = [];
   const legs: Creature['legs'] = [];
+  const fast: Record<string, number> = {};
+  const wings: Creature['wings'] = [];
+  const props = new Set<string>(), fx = new Set<string>();
   const C = { bones };
   const body = def.parts.find((p): p is BodyPartSpec => p.kind === 'body');
   if (!body) throw new Error(`${def.name}: a creature needs one body part`);
@@ -169,7 +233,8 @@ export function buildCreature(def: CreatureDef): Creature {
             : { kind: 'seg', a: [0, bodyY, -bl / 2 + bw / 2], b: [0, bodyY, bl / 2 - bw / 2], r1: bw / 2, r2: bw / 2, sides: 12 };
         pieces.push({ bone: 'Body', shape, color: spec.color, part: 'body' });
         if (spec.shape === 'capsule' && shape.kind === 'seg') for (const e of [shape.a, shape.b]) pieces.push({ bone: 'Body', shape: { kind: 'ball', c: e, r: bw / 2, sides: 12, scale: [1, bh / bw, 1] }, color: spec.color, part: 'body' });
-        if (spec.style?.eyes) for (const side of [1, -1]) pieces.push({ bone: 'Body', shape: { kind: 'ball', c: [side * bw * 0.32, bodyY + bh * 0.32, bl / 2 - bw * 0.3], r: Math.max(0.006, bw * 0.12), sides: 8 }, color: spec.style.eyes, part: 'body' });
+        if (spec.style?.eyes) for (const side of [1, -1]) pieces.push({ bone: 'Body', shape: { kind: 'ball', c: [side * bw * 0.32, bodyY + bh * 0.32, bl / 2 - bw * 0.3], r: Math.max(0.006, bw * 0.12 * (spec.style.eyeSize ?? 1)), sides: 12 }, color: spec.style.eyes, part: 'body' });
+        for (const x of spec.extras ?? []) pieces.push({ bone: 'Body', shape: x.shape, color: x.color, part: 'body' });
         break;
       }
       case 'legs': {
@@ -180,24 +245,37 @@ export function buildCreature(def: CreatureDef): Creature {
           const z = pairs === 1 ? 0 : span / 2 - (span * i) / (pairs - 1);
           for (const side of [1, -1] as const) {
             const tag = `${side > 0 ? 'L' : 'R'}${i + 1}`;
-            const hip: V3 = [side * bw / 2 * 0.9, bodyY - bh * 0.1, z];
-            const foot: V3 = [side * (bw / 2 + spec.spread), 0, z * 1.15];
+            const hip: V3 = [side * bw / 2 * (spec.hipX ?? 0.9), bodyY - bh * 0.1, z];
+            const foot: V3 = [side * (bw / 2 + spec.spread), 0, z * (spec.fan ?? 1.15) + (spec.foot ?? 0)];
             // the knee: up and out, so the lower segment reaches down to the foot
             const out = norm([foot[0] - hip[0], 0, foot[2] - hip[2]]);
             const dHoriz = Math.hypot(foot[0] - hip[0], foot[2] - hip[2]);
             const kneeUp = spec.kneeUp ?? spec.upper * 0.45;
             const kh = Math.min(spec.upper * 0.95, Math.sqrt(Math.max(0, spec.upper * spec.upper - kneeUp * kneeUp)));
-            const knee: V3 = [hip[0] + out[0] * Math.min(kh, dHoriz * 0.6), hip[1] + kneeUp, hip[2] + out[2] * Math.min(kh, dHoriz * 0.6)];
+            const knee: V3 = spec.knee ? add(hip, [side * spec.knee[0], spec.knee[1], spec.knee[2]]) : [hip[0] + out[0] * Math.min(kh, dHoriz * 0.6), hip[1] + kneeUp, hip[2] + out[2] * Math.min(kh, dHoriz * 0.6)];
             const upper = `${spec.id}.${tag}.upper`, lower = `${spec.id}.${tag}.lower`;
             addBone(C, upper, 'Body', hip, knee);
             addBone(C, lower, upper, knee, foot);
-            pieces.push({ bone: upper, shape: { kind: 'seg', a: hip, b: knee, r1: spec.radius, r2: spec.radius * 0.85, sides: 6 }, color: spec.color, part: spec.id });
-            pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: [foot[0], foot[1] + spec.radius * 0.6, foot[2]], r1: spec.radius * 0.85, r2: spec.radius * 0.45, sides: 6 }, color: spec.color, part: spec.id });
-            pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.05, sides: 8 }, color: spec.color, part: spec.id });
+            // tapered segments: thick at the hip, thinner at the knee, down to the tip (taper)
+            const tp = spec.taper ?? 0.45, sq = spec.squash;
+            pieces.push({ bone: upper, shape: { kind: 'seg', a: hip, b: knee, r1: spec.radius * 1.1, r2: spec.radius * 0.85, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
+            const tipAt: V3 = [foot[0], foot[1] + spec.radius * 0.6, foot[2]];
+            if (spec.footColor) {
+              const mid = lerp3(knee, tipAt, 0.72);
+              pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: mid, r1: spec.radius * 0.85, r2: spec.radius * lerp(0.85, tp, 0.72), sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
+              pieces.push({ bone: lower, shape: { kind: 'seg', a: mid, b: tipAt, r1: spec.radius * lerp(0.85, tp, 0.72) * 0.97, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.footColor, part: spec.id });
+            } else pieces.push({ bone: lower, shape: { kind: 'seg', a: knee, b: tipAt, r1: spec.radius * 0.85, r2: spec.radius * tp, sides: 12, round: true, ...(sq ? { squash: sq } : {}) }, color: spec.color, part: spec.id });
+            if (spec.joints !== false) pieces.push({ bone: lower, shape: { kind: 'ball', c: knee, r: spec.radius * 1.02, sides: 12 }, color: spec.color, part: spec.id });
+            if (spec.toes) for (const a of [-32, 0, 32]) {
+              const d: V3 = [Math.sin((a * Math.PI) / 180) * side, 0, Math.cos((a * Math.PI) / 180)];
+              const tl = (spec.upper + spec.lower) * (a ? 0.16 : 0.2);
+              pieces.push({ bone: lower, shape: { kind: 'seg', a: [foot[0], spec.radius * 0.5, foot[2]], b: add([foot[0], spec.radius * 0.35, foot[2]], mul(d, tl)), r1: spec.radius * 0.55, r2: spec.radius * 0.2, sides: 8, round: true }, color: spec.toes, part: spec.id });
+            }
+            if (spec.toes) pieces.push({ bone: lower, shape: { kind: 'seg', a: [foot[0], spec.radius * 0.5, foot[2]], b: add([foot[0], spec.radius * 0.4, foot[2]], [0, 0, -(spec.upper + spec.lower) * 0.1]), r1: spec.radius * 0.5, r2: spec.radius * 0.2, sides: 8, round: true }, color: spec.toes, part: spec.id });
             contacts.push({ bone: lower, at: [foot[0], foot[1] + spec.radius * 0.45, foot[2]], kind: 'foot', part: spec.id });
-            limits[upper] = { kind: 'cone', maxDeg: 70 };
-            limits[lower] = { kind: 'cone', maxDeg: 85 };
-            legs.push({ part: spec.id, hip: upper, knee: lower, foot, side, pair: i });
+            limits[upper] = { kind: 'cone', maxDeg: spec.bend ?? 70 };
+            limits[lower] = { kind: 'cone', maxDeg: Math.max(85, spec.bend ?? 0) };
+            legs.push({ part: spec.id, hip: upper, knee: lower, foot, side, pair: i, pole: spec.pole ? [side * spec.pole[0], spec.pole[1], spec.pole[2]] : [side, 1.2, 0] });
           }
         }
         checks.push('feet planted (no sliding)', 'feet on the ground', 'balance over the feet', 'leg reach');
@@ -214,9 +292,15 @@ export function buildCreature(def: CreatureDef): Creature {
           addBone(C, name, prev, a, b);
           const r1 = lerp(spec.r0, spec.r1, i / spec.segments), r2 = lerp(spec.r0, spec.r1, (i + 1) / spec.segments);
           // each segment overlaps the next a little, so bends don't open gaps
-          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 10 }, color: spec.color, part: spec.id });
-          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 10 }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
-          limits[name] = { kind: 'cone', maxDeg: spec.motion === 'coil' ? 70 : 55 };
+          const sq = spec.squash ? { squash: spec.squash } : {};
+          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 14, round: i === spec.segments - 1, ...sq }, color: spec.color, part: spec.id });
+          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 14, ...(spec.squash ? { scale: [spec.squash[0], spec.squash[1], 1] as V3 } : {}) }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
+          if (i === spec.segments - 1) for (const x of spec.tip ?? []) pieces.push({ bone: name, shape: x.shape, color: x.color, part: spec.id });
+          if (spec.under) {
+            const dn: V3 = [0, -1, 0];
+            pieces.push({ bone: name, shape: { kind: 'seg', a: add(a, mul(dn, r1 * 0.42)), b: add(add(b, mul(dir, Math.min(r2, seg * 0.3))), mul(dn, r2 * 0.42)), r1: r1 * 0.68, r2: r2 * 0.68, sides: 10, round: true, squash: [1, 0.75] }, color: spec.under, part: spec.id });
+          }
+          limits[name] = { kind: 'cone', maxDeg: spec.limit ?? (spec.motion === 'coil' || spec.motion === 'curl' ? 70 : 55) };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
           prev = name;
         }
@@ -288,6 +372,33 @@ export function buildCreature(def: CreatureDef): Creature {
         checks.push(spec.mode === 'shader' ? 'shader sway within the bend limit' : 'sways without popping');
         break;
       }
+      case 'wing': {
+        const w = wingBuild(spec);
+        for (const b of w.bones) addBone(C, b.name, b.parent, b.head, b.tail);
+        pieces.push(...w.pieces);
+        Object.assign(limits, w.limits);
+        Object.assign(fast, w.fast);
+        wings.push(...w.sides);
+        checks.push('wings clear the body', 'wingbeat is symmetric', 'stroke within its range', 'wingbeat fits the wing size');
+        break;
+      }
+      case 'fin': {
+        const f = finBuild(spec);
+        for (const b of f.bones) addBone(C, b.name, b.parent, b.head, b.tail);
+        pieces.push(...f.pieces);
+        Object.assign(limits, f.limits);
+        checks.push(spec.mirror ? 'fins beat as a pair' : 'fin stays within its limits');
+        break;
+      }
+      case 'prop': {
+        const pr = propBuild(spec);
+        addBone(C, pr.bone.name, pr.bone.parent, pr.bone.head, pr.bone.tail);
+        pieces.push(...pr.pieces);
+        props.add(spec.id);
+        if (spec.fx) fx.add(spec.id);
+        checks.push(spec.fx ? 'effect follows its source' : 'held props stay in the grip; let go, they rest on something');
+        break;
+      }
     }
     parts.push({ spec, bones: bones.slice(before).map((b) => b.name), contacts: contacts.slice(cBefore).map((_, i) => cBefore + i), checks });
   }
@@ -302,22 +413,25 @@ export function buildCreature(def: CreatureDef): Creature {
     if (!moved) throw new Error('bone parents form a loop');
   }
   const idx = new Map(order.map((b, i) => [b.name, i]));
-  const ext = order.flatMap((b) => [b.head, b.tail]);
+  const ext = order.filter((b) => !props.has(b.name)).flatMap((b) => [b.head, b.tail]);
   const span3 = [0, 1, 2].map((k) => Math.max(...ext.map((p) => p[k])) - Math.min(...ext.map((p) => p[k])));
   return {
     def, bones: order, parents: order.map((b) => (b.parent ? idx.get(b.parent)! : -1)), index: idx,
     pieces, contacts, limits, spinners, parts, size: Math.max(bw, bh, bl, def.parts.some((p) => p.kind === 'sway') ? 0 : Math.max(span3[0], span3[2])), legs,
+    fast, wings, props, fx,
   };
 }
 
 // ── motion ───────────────────────────────────────────────────────────────────────────────────────
 
 export interface CreatureMotion {
-  kind: 'idle' | 'walk' | 'drive' | 'slither' | 'still';
-  speed?: number;                  // m/s
+  kind: 'idle' | 'walk' | 'drive' | 'slither' | 'still' | 'fly' | 'glide' | 'hover' | 'swim' | 'action';
+  speed?: number;                  // m/s (fly: default from the wingspan; swim: default about a body length a second)
   dir?: V3;                        // travel direction (object space; a crab walks sideways: [1,0,0])
   duration?: number;               // s (idle/still loops)
   energy?: number;                 // 0..1: bigger bob, faster waves
+  altitude?: number;               // fly/glide/hover: body height above the ground (m)
+  action?: ActionSpec;             // action: key moments, solved (actions.ts)
 }
 
 export interface CreatureClip {
@@ -335,6 +449,10 @@ export interface CreatureClip {
   notes: string[];
   reachMiss: number;               // worst distance a foot target was beyond reach (m)
   seam?: { rot: Q[]; off: V3[] };  // the pose computed at t = duration, before the loop is closed onto frame 0
+  endPose?: Q[];                   // one-offs: the idle pose it should settle into (actions)
+  held?: Array<Record<string, string>>;   // actions: per frame, prop → the chain holding it
+  grip?: Array<Record<string, number>>;   // actions: per frame, how far each held prop is from its grip (m)
+  keys?: Array<{ t: number; label: string }>;   // actions: the key moments (for stills and the timeline)
 }
 
 export interface FK { rot: Q[]; pos: V3[] }            // world rotation and world head position per bone
@@ -355,6 +473,15 @@ export function creatureFK(c: Pick<Creature, 'bones' | 'parents'>, rot: Q[], off
 
 /** Where a rest point on a bone is, given world transforms. */
 export const bonePoint = (c: Pick<Creature, 'bones'>, fk: FK, b: number, rest: V3): V3 => add(fk.pos[b], qRot(fk.rot[b], sub(rest, c.bones[b].head)));
+
+/** The direction a leg's knee bends toward, with the body turned by bodyRot. Legs that bend out and
+ *  up (spiders, crabs) keep "up" in the world; legs with a declared pole (a bird's, bending back) turn
+ *  with the body. */
+export function legPole(leg: Creature['legs'][number], bodyRot: Q): V3 {
+  const p = leg.pole;
+  if (p[1] === 1.2 && p[2] === 0 && Math.abs(p[0]) === 1) return add(qRot(bodyRot, [p[0], 0, 0]), [0, 1.2, 0]);
+  return qRot(bodyRot, p);
+}
 
 /** Gait phases per leg (fraction of a cycle each foot lifts at): alternating tripods for six legs,
  *  alternating tetrapods for eight, a lateral sequence for four, alternate for two. */
@@ -384,21 +511,35 @@ export function twoBoneKnee(hip: V3, target: V3, l1: number, l2: number, pole: V
 }
 
 /** FABRIK: joint positions of a chain from `base` reaching `target` (keeps segment lengths). */
-export function fabrik(points: V3[], target: V3, iters = 12): V3[] {
+export function fabrik(points: V3[], target: V3, iters = 12, limit?: { deg: number; baseDir: V3 }): V3[] {
   const p = points.map((x) => [...x] as V3);
   const L = p.slice(1).map((x, i) => len(sub(x, p[i])));
   const base = p[0];
   const total = L.reduce((a, b) => a + b, 0);
-  if (len(sub(target, base)) >= total) {
+  if (!limit && len(sub(target, base)) >= total) {
     const d = norm(sub(target, base));
     for (let i = 1; i < p.length; i++) p[i] = add(p[i - 1], mul(d, L[i - 1]));
     return p;
   }
+  // a cone limit per joint: a segment turns at most `deg` from the one before it (the first from baseDir)
+  const cone = (prev: V3, d: V3): V3 => {
+    if (!limit) return d;
+    const c0 = Math.cos(limit.deg * D2R), k = dot(prev, d);
+    if (k >= c0) return d;
+    let perp = sub(d, mul(prev, k));
+    if (len(perp) < 1e-9) perp = Math.abs(prev[1]) < 0.9 ? cross(prev, [0, 1, 0]) : cross(prev, [1, 0, 0]);
+    return norm(add(mul(prev, c0), mul(norm(perp), Math.sin(limit.deg * D2R))));
+  };
   for (let it = 0; it < iters; it++) {
     p[p.length - 1] = target;
     for (let i = p.length - 2; i >= 0; i--) p[i] = add(p[i + 1], mul(norm(sub(p[i], p[i + 1])), L[i]));
     p[0] = base;
-    for (let i = 1; i < p.length; i++) p[i] = add(p[i - 1], mul(norm(sub(p[i], p[i - 1])), L[i - 1]));
+    let prev = limit ? norm(limit.baseDir) : [0, 0, 0] as V3;
+    for (let i = 1; i < p.length; i++) {
+      const d = cone(prev, norm(sub(p[i], p[i - 1])));
+      p[i] = add(p[i - 1], mul(d, L[i - 1]));
+      prev = d;
+    }
     if (len(sub(p[p.length - 1], target)) < 1e-4) break;
   }
   return p;
@@ -412,8 +553,10 @@ export function chainLocals(c: Creature, names: string[], joints: V3[], parentWo
     const b = c.bones[c.index.get(n)!];
     const rest = norm(sub(b.tail, b.head));
     const want = norm(sub(joints[i + 1], joints[i]));
-    const world = qArc(rest, want);
-    const local = qMul(qInv(pw), world);
+    // the smallest turn from where the parent carries this bone: no twist builds up down the chain,
+    // so a joint's angle is its bend (what a cone limit means)
+    const local = qArc(rest, qRot(qInv(pw), want));
+    const world = qMul(pw, local);
     out.push(local);
     pw = world;
   });
@@ -422,6 +565,7 @@ export function chainLocals(c: Creature, names: string[], joints: V3[], parentWo
 
 /** Bake a motion into a clip: every part runs its own procedural motion. */
 export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 30): CreatureClip {
+  if (m.kind === 'action') return bakeAction(c, id, m, fps);
   const n = c.bones.length;
   const energy = m.energy ?? 0.5;
   const legsParts = c.def.parts.filter((p): p is LegsPartSpec => p.kind === 'legs');
@@ -429,7 +573,15 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
   const serpent = c.def.parts.find((p): p is ChainPartSpec => p.kind === 'chain' && p.motion === 'serpent');
   const body = c.def.parts.find((p): p is BodyPartSpec => p.kind === 'body')!;
   const notes: string[] = [];
-  let speed = m.kind === 'walk' || m.kind === 'drive' || m.kind === 'slither' ? (m.speed ?? 0.6) : 0;
+  const wingParts = c.def.parts.filter((p): p is WingPartSpec => p.kind === 'wing');
+  const swimmer = c.def.parts.find((p): p is ChainPartSpec => p.kind === 'chain' && p.motion === 'swim');
+  const airborne = m.kind === 'fly' || m.kind === 'glide' || m.kind === 'hover';
+  if (airborne && !wingParts.length) throw new Error(`${c.def.name} has no wings to ${m.kind} with`);
+  if (m.kind === 'swim' && !swimmer) throw new Error(`${c.def.name} has no swimming body (a chain with motion "swim")`);
+  const flight = wingParts.length ? flightPlan(wingParts[0]) : null;
+  let speed = m.kind === 'walk' || m.kind === 'drive' || m.kind === 'slither' ? (m.speed ?? 0.6)
+    : m.kind === 'fly' ? (m.speed ?? flight!.speed) : m.kind === 'glide' ? (m.speed ?? flight!.speed * 1.1)
+      : m.kind === 'swim' ? (m.speed ?? swimPlan(c, swimmer!).speed) : 0;
   const dir = norm(m.dir ?? [0, 0, 1]);
   // cycle length: a gait cycle (legs), a road loop (wheels: whole wheel turns), a body wave (snake)
   let duration = m.duration ?? 3;
@@ -455,6 +607,15 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
     duration = lambda / speed;
   } else if (m.kind === 'walk' && !legsParts.length) {
     throw new Error(`${c.def.name} has no legs to walk with`);
+  } else if (m.kind === 'fly') {
+    duration = flight!.cycle * Math.max(1, Math.round((m.duration ?? 3) / flight!.cycle));
+  } else if (m.kind === 'hover') {
+    duration = Math.max(1, Math.round((m.duration ?? 2) * flight!.freq)) / flight!.freq;
+  } else if (m.kind === 'glide') {
+    duration = 2.3 * Math.max(1, Math.round((m.duration ?? 4.6) / 2.3));
+  } else if (m.kind === 'swim') {
+    const sp = swimPlan(c, swimmer!, speed);
+    duration = Math.max(1, Math.round((m.duration ?? 2.5) * sp.freq)) / sp.freq;
   }
   // spinners: whole turns over the loop
   for (const p of c.def.parts) if (p.kind === 'hinge' && p.motion.kind === 'spin') {
@@ -467,8 +628,31 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
   duration = frames / fps;
   if (Math.abs(scale - 1) > 1e-9) {
     if (m.kind === 'walk' && legsParts.length) { legCycle *= scale; speed /= scale; }
-    else if (m.kind === 'drive' || m.kind === 'slither') speed /= scale;
+    else if (m.kind === 'drive' || m.kind === 'slither' || m.kind === 'swim') speed /= scale;
   }
+  // wings: the beat rate fitted to whole beats over the loop (fly: whole flight cycles)
+  const cycle = m.kind === 'fly' ? duration / Math.max(1, Math.round(duration / flight!.cycle)) : duration;
+  const flapT = m.kind === 'fly' ? (cycle * (flight!.flaps / flight!.freq)) / flight!.cycle : 0;   // flapping time per flight cycle
+  const beatHz = !flight ? 0 : m.kind === 'fly' ? flight.flaps / flapT : Math.max(1, Math.round(flight.freq * duration)) / duration;
+  // the wings' pose at time t: folded unless flying; a flight cycle is bursts of beats and a glide,
+  // blended in and out so the wings never jump
+  const wingsAt = (t: number): WingPoseOut | null => {
+    if (!flight) return null;
+    const w = wingParts[0];
+    if (m.kind === 'glide') return wingPose(w, 'glide', 0, t);
+    if (m.kind === 'hover') return wingPose(w, 'hover', beatHz * t, t);
+    if (m.kind !== 'fly') return wingPose(w, 'fold', 0, t);
+    const tc = mod1(t / cycle) * cycle;
+    if (tc < flapT || !flight.glide) return wingPose(w, 'flap', beatHz * tc, t);
+    const top = wingPose(w, 'flap', 0, t), gl = wingPose(w, 'glide', 0, t);
+    const into = smooth((tc - flapT) / 0.3), back = smooth((tc - (cycle - 0.28)) / 0.28);
+    const k = into * (1 - back);
+    return { arm: qSlerp(top.arm, gl.arm, k), fore: qSlerp(top.fore, gl.fore, k), hand: qSlerp(top.hand, gl.hand, k), bob: top.bob * (1 - k) };
+  };
+  const swimP = m.kind === 'swim' ? swimPlan(c, swimmer!, speed) : null;
+  if (swimP) swimP.freq = Math.max(1, Math.round(swimP.freq * duration)) / duration;
+  const altitude = m.altitude ?? Math.max(1, c.size * 1.2);
+  const B0 = c.index.get('Body')!;
   // swings and slides: a whole number of periods over the loop
   const fitPeriod = (per: number) => duration / Math.max(1, Math.round(duration / per));
   const rot: Q[][] = [], off: V3[][] = [];
@@ -505,6 +689,7 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const duty = lp.duty ?? (lp.count >= 6 ? 0.62 : lp.count === 4 ? 0.7 : 0.6);
           let target: V3 = [...leg.foot] as V3;
           let isDown = true;
+          if (airborne) { feet.push({ leg, target: legTuck(c, leg), down: false, lp }); continue; }
           if (m.kind === 'walk') {
             const u = mod1(t / legCycle - gaitPhase(lp.count, leg.pair, leg.side));
             // u in [0, duty): stance, the foot moves back (in place) as the body moves forward
@@ -528,22 +713,41 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
         const pitch = front.length && back.length ? -Math.atan2(meanY(front) - meanY(back), meanZ(front) - meanZ(back)) / D2R : 0;
         const roll = left.length && right.length ? Math.atan2(meanY(left) - meanY(right), meanX(left) - meanX(right)) / D2R : 0;
         const gait = m.kind === 'walk' ? Math.cos((TAU * 2 * t) / legCycle) : 0;
-        bodyOff = add(bodyOff, [0, avg + bob * gait, 0]);
-        bodyRot = qMul(bodyRot, qMul(qAxisAngle([1, 0, 0], pitch * 0.8), qAxisAngle([0, 0, 1], roll * 0.8)));
+        if (airborne) bodyOff = [0, 0, 0];
+        else {
+          bodyOff = add(bodyOff, [0, avg + bob * gait, 0]);
+          bodyRot = qMul(bodyRot, qMul(qAxisAngle([1, 0, 0], pitch * 0.8), qAxisAngle([0, 0, 1], roll * 0.8)));
+        }
         O[bi('Body')] = bodyOff;
         R[bi('Body')] = bodyRot;
         const bodyHead = add(c.bones[bi('Body')].head, bodyOff);
         for (const ft of feet) {
+          if (airborne) continue;                 // tucked legs are posed with the flying body below
           const hipB = c.bones[bi(ft.leg.hip)], kneeB = c.bones[bi(ft.leg.knee)];
           const hipW = add(bodyHead, qRot(bodyRot, sub(hipB.head, c.bones[bi('Body')].head)));
           const l1 = len(sub(hipB.tail, hipB.head)), l2 = len(sub(kneeB.tail, kneeB.head));
-          const pole = add(qRot(bodyRot, [ft.leg.side, 0, 0]), [0, 1.2, 0]);
-          const ik = twoBoneKnee(hipW, ft.target, l1, l2, pole);
+          const ik = twoBoneKnee(hipW, ft.target, l1, l2, legPole(ft.leg, bodyRot));
           reachMiss = Math.max(reachMiss, ik.miss);
           const locals = chainLocals(c, [ft.leg.hip, ft.leg.knee], [hipW, ik.knee, ik.foot], bodyRot);
           R[bi(ft.leg.hip)] = locals[0];
           R[bi(ft.leg.knee)] = locals[1];
           c.contacts.forEach((cd, ci) => { if (cd.bone === ft.leg.knee) down[ci] = ft.down; });
+        }
+      }
+      // ── flight: the body at altitude, bobbing with the stroke; legs tucked ──
+      const wq = wingsAt(t);
+      if (airborne) {
+        const bobA = 0.02 * flight!.span;
+        O[B0] = [0, altitude - c.bones[B0].head[1] + bobA * (wq?.bob ?? 0), 0];
+        R[B0] = m.kind === 'hover' ? qAxisAngle([1, 0, 0], -36) : qAxisAngle([1, 0, 0], m.kind === 'glide' ? 3 : 1.5 * (wq?.bob ?? 0));
+        const bHead = add(c.bones[B0].head, O[B0]);
+        for (const leg of c.legs) {
+          const hipB = c.bones[bi(leg.hip)], kneeB = c.bones[bi(leg.knee)];
+          const hipW = add(bHead, qRot(R[B0], sub(hipB.head, c.bones[B0].head)));
+          const tgt = add(bHead, qRot(R[B0], sub(m.kind === 'hover' ? add(legTuck(c, leg), [0, -0.2 * (len(sub(hipB.tail, hipB.head)) + len(sub(kneeB.tail, kneeB.head))), 0.35 * (len(sub(hipB.tail, hipB.head)) + len(sub(kneeB.tail, kneeB.head)))]) : legTuck(c, leg), c.bones[B0].head)));
+          const ik = twoBoneKnee(hipW, tgt, len(sub(hipB.tail, hipB.head)), len(sub(kneeB.tail, kneeB.head)), legPole(leg, R[B0]));
+          const locals = chainLocals(c, [leg.hip, leg.knee], [hipW, ik.knee, ik.foot], R[B0]);
+          R[bi(leg.hip)] = locals[0]; R[bi(leg.knee)] = locals[1];
         }
       }
       // ── wheels: hubs follow the road, the body floats on springs above them ──
@@ -640,6 +844,14 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           c.contacts.forEach((cd, ci) => { if (cd.part === p.id) down[ci] = true; });
           continue;
         }
+        if (p.motion === 'swim' && swimP && p === swimmer) {
+          const sw = swimJoints(c, p, swimP, t);
+          O[bi('Body')] = add(O[bi('Body')], sw.bodyOff);
+          R[bi('Body')] = sw.bodyRot;
+          const locals = chainLocals(c, names, sw.joints, sw.bodyRot);
+          names.forEach((nm, i) => { R[bi(nm)] = locals[i]; });
+          continue;
+        }
         if (p.motion === 'reach' && p.target) {
           const pi = bi(names[0]);
           const fkNow = creatureFK(c, R, O);
@@ -661,9 +873,12 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const k = (i + 1) / p.segments;
           let deg = 0;
           const phase = (TAU * freq * duration) > 0 ? TAU * Math.round(freq * duration) / duration : TAU * freq;
+          const ph0 = TAU * (p.phase ?? 0);
           if (p.motion === 'coil') deg = (amp / p.segments) * 2.2 * (0.85 + 0.15 * Math.sin(phase * t));
+          else if (p.motion === 'curl') deg = (amp / p.segments) * 2.4 * k * (0.6 + 0.4 * Math.sin(phase * t - 1.3 * k + ph0));
+          else if (p.motion === 'swim') deg = (amp > 1 ? 8 : 8) / p.segments * 2 * Math.sin(phase * t - 2.4 * k + ph0) * (0.3 + 0.7 * k);
           else if (p.motion === 'whip') deg = (amp / p.segments) * 2 * Math.sin(phase * t - 2.6 * k) * (0.4 + k);
-          else deg = (amp / p.segments) * 2 * Math.sin(phase * t - 1.6 * k) * (0.3 + 0.7 * k);
+          else deg = (amp / p.segments) * 2 * Math.sin(phase * t - 1.6 * k + ph0) * (0.3 + 0.7 * k);
           R[bi(nm)] = qAxisAngle(axis, deg);
         });
       }
@@ -679,6 +894,20 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const s = 0.5 - 0.5 * Math.cos((TAU * t) / fitPeriod(p.period));
           O[bi(p.id)] = mul(norm(p.axis), lerp(p.range[0], p.range[1], s));
         }
+      }
+      // ── wings (right mirrors left), fins, props ──
+      if (wq) for (const w of c.wings) {
+        const mq = (q: Q) => (w.side > 0 ? q : mirrorQ(q));
+        R[bi(w.arm)] = mq(wq.arm); R[bi(w.fore)] = mq(wq.fore); R[bi(w.hand)] = mq(wq.hand);
+      }
+      for (const p of c.def.parts) {
+        if (p.kind === 'fin' && p.motion === 'flutter') {
+          const fz = p.freq ?? (swimP ? swimP.freq : 0.7 * (0.6 + energy));
+          const fq = Math.max(1, Math.round(fz * duration)) / duration;
+          const deg = (p.amp ?? 20) * Math.sin(TAU * fq * t + (swimP ? 1.2 : 0));
+          const q = qAxisAngle(finAxis(p), deg);
+          if (p.mirror) { R[bi(`${p.id}.L`)] = q; R[bi(`${p.id}.R`)] = mirrorQ(q); } else R[bi(p.id)] = q;
+        } else if (p.kind === 'prop' && p.fx) O[bi(p.id)] = [...p.fx.hide] as V3;
       }
       // ── sway: blades bend with the wind (a travelling gust), never past their limit ──
       for (const p of c.def.parts) {
@@ -847,17 +1076,28 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     const spheres = c.pieces.filter((pc) => pc.shape.kind !== 'blade').map((pc) => ({ pc, b: c.index.get(pc.bone)!, ...pieceSphere(pc.shape) }));
     const near = (a: number, b: number) => a === b || c.parents[a] === b || c.parents[b] === a || (c.parents[a] >= 0 && c.parents[a] === c.parents[b]) || (c.parents[a] >= 0 && c.parents[c.parents[a]] === b) || (c.parents[b] >= 0 && c.parents[c.parents[b]] === a);
     const wbad = new Array(F).fill(false), sbad = new Array(F).fill(false);
-    let ww = 0, sw = 0;
+    let ww = 0, sw = 0, pair = '';
     const isContactBone = new Set(c.contacts.map((cd) => c.index.get(cd.bone)!));
+    // a held prop touches the chain holding it: that pair is not a collision
+    const holders = new Map<number, Set<number>>();
+    for (const h of clip.held ?? []) for (const [prop, chain] of Object.entries(h)) {
+      const pi = c.index.get(prop)!;
+      if (!holders.has(pi)) holders.set(pi, new Set());
+      c.bones.forEach((b, bi) => { if (b.name.startsWith(`${chain}.`)) holders.get(pi)!.add(bi); });
+      c.bones.forEach((b, bi) => { if (b.parent === prop) holders.set(bi, holders.get(pi)!); });
+    }
+    const exempt = (a: number, b: number) => holders.get(a)?.has(b) || holders.get(b)?.has(a);
     for (let f = 0; f < F; f += Math.max(1, Math.floor(F / 60))) {
       const centres = spheres.map((s) => world(f, bonePoint(c, fks[f], s.b, s.c)));
       spheres.forEach((s, i) => {
         if (isContactBone.has(s.b) && s.pc.shape.kind !== 'box') return;   // feet/wheels are judged by their own checks
+        if (c.fx.has(c.bones[s.b].name)) return;                            // a hidden effect waits below the ground
         const depth = ground(centres[i]) - (centres[i][1] - s.r);
         if (depth > s.r * CHECK_LIMITS.penetrate) { wbad[f] = true; ww = Math.max(ww, depth); }
       });
       for (let i = 0; i < spheres.length; i++) for (let j = i + 1; j < spheres.length; j++) {
-        if (near(spheres[i].b, spheres[j].b)) continue;
+        if (near(spheres[i].b, spheres[j].b) || exempt(spheres[i].b, spheres[j].b)) continue;
+        if (c.fx.has(c.bones[spheres[i].b].name) || c.fx.has(c.bones[spheres[j].b].name)) continue;
         if (spheres[i].pc.part === spheres[j].pc.part && spheres[i].pc.part.startsWith('sway')) continue;
         const d = len(sub(centres[i], centres[j]));
         const overlap = spheres[i].r + spheres[j].r - d;
@@ -865,11 +1105,11 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
         // only pieces that don't overlap at rest can collide (rest overlaps are how the body is built)
         const restD = len(sub(spheres[i].c, spheres[j].c));
         const restOverlap = spheres[i].r + spheres[j].r - restD;
-        if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; sw = Math.max(sw, overlap); }
+        if (overlap > Math.max(lim, restOverlap + lim)) { sbad[f] = true; if (overlap > sw) { sw = overlap; pair = `${c.bones[spheres[i].b].name} × ${c.bones[spheres[j].b].name}`; } }
       }
     }
     out.push(mk('nothing sinks into the ground', wbad, ww, CHECK_LIMITS.penetrate, '× piece radius', 'body pieces stay above the ground'));
-    out.push(mk('nothing passes through itself', sbad, sw, CHECK_LIMITS.penetrate * 2, '× piece radius', 'parts that don\'t touch at rest don\'t collide in motion'));
+    out.push(mk('nothing passes through itself', sbad, sw, CHECK_LIMITS.penetrate * 2, '× piece radius', pair ? `deepest: ${pair}` : 'parts that don\'t touch at rest don\'t collide in motion'));
   }
   // ── balance: with three or more feet down, the centre of mass is over them ──
   if (c.legs.length >= 4) {
@@ -914,10 +1154,11 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
       if (c.spinners.has(c.bones[b].name)) continue;
       for (let f = 1; f < F; f++) {
         const w = qAngle(clip.rot[f - 1][b], clip.rot[f][b]) * clip.fps;
-        if (w > CHECK_LIMITS.popDegPerS) { bad[f] = true; if (w > worst) { worst = w; who = c.bones[b].name; } }
+        const lim = c.fast[c.bones[b].name] ?? CHECK_LIMITS.popDegPerS;
+        if (w > lim) { bad[f] = true; if (w - lim > worst - (c.fast[who] ?? CHECK_LIMITS.popDegPerS)) { worst = w; who = c.bones[b].name; } }
       }
     }
-    out.push(mk('no pops (joint speed)', bad, worst, CHECK_LIMITS.popDegPerS, '°/s', who ? `fastest: ${who}` : 'no joint turns faster than it can'));
+    out.push(mk('no pops (joint speed)', bad, worst, c.fast[who] ?? CHECK_LIMITS.popDegPerS, '°/s', who ? `fastest: ${who}` : `no joint turns faster than it can${Object.keys(c.fast).length ? ' (wings may beat faster)' : ''}`));
     const jb = new Array(F).fill(false);
     let jw = 0;
     const bi = c.index.get('Body')!;
@@ -946,11 +1187,17 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     const pass = worstDeg <= CHECK_LIMITS.loopDeg && worstMm <= CHECK_LIMITS.loopMm;
     out.push({ name: 'loop closes', pass, worst: r3(Math.max(worstDeg, worstMm / 10)), limit: CHECK_LIMITS.loopDeg, unit: '°', frames: pass ? [] : [[clip.frames, clip.frames]], detail: `last frame vs first: ${r3(worstDeg)}°, ${r3(worstMm)} mm` });
   } else {
-    // a one-off ends in its rest/idle pose
-    let worst = 0;
-    for (let b = 0; b < c.bones.length; b++) worst = Math.max(worst, qAngle(clip.rot[clip.frames][b], qIdentity()));
-    out.push({ name: 'ends in idle', pass: worst <= CHECK_LIMITS.idleDeg, worst: r3(worst), limit: CHECK_LIMITS.idleDeg, unit: '°', frames: worst <= CHECK_LIMITS.idleDeg ? [] : [[clip.frames, clip.frames]], detail: 'the last frame matches the rest pose' });
+    // a one-off ends in its idle pose (spinners may stop anywhere)
+    let worst = 0, who = '';
+    for (let b = 0; b < c.bones.length; b++) {
+      if (c.spinners.has(c.bones[b].name)) continue;
+      const d = qAngle(clip.rot[clip.frames][b], clip.endPose?.[b] ?? qIdentity());
+      if (d > worst) { worst = d; who = c.bones[b].name; }
+    }
+    out.push({ name: 'ends in idle', pass: worst <= CHECK_LIMITS.idleDeg, worst: r3(worst), limit: CHECK_LIMITS.idleDeg, unit: '°', frames: worst <= CHECK_LIMITS.idleDeg ? [] : [[clip.frames, clip.frames]], detail: worst > CHECK_LIMITS.idleDeg ? `furthest from idle: ${who}` : 'the last frame matches the idle pose' });
   }
+  // ── wings, swimming, props ──
+  out.push(...wingChecks(c, clip, fks), ...swimChecks(c, clip, fks), ...propChecks(c, clip, fks));
   // ── springs settle: a still clip's springs come to rest ──
   return out;
 }

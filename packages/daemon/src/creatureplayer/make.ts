@@ -9,12 +9,12 @@ import { fileURLToPath } from 'node:url';
 import { serve } from '../../../game/src/web.ts';
 import { STUDIO_ROOT } from '../../../game/src/project.ts';
 import { withPage } from '../../../game/src/chrome.ts';
-import { bakeCreature, buildCreature, creatureChecks, type CreatureDef, type CreatureMotion, type TerrainSpec } from '../../../core/src/rigparts.ts';
+import { bakeCreature, buildCreature, creatureChecks, creatureFK, type CreatureDef, type CreatureMotion, type TerrainSpec } from '../../../core/src/rigparts.ts';
 import { creatureGLB, swayGodotShader } from '../../../core/src/creatures.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-export interface LiveSegment { id: string; label: string; show: number; input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec }
+export interface LiveSegment { id: string; label: string; show: number; input: { speed: number; turn?: number; strafe?: [number, number, number]; turnWave?: number }; layer?: string; terrain?: TerrainSpec; reach?: { chain: string; centre: [number, number, number]; radius: number } }
 export interface CreaturePreviewOpts {
   motions?: string[];                                  // which baked motions (default: all)
   live?: LiveSegment[];                                // runtime segments
@@ -33,16 +33,28 @@ export async function buildCreaturePreview(outDir: string, def: CreatureDef, mot
   const glb = creatureGLB(c, clips, { terrain: { size: 6 }, checks });
   fs.writeFileSync(path.join(outDir, 'creature.glb'), glb);
   const showOf = (d: number) => Math.max(4, Math.min(10, d * 2));
+  // the camera follows the body (smoothed over ±0.4 s): flying birds, actions that travel
+  const B = c.index.get('Body')!;
+  const camOf = (cl: typeof clips[number]) => {
+    const pos = cl.rot.map((r, f) => creatureFK(c, r, cl.off[f]).pos[B]);
+    const w = Math.round(cl.fps * 0.4);
+    return pos.map((_, f) => {
+      let acc = [0, 0, 0], n = 0;
+      for (let k = f - w; k <= f + w; k++) { const p = pos[cl.loop ? ((k % cl.frames) + cl.frames) % cl.frames : Math.min(cl.frames, Math.max(0, k))]; acc = [acc[0] + p[0], acc[1] + p[1], acc[2] + p[2]]; n++; }
+      return acc.map((x) => +(x / n).toFixed(4));
+    });
+  };
   const segments: any[] = clips.map((cl) => ({
-    id: cl.id, motion: cl.id, label: `${def.name}: ${cl.id}${cl.speed ? `, ${cl.speed.toFixed(2)} m/s` : ''}`, show: showOf(cl.duration),
-    duration: cl.duration, frames: cl.frames, loop: cl.loop, speed: cl.speed, dir: cl.dir, checks: checks[cl.id],
+    id: cl.id, motion: cl.id, label: `${def.name}: ${cl.kind === 'action' ? (motions[cl.id].action?.label ?? cl.id) : cl.id}${cl.speed ? `, ${cl.speed.toFixed(2)} m/s` : ''}`, show: cl.loop ? showOf(cl.duration) : cl.duration + 0.8,
+    duration: cl.duration, frames: cl.frames, loop: cl.loop, speed: cl.speed, dir: cl.dir, checks: checks[cl.id], cam: camOf(cl), fps: cl.fps,
+    ...(cl.keys ? { keys: cl.keys } : {}),
   }));
   for (const b of opts.broken ?? []) {
     const cl = clips.find((x) => x.id === b.motion)!;
     const k = creatureChecks(c, { ...cl, speed: cl.speed * b.travelScale });
     segments.push({ id: b.id, motion: cl.id, label: b.label, show: showOf(cl.duration) * 0.6, duration: cl.duration, frames: cl.frames, loop: true, speed: cl.speed, dir: cl.dir, travelScale: b.travelScale, checks: k });
   }
-  for (const l of opts.live ?? []) segments.push({ id: l.id, label: l.label, show: l.show, live: { input: l.input, layer: l.layer, terrain: l.terrain }, checks: [] });
+  for (const l of opts.live ?? []) segments.push({ id: l.id, label: l.label, show: l.show, live: { input: l.input, layer: l.layer, terrain: l.terrain, ...(l.reach ? { reach: l.reach } : {}) }, checks: [] });
   fs.writeFileSync(path.join(outDir, 'creature.json'), JSON.stringify({ name: def.name, glb: 'creature.glb', def, motions, terrain: def.terrain, segments, view: opts.view }, null, 1));
   fs.copyFileSync(path.join(HERE, 'index.html'), path.join(outDir, 'index.html'));
   // shader sway parts: the Godot shader beside the GLB (the web player applies the same formula)
@@ -80,11 +92,19 @@ export async function captureCreatureVideo(outDir: string, segments: Array<{ id:
   fs.rmSync(stillDir, { recursive: true, force: true });
   fs.mkdirSync(stillDir, { recursive: true });
   const stills: string[] = [];
-  for (const s of segs) for (const [k, u] of [['a', 0.2], ['b', 0.55], ['c', 0.9]] as const) {
-    const f = Math.min(n - 1, Math.round((s.start + (s.end - s.start) * u) * fps));
-    const dst = path.join(stillDir, `${s.id}-${k}.png`);
-    fs.copyFileSync(path.join(frameDir, `${String(f).padStart(5, '0')}.png`), dst);
-    stills.push(dst);
+  const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  for (const s of segs) {
+    const seg = segments.find((x) => x.id === s.id) as { keys?: Array<{ t: number; label: string }> } | undefined;
+    // actions: a still at every key moment (named after it); loops: three across the segment
+    const at: Array<[string, number]> = seg?.keys?.length
+      ? seg.keys.filter((k, i, all) => !/\(held\)|^pause/.test(k.label) && (i === 0 || k.t - all[i - 1].t > 0.15)).map((k, i) => [`${String(i + 1).padStart(2, '0')}-${slug(k.label)}`, Math.min(s.end - s.start - 0.05, k.t + 0.12)])
+      : [['a', (s.end - s.start) * 0.2], ['b', (s.end - s.start) * 0.55], ['c', (s.end - s.start) * 0.9]];
+    for (const [k, tt] of at) {
+      const f = Math.min(n - 1, Math.round((s.start + tt) * fps));
+      const dst = path.join(stillDir, `${s.id}-${k}.png`);
+      fs.copyFileSync(path.join(frameDir, `${String(f).padStart(5, '0')}.png`), dst);
+      stills.push(dst);
+    }
   }
   const ff = spawnSync('ffmpeg', ['-version'], { encoding: 'utf8' });
   if (ff.status !== 0) return { frames: n, seconds: total, stills, note: 'ffmpeg not found: frames are in frames/' };

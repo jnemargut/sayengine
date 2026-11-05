@@ -60,7 +60,7 @@ export const DAEMON_TOOLS: DaemonTool[] = [
   {
     name: 'motion-preview',
     description: 'Review a character\'s motions (walk, run, idle, turn, actions): writes a folder with the exported character (GLB with its motion clips) and a player page where each motion travels at its own speed over half-metre squares, so sliding feet would show. --video true renders an MP4 (motions.mp4) of them all in headless Chrome, plus two stills per motion. [--object id] [--motions walk,idle] [--out dir]',
-    flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' } } },
+    flags: { type: 'object', properties: { object: { type: 'string' }, out: { type: 'string' }, video: { type: 'boolean', default: false }, motions: { type: 'string', description: 'comma-separated motion ids (default: all)' }, with: { type: 'string', description: 'other scene objects to show beside the character (comma-separated), e.g. the bucket it trips over' }, at: { type: 'string', description: 'JSON [x,y,z]: where the first --with object stands, relative to the character' } } },
   },
   {
     name: 'creature-preview',

@@ -7,7 +7,9 @@
 // test can drive it. Godot gets the baked clips (see the Phase 8 notes).
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qInv } from './motion.ts';
-import { chainLocals, gaitPhase, sampleClip, twoBoneKnee, type Creature, type CreatureClip, type LegsPartSpec, type WheelsPartSpec } from './rigparts.ts';
+import { reachJoints } from './actions.ts';
+import { bonePoint, creatureFK, type ChainPartSpec, type SpringPartSpec } from './rigparts.ts';
+import { chainLocals, gaitPhase, legPole, sampleClip, twoBoneKnee, type Creature, type CreatureClip, type LegsPartSpec, type WheelsPartSpec } from './rigparts.ts';
 
 const D2R = Math.PI / 180, TAU = Math.PI * 2;
 const add = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
@@ -42,6 +44,9 @@ export class CreatureRuntime {
   private stepTime = 0.3;
   private stepTrigger = 0.1;
   private bi: (n: string) => number;
+  // live reaching chains: a goal (world), a followed goal, and how much the chain follows it (0..1)
+  private reaches = new Map<string, { goal: V3 | null; at: V3 | null; v: V3; w: number }>();
+  private springs = new Map<string, { a: V3; v: V3; p: V3[] }>();
 
   constructor(c: Creature, opts: { ground?: (x: number, z: number) => number; layer?: CreatureClip; pos?: V3; yaw?: number } = {}) {
     this.c = c;
@@ -142,8 +147,7 @@ export class CreatureRuntime {
         const hipB = c.bones[this.bi(leg.hip)], kneeB = c.bones[this.bi(leg.knee)];
         const hipL = add(bHead, qRot(R[B], sub(hipB.head, bodyRest)));
         const l1 = len(sub(hipB.tail, hipB.head)), l2 = len(sub(kneeB.tail, kneeB.head));
-        const pole = add(qRot(R[B], [leg.side, 0, 0]), [0, 1.2, 0]);
-        const ik = twoBoneKnee(hipL, loc[i], l1, l2, pole);
+        const ik = twoBoneKnee(hipL, loc[i], l1, l2, legPole(leg, R[B]));
         reachMiss = Math.max(reachMiss, ik.miss);
         const locals = chainLocals(c, [leg.hip, leg.knee], [hipL, ik.knee, ik.foot], R[B]);
         R[this.bi(leg.hip)] = locals[0];
@@ -181,7 +185,78 @@ export class CreatureRuntime {
       }
       c.contacts.forEach((cd, ci) => { if (cd.kind === 'wheel') down[ci] = true; });
     }
+    this.liveChains(dt, R, O);
+    this.liveSprings(dt, R, O);
     return { rot: R, off: O, pos: [...this.pos] as V3, yaw: this.yaw, down, reachMiss };
+  }
+
+  /** Send a chain's tip toward a world point (a tentacle reaching for a cup), or null to let it go back
+   *  to its own motion. The goal is followed with a damped spring and the reach eases in and out. */
+  reach(chain: string, goal: V3 | null) {
+    if (!this.c.def.parts.some((p) => p.kind === 'chain' && p.id === chain)) throw new Error(`no chain "${chain}"`);
+    const r = this.reaches.get(chain) ?? { goal: null, at: null, v: [0, 0, 0] as V3, w: 0 };
+    r.goal = goal ? [...goal] as V3 : null;
+    this.reaches.set(chain, r);
+  }
+  /** Where a chain's tip is now (world), from the last pose. */
+  tip(chain: string, pose: RuntimePose): V3 {
+    const ch = this.c.def.parts.find((p): p is ChainPartSpec => p.kind === 'chain' && p.id === chain)!;
+    const b = this.bi(`${ch.id}.${ch.segments}`);
+    const fk = creatureFK(this.c, pose.rot, pose.off);
+    return this.toWorld(bonePoint(this.c, fk, b, this.c.bones[b].tail));
+  }
+
+  private liveChains(dt: number, R: Q[], O: V3[]) {
+    if (!this.reaches.size) return;
+    const c = this.c;
+    let fk = creatureFK(c, R, O);
+    for (const [id, r] of this.reaches) {
+      const ch = c.def.parts.find((p): p is ChainPartSpec => p.kind === 'chain' && p.id === id)!;
+      const names = Array.from({ length: ch.segments }, (_, k) => `${ch.id}.${k + 1}`);
+      const first = this.bi(names[0]);
+      const joints: V3[] = [fk.pos[first], ...names.map((nm) => bonePoint(c, fk, this.bi(nm), c.bones[this.bi(nm)].tail))];
+      const ownTip = joints[joints.length - 1];
+      r.w = clamp(r.w + (r.goal ? dt : -dt) * 2.5);
+      if (r.goal) {
+        const g = this.toLocal(r.goal);
+        if (!r.at) r.at = [...ownTip] as V3;
+        // a critically damped follow (4 Hz): no overshoot, no snap
+        const w0 = TAU * 1.6;
+        for (let k = 0; k < 3; k++) { const a = -w0 * w0 * (r.at[k] - g[k]) - 2 * w0 * r.v[k]; r.v[k] += a * dt; r.at[k] += r.v[k] * dt; }
+      }
+      if (!r.at || r.w <= 0) { if (!r.goal) { this.reaches.delete(id); } continue; }
+      const P = lerp3(ownTip, r.at, smooth(r.w));
+      const solved = reachJoints(joints, P);
+      const parentRot = c.parents[first] >= 0 ? fk.rot[c.parents[first]] : qIdentity();
+      chainLocals(c, names, solved, parentRot).forEach((q, k) => { R[this.bi(names[k])] = q; });
+      fk = creatureFK(c, R, O);
+    }
+  }
+
+  /** Springs (antennae, aerials, ears) lag behind the body's acceleration and settle, live. */
+  private liveSprings(dt: number, R: Q[], O: V3[]) {
+    const c = this.c;
+    const sp = c.def.parts.filter((p): p is SpringPartSpec => p.kind === 'spring');
+    if (!sp.length) return;
+    const fk = creatureFK(c, R, O);
+    for (const p of sp) {
+      const i = this.bi(p.id), pi = c.parents[i];
+      const st = this.springs.get(p.id) ?? { a: [0, 0, 0] as V3, v: [0, 0, 0] as V3, p: [] as V3[] };
+      const root = this.toWorld(fk.pos[i]);
+      st.p.push(root);
+      if (st.p.length > 3) st.p.shift();
+      let acc: V3 = [0, 0, 0];
+      if (st.p.length === 3) acc = mul(add(sub(st.p[2], mul(st.p[1], 2)), st.p[0]), 1 / (dt * dt));
+      const yawQ = qAxisAngle([0, 1, 0], this.yaw / D2R);
+      const localAcc = qRot(qInv(qMul(yawQ, fk.rot[pi])), acc);
+      const dirL = (() => { const d = sub(c.bones[i].tail, c.bones[i].head); const l = len(d) || 1; return mul(d, 1 / l); })();
+      const drive: V3 = [dirL[1] * -localAcc[2] - dirL[2] * -localAcc[1], dirL[2] * -localAcc[0] - dirL[0] * -localAcc[2], dirL[0] * -localAcc[1] - dirL[1] * -localAcc[0]];
+      const w0 = TAU * (p.hz ?? 2.2), z0 = p.damp ?? 0.25;
+      for (let k = 0; k < 3; k++) { const a = -w0 * w0 * st.a[k] - 2 * z0 * w0 * st.v[k] + drive[k] * 120; st.v[k] += a * dt; st.a[k] += st.v[k] * dt; }   // deg/s² per m/s² of the root
+      this.springs.set(p.id, st);
+      const ang = Math.min(40, len(st.a));
+      if (ang > 1e-3) R[i] = qMul(R[i], qAxisAngle(mul(st.a, 1 / len(st.a)), ang));
+    }
   }
 
   /** Where each planted foot is in the world (for tests: planted feet never move). */
