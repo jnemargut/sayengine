@@ -6,8 +6,11 @@ import { freeSpot, type ToolDef } from './tools.ts';
 import type { SceneObject } from './types.ts';
 import { bakeCreature, buildCreature, creatureChecks, CHECK_LIMITS, type CreatureDef, type CreatureMotion, type MotionCheck, type PartSpec } from './rigparts.ts';
 import { BODY_PLAN_PARTS, CREATURE_PRESETS, creatureFromPreset } from './creatures.ts';
-import { bakeMotion, qAngle, type MotionClip } from './motion.ts';
-import { qIdentity, type Rig, type V3 } from './rig.ts';
+import { bakeMotion, clipPose, motionReport, qAngle, type MotionClip } from './motion.ts';
+import { qIdentity, qRot, type Rig, type V3 } from './rig.ts';
+
+const vadd = (a: V3, b: V3): V3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const vsub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 
 const ObjRef = z.string().optional().describe('object id or name (defaults to the only/last object)');
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'creature';
@@ -34,22 +37,40 @@ export function characterMotionChecks(rig: Rig, clip: MotionClip): MotionCheck[]
   const out: MotionCheck[] = [];
   const ranges = (bad: boolean[]) => { const r: Array<[number, number]> = []; let s = -1; bad.forEach((b, i) => { if (b && s < 0) s = i; if (!b && s >= 0) { r.push([s, i - 1]); s = -1; } }); if (s >= 0) r.push([s, bad.length - 1]); return r; };
   const height = Math.max(...rig.bones.map((b) => Math.max(b.head[1], b.tail[1])));
-  // contacts: planned feet (in place) + travel must stay put while planted
+  // contacts: whichever of heel and ball is on the floor stays put (the ground moves back at the clip's speed)
   const bad = new Array(F).fill(false);
   let worst = 0;
-  const dirZ = (clip.settings as any)?.backward ? -1 : 1;
-  for (const side of ['left', 'right'] as const) {
-    const feet = clip.feet?.[side], down = clip.contacts?.[side];
-    if (!feet || !down) continue;
-    for (let f = 1; f < F && f < feet.length; f++) {
-      if (!down[f] || !down[f - 1]) continue;
-      const dz = feet[f][2] - feet[f - 1][2] + (dirZ * clip.speed) / clip.fps, dx = feet[f][0] - feet[f - 1][0];
-      const d = Math.hypot(dx, dz);
-      if (d > height * CHECK_LIMITS.slide / 4) bad[f] = true;
-      worst = Math.max(worst, d);
+  if (!rig.spec.quad) {
+    const idx = new Map(rig.bones.map((b, i) => [b.name, i]));
+    const s = rig.spec.s;
+    const prev: Record<string, V3 | null> = {};
+    for (let f = 0; f < F; f++) {
+      const P = clipPose(rig, clip, f);
+      for (const side of ['Left', 'Right'] as const) {
+        const fi = idx.get(`${side}Foot`)!, ti = idx.get(`${side}Toes`)!;
+        const ft = rig.bones[fi], toe = rig.bones[ti];
+        const heelRest: V3 = [ft.head[0], 0, ft.head[2] - 0.035 * s], ballRest: V3 = [toe.head[0], 0, toe.head[2]];
+        const heel = vadd(P.worldP[fi], qRot(P.worldQ[fi], vsub(heelRest, ft.head)));
+        const ball = vadd(P.worldP[ti], qRot(P.worldQ[ti], vsub(ballRest, toe.head)));
+        const down = (side === 'Left' ? clip.contacts.left : clip.contacts.right)[Math.min(f, clip.frames)];
+        for (const [key, pt] of [[`${side}heel`, heel], [`${side}ball`, ball]] as const) {
+          const onFloor = down && pt[1] < 0.006 * s;
+          const g: V3 = [pt[0], 0, pt[2] + (clip.speed * f) / clip.fps];
+          if (onFloor && prev[key]) {
+            const d = Math.hypot(g[0] - prev[key]![0], g[2] - prev[key]![2]) * clip.fps;
+            if (d > height * CHECK_LIMITS.slide) bad[f] = true;
+            worst = Math.max(worst, d);
+          }
+          prev[key] = onFloor ? g : null;
+        }
+      }
     }
+  } else {
+    const r = motionReport(rig, clip);
+    if (!r.pass) bad.fill(true);
+    worst = r.slip;
   }
-  out.push({ name: 'feet planted (no sliding)', part: 'legs', pass: !bad.some(Boolean), worst: +worst.toFixed(4), limit: +(height * CHECK_LIMITS.slide / 4).toFixed(4), unit: 'm/frame', frames: ranges(bad), detail: 'planted feet stay where they landed' });
+  out.push({ name: 'feet planted (no sliding)', part: 'legs', pass: !bad.some(Boolean), worst: +worst.toFixed(4), limit: +(height * CHECK_LIMITS.slide).toFixed(4), unit: 'm/s', frames: ranges(bad), detail: 'planted feet stay where they landed' });
   // pops
   const pb = new Array(F).fill(false);
   let pw = 0, who = '';

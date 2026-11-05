@@ -33,7 +33,7 @@ export type PartShape =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides?: number }
   | { kind: 'ball'; c: V3; r: number; sides?: number; scale?: V3 }
   | { kind: 'wheel'; c: V3; r: number; w: number; spokes?: number }        // axle along X
-  | { kind: 'blade'; a: V3; b: V3; w: number };                            // a thin double-sided quad strip (grass, sails)
+  | { kind: 'blade'; a: V3; b: V3; w: number; normal?: V3; taper?: number };   // a thin slab (grass, sails); taper = tip width ÷ base width
 
 /** One rigid piece of the body, riding one bone. */
 export interface PartPiece { bone: string; shape: PartShape; color: string; part: string }
@@ -52,7 +52,7 @@ export type JointLimit = { kind: 'cone'; maxDeg: number } | { kind: 'hinge'; axi
 
 // ── part specs ───────────────────────────────────────────────────────────────────────────────────
 
-export interface BodyPartSpec { kind: 'body'; id?: string; shape: 'box' | 'ball' | 'capsule'; size: V3; height: number; color: string; style?: { bob?: number; sway?: number } }
+export interface BodyPartSpec { kind: 'body'; id?: string; shape: 'box' | 'ball' | 'capsule'; size: V3; height: number; color: string; style?: { bob?: number; sway?: number; eyes?: string } }
 export interface LegsPartSpec {
   kind: 'legs'; id: string; count: number;            // 2, 4, 6 or 8 (pairs on the body's sides)
   upper: number; lower: number;                        // segment lengths (m)
@@ -99,6 +99,15 @@ export interface SpringPartSpec {
 export interface SwayPartSpec {
   kind: 'sway'; id: string; area: [number, number, number, number];  // x0, z0, x1, z1
   count: number; height: number; width?: number; wind?: V3; strength?: number; color: string; seed?: number;
+  mode?: 'bones' | 'shader';      // bones: a bone per blade, baked (default); shader: one static mesh, a vertex shader bends it (engines get the shader)
+}
+
+/** The sway the shader applies (and the bones bake): bend angle (deg) of a blade at time t, with its root at (x, z). */
+export function swayDeg(p: SwayPartSpec, t: number, x: number, z: number, i = 0, per = 1 / 2.2, energy = 0.5): number {
+  const w = norm(p.wind ?? [1, 0, 0.3]);
+  const str = (p.strength ?? 14) * (0.6 + energy * 0.8);
+  const ph = (TAU / 2.5) * (x * w[0] + z * w[2]);
+  return str * (0.55 + 0.45 * Math.sin(TAU * per * t - ph)) + 3 * Math.sin(TAU * per * 3 * t + i);
 }
 export type PartSpec = BodyPartSpec | LegsPartSpec | ChainPartSpec | WheelsPartSpec | HingePartSpec | SliderPartSpec | SpringPartSpec | SwayPartSpec;
 
@@ -159,6 +168,8 @@ export function buildCreature(def: CreatureDef): Creature {
           : spec.shape === 'ball' ? { kind: 'ball', c: [0, bodyY, 0], r: Math.max(bw, bh, bl) / 2, scale: [bw / Math.max(bw, bh, bl), bh / Math.max(bw, bh, bl), bl / Math.max(bw, bh, bl)], sides: 14 }
             : { kind: 'seg', a: [0, bodyY, -bl / 2 + bw / 2], b: [0, bodyY, bl / 2 - bw / 2], r1: bw / 2, r2: bw / 2, sides: 12 };
         pieces.push({ bone: 'Body', shape, color: spec.color, part: 'body' });
+        if (spec.shape === 'capsule' && shape.kind === 'seg') for (const e of [shape.a, shape.b]) pieces.push({ bone: 'Body', shape: { kind: 'ball', c: e, r: bw / 2, sides: 12, scale: [1, bh / bw, 1] }, color: spec.color, part: 'body' });
+        if (spec.style?.eyes) for (const side of [1, -1]) pieces.push({ bone: 'Body', shape: { kind: 'ball', c: [side * bw * 0.32, bodyY + bh * 0.32, bl / 2 - bw * 0.3], r: Math.max(0.006, bw * 0.12), sides: 8 }, color: spec.style.eyes, part: 'body' });
         break;
       }
       case 'legs': {
@@ -203,7 +214,8 @@ export function buildCreature(def: CreatureDef): Creature {
           addBone(C, name, prev, a, b);
           const r1 = lerp(spec.r0, spec.r1, i / spec.segments), r2 = lerp(spec.r0, spec.r1, (i + 1) / spec.segments);
           // each segment overlaps the next a little, so bends don't open gaps
-          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 8 }, color: spec.color, part: spec.id });
+          pieces.push({ bone: name, shape: { kind: 'seg', a, b: add(b, mul(dir, Math.min(r2, seg * 0.35))), r1, r2, sides: 10 }, color: spec.color, part: spec.id });
+          if (i > 0) pieces.push({ bone: name, shape: { kind: 'ball', c: a, r: r1 * 1.02, sides: 10 }, color: spec.color, part: spec.id });   // a rounded joint: bends stay closed
           limits[name] = { kind: 'cone', maxDeg: spec.motion === 'coil' ? 70 : 55 };
           if (spec.ground) contacts.push({ bone: name, at: [(a[0] + b[0]) / 2, Math.max(0, (a[1] + b[1]) / 2 - r1), (a[2] + b[2]) / 2], kind: 'belly', part: spec.id, slideAxis: dir });
           prev = name;
@@ -263,12 +275,17 @@ export function buildCreature(def: CreatureDef): Creature {
           const h = spec.height * (0.7 + 0.6 * rnd());
           const lean = (rnd() - 0.5) * 0.3;
           const a: V3 = [x, 0, z], b: V3 = [x + lean * h, h, z + (rnd() - 0.5) * 0.2 * h];
+          if (spec.mode === 'shader') {
+            if (i === 0) addBone(C, spec.id, null, [0, 0, 0], [0, spec.height, 0]);
+            pieces.push({ bone: spec.id, shape: { kind: 'blade', a, b, w: spec.width ?? 0.05 }, color: spec.color, part: spec.id });
+            continue;
+          }
           const name = `${spec.id}.${i + 1}`;
           addBone(C, name, null, a, b);
           pieces.push({ bone: name, shape: { kind: 'blade', a, b, w: spec.width ?? 0.05 }, color: spec.color, part: spec.id });
           limits[name] = { kind: 'cone', maxDeg: 40 };
         }
-        checks.push('sways without popping');
+        checks.push(spec.mode === 'shader' ? 'shader sway within the bend limit' : 'sways without popping');
         break;
       }
     }
@@ -289,7 +306,7 @@ export function buildCreature(def: CreatureDef): Creature {
   const span3 = [0, 1, 2].map((k) => Math.max(...ext.map((p) => p[k])) - Math.min(...ext.map((p) => p[k])));
   return {
     def, bones: order, parents: order.map((b) => (b.parent ? idx.get(b.parent)! : -1)), index: idx,
-    pieces, contacts, limits, spinners, parts, size: Math.max(bw, bh, bl, Math.min(span3[0], span3[2]) * 0.0 + Math.max(span3[0], span3[2]) * (def.parts.some((p) => p.kind === 'sway') ? 0 : 1)), legs,
+    pieces, contacts, limits, spinners, parts, size: Math.max(bw, bh, bl, def.parts.some((p) => p.kind === 'sway') ? 0 : Math.max(span3[0], span3[2])), legs,
   };
 }
 
@@ -317,6 +334,7 @@ export interface CreatureClip {
   contacts: boolean[][];           // [frame][contact] carrying weight
   notes: string[];
   reachMiss: number;               // worst distance a foot target was beyond reach (m)
+  seam?: { rot: Q[]; off: V3[] };  // the pose computed at t = duration, before the loop is closed onto frame 0
 }
 
 export interface FK { rot: Q[]; pos: V3[] }            // world rotation and world head position per bone
@@ -387,7 +405,7 @@ export function fabrik(points: V3[], target: V3, iters = 12): V3[] {
 }
 
 /** Turn world joint positions of a bone chain into local rotations (shortest arc per segment). */
-function chainLocals(c: Creature, names: string[], joints: V3[], parentWorld: Q): Q[] {
+export function chainLocals(c: Creature, names: string[], joints: V3[], parentWorld: Q): Q[] {
   const out: Q[] = [];
   let pw = parentWorld;
   names.forEach((n, i) => {
@@ -444,7 +462,15 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
     if (Math.abs(turns - Math.round(turns)) > 1e-3 && m.kind !== 'drive' && m.kind !== 'walk' && m.kind !== 'slither') duration = Math.max(1, Math.round(turns)) / (p.motion.rpm / 60);
   }
   const frames = Math.max(2, Math.round(duration * fps));
+  // whole frames: rescale the cycle (and the speed that goes with it) so the loop still closes exactly
+  const scale = frames / fps / duration;
   duration = frames / fps;
+  if (Math.abs(scale - 1) > 1e-9) {
+    if (m.kind === 'walk' && legsParts.length) { legCycle *= scale; speed /= scale; }
+    else if (m.kind === 'drive' || m.kind === 'slither') speed /= scale;
+  }
+  // swings and slides: a whole number of periods over the loop
+  const fitPeriod = (per: number) => duration / Math.max(1, Math.round(duration / per));
   const rot: Q[][] = [], off: V3[][] = [];
   const contactsOut: boolean[][] = [];
   let reachMiss = 0;
@@ -647,26 +673,21 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
           const ax = norm(p.axis);
           let deg = 0;
           if (p.motion.kind === 'spin') deg = (p.motion.rpm / 60) * 360 * t;
-          else if (p.motion.kind === 'swing') { const s = 0.5 - 0.5 * Math.cos((TAU * t) / p.motion.period); deg = lerp(p.motion.min, p.motion.max, s); }
+          else if (p.motion.kind === 'swing') { const s = 0.5 - 0.5 * Math.cos((TAU * t) / fitPeriod(p.motion.period)); deg = lerp(p.motion.min, p.motion.max, s); }
           R[bi(p.id)] = qAxisAngle(ax, deg);
         } else if (p.kind === 'slider') {
-          const s = 0.5 - 0.5 * Math.cos((TAU * t) / p.period);
+          const s = 0.5 - 0.5 * Math.cos((TAU * t) / fitPeriod(p.period));
           O[bi(p.id)] = mul(norm(p.axis), lerp(p.range[0], p.range[1], s));
         }
       }
       // ── sway: blades bend with the wind (a travelling gust), never past their limit ──
       for (const p of c.def.parts) {
-        if (p.kind !== 'sway') continue;
-        const wind = norm(p.wind ?? [1, 0, 0.3]);
-        const axis = norm(cross([0, 1, 0], wind));
-        const str = (p.strength ?? 14) * (0.6 + energy * 0.8);
-        const gustK = TAU / 2.5;
+        if (p.kind !== 'sway' || p.mode === 'shader') continue;
+        const axis = norm(cross([0, 1, 0], norm(p.wind ?? [1, 0, 0.3])));
         const per = Math.max(1, Math.round(duration / 2.2)) / duration;
         for (let i = 1; i <= p.count; i++) {
           const b = c.bones[bi(`${p.id}.${i}`)];
-          const ph = gustK * dot(b.head, wind);
-          const deg = str * (0.55 + 0.45 * Math.sin(TAU * per * t - ph)) + 3 * Math.sin(TAU * per * 3 * t + i);
-          R[bi(`${p.id}.${i}`)] = qAxisAngle(axis, deg);
+          R[bi(`${p.id}.${i}`)] = qAxisAngle(axis, swayDeg(p, t, b.head[0], b.head[2], i, per, energy));
         }
       }
       // ── springs: lag behind their parent's motion, then settle ──
@@ -701,9 +722,11 @@ export function bakeCreature(c: Creature, id: string, m: CreatureMotion, fps = 3
     }
   }
   // a loop's last frame repeats the first exactly (springs and suspension have settled into the cycle)
-  const loop = m.kind !== 'still' || true;
-  if (loop) { rot[frames] = rot[0]; off[frames] = off[0]; contactsOut[frames] = contactsOut[0]; }
-  return { id, kind: m.kind, fps, frames, duration, loop, speed, dir, rot, off, contacts: contactsOut, notes, reachMiss };
+  // (the frame computed at t = duration is kept as `seam`, so the loop check measures the real gap)
+  const loop = true;
+  const seam = { rot: rot[frames], off: off[frames] };
+  rot[frames] = rot[0]; off[frames] = off[0]; contactsOut[frames] = contactsOut[0];
+  return { id, kind: m.kind, fps, frames, duration, loop, speed, dir, rot, off, contacts: contactsOut, notes, reachMiss, seam };
 }
 
 // ── checks (Decision 54 A): from the parts, plus universal ones, with a failure timeline ──────────
@@ -751,6 +774,7 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     if (kind === 'foot' || kind === 'belly') {
       const bad = new Array(F).fill(false);
       let worst = 0;
+      const slideLim = kind === 'foot' ? CHECK_LIMITS.slide : CHECK_LIMITS.slide * 2;
       for (const { ci, cd } of decl) for (let f = 1; f < F; f++) {
         if (!clip.contacts[f][ci] || !clip.contacts[f - 1][ci]) continue;
         let d = sub(cp[ci][f], cp[ci][f - 1]);
@@ -759,12 +783,13 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
           d = sub(d, mul(ax, dot(d, ax)));
         }
         d[1] = 0;
-        const speed = len(d) * clip.fps;                 // m/s across the ground
-        const rel = speed / size;                        // body lengths per second
-        if (rel > CHECK_LIMITS.slide * clip.fps / 4) bad[f] = true;
-        worst = Math.max(worst, len(d));
+        // m/s across the ground, in body lengths per second: a foot may creep 3 % of the body a second,
+        // a belly 6 % sideways (a snake's segments ride a curve, not a perfect rail)
+        const rel = (len(d) * clip.fps) / size;
+        if (rel > slideLim) bad[f] = true;
+        worst = Math.max(worst, len(d) * clip.fps);
       }
-      out.push(mk(kind === 'foot' ? 'feet planted (no sliding)' : 'belly slides only along the body', bad, worst, CHECK_LIMITS.slide * size / 4, 'm/frame', kind === 'foot' ? 'planted feet stay where they landed' : 'segments on the ground move along their own length, not sideways', part.spec.kind === 'chain' || part.spec.kind === 'legs' ? (part.spec as any).id : undefined));
+      out.push(mk(kind === 'foot' ? 'feet planted (no sliding)' : 'belly slides only along the body', bad, worst, slideLim * size, 'm/s', kind === 'foot' ? 'planted feet stay where they landed' : 'segments on the ground move along their own length, not sideways', part.spec.kind === 'chain' || part.spec.kind === 'legs' ? (part.spec as any).id : undefined));
       // on the ground: planted contacts touch it (not sunk, not floating)
       const gbad = new Array(F).fill(false);
       let gworst = 0;
@@ -904,13 +929,18 @@ export function creatureChecks(c: Creature, clip: CreatureClip): MotionCheck[] {
     }
     out.push(mk('no jolts (body acceleration)', jb, jw, CHECK_LIMITS.jerkMs2, 'm/s²', 'the body doesn\'t jump between frames'));
   }
+  // ── shader sway: the bend the shader will apply stays within the blade's limit (engines run it live) ──
+  for (const p of c.def.parts) if (p.kind === 'sway' && p.mode === 'shader') {
+    const worst = (p.strength ?? 14) * 1.4 + 3;           // the formula's peak at full energy
+    out.push({ name: `shader sway within the bend limit (${p.id})`, part: p.id, pass: worst <= 40, worst: r3(worst), limit: 40, unit: '°', frames: [], detail: `peak bend of the sway shader (${p.count} blades, one mesh)` });
+  }
   // ── loop closure ──
   if (clip.loop) {
     let worstDeg = 0, worstMm = 0;
+    const last = clip.seam ?? { rot: clip.rot[clip.frames], off: clip.off[clip.frames] };
     for (let b = 0; b < c.bones.length; b++) {
-      const da = qAngle(clip.rot[0][b], clip.rot[clip.frames][b]);
-      if (!c.spinners.has(c.bones[b].name)) worstDeg = Math.max(worstDeg, da);
-      worstMm = Math.max(worstMm, len(sub(clip.off[0][b], clip.off[clip.frames][b])) * 1000);
+      worstDeg = Math.max(worstDeg, qAngle(clip.rot[0][b], last.rot[b]));
+      worstMm = Math.max(worstMm, len(sub(clip.off[0][b], last.off[b])) * 1000);
     }
     // and the step into the loop is no bigger than a normal frame step
     const pass = worstDeg <= CHECK_LIMITS.loopDeg && worstMm <= CHECK_LIMITS.loopMm;

@@ -4,7 +4,7 @@
 import { GlbBuilder } from './glb.ts';
 import { qAxisAngle, qIdentity, qMul, qRot, type Q, type V3 } from './rig.ts';
 import { qArc } from './motion.ts';
-import { bakeCreature, buildCreature, creatureChecks, terrainHeight, type Creature, type CreatureClip, type CreatureDef, type CreatureMotion, type MotionCheck, type PartShape, type PartSpec } from './rigparts.ts';
+import { bakeCreature, buildCreature, creatureChecks, terrainHeight, type Creature, type CreatureClip, type CreatureDef, type CreatureMotion, type MotionCheck, type PartShape, type PartSpec, type SwayPartSpec } from './rigparts.ts';
 
 const TAU = Math.PI * 2;
 const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -41,8 +41,8 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
     def: {
       name: 'Snake',
       parts: [
-        { kind: 'body', shape: 'capsule', size: [0.075, 0.06, 0.13], height: 0.035, color: '#5d8a3f' },
-        { kind: 'chain', id: 'spine', at: [0, 0.035, -0.06], dir: [0, 0, -1], length: 1.45, segments: 16, r0: 0.036, r1: 0.008, color: '#6f9c48', motion: 'serpent', ground: true, wavelength: 0.8, amp: 0.13 },
+        { kind: 'body', shape: 'capsule', size: [0.075, 0.05, 0.13], height: 0.035, color: '#5d8a3f', style: { eyes: '#1d1a16' } },
+        { kind: 'chain', id: 'spine', at: [0, 0.035, -0.06], dir: [0, 0, -1], length: 1.45, segments: 16, r0: 0.036, r1: 0.008, color: '#6f9c48', motion: 'serpent', ground: true, wavelength: 0.75, amp: 0.16 },
       ],
     },
     motions: { slither: { kind: 'slither', speed: 0.32 } },
@@ -55,7 +55,7 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
       parts: [
         { kind: 'body', shape: 'box', size: [0.9, 0.32, 1.7], height: 0.46, color: '#2f6f9f' },
         { kind: 'wheels', id: 'wheels', axles: [{ z: 0.56, track: 0.98, r: 0.19, w: 0.14 }, { z: -0.56, track: 0.98, r: 0.19, w: 0.14 }], ride: 0.27, travel: 0.07, hz: 1.7, damp: 0.5, color: '#24262a', hub: '#c9c2b4' },
-        { kind: 'hinge', id: 'cabin', at: [0, 0.62, -0.1], axis: [1, 0, 0], shapes: [{ shape: { kind: 'box', c: [0, 0.74, -0.12], size: [0.78, 0.26, 0.82] }, color: '#e9e2d4' }, { shape: { kind: 'box', c: [0, 0.75, 0.25], size: [0.7, 0.18, 0.04] }, color: '#9ec7dd' }], motion: { kind: 'still' }, limit: { min: -2, max: 2 } },
+        { kind: 'hinge', id: 'cabin', at: [0, 0.62, -0.1], axis: [1, 0, 0], shapes: [{ shape: { kind: 'box', c: [0, 0.74, -0.12], size: [0.78, 0.26, 0.82] }, color: '#e9e2d4' }, { shape: { kind: 'box', c: [0, 0.75, 0.25], size: [0.7, 0.18, 0.04] }, color: '#9ec7dd' }, { shape: { kind: 'box', c: [0, 0.76, -0.52], size: [0.66, 0.16, 0.03] }, color: '#9ec7dd' }, { shape: { kind: 'box', c: [0.39, 0.76, -0.1], size: [0.02, 0.15, 0.6] }, color: '#9ec7dd' }, { shape: { kind: 'box', c: [-0.39, 0.76, -0.1], size: [0.02, 0.15, 0.6] }, color: '#9ec7dd' }, { shape: { kind: 'box', c: [0.3, 0.53, 0.855], size: [0.16, 0.08, 0.02] }, color: '#f4e7b2' }, { shape: { kind: 'box', c: [-0.3, 0.53, 0.855], size: [0.16, 0.08, 0.02] }, color: '#f4e7b2' }, { shape: { kind: 'box', c: [0, 0.4, 0.855], size: [0.36, 0.07, 0.02] }, color: '#1f2a33' }, { shape: { kind: 'box', c: [0.32, 0.53, -0.855], size: [0.14, 0.07, 0.02] }, color: '#b8382c' }, { shape: { kind: 'box', c: [-0.32, 0.53, -0.855], size: [0.14, 0.07, 0.02] }, color: '#b8382c' }, { shape: { kind: 'box', c: [0, 0.33, 0.87], size: [0.94, 0.06, 0.06] }, color: '#cfc8ba' }, { shape: { kind: 'box', c: [0, 0.33, -0.87], size: [0.94, 0.06, 0.06] }, color: '#cfc8ba' }], motion: { kind: 'still' }, limit: { min: -2, max: 2 } },
         { kind: 'spring', id: 'aerial', at: [0.32, 0.86, -0.42], dir: [0, 1, -0.15], length: 0.34, r: 0.006, color: '#d9d4c8', hz: 2.1, damp: 0.16 },
       ],
       terrain: { period: 9.55, bumps: [{ amp: 0.035, k: 3, kx: 2.2 }, { amp: 0.022, k: 7, phase: 1.3 }, { amp: 0.012, k: 13, phase: 0.4, kx: 5 }], color: '#9a8f78' },
@@ -72,16 +72,26 @@ export const CREATURE_PRESETS: Record<string, () => CreaturePreset> = {
         { kind: 'hinge', id: 'cap', at: [0, 2.2, 0], axis: [0, 1, 0], shapes: [{ shape: { kind: 'box', c: [0, 2.42, 0.05], size: [1.0, 0.44, 1.1] }, color: '#7b4b33' }], motion: { kind: 'swing', min: -12, max: 12, period: 8 }, limit: { min: -15, max: 15 } },
         { kind: 'hinge', id: 'sails', parent: 'cap', at: [0, 2.42, 0.62], axis: [0, 0, 1], shapes: [
           { shape: { kind: 'ball', c: [0, 2.42, 0.64], r: 0.09, sides: 10 }, color: '#4a3528' },
-          ...[0, 90, 180, 270].map((deg) => {
-            const a = (deg * Math.PI) / 180, d: V3 = [Math.cos(a), Math.sin(a), 0];
-            return { shape: { kind: 'blade' as const, a: add([0, 2.42, 0.66], mul(d, 0.1)), b: add([0, 2.42, 0.66], mul(d, 1.25)), w: 0.26 }, color: '#efe6d2' };
+          // sails: cloth on a lattice, trailing each spar (facing the wind, +Z)
+          ...[0, 90, 180, 270].flatMap((deg) => {
+            const a = (deg * Math.PI) / 180, d: V3 = [Math.cos(a), Math.sin(a), 0], side: V3 = [-Math.sin(a), Math.cos(a), 0];
+            const at = (r: number, s: number, z = 0.66): V3 => add(add([0, 2.42, z], mul(d, r)), mul(side, s));
+            return [
+              { shape: { kind: 'blade' as const, a: at(0.3, 0.17), b: at(1.25, 0.17), w: 0.3, normal: [0, 0, 1] as V3, taper: 1 }, color: '#efe6d2' },
+              ...[0.3, 0.62, 0.94, 1.25].map((r) => ({ shape: { kind: 'seg' as const, a: at(r, 0, 0.68), b: at(r, 0.33, 0.68), r1: 0.011, r2: 0.011, sides: 4 }, color: '#6b4a33' })),
+              { shape: { kind: 'seg' as const, a: at(0.3, 0.33, 0.68), b: at(1.25, 0.33, 0.68), r1: 0.011, r2: 0.011, sides: 4 }, color: '#6b4a33' },
+            ];
           }),
           ...[0, 90, 180, 270].map((deg) => {
             const a = (deg * Math.PI) / 180, d: V3 = [Math.cos(a), Math.sin(a), 0];
             return { shape: { kind: 'seg' as const, a: add([0, 2.42, 0.67], mul(d, 0.05)), b: add([0, 2.42, 0.67], mul(d, 1.3)), r1: 0.02, r2: 0.014, sides: 5 }, color: '#5b3b29' };
           }),
         ], motion: { kind: 'spin', rpm: 15 } },
-        { kind: 'sway', id: 'grass', area: [-1.6, -1.6, 1.6, 1.6], count: 70, height: 0.32, width: 0.05, wind: [1, 0, 0.3], strength: 16, color: '#6f9a43', seed: 11 },
+        // a door and a window (still hinges: they ride the tower)
+        { kind: 'hinge', id: 'door', at: [0, 0, 0.45], axis: [1, 0, 0], shapes: [{ shape: { kind: 'box', c: [0, 0.38, 0.455], size: [0.34, 0.76, 0.03] }, color: '#5b3b29' }, { shape: { kind: 'box', c: [0, 1.45, 0.455], size: [0.24, 0.26, 0.03] }, color: '#3c4a55' }, { shape: { kind: 'box', c: [0, 1.45, 0.47], size: [0.3, 0.04, 0.02] }, color: '#efe6d2' }], motion: { kind: 'still' } },
+        // grass: shader sway (one mesh each; the engines bend it in a vertex shader, live)
+        { kind: 'sway', id: 'grass', mode: 'shader', area: [-2.2, -2.2, 2.2, 2.2], count: 520, height: 0.3, width: 0.04, wind: [1, 0, 0.3], strength: 16, color: '#6f9a43', seed: 11 },
+        { kind: 'sway', id: 'grass2', mode: 'shader', area: [-2.2, -2.2, 2.2, 2.2], count: 380, height: 0.22, width: 0.035, wind: [1, 0, 0.3], strength: 18, color: '#8fb35a', seed: 29 },
       ],
     },
     motions: { turn: { kind: 'idle', duration: 4 } },
@@ -187,9 +197,9 @@ export function shapeMesh(s: PartShape): TriMesh {
     case 'blade': {
       // a thin tapered slab (closed), widest at the base
       const d = sub(s.b, s.a);
-      const [x, y] = basis(d);
+      const [x, y] = s.normal ? [norm(cross(s.normal, d)), norm(s.normal)] : basis(d);
       const t = Math.max(0.004, s.w * 0.06);
-      const w0 = s.w / 2, w1 = s.w * 0.12;
+      const w0 = s.w / 2, w1 = (s.w / 2) * (s.taper ?? 0.24);
       const q = (p: V3, w: number, side: number) => v(add(add(p, mul(x, w)), mul(y, t * side)));
       const a0 = q(s.a, -w0, 1), a1 = q(s.a, w0, 1), b0 = q(s.b, -w1, 1), b1 = q(s.b, w1, 1);
       const c0 = q(s.a, -w0, -1), c1 = q(s.a, w0, -1), d0 = q(s.b, -w1, -1), d1 = q(s.b, w1, -1);
@@ -258,7 +268,8 @@ export function creatureGLB(c: Creature, clips: CreatureClip[], opts: CreatureGl
     const p = c.parents[i];
     const t = p < 0 ? b.head : sub(b.head, c.bones[p].head);
     const node = g.nodes.length;
-    g.nodes.push({ name: b.name, translation: t.map((x) => +x.toFixed(6)), children: [] });
+    const sw = c.def.parts.find((p) => p.kind === 'sway' && p.mode === 'shader' && p.id === b.name) as SwayPartSpec | undefined;
+    g.nodes.push({ name: b.name, translation: t.map((x) => +x.toFixed(6)), children: [], ...(sw ? { extras: { sway: swayParams(sw) } } : {}) });
     nodeOf.push(node);
     if (p < 0) g.nodes[root].children.push(node); else g.nodes[nodeOf[p]].children.push(node);
   });
@@ -324,6 +335,7 @@ export function creatureGLB(c: Creature, clips: CreatureClip[], opts: CreatureGl
     });
     g.animations.push({ name: clip.id, samplers, channels, extras: { loop: clip.loop, speed: clip.speed, dir: clip.dir, duration: clip.duration } });
   }
+  for (const nd of g.nodes) if (Array.isArray(nd.children) && !nd.children.length) delete nd.children;
   return finishGlb(B);
 }
 
@@ -333,6 +345,38 @@ function finishGlb(B: GlbBuilder): Uint8Array {
   if (typeof anyB.finish === 'function') return anyB.finish();
   if (typeof anyB.build === 'function') return anyB.build();
   throw new Error('GlbBuilder has no finish/build');
+}
+
+/** What a sway shader needs (three.js and Godot use the same formula as swayDeg). */
+export function swayParams(p: SwayPartSpec) {
+  const w = p.wind ?? [1, 0, 0.3], l = Math.hypot(w[0], w[1], w[2]) || 1;
+  return { wind: [w[0] / l, 0, w[2] / l], strength: p.strength ?? 14, height: p.height, gustK: (2 * Math.PI) / 2.5, per: 1 / 2.2, energy: 0.5 };
+}
+
+/** The sway as a Godot 4 spatial shader (set it on the grass mesh; parameters from the node's extras.sway). */
+export function swayGodotShader(p: SwayPartSpec): string {
+  const s = swayParams(p);
+  return `// sway shader for "${p.id}" (studio, Decision 52): blades bend with a travelling gust, root fixed
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 albedo : source_color = vec4(${[1, 3, 5].map((i) => (parseInt(p.color.slice(i, i + 2), 16) / 255).toFixed(4)).join(', ')}, 1.0);
+uniform vec3 wind = vec3(${s.wind.map((x) => x.toFixed(4)).join(', ')});
+uniform float strength = ${s.strength.toFixed(2)};
+uniform float blade_height = ${s.height.toFixed(3)};
+uniform float gust_k = ${s.gustK.toFixed(4)};
+uniform float per = ${s.per.toFixed(4)};
+uniform float energy = ${s.energy.toFixed(2)};
+void vertex() {
+  float k = clamp(VERTEX.y / (blade_height * 1.3), 0.0, 1.0);
+  float ph = gust_k * dot(VERTEX.xz, wind.xz);
+  float deg = strength * (0.6 + energy * 0.8) * (0.55 + 0.45 * sin(TAU * per * TIME - ph)) + 3.0 * sin(TAU * per * 3.0 * TIME + VERTEX.x * 7.0 + VERTEX.z * 5.0);
+  float a = radians(deg) * k;
+  float h = VERTEX.y;
+  VERTEX.xz += wind.xz * sin(a) * h;
+  VERTEX.y = h * cos(a);
+}
+void fragment() { ALBEDO = albedo.rgb; ROUGHNESS = 0.9; }
+`;
 }
 
 /** Build a preset creature and bake every motion with its checks. */

@@ -285,6 +285,32 @@ export async function startDaemon({ dir, port }: DaemonOptions) {
           return { ok: true, tool: name, summary: `${motions.length} motion(s) of ${obj.name}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, motions: motions.map((m) => m.id), note: `open ${r.page} in a browser (serve the folder, e.g. npx http-server)${r.video ? '; Read the stills to look at the poses' : ''}` } };
         } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
       }
+      case 'creature-preview': {
+        const doc = studio.doc();
+        const obj = studio.findObject(doc, args.object);
+        if (!obj.creature) return { ok: false, tool: name, error: `${obj.name} is not a creature`, hint: 'studio new-creature --preset crab' };
+        const cp = await import('./creatureplayer/make.ts');
+        const { def, motions } = obj.creature;
+        const want = args.motions ? String(args.motions).split(',').map((x) => x.trim()) : undefined;
+        const legs = def.parts.find((p: any) => p.kind === 'legs') as any, wheels = def.parts.some((p: any) => p.kind === 'wheels');
+        const walk = Object.entries(motions).find(([, m]: any) => m.kind === 'walk') as any;
+        const bumpy = { period: 6, bumps: [{ amp: 0.045, k: 1 }, { amp: 0.03, k: 2, kx: 3 }, { amp: 0.012, k: 7, kx: 5 }] };
+        const live: any[] = [];
+        if (args.live !== false && legs) live.push({ id: 'live-walk', label: `${def.name}: live, steered in a curve over bumps (runtime)`, show: 8, input: { speed: walk?.[1].speed ?? 0.3, strafe: walk?.[1].dir ?? [0, 0, 1], turn: 16 }, layer: Object.keys(motions).find((k) => motions[k].kind === 'idle'), terrain: bumpy });
+        if (args.live !== false && wheels) live.push({ id: 'live-drive', label: `${def.name}: live, steering over bumps (runtime)`, show: 8, input: { speed: 1.4, turn: 18, turnWave: 8 }, terrain: { ...bumpy, bumps: bumpy.bumps.map((b) => ({ ...b, amp: b.amp * 1.4 })) } });
+        const broken = args.demoFailure && walk ? [{ id: 'broken-walk', motion: walk[0], label: `${def.name}: ${walk[0]} replayed 1.6× too fast (feet slide: the checks catch it)`, travelScale: 1.6 }] : [];
+        const out = args.out ? path.resolve(dir, String(args.out)) : path.join(stateDir, 'exports', `${obj.id}-creature`);
+        try {
+          let r: any = await cp.buildCreaturePreview(out, def, motions, { motions: want, live, broken });
+          const validation = await validateGlb(fs.readFileSync(r.glb));
+          if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s)`, result: { validation } };
+          if (args.video) r = { ...r, ...(await cp.captureCreatureVideo(out, r.segments, { name: obj.id })) };
+          const segs = r.segments.map((s: any) => s.id);
+          delete r.segments;
+          const failing = Object.entries<any>(r.checks).filter(([, v]) => !v.pass).map(([k, v]) => `${k}: ${v.failing.join(', ')}`);
+          return { ok: true, tool: name, summary: `${segs.length} segment(s) of ${obj.name}${failing.length ? ` — failing: ${failing.join('; ')}` : ', every motion check passes'}${r.video ? ` → ${r.video}` : ''}`, result: { ...r, segments: segs, note: `open ${r.page} in a browser (serve the folder)${r.video ? '; Read the stills to look' : ''}` } };
+        } catch (e: any) { return { ok: false, tool: name, error: e.message }; }
+      }
       case 'cutscene-data': {
         // every cutscene as the timeline the engine players read, with its voices (for `studio game import`)
         const doc = studio.doc();
