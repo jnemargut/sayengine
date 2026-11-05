@@ -1,4 +1,4 @@
-# Third-party voice and lip-sync components
+# Third-party components and data
 
 All local and free; nothing calls a paid or hosted service. (Libraries the studio already used, such as three.js, Manifold, esbuild and xatlas, are listed in `package.json`.)
 
@@ -20,9 +20,39 @@ All local and free; nothing calls a paid or hosted service. (Libraries the studi
 | Component | Used for | Licence | How it arrives |
 |---|---|---|---|
 | [librosa](https://librosa.org) 1.0 (+ numba, soundfile) | Beat detection for reel cuts and beat-cut loops (`studio sound beats`, `studio reel music`). A separate tool: never shipped inside a game | ISC (librosa), BSD-2 (numba), BSD-3 (soundfile) | `~/.studio-tools/venv/bin/pip install librosa soundfile` |
-| [Stable Audio Open Small](https://huggingface.co/stabilityai/stable-audio-open-small) (optional, **not installed**) | Foley and textures from text, ≤ 11 s (`studio sound sao`) | **Stability AI Community License** (checked 2026-11-05): free incl. commercial use while you and affiliates make < US$1M a year; commercial users must register with Stability; you own the outputs; distributing the model or a product using it needs a copy of the licence, a "Notice" file and "Powered by Stability AI" | Gated on Hugging Face: you accept the licence with your own account, then `hf auth login` + `hf download`. The studio never accepts it for you. Outputs get `LicenseRef-Stability-AI-Community` sidecars with the attribution line |
-| [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools) (optional, not installed) | Runs the model | MIT | `pip install stable-audio-tools` |
+| [Stable Audio Open Small](https://huggingface.co/stabilityai/stable-audio-open-small) (optional; used for sounds no CC0 recording covers, e.g. Fire's Dying's quench and bellows) | Foley and textures from text, ≤ 11 s (`studio sound sao`, or an event's `sao` in a sound pack) | **Stability AI Community License** (checked 2026-11-05): free incl. commercial use while you and affiliates make < US$1M a year; commercial users must register with Stability; you own the outputs; distributing the model or a product using it needs a copy of the licence, a "Notice" file and "Powered by Stability AI" | Gated on Hugging Face: you accept the licence with your own account, then `hf auth login` + `hf download`. The studio never accepts it for you. Outputs get `LicenseRef-Stability-AI-Community` sidecars with the attribution line |
+| [stable-audio-tools](https://github.com/Stability-AI/stable-audio-tools) 0.0.19 (optional) | Runs the model | MIT | `pip install --no-deps stable-audio-tools` plus only the packages inference needs (its pinned training dependencies don't build on Python 3.14); `sao.py` stands in for torchaudio's resampler, which text-to-audio never uses |
 | CC0 recordings from [OpenGameArt](https://opengameart.org) (catalogue in `packages/sound/src/library.ts`): Fire Crackling (AntumDeluge), Fireplace Sound loop (PagDev), Hammer on Anvil (themightyglider), Blacksmith's Hammer (VishwaJai), Park ambiences (Thimras), High traffic road sounds (IgnasD), Mild Wind Background Noise (Bashar3A) | Ambience beds and foley | CC0-1.0 (per each work's page) | Fetched once into `~/.studio-tools/sound-library`; each file used in a pack gets a sidecar naming the work, author and page; credits list them as a courtesy |
 | Apple Vision (`VNRecognizeTextRequest`) via a 30-line Swift helper | On-Mac OCR for release checks | part of macOS | Compiled once with `swiftc` into `~/.studio-tools/bin/studio-ocr-<hash>`; tesseract (Apache-2.0) is the fallback if installed |
 
 The synth, beds and seeded stems are the studio's own code; what they render belongs to the game (packs default to CC0-1.0, set `licence`/`owner` in the spec). Meta's AudioCraft/MusicGen/AudioGen, MMAudio, AudioLDM2 and TangoFlux weights are non-commercial and are not used (a MusicGen cache found on this Mac is ignored).
+
+**Games that ship Stable Audio sounds** carry `LicenseRef-Stability-AI-Community` sidecars on those files, list them in their sound `CREDITS.md` under "Attribution required", and show "Powered by Stability AI" where players see it (Fire's Dying: the title card). Commercial use needs a free registration with Stability.
+
+## Towns: open map data (Phase 4, Decisions 27–28)
+
+| Source | Used for | Licence | What it asks |
+|---|---|---|---|
+| [OpenStreetMap](https://www.openstreetmap.org/copyright) (via the Overpass API) | Streets, sidewalks, water, parks, names | ODbL-1.0 | Credit "© OpenStreetMap contributors" where people see the town, and share any derived database under ODbL (`studio world-share` writes `town-plan.json`, `fixes.json` and `CREDITS.txt`) |
+| [Overture Maps](https://docs.overturemaps.org/attribution/) buildings, via the free `overturemaps` CLI | Building footprints and heights | ODbL-1.0 for the buildings theme (it includes OpenStreetMap) | As above, plus "Overture Maps Foundation" in the credits |
+| [USGS 3DEP](https://www.usgs.gov/3d-elevation-program) | Ground height | Public domain (US Government work) | Credit as a courtesy |
+
+Brand names in the data never become node names, and the release check (`proof release`) reads every trailer frame for brand and team names.
+
+## Engines, rendering and checks
+
+| Component | Used for | Licence | How it arrives |
+|---|---|---|---|
+| [Godot Engine](https://godotengine.org) 4.7.2 | Godot export, round trips, captures, live IK | MIT | Homebrew, installed by you; not bundled |
+| [three.js](https://threejs.org) | The view and web games | MIT | npm |
+| [three.quarks](https://github.com/Alchemist0823/three.quarks) 0.17.1 | Web particle effects | MIT | npm |
+| [Rapier](https://rapier.rs) (`@dimforge/rapier3d-compat`) | Web game physics | Apache-2.0 | npm |
+| [manifold-3d](https://github.com/elalish/manifold), [xatlas](https://github.com/jpcy/xatlas) (xatlasjs), [gltf-validator](https://github.com/KhronosGroup/glTF-Validator), fflate, zod, ws, esbuild, quickjs-emscripten | Kernel, UV unwrapping, export checks, utilities | Apache-2.0 / MIT | npm |
+| [Playwright](https://playwright.dev) (`playwright-core`, optional) | The imitated phone (WebKit) | Apache-2.0 | npm |
+| [NVIDIA FLIP](https://github.com/NVlabs/flip) (`flip-evaluator`) | Picture diffs between engines and approved views | BSD-3-Clause | `~/.studio-tools/venv` |
+| [DINOv2-small](https://huggingface.co/facebook/dinov2-small) (with PyTorch, transformers) | Local style score for looks | Apache-2.0 (model); BSD-3 (PyTorch); Apache-2.0 (transformers) | Downloaded on first use into the Hugging Face cache |
+| Google Chrome (headless) | Web captures and tests | Chrome's own terms; installed by you, not bundled | Your install |
+
+## Fonts
+
+Roboto Bold (OFL-1.1) is copied into games that use the UI kit (`assets/studio/ui/font.woff`), with the OFL text beside it as `OFL.txt`.

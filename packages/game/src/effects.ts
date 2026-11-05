@@ -152,7 +152,12 @@ export async function writeGameData(dir: string, engine: 'godot' | 'web', data: 
   if (data.ui) {
     const ui = data.ui;
     const font = path.join(STUDIO_ROOT, 'node_modules', ui.tokens.font.file);
-    if (fs.existsSync(font)) put('ui/font.woff', fs.readFileSync(font));
+    if (fs.existsSync(font)) {
+      put('ui/font.woff', fs.readFileSync(font));
+      // the OFL asks that its text travel with the font file
+      const ofl = path.join(STUDIO_ROOT, 'node_modules', ui.tokens.font.file.split('/').slice(0, 2).join('/'), 'LICENSE');
+      if (fs.existsSync(ofl)) put('ui/OFL.txt', fs.readFileSync(ofl));
+    }
     for (const [n, i] of Object.entries(ui.icons)) put(`ui/icons/${n}.svg`, i.svg);
     put('ui/ui.json', JSON.stringify({ tokens: ui.tokens, layout: ui.layout, icons: Object.keys(ui.icons), profile: ui.profile ?? 'mobile' }, null, 2) + '\n');
     if (engine === 'godot') put('ui/theme.tres', godotTheme(ui.tokens));
