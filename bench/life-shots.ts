@@ -67,9 +67,9 @@ const fly = (s: any): number => {
 /** The first framing near the asked one that stays clear all through the shot. */
 const frame = (s: any) => {
   const tries: any[] = [];
-  for (const dh of [0, 1.2, -0.6, 2.4]) for (const dd of [1, 0.75, 1.3]) for (const da of [0, 25, -25, 50, -50, 90, -90, 140, -140, 180]) tries.push({ angle: (s.angle ?? 0) + da, dist: +((s.dist ?? 6) * dd).toFixed(2), height: +Math.max(1.2, (s.height ?? 2.6) + dh).toFixed(2) });
+  for (const dh of [0, 1.2, -0.6, 2.4, 4.5]) for (const dd of [1, 0.75, 1.3]) for (const da of [0, 25, -25, 50, -50, 90, -90, 140, -140, 180]) tries.push({ angle: (s.angle ?? 0) + da, dist: +((s.dist ?? 6) * dd).toFixed(2), height: +Math.max(1.2, (s.height ?? 2.6) + dh).toFixed(2) });
   let best: any = null, bestBad = Infinity;
-  for (const tr of tries.slice(0, s.frames > 1 ? 40 : 120)) {
+  for (const tr of tries.slice(0, s.frames > 1 ? 90 : 150)) {
     const bad = fly({ ...s, ...tr });
     if (bad < bestBad) { bestBad = bad; best = tr; }
     if (bad === 0) break;
@@ -86,7 +86,8 @@ const town = (i: number) => D.agents[i].town;
 const add = (name: string, i: number, o: Record<string, unknown> = {}) => { if (i >= 0) shots.push(frame({ name, t, cam: [0, 0, 0], look: [0, 0, 0], follow: i, dist: 5, height: 2.0, angle: 150, fov: 50, ...o })); };
 
 // the Raleigh market: a fixed camera from the open side of the ring of stalls, the whole market in frame
-const stalls = (D.places ?? []).filter((p: any) => p.kind === 'stall' && p.town === 0);
+// (life.json's places: { id: "stall:<town>:<k>", at: [x, y, z] })
+const stalls = (D.places ?? []).filter((p: any) => p.kind === 'stall' && String(p.id).startsWith('stall:0:')).map((p: any) => ({ at: [p.at[0], p.at[2]], y: p.at[1] }));
 const marketShot = (name: string, frames: number) => {
   if (!stalls.length) return;
   const c = [stalls.reduce((a: number, p: any) => a + p.at[0], 0) / stalls.length, 0, stalls.reduce((a: number, p: any) => a + p.at[1], 0) / stalls.length];

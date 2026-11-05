@@ -502,7 +502,7 @@ func _step_person(i: int, dt: float) -> void:
 	var fz0: float = st["fz"]
 	var a0 := atan2(float(st["fx"]), float(st["fz"]))
 	var a1 := atan2(float(Dp[0]), float(Dp[1]))
-	var aa := _angle_to(a0, a1, 2.6 * dt)
+	var aa := _angle_to(a0, a1, min(2.6, 1.6 / max(0.3, abs(float(st["lat"])))) * dt)
 	st["fx"] = sin(aa)
 	st["fz"] = cos(aa)
 	var D0x: float = st["fx"]
