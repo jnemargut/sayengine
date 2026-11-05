@@ -238,6 +238,7 @@ export interface GameProfile {
   shapes?: number;               // face shape keys (morph targets) per character
   fingers?: boolean;             // keep finger bones (web-mobile drops them by default)
   collision?: boolean;           // require a collision shape
+  kind?: 'prop' | 'hand-prop';   // hand-prop: carried in a hand, so no collider is needed (it rides the hand bone)
 }
 
 export interface SceneDoc {

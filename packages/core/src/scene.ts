@@ -24,6 +24,33 @@ export function fillInstances(doc: SceneDoc, errors: Record<string, string>) {
 
 const centre = (b: BBox) => [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2];
 
+/** The largest upward-facing flat area in the upper part of a shape: its height and area-weighted centre
+ *  (x, z), or null when there is none (a dished or rounded top — then 'on' uses the bounding box). */
+export function largestTop(r: EvalResult, minArea = 1e-5): { y: number; c: [number, number]; area: number } | null {
+  if (!r.bbox || !r.indices?.length) return null;
+  const P = r.positions, I = r.indices, lo = r.bbox.min[1], hi = r.bbox.max[1];
+  const floor = lo + 0.6 * (hi - lo);
+  const groups = new Map<number, { area: number; x: number; z: number; y: number }>();
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2];
+    const vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz);
+    if (len < 1e-12 || ny / len < 0.985) continue;
+    const y = (P[a + 1] + P[b + 1] + P[c + 1]) / 3;
+    if (y < floor) continue;
+    const key = Math.round(y / 0.002), area = len / 2;
+    const g = groups.get(key) ?? { area: 0, x: 0, z: 0, y: 0 };
+    g.area += area; g.x += area * (P[a] + P[b] + P[c]) / 3; g.z += area * (P[a + 2] + P[b + 2] + P[c + 2]) / 3; g.y += area * y;
+    groups.set(key, g);
+  }
+  let best: { area: number; x: number; z: number; y: number } | null = null;
+  for (const g of groups.values()) if (!best || g.area > best.area + 1e-9 || (Math.abs(g.area - best.area) <= 1e-9 && g.y > best.y)) best = g;
+  if (!best || best.area < minArea) return null;
+  return { y: best.y / best.area, c: [best.x / best.area, best.z / best.area], area: best.area };
+}
+
 export function facingAngle(face: string | undefined, toTargetDeg: number): number {
   return face === 'away' ? toTargetDeg + 180 : face === 'none' ? 0 : toTargetDeg;
 }
@@ -89,7 +116,12 @@ export function solvePlacements(doc: SceneDoc, evalAt: (o: SceneObject) => EvalR
     let y = tb.min[1];
     let pos: V3;
     switch (p.kind) {
-      case 'on': ax = tc[0]; az = tc[2]; y = tb.max[1]; break;
+      case 'on': {
+        // the largest flat top, not the highest point: an anvil's face, not its horn tip (Fire's Dying pain #12)
+        const top = largestTop(tr);
+        if (top) { ax = top.c[0]; az = top.c[1]; y = top.y; } else { ax = tc[0]; az = tc[2]; y = tb.max[1]; }
+        break;
+      }
       case 'under': ax = tc[0]; az = tc[2]; y = 0; break;
       case 'nextTo':
         ax = p.side === 'right' ? tb.max[0] + p.gap + w / 2 : p.side === 'left' ? tb.min[0] - p.gap - w / 2 : tc[0];

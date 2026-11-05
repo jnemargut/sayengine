@@ -30,6 +30,7 @@
     "opentype.js": "^2.0.0",
     "quickjs-emscripten": "^0.31.0",
     "three": "^0.187.0",
+    "three.quarks": "0.17.1",
     "ws": "^8.22.1",
     "xatlasjs": "^0.2.0",
     "zod": "^4.6.7"

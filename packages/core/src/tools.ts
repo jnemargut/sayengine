@@ -244,6 +244,7 @@ export const TOOLS: ToolDef[] = [
       materials: z.number().int().positive().optional(), collision: z.boolean().optional(),
       fingers: z.boolean().optional().describe('characters: keep finger bones (web-mobile drops them by default)'),
       shapes: z.number().int().positive().optional().describe('characters: face shape-key budget'),
+      kind: z.enum(['prop', 'hand-prop']).optional().describe('hand-prop: something carried in a hand (tongs, a hammer, a cup): no collision shape is required, and the export carries its grip socket for the runtime hold()'),
     }),
     example: `studio set-profile --object stool --profile godot-desktop`,
     run(ctx, a) {
@@ -255,10 +256,10 @@ export const TOOLS: ToolDef[] = [
         return { profile: null };
       }
       const prof: any = { ...(o.profile?.name === a.profile ? o.profile : {}), name: a.profile };
-      for (const k of ['triangles', 'texture', 'materials', 'collision', 'fingers', 'shapes'] as const) if (a[k] !== undefined) prof[k] = a[k];
+      for (const k of ['triangles', 'texture', 'materials', 'collision', 'fingers', 'shapes', 'kind'] as const) if (a[k] !== undefined) prof[k] = a[k];
       ctx.set(['objects', o.id, 'profile'], prof);
       const b = budgetFor(prof);
-      ctx.summary(`${o.name}: game profile ${a.profile} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
+      ctx.summary(`${o.name}: game profile ${a.profile}${prof.kind === 'hand-prop' ? ' (hand prop)' : ''} (≤ ${b.triangles.toLocaleString('en')} triangles, ${b.texture} px texture, ≤ ${b.materials} materials${b.collision ? ', needs collision' : ''})`);
       return { profile: prof, budget: { ...b, lodAbove: Number.isFinite(b.lodAbove) ? b.lodAbove : null }, note: PROFILES[a.profile as ProfileName].description };
     },
   },

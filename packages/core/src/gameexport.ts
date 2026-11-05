@@ -14,6 +14,7 @@ import { paintGroups } from './facepaint.ts';
 import { budgetFor, materialGroups, type MaterialGroup } from './profiles.ts';
 import { gltfMaterial } from './export.ts';
 import { GlbBuilder } from './glb.ts';
+import { autoGrip } from './grip.ts';
 import { addCharacterNodes, addSkin, attachHeldProps, cornerVerts, rigAttributes, type SkinInfo } from './skinexport.ts';
 
 type V3 = [number, number, number];
@@ -397,7 +398,19 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
       B.gltf.meshes.push({ name: lod ? `${obj.name} ${lod}` : obj.name, primitives: prims });
       return B.gltf.meshes.length - 1;
     };
-    const extras: any = { semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])), ...(obj.profile ? { profile: obj.profile.name } : {}) };
+    // studioName: three.js's GLTFLoader rewrites node names ("Big hammer" → "Big_hammer"); games look objects
+    // up by the name they see in the studio (named() in the web template reads this). Fire's Dying pain #14.
+    const extras: any = { studioName: obj.name, semanticType: obj.semanticType, params: Object.fromEntries(Object.entries(obj.params).map(([k, p]) => [k, p.value])), ...(obj.profile ? { profile: obj.profile.name, ...(obj.profile.kind ? { kind: obj.profile.kind } : {}) } : {}) };
+    // hand props carry their grip socket (node-local: the mesh is exported relative to its origin), so the
+    // runtime hold(character, prop) can put the grip in the hand without guessed offsets. Pain #10.
+    if (!skin && (obj.grip || obj.profile?.kind === 'hand-prop')) {
+      try {
+        const local = new Float32Array(res.positions.length);
+        for (let i = 0; i < local.length; i += 3) { local[i] = res.positions[i] - obj.position[0]; local[i + 1] = res.positions[i + 1] - obj.position[1]; local[i + 2] = res.positions[i + 2] - obj.position[2]; }
+        const g = obj.grip && !obj.grip.auto ? obj.grip : autoGrip(local, res.indices);
+        extras.grip = { kind: g.kind, center: g.center.map((v) => +v.toFixed(5)), axis: g.axis.map((v) => +v.toFixed(5)), side: g.side.map((v) => +v.toFixed(5)), radius: +g.radius.toFixed(5) };
+      } catch { /* no grip found: hold() falls back to the bounding box */ }
+    }
     let node: any;
     if (skin) {
       const roots = addCharacterNodes(B, obj, res, meshFor(res), skin, { ...extras, character: { bones: skin.kept.length, shapes: skin.shapeNames.length, lines: Object.keys(obj.character?.lines ?? {}), motions: Object.keys(obj.character?.motions ?? {}), ...(characterCount > 1 ? { clipPrefix: `${obj.id}:` } : {}) } }, { clipPrefix: characterCount > 1 ? `${obj.id}:` : '' });
