@@ -84,6 +84,41 @@ test('undo is a new commit and history survives a save/load round trip', () => {
   assert.equal(new History(data).chain(data.mainHead).length, 8);
 });
 
+test('undo reverts your own last step: a human drag in between is skipped, not undone instead', () => {
+  const s = new Studio();
+  const parts = [{ kind: 'body', shape: 'capsule', size: [0.3, 0.2, 0.6], height: 0.3, color: '#7d6553' }];
+  const ok = (t: string, a: object, author = 'claude') => { const r = s.call(t, a, author); assert.ok(r.ok, `${t}: ${r.error}`); return r as any; };
+  ok('new-object', { name: 'Vase', type: 'vase' });
+  // the reported sequence: new-creature → undo → new-creature → (the human drags it) → undo → new-creature
+  ok('new-creature', { name: 'Mop Lips', id: 'mop-lips', parts });
+  assert.equal(ok('undo', {}).result.reverted, 'c2');
+  ok('new-creature', { name: 'Mop Lips', id: 'mop-lips', parts: [{ ...parts[0], color: '#c2414c' }] });
+  ok('drag-object', { object: 'mop-lips', by: [0.2, 0] }, 'human');
+  const u = ok('undo', {});
+  assert.equal(s.history.commit(u.result.reverted).tool, 'new-creature');
+  assert.equal(s.doc().objects['mop-lips'], undefined, 'the second creature is gone');
+  assert.deepEqual(s.doc().objectOrder, ['vase']);
+  assert.ok(u.result.alsoDrops?.some((x: string) => /human/.test(x)), 'says the human\'s drag went with it');
+  ok('new-creature', { name: 'Mop Lips', id: 'mop-lips', parts });
+  assert.deepEqual(s.doc().objectOrder, ['vase', 'mop-lips'], 'no mop-lips-2, no old copy');
+  assert.equal(s.doc().objects['mop-lips'].creature!.def.parts[0].color, '#7d6553');
+  // undo, undo walks back through your own steps; the scene order keeps later additions
+  ok('new-object', { name: 'Cup', type: 'cup' }, 'human');
+  ok('set-material', { object: 'mop-lips', color: '#123456' });
+  ok('undo', {});
+  ok('undo', {});
+  assert.deepEqual(s.doc().objectOrder, ['vase', 'cup']);
+  // the human's undo undoes the human's step; --step reverts one given step; undoing an undo brings it back
+  ok('undo', {}, 'human');
+  assert.deepEqual(s.doc().objectOrder, ['vase']);
+  const last = s.history.data.mainHead!;
+  ok('undo', { step: last });
+  assert.deepEqual(s.doc().objectOrder, ['vase', 'cup']);
+  // history round-trips
+  const s2 = new Studio(JSON.parse(JSON.stringify(s.history.data)));
+  assert.deepEqual(s2.doc(), s.doc());
+});
+
 test('validation errors are actionable, not crashes', () => {
   const s = new Studio();
   stool(s);

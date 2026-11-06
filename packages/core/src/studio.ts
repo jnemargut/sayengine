@@ -421,6 +421,7 @@ export class Studio {
       // the word note: --why, or the words a tool read its change from (world-fix --words "flat roof")
       const why = opts.why ?? (typeof (args as any).words === 'string' ? (args as any).words : undefined);
       if (why) c.note = String(why);
+      if (name === 'undo' && (result as any)?.reverted) c.reverts = String((result as any).reverted);
       const touched = new Set(changes.filter((x) => x.path[0] === 'objects' && x.path[1]).map((x) => x.path[1]));
       const doc = this.doc();
       // objects placed on / linked to a touched object move with it: report their checks too

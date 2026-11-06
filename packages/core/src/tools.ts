@@ -8,6 +8,7 @@ import { describePlacement } from './scene.ts';
 import { formatOf, imageSize, parseMesh, FORMAT_DEFAULTS, type MeshFormat } from './importers.ts';
 import { PROFILES, budgetFor, type ProfileName } from './profiles.ts';
 import type { Material, Placement } from './types.ts';
+import type { Commit, History } from './history.ts';
 import { CHARACTER_TOOLS } from './charactertools.ts';
 import { PRINT_TOOLS } from './printtools.ts';
 import { PART_TOOLS } from './parttools.ts';
@@ -634,16 +635,54 @@ export const TOOLS: ToolDef[] = [
   },
   {
     name: 'undo', mode: 'modify', mutates: true,
-    description: 'Revert the last commit on the active branch (recorded as a new commit — nothing is lost).',
-    input: z.object({}),
-    run(ctx) {
-      const h = ctx.studio.history;
+    description: 'Revert your own last step on the active branch (recorded as a new commit — nothing is lost). It skips steps someone else made since (a drag in the view is the human\'s step, not yours) and steps already undone, so undo, undo walks back through your steps. --step c12 reverts that one step instead. When a later step by someone else changed the same thing, the result says so (alsoDrops).',
+    input: z.object({ step: z.string().optional().describe('the commit id to revert (default: your last step not yet undone)') }),
+    example: `studio undo   ·   studio undo --step c12`,
+    run(ctx, a) {
+      const h = ctx.studio.history as History;
       const head = h.data.active === 'main' ? h.data.mainHead : h.proposal().head;
       if (!head) throw new Error('nothing to undo');
-      const c = h.commit(head);
-      for (const ch of [...c.changes].reverse()) ctx.set(ch.path, ch.before);
+      const stop = h.data.active === 'main' ? null : h.proposal().base;
+      const steps = h.chain(head, stop);
+      // what is undone now: each undo reverts one step (older undos, from before steps said which,
+      // reverted the step under them); undoing an undo brings its step back
+      const byId = new Map(steps.map((x) => [x.id, x]));
+      const target = (x: Commit) => x.reverts ?? x.parent ?? '';
+      const undone = new Set<string>();
+      for (const x of steps) if (x.tool === 'undo') {
+        const t = target(x);
+        undone.add(t);
+        const tc = byId.get(t);
+        if (tc?.tool === 'undo') undone.delete(target(tc));
+      }
+      let c: Commit | undefined;
+      if (a.step) {
+        c = steps.find((x) => x.id === a.step);
+        if (!c) throw new Error(`no step "${a.step}" on ${h.data.active} (studio log lists them)`);
+        if (undone.has(c.id)) throw new Error(`${c.id} is already undone`);
+      } else {
+        // your own last step that isn't an undo and isn't undone yet
+        c = [...steps].reverse().find((x) => x.author === ctx.author && x.tool !== 'undo' && !undone.has(x.id));
+        if (!c) {
+          const last = [...steps].reverse().find((x) => x.tool !== 'undo' && !undone.has(x.id));
+          throw new Error(last ? `nothing of yours left to undo (the last step is ${last.author}'s: studio undo --step ${last.id})` : 'nothing to undo');
+        }
+      }
+      const later = steps.slice(steps.indexOf(c) + 1).filter((x) => x.tool !== 'undo');
+      const overlaps = (p: string[], q: string[]) => p.slice(0, q.length).join('/') === q.slice(0, p.length).join('/');
+      const alsoDrops = later.filter((x) => x.author !== c!.author && x.changes.some((y) => c!.changes.some((z) => z.path[0] !== 'objectOrder' && overlaps(y.path, z.path)))).map((x) => `${x.id} (${x.author}: ${x.summary})`);
+      for (const ch of [...c.changes].reverse()) {
+        if (ch.path.length === 1 && ch.path[0] === 'objectOrder' && Array.isArray(ch.before) && Array.isArray(ch.after)) {
+          // the scene order: take out what the step added and put back what it removed, keeping
+          // whatever later steps did to the order
+          const before = ch.before as string[], after = ch.after as string[];
+          const order = (ctx.doc.objectOrder as string[]).filter((id) => !(after.includes(id) && !before.includes(id)));
+          before.forEach((id, i) => { if (!after.includes(id) && !order.includes(id)) order.splice(Math.min(i, order.length), 0, id); });
+          ctx.set(['objectOrder'], order);
+        } else ctx.set(ch.path, ch.before);
+      }
       ctx.summary(`Undo "${c.summary}"`);
-      return { reverted: c.id };
+      return { reverted: c.id, ...(c.id !== head ? { skipped: steps.slice(steps.indexOf(c) + 1).map((x) => `${x.id} (${x.author}: ${x.tool})`) } : {}), ...(alsoDrops.length ? { alsoDrops } : {}) };
     },
   },
   // ── inspect ───────────────────────────────────────────────────────────
