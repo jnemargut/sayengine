@@ -1,5 +1,7 @@
 # SayEngine
 
+![You type a prompt in Claude Code and it shows up in the live view: a vase, a spider, an octopus pouring tea, a bird, a forge, Pocket Raleigh at night, and the timeline](docs/sizzle.gif)
+
 A little 3D game engine you run with words. You tell Claude Code what you want ("make a spider that scuttles", "the octopus pours tea, slower", "make downtown at night"), it drives the studio's tools, and you watch the result show up in a live view in your browser. Then you keep it, undo it, drag a slider, or point at a thing and say "this, but bigger".
 
 It's built for one person making small games on a laptop. Everything runs locally with free tools. It was made on an 8 GB M2 MacBook Air, so it should run on yours.

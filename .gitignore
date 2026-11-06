@@ -62,3 +62,6 @@ checkpoint*/**/*.cube
 
 # README sizzle-reel footage (regenerate: node bench/sizzle/capture.ts)
 bench/sizzle/footage/
+bench/sizzle/out/
+bench/sizzle/sizzle.gif
+bench/sizzle/sheet.png

@@ -1,0 +1,141 @@
+[
+ {
+  "prompt": "/studio make a ceramic vase about 30 cm tall",
+  "reply": [
+   "revolve, smooth, glaze · 6 steps",
+   "✓ watertight · one piece"
+  ],
+  "clip": "footage/vase.mp4",
+  "seconds": 2.6,
+  "crop": [
+   244,
+   130,
+   672,
+   400
+  ]
+ },
+ {
+  "prompt": "/studio make a spider that scuttles",
+  "reply": [
+   "new-creature spider · 8 legs",
+   "✓ 10 motion checks pass"
+  ],
+  "clip": "footage/spider.mp4",
+  "seconds": 1.8,
+  "crop": [
+   250,
+   70,
+   552,
+   310
+  ],
+  "patch": [
+   [
+    256,
+    346,
+    170,
+    30
+   ]
+  ]
+ },
+ {
+  "prompt": "/studio the octopus pours the tea",
+  "reply": [
+   "perform-action · key moments",
+   "✓ teapot stays in the grip"
+  ],
+  "clip": "footage/octopus.mp4",
+  "seconds": 2.2,
+  "crop": [
+   250,
+   70,
+   552,
+   310
+  ],
+  "patch": [
+   [
+    256,
+    346,
+    170,
+    30
+   ]
+  ]
+ },
+ {
+  "prompt": "/studio the bird takes off and lands",
+  "reply": [
+   "flap, glide, flare",
+   "✓ 13 motion checks pass"
+  ],
+  "clip": "footage/bird.mp4",
+  "start": 0.2,
+  "seconds": 2.4,
+  "crop": [
+   250,
+   70,
+   552,
+   310
+  ],
+  "patch": [
+   [
+    256,
+    346,
+    170,
+    30
+   ]
+  ]
+ },
+ {
+  "prompt": "/studio light the forge: fire, sparks, smoke",
+  "reply": [
+   "add-effect × 4",
+   "✓ same in Godot and on the web"
+  ],
+  "clip": "footage/effects.mp4",
+  "seconds": 1.9,
+  "crop": [
+   244,
+   100,
+   672,
+   378
+  ]
+ },
+ {
+  "prompt": "/world pocket raleigh, then make it night",
+  "reply": [
+   "27 buildings from open map data",
+   "✓ look: neon night"
+  ],
+  "clip": "footage/town.mp4",
+  "seconds": 3.0,
+  "crop": [
+   244,
+   190,
+   672,
+   450
+  ],
+  "pad": "0x18191d"
+ },
+ {
+  "prompt": "this leg, right as it lands",
+  "reply": [
+   "spider/legs.L1.upper @ walk",
+   "✓ note pinned to that moment"
+  ],
+  "clip": "footage/timeline.mp4",
+  "seconds": 2.3,
+  "crop": [
+   244,
+   66,
+   672,
+   580
+  ],
+  "patch": [
+   [
+    256,
+    376,
+    650,
+    36
+   ]
+  ]
+ }
+]
