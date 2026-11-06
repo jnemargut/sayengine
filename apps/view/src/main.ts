@@ -18,7 +18,7 @@ type V3 = [number, number, number];
 interface BBox { min: V3; max: V3 }
 interface Check { id: string; label: string; pass: boolean; detail: string; parts?: string[]; pending?: boolean }
 interface Param { value: number; unit?: string; min?: number; max?: number; description?: string }
-interface Part { name: string; ranges: [number, number][]; bbox: BBox; ops?: string[]; material?: Mat; drag?: 'op' | 'object' }
+interface Part { name: string; ranges: [number, number][]; bbox: BBox; ops?: string[]; material?: Mat; drag?: 'op' | 'object'; tints?: Array<{ ranges: [number, number][]; material: Mat }> }
 interface ImageRef { kind: 'image'; asset: string; file: string; plane: 'front' | 'side' | 'top'; width: number; height: number; at: V3; opacity: number }
 interface PackedObj {
   id: string; name: string; type: string; material: Mat;
@@ -171,20 +171,25 @@ function buildMesh(o: PackedObj, opts: BuildOpts = {}): THREE.Mesh | null {
   if (!g) return null;
   const failing = new Set(o.checks.flatMap((c) => (c.pass ? [] : c.parts ?? [])));
   const mats: THREE.Material[] = [];
+  const groupPart: string[] = []; // material group → part (a part's extra colours are more groups of the same part)
   const isRef = o.role === 'reference';
-  o.parts.forEach((p, i) => {
-    for (const [start, count] of p.ranges) g.addGroup(start * 3, count * 3, i);
+  o.parts.forEach((p) => {
     const hl = opts.highlight && (opts.highlight.has('*') || opts.highlight.has(p.name));
     const override = hl ? COLORS.sage : failing.has(p.name) ? COLORS.danger : undefined;
-    let mat: THREE.Material;
-    if (isRef) mat = new THREE.MeshStandardMaterial({ color: override ?? COLORS.ref, roughness: 0.7, transparent: true, opacity: 0.35, depthWrite: false, wireframe: !!opts.wireframe, side: THREE.DoubleSide });
-    else mat = makeMaterial(p.material ?? o.material, { bbox: p.bbox, override, wireframe: opts.wireframe });
-    if ((opts.hidePart && p.name === opts.hidePart) || (opts.onlyPart && p.name !== opts.onlyPart)) mat.visible = false;
-    mats.push(mat);
+    for (const sub of [{ ranges: p.ranges, material: p.material }, ...(p.tints ?? [])]) {
+      const i = mats.length;
+      for (const [start, count] of sub.ranges) g.addGroup(start * 3, count * 3, i);
+      let mat: THREE.Material;
+      if (isRef) mat = new THREE.MeshStandardMaterial({ color: override ?? COLORS.ref, roughness: 0.7, transparent: true, opacity: 0.35, depthWrite: false, wireframe: !!opts.wireframe, side: THREE.DoubleSide });
+      else mat = makeMaterial(sub.material ?? o.material, { bbox: p.bbox, override, wireframe: opts.wireframe });
+      if ((opts.hidePart && p.name === opts.hidePart) || (opts.onlyPart && p.name !== opts.onlyPart)) mat.visible = false;
+      mats.push(mat);
+      groupPart.push(p.name);
+    }
   });
   if (!mats.length) mats.push(makeMaterial(o.material, { wireframe: opts.wireframe }));
   const m = new THREE.Mesh(g, mats);
-  m.userData = { id: o.id, parts: o.parts.map((p) => p.name) };
+  m.userData = { id: o.id, parts: groupPart };
   m.castShadow = !isRef && opts.shadows !== false;
   m.receiveShadow = !isRef && opts.shadows !== false;
   if (opts.edges && !opts.wireframe && !isRef && !opts.onlyPart) {

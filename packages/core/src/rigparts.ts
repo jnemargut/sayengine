@@ -447,6 +447,33 @@ export function buildCreature(def: CreatureDef): Creature {
   };
 }
 
+/**
+ * The mesh part each piece lands in, so every colour keeps its own material: a part's first colour is
+ * the part itself ("body"), each further colour a sibling ("body~2", "body~3"…). The view folds the
+ * siblings back into the part (picking and selection say "body"); exports and renders see one
+ * material per colour. `colors` lists every mesh part with its colour, in order.
+ */
+export function creatureMeshParts(c: Pick<Creature, 'pieces'>): { names: string[]; colors: Array<{ part: string; color: string }> } {
+  const byPart = new Map<string, Map<string, string>>();
+  const colors: Array<{ part: string; color: string }> = [];
+  const names = c.pieces.map((pc) => {
+    let m = byPart.get(pc.part);
+    if (!m) { m = new Map(); byPart.set(pc.part, m); }
+    const key = pc.color.toLowerCase();
+    let name = m.get(key);
+    if (!name) {
+      name = m.size === 0 ? pc.part : `${pc.part}~${m.size + 1}`;
+      m.set(key, name);
+      colors.push({ part: name, color: pc.color });
+    }
+    return name;
+  });
+  return { names, colors };
+}
+
+/** A colour sibling's part ("lips~2" → "lips"); other names unchanged. */
+export const basePartName = (name: string) => name.replace(/~\d+$/, '');
+
 // ── motion ───────────────────────────────────────────────────────────────────────────────────────
 
 export interface CreatureMotion {

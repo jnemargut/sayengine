@@ -7,7 +7,7 @@ import { num, vec3, type ParamValues } from './expr.ts';
 import { AUX_OPS, type SceneObject, type OpNode } from './types.ts';
 import type { RawMesh } from './importers.ts';
 import { textOp, holeOp, chamferOp, splitOp, type OpEnv } from './print.ts';
-import { buildCreature } from './rigparts.ts';
+import { buildCreature, creatureMeshParts } from './rigparts.ts';
 import { shapeMesh } from './creatures.ts';
 import { buildRig, charParams, characterSpec, curveMouth, forward, localRotations, moodCurve, moodMix, poseVertices, type CharSpec, type Piece, type Posed, type Rig, type V3 as RV3 } from './rig.ts';
 
@@ -461,12 +461,14 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           if (!obj.creature) throw new Error('creature op needs the object\'s creature definition (studio new-creature)');
           const cre = buildCreature(obj.creature.def);
           const parts = new Map<number, Part>();
-          const solids = cre.pieces.map((pc) => {
+          // one mesh part per colour of each rig part (body, body~2…): every piece keeps its colour
+          const { names } = creatureMeshParts(cre);
+          const solids = cre.pieces.map((pc, pi) => {
             const m = shapeMesh(pc.shape);
             const pts: Array<[number, number, number]> = [];
             for (let i = 0; i < m.pos.length; i += 3) pts.push([m.pos[i], m.pos[i + 1], m.pos[i + 2]]);
             const o = keep(keep(Manifold.hull(pts)).asOriginal());
-            parts.set(o.originalID(), { name: pc.part, ops: new Set([id]) });
+            parts.set(o.originalID(), { name: names[pi], ops: new Set([id]) });
             return o;
           });
           out = { m: keep(Manifold.union(solids)), parts };
