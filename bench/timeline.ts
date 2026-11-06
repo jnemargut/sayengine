@@ -76,7 +76,7 @@ if (!videoOnly) await withPage(`${url}/?theme=light`, { width: 1440, height: 900
   // 4. a word note on the clip becomes a step: before / after on the timeline
   await page.eval(`(() => { window.__timeline.select('motion:blacksmith'); return true; })()`);
   await sleep(300);
-  await page.eval(`(() => { document.querySelector('[data-tl="word"][data-word="slower"]').click(); return true; })()`);
+  ok('word-note', { note: 'slower', at: 'blacksmith@clip:strike' });
   await page.eval(`new Promise((r) => { const t = setInterval(() => { const b = document.querySelector('[data-focus="p1"]'); if (b) { clearInterval(t); b.click(); r(true); } }, 100); })`, 30000);
   await page.eval(`new Promise((r) => { const t = setInterval(() => { const tl = window.__timeline.timeline(); if (tl && tl.branch === 'p1') { clearInterval(t); r(true); } }, 100); })`, 120000);
   await sleep(800);

@@ -38,7 +38,6 @@ const ROW = 22, RULER = 18;
 const esc = (s: string) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const cssVar = (n: string, d: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d;
 const compact = (a: TlAddress) => [a.clock === 'none' ? a.thing : `${a.thing}@${a.clock}`, a.at !== undefined ? `${a.at}t` : '', a.near ? `~${a.near.replace(/\s/g, '_')}` : '', a.of ? `#${a.of}` : ''].filter(Boolean).join(' ');
-const WORDS = ['slower', 'faster', 'more weight', 'snappier', 'bigger', 'subtler'];
 
 export function initTimeline(d: TimelineDeps) {
   const params = new URLSearchParams(location.search);
@@ -69,7 +68,7 @@ export function initTimeline(d: TimelineDeps) {
   for (const kv of (params.get('play') ?? '').split(',').filter(Boolean)) { const [o, m] = kv.split(':'); if (o && m) play[o] = m; }
   let cutscene: string | null = params.get('cutscene');
   let seg: any = null;                          // capture: the segment being shown (focus, solo, close)
-  let sideKey = '', draft = '', pinDraft = '';
+  let sideKey = '', pinDraft = '';
   // headless Chrome without a GPU renders in software: its frame times say nothing about the Mac's
   const software = (() => { try { const g = d.renderer.getContext() as any, e = g.getExtension('WEBGL_debug_renderer_info'); return /swiftshader|software|llvmpipe/i.test(e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''); } catch { return false; } })();
   const perf = { cpu: [] as number[], gap: [] as number[], last: 0, t0: 0, particles: 0 };
@@ -533,8 +532,7 @@ export function initTimeline(d: TimelineDeps) {
     if (tr.system === 'motion') {
       const bad = (tr.checks ?? []).filter((k) => !k.pass);
       out.push(bad.length ? bad.map((k) => `<div class="bad">✗ ${esc(k.name)}: ${k.worst}${esc(k.unit)} &gt; ${k.limit} (red on the track)</div>`).join('') : `<div class="muted">✓ ${(tr.checks ?? []).length} motion checks pass</div>`);
-      out.push(`<div class="muted">A word note on this clip becomes one step:</div><div class="chips">${WORDS.map((w) => `<button data-tl="word" data-word="${esc(w)}">${esc(w)}</button>`).join('')}</div>
-        <div class="row"><input type="text" data-tl-input="word" placeholder="hold the pour longer…" value="${esc(draft)}"><button data-tl="word">Step</button></div>`);
+      out.push(`<div class="muted">Tell Claude how it should change ("slower", "more weight"). Each note becomes one step you can keep or undo.</div>`);
     }
     if (v.focus !== 'main') {
       const p = (v.state?.proposals ?? []).find((x: any) => x.id === v.focus);
@@ -563,7 +561,6 @@ export function initTimeline(d: TimelineDeps) {
   }
   side.addEventListener('input', (e) => {
     const el = e.target as HTMLInputElement;
-    if (el.dataset.tlInput === 'word') draft = el.value;
     if (el.dataset.tlInput === 'pin') pinDraft = el.value;
     if (el.dataset.knob !== undefined) {
       // live preview of the knob (not a step yet)
@@ -588,21 +585,13 @@ export function initTimeline(d: TimelineDeps) {
   side.addEventListener('keydown', (e) => {
     const el = e.target as HTMLInputElement;
     if (e.key !== 'Enter') return;
-    if (el.dataset.tlInput === 'word') sideAct(side.querySelector('[data-tl="word"]:not([data-word])')!);
     if (el.dataset.tlInput === 'pin') sideAct(side.querySelector('[data-tl="pin"]')!);
   });
   function sideAct(b: HTMLElement) {
     const act = b.dataset.tl;
     const a = moment();
     const tr = currentTrack();
-    if (act === 'word') {
-      const note = (b.dataset.word ?? draft).trim();
-      if (!note || !tr?.object || !tr.motion) return;
-      const at = a && a.clock === tr.clock ? a : { thing: tr.object, clock: tr.clock, at: localTicks(tr, Math.round(t * TL_TICKS)) ?? 0 };
-      d.call('word-note', { note, at: compact(at as TlAddress) });
-      draft = '';
-      d.toast(`Word note "${note}" → a step on ${tr.label}`);
-    } else if (act === 'pin') {
+    if (act === 'pin') {
       if (!pinDraft.trim() || !a) { d.toast('Type a note, then Pin'); return; }
       d.call('notes', { action: 'add', text: pinDraft.trim(), at: { thing: a.thing, clock: a.clock, ...(a.at !== undefined ? { at: a.at } : {}), ...(a.near ? { near: a.near } : {}), ...(a.of ? { of: a.of } : {}) } });
       pinDraft = ''; sideKey = '';
