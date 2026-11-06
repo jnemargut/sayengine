@@ -1014,7 +1014,7 @@ function placePins() {
 // ── connection ────────────────────────────────────────────────────────
 function connect() {
   const conn = $('#conn');
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws = new WebSocket(`ws://${location.host}/ws${/[?&]capture=1/.test(location.search) ? '?capture=1' : ''}`);
   ws.onopen = () => { conn.className = 'conn live'; conn.querySelector('span')!.textContent = 'live'; };
   ws.onclose = () => { conn.className = 'conn down'; conn.querySelector('span')!.textContent = 'reconnecting'; setTimeout(connect, 1200); };
   ws.onmessage = (ev) => {

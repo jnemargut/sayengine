@@ -74,6 +74,15 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
   }
 
   const clients = new Set<WebSocket>();
+  // headless capture pages (creature-preview --video, benches) are views too, but they close when the
+  // capture ends: renders and bakes go to a person's view first
+  const capturePages = new WeakSet<WebSocket>();
+  const pickView = (not?: Set<WebSocket>) => {
+    const open = [...clients].reverse().filter((c) => c.readyState === 1 && !not?.has(c));
+    return open.find((c) => !capturePages.has(c)) ?? open[0];
+  };
+  const pendingOn = new Map<WebSocket, Set<string>>();     // render ids asked of each view
+  const pendingRetry = new Map<string, () => void>();       // render id → ask again elsewhere
   const pendingRenders = new Map<string, (msg: any) => void>();
   const pendingBakes = new Map<string, (msg: any) => void>();
   let renderSeq = 0;
@@ -101,6 +110,44 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
         resolve({ baseColor: png(m.baseColor), metallicRoughness: png(m.metallicRoughness) });
       });
       view.send(JSON.stringify({ type: 'bake', id, size: req.size, padding: req.padding, parts: req.parts.map((p) => ({ name: p.name, material: p.material, bbox: p.bbox, positions: b64(p.positions), uvs: b64(p.uvs) })) }));
+    });
+  }
+
+  /**
+   * Ask a view to render and wait for its answer. A heavy scene on a loaded machine can take a while
+   * (first shader compile, a big creature's mesh, the view busy with a timeline): each try waits
+   * RENDER_WAIT_MS; a view that closes or stays silent is asked again (another view if there is one,
+   * else the same one, whose late answer to the first ask also counts).
+   */
+  function askView(first: WebSocket, msg: (id: string) => object, tries = 3): Promise<any> {
+    const wait = Number(process.env.STUDIO_RENDER_WAIT_MS ?? 45000);
+    return new Promise((resolve) => {
+      const ids: string[] = [];
+      const tried = new Set<WebSocket>();
+      let timer: NodeJS.Timeout | null = null, done = false;
+      const finish = (m: any) => {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        for (const id of ids) { pendingRenders.delete(id); pendingRetry.delete(id); for (const set of pendingOn.values()) set.delete(id); }
+        resolve(m);
+      };
+      const ask = (view: WebSocket | undefined) => {
+        if (done) return;
+        if (!view || ids.length >= tries) {
+          return finish({ error: `the view did not answer a render within ${Math.round((wait * ids.length) / 1000)} s (${ids.length} tries)`, hint: `the view may be busy (a capture, a heavy scene): try again, or open http://localhost:${port} in a visible Chrome tab` });
+        }
+        const id = `r${++renderSeq}`;
+        ids.push(id); tried.add(view);
+        pendingRenders.set(id, finish);
+        if (!pendingOn.has(view)) pendingOn.set(view, new Set());
+        pendingOn.get(view)!.add(id);
+        pendingRetry.set(id, () => ask(pickView(tried) ?? pickView()));
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => ask(pickView(tried) ?? (view.readyState === 1 ? view : pickView())), wait);
+        try { view.send(JSON.stringify(msg(id))); } catch { ask(pickView(tried)); }
+      };
+      ask(first);
     });
   }
 
@@ -169,9 +216,8 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
       case 'status':
         return { ok: true, tool: name, result: { dir, port, active: studio.history.data.active, selection: studio.selection, review: studio.collab.stats(), views: clients.size, commits: Object.keys(studio.history.data.commits).length, url: `http://localhost:${port}` } };
       case 'render': {
-        const view = [...clients].reverse().find((c) => c.readyState === 1);
+        const view = pickView();
         if (!view) return { ok: false, tool: name, error: 'no browser view is connected', hint: `open http://localhost:${port} in Chrome so the view can render` };
-        const id = `r${++renderSeq}`;
         const views = typeof args.views === 'string' ? args.views.split(',').map((s: string) => s.trim()) : args.views ?? ['front', 'side', 'iso'];
         // the cache key: the recipe of what is shown (that doc, or one object of it), the look, and how
         const h = studio.history;
@@ -182,19 +228,15 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
         const hit = args.cache === false ? null : renderCache.get(key, names);
         if (hit && args.style === 'presentation') return { ok: true, tool: name, result: { images: hit, cached: true, key, note: 'From the render cache (same recipe as before). Read it to judge the look; share the PNG.' } };
         if (hit) return { ok: true, tool: name, result: { images: hit, cached: true, key, note: 'From the render cache (same recipe as before). Read these PNGs to look; numbers from `studio check` are the authority.' } };
-        const reply = await new Promise<any>((resolve) => {
-          const t = setTimeout(() => { pendingRenders.delete(id); resolve({ error: 'view did not answer within 20 s' }); }, 20000);
-          pendingRenders.set(id, (m) => { clearTimeout(t); resolve(m); });
-          const style = args.style === 'presentation' ? 'presentation' : 'labeled';
-          const viewsFinal = style === 'presentation' && !args.views ? ['hero'] : views;
-          view.send(JSON.stringify({ type: 'render', id, views: viewsFinal, style, size: Math.min(2400, Math.max(256, Number(args.size) || (style === 'presentation' ? 1600 : 768))), labels: style === 'labeled' && args.labels !== false, object: args.object, proposal: args.proposal }));
-        });
-        if (reply.error) return { ok: false, tool: name, error: reply.error };
+        const style = args.style === 'presentation' ? 'presentation' : 'labeled';
+        const viewsFinal = style === 'presentation' && !args.views ? ['hero'] : views;
+        const reply = await askView(view, (id) => ({ type: 'render', id, views: viewsFinal, style, size: Math.min(2400, Math.max(256, Number(args.size) || (style === 'presentation' ? 1600 : 768))), labels: style === 'labeled' && args.labels !== false, object: args.object, proposal: args.proposal }));
+        if (reply.error) return { ok: false, tool: name, error: reply.error, ...(reply.hint ? { hint: reply.hint } : {}) };
         const when = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const files = reply.images.map((img: { view: string; data: string }) => {
           const bytes = Buffer.from(img.data.replace(/^data:image\/png;base64,/, ''), 'base64');
           renderCache.put(key, `${img.view}.png`, bytes);
-          const f = path.join(stateDir, 'renders', `${when}-${id}-${img.view}.png`);
+          const f = path.join(stateDir, 'renders', `${when}-${reply.id ?? `r${renderSeq}`}-${img.view}.png`);
           fs.writeFileSync(f, bytes);
           return f;
         });
@@ -235,7 +277,7 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
           const blocking = models.flatMap((i) => studio.checks(i.obj.id, doc).filter((c) => !c.pass && /^(budget-|collision|lod)/.test(c.id)).map((c) => `${i.obj.name}: ${c.label} — ${c.detail}`));
           if (blocking.length && !args.force) return { ok: false, tool: name, error: `game checks not green:\n${blocking.join('\n')}`, hint: 'fix them (studio check), or --force true to export anyway' };
           const bake = args.bake !== false;
-          const view = [...clients].reverse().find((c) => c.readyState === 1);
+          const view = pickView();
           if (bake && !view && models.length) return { ok: false, tool: name, error: 'the texture bake needs the browser view, and none is connected', hint: `open http://localhost:${port} (or --bake false for untextured per-part materials)` };
           let res;
           try {
@@ -421,10 +463,17 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
   });
 
   const wss = new WebSocketServer({ server, path: '/ws' });
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     clients.add(ws);
+    if (/[?&]capture=1/.test(req.url ?? '') || /Headless/i.test(String(req.headers['user-agent'] ?? ''))) capturePages.add(ws);
     sendState(ws);
-    ws.on('close', () => clients.delete(ws));
+    ws.on('close', () => {
+      clients.delete(ws);
+      // renders this view was asked for go to another view now, not after a timeout
+      const ids = [...(pendingOn.get(ws) ?? [])];
+      pendingOn.delete(ws);
+      for (const id of ids) { const retry = pendingRetry.get(id); pendingRetry.delete(id); retry?.(); }
+    });
     ws.on('message', (raw) => {
       let m: any;
       try { m = JSON.parse(String(raw)); } catch { return; }
@@ -452,12 +501,17 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
       } else if (m.type === 'render-result') {
         pendingRenders.get(m.id)?.(m);
         pendingRenders.delete(m.id);
+        pendingRetry.delete(m.id);
       }
     });
   });
 
+  // tool calls (a video capture of a heavy creature) can run for many minutes: no request timeout
+  server.requestTimeout = 0;
+  // the port taken shows up on the WebSocket server too: report it once, through listen's rejection
+  wss.on('error', () => {});
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
+    server.once('error', (e: any) => reject(e.code === 'EADDRINUSE' ? Object.assign(new Error(`port ${port} is already in use (another studio daemon?) — not starting a second one`), { code: 'EADDRINUSE' }) : e));
     server.listen(port, '127.0.0.1', () => resolve());
   });
   return { server, studio, url: `http://localhost:${port}` };
