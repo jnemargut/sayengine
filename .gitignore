@@ -59,3 +59,6 @@ checkpoint*/**/*.cube
 
 # worktree temp (benches set TMPDIR here)
 .tmp/
+
+# README sizzle-reel footage (regenerate: node bench/sizzle/capture.ts)
+bench/sizzle/footage/
