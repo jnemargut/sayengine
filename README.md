@@ -4,23 +4,48 @@ A little 3D game engine you run with words. You tell Claude Code what you want (
 
 It's built for one person making small games on a laptop. Everything runs locally with free tools. It was made on an 8 GB M2 MacBook Air, so it should run on yours.
 
-## What's in it
+## Two front doors
 
-Each part is a Claude Code skill (a playbook Claude follows) plus commands on the `./studio` CLI.
+You only need to remember two commands.
 
-- **`/studio` modelling.** Furniture, vases, buildings, props. Every size is a named parameter, every change is a step you can keep or undo, and checks catch things like legs not touching the floor. It also does game assets and 3D printing (made for a Bambu A1 mini).
+### Making a game: `/x-decide-gaming`
+
+Start here when you've got a game idea, even a loose one.
+
+```
+/x-decide-gaming a cozy game where you deliver bread at dawn
+```
+
+It works out where your game is on the road (concept, design, build or playtest) and takes you to the right step. Each decision comes back as a visual page with four options drawn out, a recommendation and the case against it, and you make the call. Once the calls are made, it builds a first playable with the tools below, then runs playable previews, playtest bots and your typed playtest notes back into the decisions.
+
+`/x-decide-gaming` is the game-making branch of [Decision Kit](https://github.com/jnemargut/decision-kit), a set of planning skills where AI does the busywork around your decisions and you make the calls. If you like how it works here, Decision Kit has the same approach for apps, products and anything else you're planning.
+
+### Making assets: `/studio`
+
+Start here when you want a thing: a stool, a vase, a building, a character, a spider that scuttles.
+
+```
+/studio make a ceramic vase about 30 cm tall
+/studio make a spider that scuttles
+```
+
+Claude builds it step by step while you watch in the live view. Every size is a named parameter you can slide, every change is a step you can keep or undo, and checks catch things like legs not touching the floor. Changes to things that already exist arrive as proposals you review one change at a time. It also exports game assets for Godot and the web, and 3D prints (made for a Bambu A1 mini).
+
+## What's behind the doors
+
+Both front doors call on these. You can also use any of them directly.
+
 - **Characters.** Rigged characters built from body plans: people, dogs, birds, chibis. They have faces, hands and lip sync with a local voice.
 - **Animate anything.** Creatures and machines made from rig parts: legs, tentacles, tails, wings, fins and wheels. A spider walks, an octopus pours tea, a bird takes off and lands. One-off actions come from a few key moments, and word notes like "slower, more weight" become edits.
 - **Effects and a UI kit.** Fire, sparks, embers, smoke and rain from one effect file that looks the same in Godot and on the web. The UI kit has bars, item slots, buttons, cards and speech bubbles, with contrast and tap-size checks.
-- **`/world` towns.** Real places from open map data (OpenStreetMap, Overture, USGS heights) or invented ones, with landmarks and fixes you make by clicking a building. Pocket Raleigh is the demo.
-- **`/look`.** Looks like "day toy" and "night with glow" as data, with sliders and "show me three".
-- **`/life`.** Townsfolk with day plans and traffic on lanes, checked by running whole days headless.
-- **`/sound`.** Synth sound effects, ambience beds, CC0 recordings, Stable Audio Open Small for gaps, and music stems that follow the action. Every file carries its licence.
-- **`/reel`.** Trailers cut to the beat, plus release checks.
-- **`/proof`.** Checks a game looks the same in Godot and on the web, and on an imitated phone.
 - **`/game`.** Turns studio scenes into real games in Godot 4 or three.js, with headless play tests.
-- **Game planning skills.** `/x-decide-gaming` walks you through the decisions for a game idea with visual pages, playable previews and playtest bots.
-- **Working together.** The live view is home for all of it. Its timeline lets you scrub motions, effects, sounds and shots and point at a moment ("the hand at the impact"). Notes pin to things in one inbox, a taste file remembers your picks, and "your call" cards list the few things only you can judge.
+- **`/world`.** Towns from open map data (OpenStreetMap, Overture, USGS heights) or invented ones, with landmarks and fixes you make by clicking a building. Pocket Raleigh is the demo.
+- **`/look`.** Looks like "day toy" and "night with glow" as data, with sliders and "show me three".
+- **`/life`.** Townsfolk with day plans and traffic on lanes, checked by running whole days headless. Click a person to see or change their day.
+- **`/sound`.** Synth sound effects, ambience beds, CC0 recordings, Stable Audio Open Small for gaps, and music stems that follow the action. Every file carries its licence.
+- **`/reel`.** Trailers cut to the beat, with keep, redo and "show me three" per shot, plus release checks.
+- **`/proof`.** Checks a game looks the same in Godot and on the web, and on an imitated phone.
+- **The live view.** Home for all of it. Its timeline lets you scrub motions, effects, sounds and shots and point at a moment ("the hand at the impact"). Notes pin to things in one inbox, a taste file remembers your picks, and "your call" cards list the few things only you can judge.
 
 ## Try it
 
@@ -35,15 +60,14 @@ npm run build:view
 open http://localhost:4517   # the live view
 ```
 
-Then open Claude Code in this folder and try:
+Then open Claude Code in this folder and knock on a front door:
 
 ```
-/studio make a ceramic vase about 30 cm tall
+/x-decide-gaming a tiny game about fixing a lighthouse before the storm
 /studio make a spider that scuttles
-/game make a tiny game in the forge
 ```
 
-`./studio help` lists every command. `./studio install-skills` links the game planning skills into `~/.claude/skills`, so they work in any folder.
+`./studio install-skills` links the game skills into `~/.claude/skills` so `/x-decide-gaming` works in any folder (add `--all` for `/studio` and `/game` too). `./studio help` lists every command.
 
 ## Example games
 
