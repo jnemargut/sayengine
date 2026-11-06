@@ -126,7 +126,10 @@ new ResizeObserver(resize).observe(vpEl);
 resize();
 // Phase 10: the timeline dock poses everything that moves before each render (and measures the frame)
 let timeline: ReturnType<typeof initTimeline> | null = null;
-(function loop(now?: number) { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); timeline?.begin(now ?? performance.now()); renderer.render(scene, camera); timeline?.end(); requestAnimationFrame(loop); })();
+(function loop(now?: number) { controls.update(); panels?.frame(() => new THREE.Color(cssVar('--color-50', COLORS.bg))); timeline?.begin(now ?? performance.now()); if (timeline) followHolder(); renderer.render(scene, camera); timeline?.end(); requestAnimationFrame(loop); })();
+/** The selected part's own drag copy shows only while its object does (the timeline hides a creature's
+ *  still mesh while its moving GLB plays: a still copy of the part would float there and catch clicks). */
+function followHolder() { if (partHolder) partHolder.visible = holders.get(partHolder.userData.id)?.visible ?? true; }
 
 // ── decoding & meshes ─────────────────────────────────────────────────
 function b64(s: string): ArrayBuffer {
@@ -438,6 +441,7 @@ function frame(objs: PackedObj[], view: string, cam: THREE.Camera, ctl?: OrbitCo
 }
 
 // ── UI rendering ──────────────────────────────────────────────────────
+let treeScrolled = '';
 function render() {
   if (!state) return;
   const openIds = state.proposals.map((p) => p.id);
@@ -461,6 +465,9 @@ function render() {
     return `<div class="obj${o.role === 'reference' ? ' ref' : ''}${selectedObj === o.id && !selectedPart ? ' sel' : ''}" data-obj="${esc(o.id)}"><i></i>${esc(o.name)}${tag}</div>` +
       (o.role === 'reference' ? '' : o.parts.filter((p) => !p.name.startsWith('~')).map((p) => `<div class="part${selectedObj === o.id && selectedPart === p.name ? ' sel' : ''}${failing.has(p.name) ? ' fail' : ''}" data-obj="${esc(o.id)}" data-part="${esc(p.name)}"><span>${esc(p.name)}</span><span class="swatch" style="background:${esc(p.material?.color ?? o.material.color)}" title="${esc(p.material?.name ?? o.material.name)}"></span></div>`).join(''));
   }).join('') + '<div class="muted">Floor · y = 0</div>' : '<div class="muted">Empty scene</div>';
+  // a part picked in the viewport may be far down a long list (a creature's 76 hair strands): bring it into view, once per pick
+  const selKey = `${selectedObj}/${selectedPart}`;
+  if (selKey !== treeScrolled) { treeScrolled = selKey; ($('#tree').querySelector('.sel') as HTMLElement | null)?.scrollIntoView({ block: 'nearest' }); }
 
   // notes inbox (Decision 63): pin a note on what's selected
   const pointing = panels.pointing() ?? pointingWords(obj?.name ?? null, selectedPart);
@@ -556,19 +563,47 @@ function renderHistory() {
 // ── picking (click a part in the viewport) ────────────────────────────
 const ray = new THREE.Raycaster();
 let downAt: [number, number] | null = null;
-function pickAt(cx: number, cy: number): { obj: string; part: string | null } | null {
+type Picked = { obj: string; part: string | null; distance: number };
+/** Is it drawn (it and every parent visible)? Raycasts don't skip hidden things: a creature the timeline
+ *  plays hides its still mesh, and that hidden mesh must not catch the click. */
+const shownTree = (o: THREE.Object3D | null) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+/** What the current ray hits first: a part on something the timeline plays, or a still object's part. */
+function pickRay(): Picked | null {
+  const moving = timeline?.pick(ray) ?? null; // a part (or bone) on something playing on the timeline
+  const hit = ray.intersectObjects(objGroup.children, true).find((h) => (h.object as THREE.Mesh).userData?.id && shownTree(h.object) && (Array.isArray((h.object as THREE.Mesh).material) ? ((h.object as THREE.Mesh).material as THREE.Material[])[h.face?.materialIndex ?? 0]?.visible !== false : true));
+  let still: Picked | null = null;
+  if (hit) {
+    const m = hit.object as THREE.Mesh;
+    const parts: string[] = m.userData.parts ?? [];
+    const part = parts[hit.face?.materialIndex ?? -1] ?? null;
+    still = { obj: m.userData.id, part: part && !part.startsWith('~') ? part : null, distance: hit.distance };
+  }
+  return moving && (!still || moving.distance <= still.distance) ? moving : still;
+}
+const setRay = (cx: number, cy: number) => {
   const r = renderer.domElement.getBoundingClientRect();
-  const ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  const moving = timeline?.pick(ray); // a bone or part on something playing on the timeline
-  if (moving) return moving;
-  const hit = ray.intersectObjects(objGroup.children, true).find((h) => (h.object as THREE.Mesh).userData?.id && (Array.isArray((h.object as THREE.Mesh).material) ? ((h.object as THREE.Mesh).material as THREE.Material[])[h.face?.materialIndex ?? 0]?.visible !== false : true));
-  if (!hit) return null;
-  const m = hit.object as THREE.Mesh;
-  const gi = hit.face?.materialIndex ?? -1;
-  const parts: string[] = m.userData.parts ?? [];
-  const part = parts[gi] ?? null;
-  return { obj: m.userData.id, part: part && !part.startsWith('~') ? part : null };
+  ray.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+};
+// a few px around the pointer: thin parts (a hair strand, a whisker, an antenna) in front of what's under
+// the pointer win, so they can be clicked without pixel-perfect aim
+const NEAR_PX = [2, 4], NEAR_DIRS = 8;
+function pickAt(cx: number, cy: number): { obj: string; part: string | null } | null {
+  setRay(cx, cy);
+  const center = pickRay();
+  let best: Picked | null = null;
+  for (const rad of NEAR_PX) {
+    for (let k = 0; k < NEAR_DIRS && !best; k++) {
+      const a = (k / NEAR_DIRS) * Math.PI * 2;
+      setRay(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+      const p = pickRay();
+      // only something clearly in front of the surface under the pointer (or over empty space)
+      if (p && (!center || (p.distance < center.distance * 0.97 && (p.obj !== center.obj || p.part !== center.part)))) best = p;
+    }
+    if (best) break;
+  }
+  setRay(cx, cy); // callers reuse the ray (towns, looks): leave it on the pointer
+  const p = best ?? center;
+  return p ? { obj: p.obj, part: p.part } : null;
 }
 function select(obj: string | null, part: string | null) {
   selectedObj = obj; selectedPart = part;
@@ -616,9 +651,27 @@ function toast(msg: string) {
   setTimeout(() => t!.classList.remove('on'), 2600);
 }
 
-function call(tool: string, args: object, why?: string) {
+/** What to do when a call succeeds (by call id); failures toast their error as before. */
+const onCallOk = new Map<number, (result: any) => void>();
+function call(tool: string, args: object, why?: string, ok?: (result: any) => void) {
   if (!ws || ws.readyState !== 1) { toast('Not connected to the engine'); return; }
-  ws.send(JSON.stringify({ type: 'call', id: ++callSeq, tool, args, ...(why ? { why } : {}) }));
+  const id = ++callSeq;
+  if (ok) onCallOk.set(id, ok);
+  ws.send(JSON.stringify({ type: 'call', id, tool, args, ...(why ? { why } : {}) }));
+}
+
+/** Delete or Backspace: the selected object goes, as one human step (in history, undoable). A selected
+ *  part can't be deleted on its own here: the whole object goes, and the toast says so. */
+function deleteSelected() {
+  if (!editable() || !selectedObj || preview || panels?.noteTarget()) return;
+  const o = shownObjects().find((x) => x.id === selectedObj);
+  if (!o) return;
+  const whole = !!selectedPart;
+  ensureBranch();
+  call('delete-object', { object: o.id }, undefined, () => {
+    if (selectedObj === o.id) { selectedObj = null; selectedPart = null; }
+    toast(`Deleted ${o.name}${whole ? ' (whole object)' : ''}`);
+  });
 }
 
 function setGizmoMode(m: 'translate' | 'rotate') {
@@ -696,6 +749,8 @@ window.addEventListener('keydown', (e) => {
     else if (e.key === 'Enter' && (e.target as HTMLElement).dataset.askNote) answerNote((e.target as HTMLElement).dataset.askNote!);
     return;
   }
+  if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement || (e.target as HTMLElement)?.isContentEditable) return; // typing
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !e.metaKey && !e.ctrlKey && !e.altKey && selectedObj) { e.preventDefault(); deleteSelected(); return; }
   if (e.code === 'Space' && focus !== 'main' && !before) {
     e.preventDefault(); before = true; rebuildScene();
     // holding Space over a step opens its before/after: Keep on it then counts as reviewed
@@ -1029,7 +1084,12 @@ function connect() {
     }
     else if (m.type === 'render') void handleRender(m);
     else if (m.type === 'bake') void handleBake(m);
-    else if (m.type === 'call-result' && !m.result.ok) toast(m.result.error ?? 'error');
+    else if (m.type === 'call-result') {
+      const ok = onCallOk.get(m.id);
+      onCallOk.delete(m.id);
+      if (!m.result.ok) toast(m.result.error ?? 'error');
+      else ok?.(m.result);
+    }
   };
 }
 // the step-3 panels: looks with sliders, towns you click to fix, the UI kit over the scene
@@ -1079,6 +1139,60 @@ connect();
   gizmoAxis: () => (gizmo as any).axis ?? null,
   attached: () => (gizmo.object ? { id: gizmo.object.userData.id, part: gizmo.object.userData.part ?? null, pivot: gizmo.object.userData.pivot } : null),
   selection: () => ({ object: selectedObj, part: selectedPart }),
+  /** What a click at client px would select (no click). */
+  pickAt: (x: number, y: number) => pickAt(x, y),
+  /** Put the camera somewhere (benches and screenshots: people orbit). */
+  camTo(pos: V3, target: V3) { camera.position.set(...pos); controls.target.set(...target); camera.near = 0.01; camera.updateProjectionMatrix(); controls.update(); },
+  /** Where on screen a part shows (for tests only: people click). The middle of its biggest triangle that
+   *  nothing covers, on whatever draws it (the timeline's moving GLB, or the still mesh). */
+  partScreen(obj: string, part: string): [number, number] | null {
+    const anim = scene.getObjectByName('timeline-anim');
+    const roots = [...(anim ? [anim] : []), objGroup];
+    const r = renderer.domElement.getBoundingClientRect();
+    const toPx = (v: THREE.Vector3) => { const p = v.clone().project(camera); return [r.left + (p.x * 0.5 + 0.5) * r.width, r.top + (-p.y * 0.5 + 0.5) * r.height, p.z] as const; };
+    const cands: Array<{ px: [number, number]; area: number; mesh: THREE.Object3D; face: number }> = [];
+    for (const root of roots) root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || !shownTree(m)) return;
+      // which object: the timeline root names it, a still mesh carries it
+      let owner: string | undefined = m.userData.id;
+      for (let p: THREE.Object3D | null = m; p && !owner; p = p.parent) if (p.parent === anim) owner = p.userData.object;
+      if (owner !== obj) return;
+      let tagged: string | undefined;
+      for (let p: THREE.Object3D | null = m; p && !tagged; p = p.parent) if (typeof p.userData.part === 'string') tagged = p.userData.part;
+      const g = m.geometry, pos = g.getAttribute('position'), idx = g.getIndex();
+      const n = (idx ? idx.count : pos.count) / 3;
+      const partOf = (t: number) => {
+        if (tagged !== undefined) return tagged;
+        const gr = g.groups.find((x) => t * 3 >= x.start && t * 3 < x.start + x.count);
+        return gr ? (m.userData.parts ?? [])[gr.materialIndex ?? -1] : undefined;
+      };
+      m.updateWorldMatrix(true, false);
+      const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+      for (let t = 0; t < n; t++) {
+        if (partOf(t) !== part) continue;
+        const vi = (k: number) => (idx ? idx.getX(t * 3 + k) : t * 3 + k);
+        a.fromBufferAttribute(pos, vi(0)).applyMatrix4(m.matrixWorld); b.fromBufferAttribute(pos, vi(1)).applyMatrix4(m.matrixWorld); c.fromBufferAttribute(pos, vi(2)).applyMatrix4(m.matrixWorld);
+        const [ax, ay] = toPx(a), [bx, by] = toPx(b), [cx, cy, cz] = toPx(c);
+        const area = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2;
+        if (area < 1 || cz > 1) continue;
+        const mid = a.clone().add(b).add(c).divideScalar(3);
+        const [mx, my] = toPx(mid);
+        cands.push({ px: [mx, my], area, mesh: m, face: t });
+      }
+    });
+    cands.sort((x, y) => y.area - x.area);
+    for (const cd of cands.slice(0, 60)) {
+      setRay(cd.px[0], cd.px[1]);
+      const first = ray.intersectObjects(roots, true).find((h) => (h.object as THREE.Mesh).isMesh && shownTree(h.object));
+      if (first && first.object === cd.mesh && first.faceIndex === cd.face) return cd.px;
+    }
+    return null;
+  },
+  /** The timeline has loaded a moving GLB (a creature or character plays there, not the still mesh). */
+  tlLoaded: () => (scene.getObjectByName('timeline-anim')?.children.length ?? 0) > 0,
+  /** The timeline dock is playing (or paused) something. */
+  tlPlaying: () => (document.querySelector('[data-tl="play"]')?.textContent ?? '').includes('Pause'),
   /** Phase 10 step 3: the town's buildings (ids, for tests only — people click) and where one's roof is on screen. */
   townIds: () => panels.town.view?.buildings.filter((b) => !b.hidden).map((b) => b.id) ?? [],
   townScreen(id: string) {
