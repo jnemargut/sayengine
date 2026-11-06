@@ -571,18 +571,26 @@ export function creatureGLB(c: Creature, clips: CreatureClip[], opts: CreatureGl
     nodeOf.push(node);
     if (p < 0) g.nodes[root].children.push(node); else g.nodes[nodeOf[p]].children.push(node);
   });
-  // pieces: one mesh per bone, one primitive per colour (vertices relative to the bone's head)
-  const byBone = new Map<number, Map<string, TriMesh[]>>();
+  // pieces: one mesh per bone, one primitive per part and colour (vertices relative to the bone's head).
+  // Each bone node names the part that owns it, and each mesh lists its primitives' parts (extras.parts),
+  // so a click on any piece maps back to its part (the view's picking), not to the bone's parent.
+  const boneParts = new Map<string, string>();
+  for (const p of c.parts) for (const b of p.bones) boneParts.set(b, (p.spec as any).id ?? 'body');
+  const byBone = new Map<number, Map<string, { part: string; color: string; meshes: TriMesh[] }>>();
   for (const pc of c.pieces) {
     const bi = c.index.get(pc.bone)!;
     if (!byBone.has(bi)) byBone.set(bi, new Map());
     const m = byBone.get(bi)!;
-    if (!m.has(pc.color)) m.set(pc.color, []);
-    m.get(pc.color)!.push(shapeMesh(pc.shape));
+    const k = `${pc.part}\u0000${pc.color}`;
+    if (!m.has(k)) m.set(k, { part: pc.part, color: pc.color, meshes: [] });
+    m.get(k)!.meshes.push(shapeMesh(pc.shape));
   }
-  for (const [bi, byColor] of byBone) {
+  c.bones.forEach((b, i) => { const part = boneParts.get(b.name) ?? c.pieces.find((pc) => pc.bone === b.name)?.part; if (part) g.nodes[nodeOf[i]].extras = { ...(g.nodes[nodeOf[i]].extras ?? {}), part }; });
+  for (const [bi, byKey] of byBone) {
     const prims: any[] = [];
-    for (const [color, meshes] of byColor) {
+    const primParts: string[] = [];
+    for (const { part, color, meshes } of byKey.values()) {
+      primParts.push(part);
       const parts = meshes.map((m) => flat(m, c.bones[bi].head));
       const total = parts.reduce((s2, x) => s2 + x.p.length, 0);
       const p = new Float32Array(total), n = new Float32Array(total);
@@ -590,7 +598,7 @@ export function creatureGLB(c: Creature, clips: CreatureClip[], opts: CreatureGl
       for (const x of parts) { p.set(x.p, o); n.set(x.n, o); o += x.p.length; }
       prims.push({ attributes: { POSITION: B.accessor(p, 'VEC3', true), NORMAL: B.accessor(n, 'VEC3') }, material: matOf(color) });
     }
-    g.meshes.push({ name: `${c.bones[bi].name}.mesh`, primitives: prims });
+    g.meshes.push({ name: `${c.bones[bi].name}.mesh`, primitives: prims, extras: { parts: primParts } });
     g.nodes[nodeOf[bi]].mesh = g.meshes.length - 1;
   }
   // the ground (terrain), as its own node beside the creature
