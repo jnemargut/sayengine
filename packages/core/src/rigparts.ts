@@ -213,6 +213,54 @@ export interface Creature {
   fx: Set<string>;                 // effect bones (a tea stream): left out of collision checks
 }
 
+/** The body's solids (its shape, a capsule's end balls, the extras), object space. */
+function bodySolids(body: BodyPartSpec): PartShape[] {
+  const [bw, bh, bl] = body.size, y = body.height, m = Math.max(bw, bh, bl);
+  const main: PartShape = body.shape === 'box' ? { kind: 'box', c: [0, y, 0], size: body.size }
+    : body.shape === 'ball' ? { kind: 'ball', c: [0, y, 0], r: m / 2, scale: [bw / m, bh / m, bl / m], sides: 14 }
+      : { kind: 'seg', a: [0, y, -bl / 2 + bw / 2], b: [0, y, bl / 2 - bw / 2], r1: bw / 2, r2: bw / 2, sides: 12 };
+  const ends: PartShape[] = body.shape === 'capsule' && main.kind === 'seg' ? [main.a, main.b].map((c) => ({ kind: 'ball', c, r: bw / 2, scale: [1, bh / bw, 1] as V3, sides: 12 })) : [];
+  return [main, ...ends, ...(body.extras ?? []).map((x) => x.shape)];
+}
+
+/** A conservative distance from p to a solid (≤ the true distance outside; negative inside). */
+function solidGap(s: PartShape, p: V3): number {
+  switch (s.kind) {
+    case 'ball': {
+      // an ellipsoid: the gradient-scaled estimate (close near the surface), less a facet's sag
+      const R = (s.scale ?? [1, 1, 1]).map((k) => s.r * k);
+      const d = [0, 1, 2].map((k) => p[k] - s.c[k]);
+      const k0 = Math.hypot(...d.map((x, k) => x / R[k])), k1 = Math.hypot(...d.map((x, k) => x / (R[k] * R[k])));
+      return (k1 ? (k0 * (k0 - 1)) / k1 : -Math.min(...R)) + Math.max(...R) * (1 - Math.cos(Math.PI / (s.sides ?? 12)));
+    }
+    case 'seg': {
+      const d = sub(s.b, s.a), L2 = dot(d, d);
+      const t = L2 ? clamp(dot(sub(p, s.a), d) / L2) : 0;
+      const r = lerp(s.r1, s.r2, t);
+      return len(sub(p, add(s.a, mul(d, t)))) - r + r * (1 - Math.cos(Math.PI / (s.sides ?? 12)));
+    }
+    case 'box': {
+      const q = [0, 1, 2].map((k) => Math.abs(p[k] - s.c[k]) - s.size[k] / 2);
+      return Math.hypot(...q.map((x) => Math.max(0, x))) + Math.min(0, Math.max(...q));
+    }
+    default: { const sp = pieceSphere(s); return len(sub(p, sp.c)) - sp.r; }
+  }
+}
+
+/**
+ * Where a leg's hip goes: as asked (hipX), unless the leg's round end couldn't reach the body there
+ * (a tapering capsule or ball at the back legs of a long creature): then it moves in towards the
+ * centre line until it sits in the body, so creatures built with the defaults come out in one piece.
+ */
+function hipInBody(solids: PartShape[], x: number, y: number, z: number, rHip: number): number {
+  const gap = (xx: number) => Math.min(...solids.map((s) => solidGap(s, [xx, y, z])));
+  if (gap(x) <= rHip * 0.9) return x;
+  let lo = 0, hi = x;
+  if (gap(0) > rHip * 0.4) return x;           // nothing of the body at this height and length: leave it
+  for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (gap(mid) <= rHip * 0.4) lo = mid; else hi = mid; }
+  return lo;
+}
+
 function addBone(c: { bones: BoneDef[] }, name: string, parent: string | null, head: V3, tail: V3) {
   if (c.bones.some((b) => b.name === name)) throw new Error(`two bones named ${name}`);
   c.bones.push({ name, parent, head, tail });
@@ -235,6 +283,7 @@ export function buildCreature(def: CreatureDef): Creature {
   if (!body) throw new Error(`${def.name}: a creature needs one body part`);
   const [bw, bh, bl] = body.size;
   const bodyY = body.height;
+  const solids = bodySolids(body);
   for (const spec of def.parts) {
     const before = bones.length, cBefore = contacts.length;
     const checks: string[] = [];
@@ -258,7 +307,8 @@ export function buildCreature(def: CreatureDef): Creature {
           const z = pairs === 1 ? 0 : span / 2 - (span * i) / (pairs - 1);
           for (const side of [1, -1] as const) {
             const tag = `${side > 0 ? 'L' : 'R'}${i + 1}`;
-            const hip: V3 = [side * bw / 2 * (spec.hipX ?? 0.9), bodyY - bh * 0.1, z];
+            // the leg's round end at the hip: the thigh (×1.1), or an arthropod's hip knuckle (×1.3)
+            const hip: V3 = [side * hipInBody(solids, bw / 2 * (spec.hipX ?? 0.9), bodyY - bh * 0.1, z, spec.radius * (spec.arch !== undefined ? 1.3 : 1.1)), bodyY - bh * 0.1, z];
             const foot: V3 = [side * (bw / 2 + spec.spread), 0, z * (spec.fan ?? 1.15) + (spec.foot ?? 0)];
             // the knee: up and out, so the lower segment reaches down to the foot
             const out = norm([foot[0] - hip[0], 0, foot[2] - hip[2]]);

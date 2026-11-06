@@ -101,3 +101,26 @@ test('set-part replaces one part by id, keeps the motions and actions (re-solved
   assert.ok(s.call('undo', {}).ok);
   assert.ok(s.doc().objects.mop.creature!.def.parts.some((p: any) => p.id === 'tail'));
 });
+
+test('legs: hips sit in the body where a capsule tapers (one connected piece); the presets\' hips stay put', async () => {
+  const { CREATURE_PRESETS, creatureFromPreset } = await import('../src/creatures.ts');
+  for (const name of Object.keys(CREATURE_PRESETS)) {
+    const { def } = creatureFromPreset(name);
+    const c = buildCreature(def);
+    const body: any = def.parts.find((p) => p.kind === 'body');
+    for (const spec of def.parts.filter((p) => p.kind === 'legs') as any[]) {
+      for (const b of c.bones.filter((x) => x.name.startsWith(`${spec.id}.`) && x.name.endsWith('.upper'))) assert.ok(Math.abs(Math.abs(b.head[0]) - (body.size[0] / 2) * (spec.hipX ?? 0.9)) < 1e-9, `${name} ${b.name} moved`);
+    }
+  }
+  const { initKernel, Studio } = await import('../src/index.ts');
+  await initKernel();
+  const s = new Studio();
+  // eight legs spread over 90 % of a tapering capsule: the end pairs' hips used to float outside it
+  const r = s.call('new-creature', { name: 'Long', parts: [
+    { kind: 'body', shape: 'capsule', size: [0.34, 0.24, 0.8], height: 0.32, color: '#bfa984' },
+    { kind: 'legs', id: 'outer', count: 8, upper: 0.2, lower: 0.3, spread: 0.26, span: 0.9, kneeUp: 0.1, radius: 0.02, color: '#5e4a3b' },
+  ] }) as any;
+  assert.ok(r.ok, r.error);
+  assert.equal(s.evaluate(s.doc().objects.long).components, 1);
+  assert.ok(r.result.checks.idle.pass, JSON.stringify(r.result.checks));
+});
