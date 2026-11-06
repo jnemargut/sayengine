@@ -421,6 +421,7 @@ export class Studio {
       // the word note: --why, or the words a tool read its change from (world-fix --words "flat roof")
       const why = opts.why ?? (typeof (args as any).words === 'string' ? (args as any).words : undefined);
       if (why) c.note = String(why);
+      if (name === 'undo' && (result as any)?.reverted) c.reverts = String((result as any).reverted);
       const touched = new Set(changes.filter((x) => x.path[0] === 'objects' && x.path[1]).map((x) => x.path[1]));
       const doc = this.doc();
       // objects placed on / linked to a touched object move with it: report their checks too
@@ -575,7 +576,7 @@ export class Studio {
         id, name: o.name, type: o.semanticType, material: resolveMaterial(o.material),
         params: o.params, code: codeView(o), ok: r.ok, error: r.error,
         positions: b64(r.positions), indices: b64(r.indices),
-        parts: r.parts.map((p) => ({ name: p.name, ranges: p.ranges, bbox: p.bbox, ops: p.ops, material: materialForPart(o, p.name), drag: o.instanceOf ? 'object' : this.partDragTarget(o, p.name).kind })),
+        parts: this.packParts(o, r.parts),
         bbox: r.bbox, checks: this.checks(id, doc),
         position: o.position, rotation: o.rotation ?? 0,
         placement: o.place ? describePlacement(o.place, (t) => doc.objects[t]?.name ?? t) : null,
@@ -583,6 +584,34 @@ export class Studio {
         stamp: stamp(o),
       };
     });
+  }
+
+  /**
+   * The parts as the view sees them. A creature part with several colours is several mesh parts
+   * (lips, lips~2…, one material each); the view gets one part "lips" whose extra colours ride
+   * along as `tints` (more material groups that still pick and select as "lips").
+   */
+  packParts(o: SceneObject, parts: EvalResult['parts']) {
+    const names = new Set(parts.map((p) => p.name));
+    const sibling = (n: string) => { const base = n.replace(/~\d+$/, ''); return o.creature && base !== n && names.has(base) ? base : null; };
+    const out: any[] = [];
+    const byName = new Map<string, any>();
+    for (const p of parts) {
+      if (sibling(p.name)) continue;
+      const e: any = { name: p.name, ranges: p.ranges, bbox: { min: [...p.bbox.min], max: [...p.bbox.max] }, ops: p.ops, material: materialForPart(o, p.name), drag: o.instanceOf ? 'object' : this.partDragTarget(o, p.name).kind };
+      if (o.creature) e.tints = [];
+      byName.set(p.name, e);
+      out.push(e);
+    }
+    for (const p of parts) {
+      const base = sibling(p.name);
+      if (!base) continue;
+      const main = byName.get(base);
+      main.tints.push({ ranges: p.ranges, material: materialForPart(o, p.name) });
+      for (let k = 0; k < 3; k++) { main.bbox.min[k] = Math.min(main.bbox.min[k], p.bbox.min[k]); main.bbox.max[k] = Math.max(main.bbox.max[k], p.bbox.max[k]); }
+    }
+    for (const e of out) if (e.tints && !e.tints.length) delete e.tints;
+    return out;
   }
 
   /** Every object a proposal's steps touch (for addressing its card's asks). */

@@ -83,8 +83,13 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     const { startDaemon } = await import('../daemon/src/server.ts');
     const flags = parseFlags(rest);
     const port = Number(flags.port ?? PORT);
-    const { url } = await startDaemon({ dir: DIR, port });
-    console.log(`studio daemon: ${url}  (project ${DIR})`);
+    try {
+      const { url } = await startDaemon({ dir: DIR, port });
+      console.log(`studio daemon: ${url}  (project ${DIR})`);
+    } catch (e: any) {
+      console.error(`studio daemon: ${e.message}`);
+      process.exit(e.code === 'EADDRINUSE' ? 0 : 1);
+    }
     return;
   }
   if (cmd === 'mcp') { await import('../mcp/server.ts'); return; }

@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { freeSpot, type ToolDef } from './tools.ts';
 import type { SceneObject } from './types.ts';
-import { bakeCreature, buildCreature, creatureChecks, CHECK_LIMITS, type CreatureDef, type CreatureMotion, type MotionCheck, type PartSpec } from './rigparts.ts';
+import { bakeCreature, buildCreature, creatureChecks, creatureMeshParts, CHECK_LIMITS, type Creature, type CreatureDef, type CreatureMotion, type MotionCheck, type PartSpec } from './rigparts.ts';
 import { BODY_PLAN_PARTS, CREATURE_PRESETS, creatureFromPreset } from './creatures.ts';
 import { applyNotes, describeAction } from './actions.ts';
 import { bakeMotion, clipPose, motionReport, qAngle, type MotionClip } from './motion.ts';
@@ -107,6 +107,37 @@ const ACTION_HELP = `Key moments (Decision 53): a list of {t, label, ease?, body
   fx       {effectPropId: true|false}: show/hide an effect prop (the tea stream)
 Then: style {tempo, weight 0..1, size}; notes in words ("slower", "more weight", "hold the pour longer") with action-note.`;
 
+/** The per-colour material rules for a creature's mesh parts (body, body~2…, see creatureMeshParts). */
+function autoMaterials(c: Pick<Creature, 'pieces'>): NonNullable<SceneObject['partMaterials']> {
+  return creatureMeshParts(c).colors.map(({ part, color }) => ({ parts: part, material: { name: part, color, roughness: 0.75, metalness: 0 } as any }));
+}
+
+/**
+ * The material rules after the parts changed: the colour rules of the new parts, then whatever the
+ * user set by hand (set-material --part) on top, so their choices survive a set-part.
+ */
+function syncMaterials(o: SceneObject, c: Creature): NonNullable<SceneObject['partMaterials']> {
+  let old: ReturnType<typeof autoMaterials> = [];
+  try { old = autoMaterials(buildCreature(o.creature!.def)); } catch { /* the old parts didn't build */ }
+  const same = (r: { parts: string; material: any }, a: { parts: string; material: any }) => r.parts === a.parts && r.material?.name === a.material.name && r.material?.color === a.material.color && r.material?.roughness === 0.75 && r.material?.metalness === 0 && Object.keys(r.material).length === 4;
+  const isAuto = (r: { parts: string; material: any }) => old.some((a) => same(r, a)) || (r.material?.name === r.parts && Object.keys(r.material ?? {}).length === 4 && r.material.roughness === 0.75 && r.material.metalness === 0);
+  return [...autoMaterials(c), ...(o.partMaterials ?? []).filter((r) => !isAuto(r))];
+}
+
+const partId = (p: any) => (p.kind === 'body' ? (p.id ?? 'body') : p.id);
+
+/** Re-solve every motion (actions too) on a creature's new parts and run their checks. */
+function resolveMotions(c: Creature, motions: Record<string, CreatureMotion>) {
+  const out: Record<string, { pass: boolean; failing: string[]; error?: string }> = {};
+  for (const [mid, m] of Object.entries(motions)) {
+    try {
+      const k = creatureChecks(c, bakeCreature(c, mid, m));
+      out[mid] = { pass: k.every((x) => x.pass), failing: k.filter((x) => !x.pass).map((x) => x.name) };
+    } catch (e: any) { out[mid] = { pass: false, failing: [], error: e.message }; }
+  }
+  return out;
+}
+
 /** Bake one motion and its checks (for tool output). */
 function bakeAndCheck(def: CreatureDef, id: string, m: CreatureMotion) {
   const c = buildCreature(def);
@@ -147,7 +178,7 @@ export const PART_TOOLS: ToolDef[] = [
         id, name: def.name, semanticType: 'creature', params: {},
         ops: { body: { id: 'body', op: 'creature', args: {}, part: 'body' } }, opOrder: ['body'], output: 'body',
         material: { name: 'creature', color: '#9a8f78', roughness: 0.8, metalness: 0 } as any,
-        partMaterials: [...new Map(c.pieces.map((p) => [p.part, p.color])).entries()].map(([part, color]) => ({ parts: part, material: { name: part, color, roughness: 0.75, metalness: 0 } as any })),
+        partMaterials: autoMaterials(c),
         position: a.position ?? freeSpot(ctx as any), creature: { def, motions, ...(a.preset ? { preset: a.preset } : {}) }, rules: [],
       };
       ctx.set(['objects', id], obj);
@@ -165,10 +196,69 @@ export const PART_TOOLS: ToolDef[] = [
     run(ctx, a) {
       const o = asCreature(ctx.obj(a.object));
       const def: CreatureDef = { ...o.creature!.def, parts: [...o.creature!.def.parts, a.part as unknown as PartSpec] };
+      const id = partId(a.part);
+      if (id && o.creature!.def.parts.some((p) => partId(p) === id)) throw new Error(`${o.name} already has a part "${id}" — studio set-part replaces it`);
       const c = buildCreature(def);
+      ctx.set(['objects', o.id, 'partMaterials'], syncMaterials(o, c));
       ctx.set(['objects', o.id, 'creature'], { ...o.creature!, def });
       ctx.summary(`${o.name}: added a ${(a.part as any).kind} part${(a.part as any).id ? ` "${(a.part as any).id}"` : ''} (${c.bones.length} bones)`);
       return { parts: c.parts.map((p) => p.spec.kind), bones: c.bones.length };
+    },
+  },
+  {
+    name: 'set-part', mode: 'modify', mutates: true,
+    description: `Replace one rig part of a creature by its id (the body is "body"): --part '{…the full spec, same id…}'. The other parts, the motions (set-creature-motion) and the actions (perform-action, action-note) stay; every motion is re-solved on the new parts and the motion checks run again. One reviewable step (add --why). Colours are per piece: a part with several colours keeps each one. ${PART_HELP}`,
+    input: z.object({ object: ObjRef, part: z.record(z.string(), z.any()).describe('the full part spec; its id names the part it replaces (kind body: id optional)') }),
+    example: `studio set-part --object mop-lips --part '{"kind":"chain","id":"tail","at":[0,0.3,0.68],"dir":[0,-0.25,1],"length":0.7,"segments":10,"r0":0.026,"r1":0.01,"color":"#b4565a","motion":"whip","plane":"yaw"}' --why "longer tail"`,
+    run(ctx, a) {
+      const o = asCreature(ctx.obj(a.object));
+      const id = partId(a.part);
+      if (!id) throw new Error('the part needs its id (the id of the part it replaces)');
+      const old = o.creature!.def.parts;
+      const at = old.findIndex((p) => partId(p) === id);
+      if (at < 0) throw new Error(`${o.name} has no part "${id}" (parts: ${old.map(partId).join(', ')}) — studio add-part adds a new one`);
+      if (old[at].kind !== (a.part as any).kind && (old[at].kind === 'body') !== ((a.part as any).kind === 'body')) throw new Error(`part "${id}" is the body; replace it with a body part`);
+      const def: CreatureDef = { ...o.creature!.def, parts: old.map((p, i) => (i === at ? (a.part as unknown as PartSpec) : p)) };
+      const c = buildCreature(def);                 // validates the new part
+      const checks = resolveMotions(c, o.creature!.motions);
+      ctx.set(['objects', o.id, 'partMaterials'], syncMaterials(o, c));
+      ctx.set(['objects', o.id, 'creature'], { ...o.creature!, def });
+      const bad = Object.entries(checks).filter(([, v]) => !v.pass);
+      ctx.summary(`${o.name}: part "${id}" (${(a.part as any).kind}) replaced; ${Object.keys(checks).length} motion(s) re-solved${bad.length ? ` — failing: ${bad.map(([k, v]) => `${k}: ${v.error ?? v.failing.join(', ')}`).join('; ')}` : ', every check passes'}`);
+      return { part: id, bones: c.bones.length, motions: Object.keys(checks), checks, next: `studio creature-preview --object ${o.id} --video true` };
+    },
+  },
+  {
+    name: 'remove-part', mode: 'modify', mutates: true,
+    description: 'Take one rig part off a creature by its id (not the body; parts riding on it, by parent, go too). The motions stay and are re-solved without it; the motion checks run again. An action that reaches with or holds the removed part reports an error until you change it (perform-action with the same --id).',
+    input: z.object({ object: ObjRef, id: z.string().describe('the part id (studio inspect --object … lists creature.def.parts)') }),
+    example: `studio remove-part --object mop-lips --id leg15 --why "one leg too many"`,
+    run(ctx, a) {
+      const o = asCreature(ctx.obj(a.object));
+      const old = o.creature!.def.parts;
+      const target = old.find((p) => partId(p) === a.id);
+      if (!target) throw new Error(`${o.name} has no part "${a.id}" (parts: ${old.map(partId).join(', ')})`);
+      if (target.kind === 'body') throw new Error('a creature needs its body — studio set-part replaces it');
+      // parts that ride on it (parent: id, or a bone of it) go with it
+      const built = buildCreature(o.creature!.def);
+      const gone = new Set([a.id]);
+      const goneBones = new Set(built.parts.find((p) => partId(p.spec) === a.id)!.bones);
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const p of built.parts) {
+          const par = (p.spec as any).parent as string | undefined;
+          if (par && !gone.has(partId(p.spec)) && goneBones.has(par)) { gone.add(partId(p.spec)); p.bones.forEach((b) => goneBones.add(b)); grew = true; }
+        }
+      }
+      const def: CreatureDef = { ...o.creature!.def, parts: old.filter((p) => !gone.has(partId(p))) };
+      let c: Creature;
+      try { c = buildCreature(def); } catch (e: any) { throw new Error(`without "${a.id}" the creature doesn't build: ${e.message}`); }
+      const checks = resolveMotions(c, o.creature!.motions);
+      ctx.set(['objects', o.id, 'partMaterials'], syncMaterials(o, c));
+      ctx.set(['objects', o.id, 'creature'], { ...o.creature!, def });
+      const bad = Object.entries(checks).filter(([, v]) => !v.pass);
+      ctx.summary(`${o.name}: removed ${[...gone].map((g) => `"${g}"`).join(', ')}; ${Object.keys(checks).length} motion(s) re-solved${bad.length ? ` — failing: ${bad.map(([k, v]) => `${k}: ${v.error ?? v.failing.join(', ')}`).join('; ')}` : ', every check passes'}`);
+      return { removed: [...gone], parts: def.parts.map(partId), bones: c.bones.length, checks };
     },
   },
   {

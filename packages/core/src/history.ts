@@ -15,6 +15,7 @@ export interface Commit {
   time: string;
   args?: unknown;
   note?: string;       // the word note this step answers ("slower", "warmer") — Decision 62
+  reverts?: string;    // an undo: the step it reverted
 }
 
 export interface Proposal {

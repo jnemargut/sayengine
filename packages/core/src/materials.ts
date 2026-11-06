@@ -60,7 +60,7 @@ function globRe(glob: string): RegExp {
 /** The material a part ends up with: the object's, unless a part rule matches (last match wins). */
 export function materialForPart(obj: Pick<SceneObject, 'material' | 'partMaterials'>, part: string): Material {
   let m: Partial<Material> = obj.material;
-  for (const r of obj.partMaterials ?? []) if (globRe(r.parts).test(part) || globRe(r.parts).test(part.replace(/#\d+$/, ''))) m = r.material;
+  for (const r of obj.partMaterials ?? []) if (globRe(r.parts).test(part) || globRe(r.parts).test(part.replace(/#\d+$/, '')) || globRe(r.parts).test(part.replace(/~\d+$/, ''))) m = r.material;
   return resolveMaterial(m);
 }
 

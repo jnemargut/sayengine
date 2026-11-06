@@ -54,3 +54,34 @@ test('slider preview evaluates without committing; export leaves references out'
   assert.ok(ex.ok);
   assert.deepEqual(ex.result.referencesLeftOut, ['tetra.stl']);
 });
+
+test('render goes to a person\'s view, not a capture page; a view that closes mid-render is asked again elsewhere', async () => {
+  const png = 'data:image/png;base64,' + Buffer.from([0x89, 0x50, 0x4e, 0x47]).toString('base64');
+  const answer = (w: WebSocket, who: string, log: string[], silent = false) => w.on('message', (raw) => {
+    const m = JSON.parse(String(raw));
+    if (m.type !== 'render') return;
+    log.push(who);
+    if (!silent) w.send(JSON.stringify({ type: 'render-result', id: m.id, images: m.views.map((v: string) => ({ view: v, data: png })), legend: [] }));
+  });
+  const socks: WebSocket[] = [];
+  const open = (q = '') => new Promise<WebSocket>((resolve) => { const w = new WebSocket(`ws://127.0.0.1:${port}/ws${q}`); socks.push(w); w.on('open', () => resolve(w)); });
+  try {
+  const person = await open(), capture = await open('?capture=1');   // the capture page connected last
+  const log: string[] = [];
+  answer(person, 'person', log); answer(capture, 'capture', log);
+  const r1 = await call('render', { object: 'block', views: 'front', cache: false });
+  assert.ok(r1.ok, JSON.stringify(r1));
+  assert.deepEqual(log, ['person']);
+  person.close(); capture.close();
+  // a view that gets the render and closes without answering: the next view is asked at once
+  const a = await open(), b = await open('?capture=1');
+  const log2: string[] = [];
+  answer(b, 'capture', log2);
+  a.on('message', (raw) => { const m = JSON.parse(String(raw)); if (m.type === 'render') { log2.push('person (closes)'); a.close(); } });
+  const t0 = Date.now();
+  const r2 = await call('render', { object: 'block', views: 'side', cache: false });
+  assert.ok(r2.ok, JSON.stringify(r2));
+  assert.deepEqual(log2, ['person (closes)', 'capture']);
+  assert.ok(Date.now() - t0 < 10000, 'no waiting out a timeout');
+  } finally { for (const w of socks) w.terminate(); }
+});
