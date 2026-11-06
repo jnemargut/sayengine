@@ -89,7 +89,10 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
   let broadcastTimer: NodeJS.Timeout | null = null;
 
   const sendState = (ws?: WebSocket) => {
-    const msg = JSON.stringify({ type: 'state', state: studio.snapshot() });
+    // a bad state must never take the whole studio down: log it, keep serving
+    let msg: string;
+    try { msg = JSON.stringify({ type: 'state', state: studio.snapshot() }); }
+    catch (e) { console.error('studio daemon: could not build the view state:', e); return; }
     for (const c of ws ? [ws] : clients) if (c.readyState === 1) c.send(msg);
   };
   studio.onChange(() => {

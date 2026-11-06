@@ -544,7 +544,7 @@ export class Studio {
       const preview = this.proposalDoc(p);
       const steps = h.steps(p);
       const checks: Record<string, CheckResult[]> = {};
-      for (const id of preview.objectOrder) checks[id] = this.checks(id, preview);
+      for (const id of preview.objectOrder) if (preview.objects[id]) checks[id] = this.checks(id, preview);
       return {
         id: p.id, title: p.title, status: p.status, author: p.author, base: p.base,
         active: h.data.active === p.id,

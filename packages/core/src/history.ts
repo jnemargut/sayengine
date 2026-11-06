@@ -92,6 +92,16 @@ export function applyChanges(doc: SceneDoc, changes: Change[], dir: 'forward' | 
   for (const c of list) setAt(doc, c.path, dir === 'forward' ? c.after : c.before);
 }
 
+/** Undoing some steps of a proposal but not others can leave objectOrder naming an object whose
+ *  creation was undone (a later kept step wrote the whole list). Keep the list and the objects in step. */
+export function tidyOrder(doc: SceneDoc): SceneDoc {
+  const objs = doc.objects ?? {};
+  const order = (doc.objectOrder ?? []).filter((id, i, a) => objs[id] && a.indexOf(id) === i);
+  for (const id of Object.keys(objs)) if (!order.includes(id)) order.push(id);
+  doc.objectOrder = order;
+  return doc;
+}
+
 export class History {
   data: RepoData;
   private docCache = new Map<string, SceneDoc>();
@@ -172,7 +182,7 @@ export class History {
   proposalDoc(p: Proposal): SceneDoc {
     const d = this.docAt(p.base);
     for (const s of this.steps(p)) if (!p.undone.includes(s.id)) applyChanges(d, s.changes);
-    return d;
+    return tidyOrder(d);
   }
 
   activeDoc(): SceneDoc {
@@ -222,6 +232,10 @@ export class History {
         const cur = this.mainDoc();
         const changes = s.changes.map((c) => ({ path: c.path, before: clone(getAt(cur, c.path)), after: clone(c.after) }));
         merged.push(this.record(s.author, 'merge', `${p.id}: ${s.summary}`, changes, { from: s.id }));
+      }
+      const cur = this.mainDoc(), want = tidyOrder(clone(cur)).objectOrder;
+      if (JSON.stringify(want) !== JSON.stringify(cur.objectOrder)) {
+        this.record('studio', 'merge', `${p.id}: object list tidied (an undone step had created one of them)`, [{ path: ['objectOrder'], before: clone(cur.objectOrder), after: want }], { from: 'tidy' });
       }
     } catch (e) {
       this.data.active = saveActive;

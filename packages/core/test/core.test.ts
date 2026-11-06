@@ -141,3 +141,19 @@ test('GLB export has a valid header', () => {
   assert.equal(dv.getUint32(0, true), 0x46546c67);
   assert.equal(dv.getUint32(8, true), glb.length);
 });
+
+test('undoing the step that created an object, but keeping a later one, leaves a consistent scene', () => {
+  const s = new Studio();
+  stool(s);
+  assert.ok(s.call('propose', { title: 'Two new things' }).ok);
+  assert.ok(s.call('new-object', { name: 'Figurine', type: 'vase' }).ok);
+  assert.ok(s.call('new-object', { name: 'Lamp', type: 'lamp' }).ok); // writes the whole object list, Figurine included
+  s.call('undo-step', { step: 1 });
+  const p: any = (s.call('proposals').result as any[])[0]; // used to throw: no object "figurine"
+  assert.ok(!Object.keys(p.checks).includes('figurine'));
+  assert.doesNotThrow(() => s.snapshot());
+  s.call('commit-proposal');
+  const doc = s.doc();
+  for (const id of doc.objectOrder) assert.ok(doc.objects[id], `objectOrder names missing "${id}"`);
+  assert.ok(doc.objects.lamp && !doc.objects.figurine);
+});
