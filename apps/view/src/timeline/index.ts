@@ -111,7 +111,14 @@ export function initTimeline(d: TimelineDeps) {
       const model = gltf.scene; // one track per GLB key
       model.removeFromParent();
       model.getObjectByName('ground')?.removeFromParent();
-      model.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.userData.tlTrack = tr.id; } });
+      model.traverse((o: any) => {
+        if (!o.isMesh) return;
+        o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; o.userData.tlTrack = tr.id;
+        // a creature's GLB lists each primitive's part (extras.parts): tag the mesh, so picking selects that part
+        const prim = gltf.parser?.associations?.get(o)?.primitives;
+        const parts = o.userData.parts;
+        if (Array.isArray(parts) && typeof prim === 'number' && typeof parts[prim] === 'string') o.userData.part = parts[prim];
+      });
       root.add(model);
       const mixer = new THREE.AnimationMixer(model);
       const actions = new Map<string, THREE.AnimationAction>();
@@ -146,6 +153,7 @@ export function initTimeline(d: TimelineDeps) {
     if (!shotTrack && shotCam) setShotCam(false);
     buildLabels();
     pose();
+    highlight();
     draw();
     sideKey = '';
     // a preview link (?focus=<object>) frames what it is about, once
@@ -617,27 +625,45 @@ export function initTimeline(d: TimelineDeps) {
   }
 
   // ── picking a bone or part on the moving GLBs ─────────────────────────────────────────────────────
-  function pick(ray: THREE.Raycaster): { obj: string; part: string | null } | null {
+  /** The selected part glows on the moving GLB too (its still mesh, which shows the highlight, is hidden). */
+  const HL = new THREE.Color('#5b8c7a');
+  function highlight() {
+    const v = d.view();
+    for (const a of anims.values()) a.root.traverse((o: any) => {
+      if (!o.isMesh) return;
+      const on = !!v.selectedPart && a.root.userData.object === v.selectedObj && o.userData.part === v.selectedPart;
+      if (on && !o.userData.tlOwnMat) { o.userData.tlOwnMat = o.material; const m = o.material.clone(); m.color = HL.clone(); o.material = m; }
+      else if (!on && o.userData.tlOwnMat) { o.material.dispose(); o.material = o.userData.tlOwnMat; delete o.userData.tlOwnMat; }
+    });
+  }
+  /** Is it drawn (it and every parent visible)? Raycasts don't skip hidden things on their own. */
+  const shown = (o: THREE.Object3D | null) => { for (; o; o = o.parent) if (!o.visible) return false; return true; };
+  function pick(ray: THREE.Raycaster): { obj: string; part: string | null; distance: number } | null {
     if (!tl || !anim.visible) return null;
-    const hit = ray.intersectObjects(anim.children, true).find((h) => h.object.visible && (h.object as any).isMesh);
+    const hit = ray.intersectObjects(anim.children, true).find((h) => (h.object as any).isMesh && shown(h.object));
     if (!hit) return null;
     let o: THREE.Object3D | null = hit.object, root: THREE.Object3D | null = null;
     while (o) { if (o.parent === anim) { root = o; break; } o = o.parent; }
     const objId = root?.userData.object;
     if (!objId) return null;
     const m = hit.object as THREE.SkinnedMesh;
-    let bone: string | null = null;
+    let part: string | null = null;
+    // a rig-part creature: each piece's mesh (or its bone's node) names its part
+    for (let p: THREE.Object3D | null = hit.object; p && p !== root && !part; p = p.parent) if (typeof p.userData.part === 'string') part = p.userData.part;
+    if (part) return { obj: objId, part, distance: hit.distance };
     if ((m as any).isSkinnedMesh && hit.face) {
       const si = m.geometry.getAttribute('skinIndex'), sw = m.geometry.getAttribute('skinWeight');
       let best = -1, bw = -1;
       for (let k = 0; k < 4; k++) { const w = sw.getComponent(hit.face.a, k); if (w > bw) { bw = w; best = si.getComponent(hit.face.a, k); } }
-      bone = m.skeleton.bones[best]?.name ?? null;
+      part = m.skeleton.bones[best]?.name ?? null;
     } else {
-      let p: THREE.Object3D | null = hit.object.parent;
+      // an untagged GLB: the bone the mesh rides is the mesh's own node when it has a name (one primitive),
+      // else the group holding its primitives; never the parent bone (that picked "Body" for everything)
+      let p: THREE.Object3D | null = hit.object;
       while (p && p !== root && !(p as any).isBone && !p.name) p = p.parent;
-      bone = p && p !== root ? p.name : hit.object.name || null;
+      part = p && p !== root ? p.name.replace(/\.mesh(_\d+)?$/, '') : null;
     }
-    return { obj: objId, part: bone };
+    return { obj: objId, part, distance: hit.distance };
   }
 
   // ── capture (frames of the real view for previews and bench videos) ───────────────────────────────
@@ -710,7 +736,7 @@ export function initTimeline(d: TimelineDeps) {
   return {
     /** the view got a new state (a change on the shown branch, focus or before/after) */
     onState() { void refresh().then(() => drawThree()); maybeSide(); draw(); },
-    begin, end, pick, selectExtra, onSelect() { const o = selTrack ? tl?.tracks.find((x) => x.id === selTrack)?.object : undefined; if (selTrack && ((o && o !== d.view().selectedObj) || (!o && d.view().selectedPart))) selTrack = null; buildLabels(); maybeSide(); draw(); },
+    begin, end, pick, selectExtra, onSelect() { highlight(); const o = selTrack ? tl?.tracks.find((x) => x.id === selTrack)?.object : undefined; if (selTrack && ((o && o !== d.view().selectedObj) || (!o && d.view().selectedPart))) selTrack = null; buildLabels(); maybeSide(); draw(); },
     get cutsceneCamera() { return tl?.mode === 'cutscene'; },
     api,
   };
