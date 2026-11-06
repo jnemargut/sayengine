@@ -1063,7 +1063,7 @@ All of it gets built before your own game starts. **See it: `.decisions/preview.
 - [ ] Rewrite history, keeping the 11 commits already on GitHub:
   - checkpoint media comes out
   - game assets move to LFS
-  - `/Users/jonnemargut` becomes `~`
+  - your home folder path becomes `~`
 - [ ] Re-run the full test suite on a quiet machine, push to the private repo, and upload the release.
 
 ### 1. Shared core (about 1 week), proven on models — built on branch `phase10/core` (2026-11-05)
