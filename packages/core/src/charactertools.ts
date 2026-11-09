@@ -74,7 +74,7 @@ const PALETTES: Record<string, Partial<Look>> = {
 };
 export const CHARACTER_PRESETS = Object.keys(PRESETS);
 const mat = (name: string, color: string, roughness = 0.75, extra: Partial<Material> = {}): Material => ({ name, color, roughness, metalness: 0, grain: null, ...extra });
-function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
+function partMaterials(l: Look, mouth?: string, hair?: string): Array<{ parts: string; material: Material }> {
   const skin = mat('skin', l.skin, l.metal ? 0.38 : 0.62, l.metal ? { metalness: 0.55 } : {});
   // painted detail (face appeal round): the head and lids sample the face paint, irises their own tile,
   // and a marked body (a dog's blaze, feathers, panel seams) its body paint
@@ -91,9 +91,13 @@ function partMaterials(l: Look): Array<{ parts: string; material: Material }> {
     { parts: '*LowerLeg', material: mat('trousers', l.trousers, 0.92) },
     { parts: '*Foot', material: mat('boots', l.boots, 0.55) },
     { parts: '*Toes', material: mat('boots', l.boots, 0.55) },
-    { parts: 'hair', material: mat('hair', l.hair, 0.85) },
+    // a haircut of locks samples the face paint (strands, darker roots, a sheen; the same colour runs on
+    // down the scalp into a soft hairline)
+    { parts: 'hair', material: mat('hair', l.hair, 0.85, hair === 'short' || hair === 'messy' || hair === 'receding' ? { paint: 'head' as const } : {}) },
     { parts: 'brow.*', material: mat('hair', l.hair, 0.85) },
-    { parts: 'lip*', material: mat('lips', l.lips, 0.5, l.metal ? { metalness: 0.6 } : {}) },
+    // human lips sample the face paint too: their colour blends into the skin round them (no hard edge
+    // where the lip meets the face) and darkens to a soft dark pink where they roll into the mouth
+    { parts: 'lip*', material: mat('lips', l.lips, 0.5, { ...(l.metal ? { metalness: 0.6 } : {}), ...(mouth === 'human' && !l.metal ? { paint: 'head' as const } : {}) }) },
     { parts: 'mouthInner', material: mat('mouth', l.metal ? '#1b2027' : '#3a1517', 0.85) },
     { parts: 'teeth*', material: mat('teeth', '#f1ebdf', 0.32) },
     { parts: 'gum*', material: mat('gums', '#c86f6c', 0.6) },
@@ -268,7 +272,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       };
       const obj: SceneObject = {
         id, name: a.name, semanticType: 'character', params, ops, opOrder, output,
-        material: mat('skin', look.skin, look.metal ? 0.38 : 0.62, look.metal ? { metalness: 0.55 } : {}), partMaterials: partMaterials(look),
+        material: mat('skin', look.skin, look.metal ? 0.38 : 0.62, look.metal ? { metalness: 0.55 } : {}), partMaterials: partMaterials(look, spec.quad ? undefined : spec.face.kind, P.hair),
         position: a.position ?? freeSpot(ctx as any), character, rules: [],
       };
       ctx.set(['objects', id], obj);

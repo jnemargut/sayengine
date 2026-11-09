@@ -2,7 +2,7 @@
 // the eyeball at every lid angle, eyeballs that no face shape deforms, and soft (smoothed) heads.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { initKernel, Studio, characterSpec, charParams, SHAPE_KEYS, EXPRESSIONS, LID, forward, localRotations, poseVertices } from '../src/index.ts';
+import { initKernel, Studio, characterSpec, charParams, SHAPE_KEYS, EXPRESSIONS, LID, EYE_FORMS, forward, localRotations, poseVertices } from '../src/index.ts';
 
 before(async () => { await initKernel(); });
 
@@ -38,7 +38,7 @@ function kit(preset: string) {
 }
 
 test('eyes: lids stay outside the eyeball at every lid angle (blinks, squints, wide), and no face shape deforms an eyeball', () => {
-  for (const preset of ['default', 'blacksmith', 'dog']) {
+  for (const preset of ['default', 'blacksmith', 'dog', 'goblin']) {
     const { rig, rest, vertPart } = kit(preset);
     const eyes = rig.spec.face.eyes;
     const bone = (n: string) => rig.bones.findIndex((b) => b.name === n);
@@ -73,6 +73,11 @@ test('eyes: lids stay outside the eyeball at every lid angle (blinks, squints, w
         const upMax = upLow.length ? Math.max(...upLow) : 0;
         assert.ok(upMin > LID.eyeMax, `${preset} ${JSON.stringify(ex)}: the upper lid comes to ${upMin.toFixed(3)} r (eyeball ≤ ${LID.eyeMax})`);
         assert.ok(loMin > upMax, `${preset} ${JSON.stringify(ex)}: the lids cross (${loMin.toFixed(3)} vs ${upMax.toFixed(3)})`);
+        // a full blink shuts the eye: the upper lid's edge comes down past the lower lid's (no sliver)
+        if (ex.eyeBlinkLeft === 1) {
+          const upEdge = Math.min(...up.filter((v) => Math.abs(P[v * 3] - c[0]) < 0.5 * e.r).map(elev)), loEdge = Math.max(...lo.filter((v) => Math.abs(P[v * 3] - c[0]) < 0.5 * e.r).map(elev));
+          assert.ok(upEdge < loEdge - 0.05, `${preset} ${JSON.stringify(ex)}: a sliver stays open (${upEdge.toFixed(2)} vs ${loEdge.toFixed(2)} rad)`);
+        }
         // and the skin around the eye never comes inside the socket
         for (const v of of(/^(Head|eyeSocket)$/)) {
           const d0 = Math.hypot(rest[v * 3] - e.c[0], rest[v * 3 + 1] - e.c[1], rest[v * 3 + 2] - e.c[2]) / e.r;
@@ -99,4 +104,74 @@ test('face shapes keep the lids rigid (they only turn) and squints narrow the ey
   const lift = (k: string, part: string) => { const sd = rig.shapes[k]; let m = 0; sd.idx.forEach((v, i) => { if (vertPart[v] === part) m = Math.max(m, Math.abs(sd.d[i * 3 + 1])); }); return m; };
   assert.ok(lift('cheekSquintLeft', 'lidLow.L') > 0.05 * e.r, 'a squint lifts the lower lid');
   assert.ok(lift('browDownLeft', 'lid.L') > 0.05 * e.r, 'a lowered brow lowers the upper lid');
+});
+
+test('eyes: large and set forward (animated-film proportions), sized by the eye style', () => {
+  for (const [preset, style] of [['default', 'natural'], ['blacksmith', 'natural'], ['goblin', 'big'], ['robot', 'dot']] as const) {
+    const { rig, rest, vertPart } = kit(preset);
+    const F = rig.spec.face, e = F.eyes[0];
+    assert.ok(Math.abs(e.r / F.hw - EYE_FORMS[style].r) < 1e-6, `${preset}: eye radius ${(e.r / F.hw).toFixed(3)} hw`);
+    // the eye's front is level with the skin just above and inside it (not sunk into a socket)
+    let above = -Infinity, inner = -Infinity;
+    for (let v = 0; v < vertPart.length; v++) {
+      if (vertPart[v] !== 'Head') continue;
+      const dx = (rest[v * 3] - e.c[0]) * Math.sign(e.c[0]), dy = rest[v * 3 + 1] - e.c[1], d = Math.hypot(dx, dy) / e.r;
+      if (d < 1.15 || d > 1.6) continue;
+      if (dy > 0.6 * Math.abs(dx)) above = Math.max(above, rest[v * 3 + 2]);
+      else if (-dx > 0.6 * Math.abs(dy)) inner = Math.max(inner, rest[v * 3 + 2]);
+    }
+    const front = e.c[2] + e.r;
+    for (const [where, z] of [['above', above], ['inside', inner]] as const) {
+      const out = (front - z) / e.r;
+      assert.ok(out > -0.12 && out < 0.4, `${preset}: the eye's front stands ${out.toFixed(2)} r out of the skin ${where} it`);
+    }
+  }
+  // a dog's eyes are a little smaller than a person's (its plan's eyeSize), still forward
+  const dog = characterSpec(charParams({ plan: 'quadruped' })), man = characterSpec(charParams({}));
+  assert.ok(dog.face.eyes[0].r / dog.face.hw < man.face.eyes[0].r / man.face.hw);
+});
+
+test('lips: the lip and the skin it joins move together in speech shapes (no lip pulling off the chin)', () => {
+  const { rig, rest, vertPart } = kit('default');
+  const F = rig.spec.face, H = F.headH;
+  const skin: number[] = [];
+  for (let v = 0; v < vertPart.length; v++) if (vertPart[v] === 'Head' && Math.abs(rest[v * 3 + 1] - F.mouth[1]) < 0.1 * H && Math.abs(rest[v * 3]) < 1.5 * F.mouthW && rest[v * 3 + 2] > F.mouth[2] - 0.08 * H) skin.push(v);
+  for (const key of ['aa', 'oh', 'ou', 'E', 'FF', 'jawOpen', 'mouthSmileLeft']) {
+    const sd = rig.shapes[key], D = new Float32Array(rest.length);
+    sd.idx.forEach((v, i) => D.set(sd.d.subarray(i * 3, i * 3 + 3), v * 3));
+    let n = 0;
+    for (let v = 0; v < vertPart.length; v++) {
+      if (vertPart[v] !== 'lipUpper' && vertPart[v] !== 'lipLower') continue;
+      // lip vertices on the seam with the skin, and the skin vertex they are joined to
+      let best = Infinity, h = -1;
+      for (const k of skin) { const d = Math.hypot(rest[v * 3] - rest[k * 3], rest[v * 3 + 1] - rest[k * 3 + 1], rest[v * 3 + 2] - rest[k * 3 + 2]); if (d < best) { best = d; h = k; } }
+      if (best > 0.004 * H) continue;
+      n++;
+      const gap = Math.hypot(D[v * 3] - D[h * 3], D[v * 3 + 1] - D[h * 3 + 1], D[v * 3 + 2] - D[h * 3 + 2]);
+      assert.ok(gap < 0.004 * H, `${key}: a ${vertPart[v]} seam vertex moves ${(gap / H * 100).toFixed(2)}% of the head away from the skin beside it`);
+    }
+    assert.ok(n > 0, 'lip seam vertices');
+  }
+});
+
+test('hair: lock haircuts build within the budget, keep clear of the brows, and sample the face paint', () => {
+  for (const hair of ['short', 'messy', 'receding']) {
+    const s = new Studio();
+    const r = s.call('new-character', { name: 'H', hair });
+    assert.ok(r.ok, r.error);
+    const o = s.doc().objects.h, res = s.evaluate(o);
+    assert.ok(res.triangles < 20000, `${hair}: ${res.triangles} triangles`);
+    const { rig, rest, vertPart } = res.rig!;
+    const F = rig.spec.face, brow = Math.max(...F.brows.map((b) => b[1]));
+    let n = 0;
+    for (let v = 0; v < vertPart.length; v++) {
+      if (vertPart[v] !== 'hair') continue;
+      n++;
+      const x = rest[v * 3], y = rest[v * 3 + 1], z = rest[v * 3 + 2];
+      // over the face (in front, between the temples) the hair stays above the brows
+      if (z > 0.3 * F.hd && Math.abs(x) < 0.6 * F.hw) assert.ok(y > brow + 0.03 * F.headH, `${hair}: hair hangs over the brows (${((y - F.headBase[1]) / F.headH).toFixed(2)} of the head)`);
+    }
+    assert.ok(n > 200, `${hair}: ${n} hair vertices`);
+    assert.equal(o.partMaterials!.find((m) => m.parts === 'hair')!.material.paint, 'head');
+  }
 });

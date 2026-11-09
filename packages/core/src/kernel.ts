@@ -443,8 +443,12 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
             return long ? keep(m.refineToLength((pc.kind === 'hull' && pc.part !== 'torso' ? 0.07 : pc.part === 'torso' ? 0.052 : 0.045) * spec.s)) : m;
           };
           // hair hulls are rounded like the head (their front edge stays crisp)
-          const soften = (pc: Piece, m: any) => (smoothHead && pc.part === 'hair' && pc.kind === 'hull' ? keep(keep(m.smoothOut(60, 0.2)).refineToLength(spec.head.refine * 2.2)) : m);
-          const body = spec.pieces.map((pc) => mk(loops(pc, soften(pc, build(pc))), pc.part));
+          // (a lock of hair is small: coarser edges keep a haircut of many locks inside the budget)
+          const soften = (pc: Piece, m: any) => (smoothHead && pc.part === 'hair' && pc.kind === 'hull' ? (pc.lock ? keep(m.smoothOut(70, 0.25)) : keep(keep(m.smoothOut(60, 0.2)).refineToLength(Math.max(spec.head.refine * 2.2, 0.15 * spec.face.headH)))) : m);
+          // a haircut never fills an eye socket (a cap's inner face can cross one, deep in the head)
+          const sockets = spec.cuts.filter((c) => c.part === 'eyeSocket' && c.kind === 'ball').map((c: any) => keep(keep(Manifold.sphere(c.r, c.sides)).translate(c.c)));
+          const unSocket = (pc: Piece, m: any) => (pc.part === 'hair' && sockets.length ? keep(Manifold.difference([m, ...sockets])) : m);
+          const body = spec.pieces.map((pc) => mk(loops(pc, unSocket(pc, soften(pc, build(pc)))), pc.part));
           const eyes = spec.eyes.map((pc) => mk(build(pc), pc.part));
           // eyeballs: white first, then iris and pupil on top (later wins where they overlap)
           // eyelids: a shell between eyeball and socket, kept above a plane through the eye centre

@@ -5,7 +5,7 @@
 // upright and moved to the end of the neck. Motion is its own: walk (lateral sequence), trot (diagonal
 // pairs) and gallop, from leg length; idle, sit and lie down; IK foot planting; tails and wings added on.
 import {
-  FINGER_NAMES, characterSpec, fingerBones, forward, qAxisAngle, qIdentity, qMul, qRot, isFacePart,
+  FINGER_NAMES, PLANS, characterSpec, fingerBones, forward, qAxisAngle, qIdentity, qMul, qRot, isFacePart,
   type BoneDef, type CharParams, type CharSpec, type Piece, type Q, type Rig, type V3,
 } from './rig.ts';
 import type { CharacterState, MotionSpec } from './types.ts';
@@ -123,7 +123,7 @@ export function quadrupedSpec(p: CharParams): CharSpec {
   // the head: the studio face kit at the size this animal needs, then moved onto the neck
   const headH = 0.36 * wither * p.headSize;
   const F0 = { mouth: 'muzzle', eyes: 'natural', brows: 'none', nose: 'none', ears: 'floppy' } as const;
-  const faceSpec = characterSpec({ ...p, plan: undefined, height: headH / 0.165, headSize: 1, legLength: 1, armLength: 1, apron: false, tail: false, wings: false, hair: p.hair ?? 'none', snout: p.snout ?? 1.5, shape: 'round',
+  const faceSpec = characterSpec({ ...p, plan: undefined, height: headH / 0.165, headSize: 1, legLength: 1, armLength: 1, apron: false, tail: false, wings: false, hair: p.hair ?? 'none', snout: p.snout ?? 1.5, shape: 'round', eyeSize: p.eyeSize ?? PLANS.quadruped.eyeSize,
     mouth: p.mouth ?? F0.mouth, eyes: p.eyes ?? F0.eyes, brows: p.brows ?? F0.brows, nose: p.nose ?? F0.nose, ears: p.ears ?? F0.ears });
   const fHead = faceSpec.bones.find((x) => x.name === 'Head')!.head;
   const headBase: V3 = [0, chestY + 0.2 * wither, zChest + 0.3 * wither];

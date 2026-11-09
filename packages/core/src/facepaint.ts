@@ -10,7 +10,7 @@
 // Parts opt in through their material's `paint` region; everything else stays a flat colour.
 // DOM-free and Node-free (fflate for the PNG).
 import { zlibSync } from 'fflate';
-import { PLANS, moodCurve, type CharSpec, type V3 } from './rig.ts';
+import { EYE_FORMS, PLANS, hairline, moodCurve, type CharSpec, type V3 } from './rig.ts';
 import type { FacePaint, Material, SceneObject } from './types.ts';
 import type { EvalResult } from './kernel.ts';
 
@@ -75,7 +75,7 @@ const bodyAng = (bf: BodyFrame, p: V3) => (bf.quad ? Math.atan2(p[0], bf.cy - p[
 const bodyAlong = (bf: BodyFrame, p: V3) => (bf.quad ? p[2] : p[1]);
 
 /** The iris cap's radius on the eye (× eye radius): sin of its angle from the eye's axis (rig.ts). */
-const irisRadius = (spec: CharSpec) => { const st = spec.params.eyes ?? PLANS[spec.plan]?.face.eyes; return st === 'dot' ? 0.94 : st === 'big' ? 0.69 : 0.59; };
+const irisRadius = (spec: CharSpec) => Math.sin((EYE_FORMS[spec.params.eyes ?? PLANS[spec.plan]?.face.eyes ?? 'natural'].iris * Math.PI) / 180);
 
 /** Atlas UVs for corners of one region (positions: bind pose, object space, 3 per corner). */
 export function paintUvs(spec: CharSpec, region: PaintRegion, corners: Float32Array, partOfCorner?: (k: number) => string): Float32Array {
@@ -96,7 +96,21 @@ export function paintUvs(spec: CharSpec, region: PaintRegion, corners: Float32Ar
   if (region === 'head') {
     const hf = headFrame(spec);
     for (let k = 0; k < n; k++) {
-      const p = P(k);
+      let p = P(k);
+      // an eyelid reads the paint as if it were folded no further than a little past its edge: the part
+      // of the shell that sits back in the socket at rest (and comes round to the front in a blink) then
+      // shows plain lid skin, never the lash line or the skin above the eye
+      const part = partOfCorner?.(k) ?? '';
+      if (part.startsWith('lid')) {
+        const lid = spec.lids?.find((l) => l.part === part || l.lower?.part === part);
+        if (lid) {
+          const up = lid.part === part, edge = ((up ? lid.edgeDeg : lid.lower!.edgeDeg) * Math.PI) / 180;
+          const rel = [p[0] - lid.c[0], p[1] - lid.c[1], p[2] - lid.c[2]];
+          const el = Math.atan2(rel[1], rel[2]), rr = Math.hypot(rel[1], rel[2]);
+          const lim = up ? Math.min(el, edge + 0.55) : Math.max(el, edge - 0.5);
+          p = [p[0], lid.c[1] + rr * Math.sin(lim), lid.c[2] + rr * Math.cos(lim)];
+        }
+      }
       uv[k * 2] = 0.5 + Math.atan2(p[0], p[2] - hf.cz) / TAU;
       uv[k * 2 + 1] = (clamp((hf.yTop - p[1]) / (hf.yTop - hf.yBot), 0.002, 0.998) * HEAD_ROWS) / ATLAS;
     }
@@ -120,23 +134,28 @@ export function paintUvs(spec: CharSpec, region: PaintRegion, corners: Float32Ar
 }
 
 // ── the painter ────────────────────────────────────────────────────────
-export interface PaintColours { head: string; body: string; iris: string; lips?: string }
+export interface PaintColours { head: string; body: string; iris: string; lips?: string; hair?: string }
 
 /** Paint the atlas: RGBA bytes, ATLAS × ATLAS. */
 export function paintAtlas(spec: CharSpec, paint: FacePaint, col: PaintColours): Uint8Array {
   const img = new Uint8Array(ATLAS * ATLAS * 4);
   const put = (x: number, y: number, c: C3) => { const i = (y * ATLAS + x) * 4; img[i] = Math.round(clamp(c[0]) * 255); img[i + 1] = Math.round(clamp(c[1]) * 255); img[i + 2] = Math.round(clamp(c[2]) * 255); img[i + 3] = 255; };
-  paintHead(spec, paint, hexRgb(col.head), col.lips ? hexRgb(col.lips) : null, put);
+  paintHead(spec, paint, hexRgb(col.head), col.lips ? hexRgb(col.lips) : null, put, col.hair);
   paintBody(spec, paint, hexRgb(col.body), put);
   paintIris(spec, paint, hexRgb(col.iris), put);
   return img;
 }
 
-function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put: (x: number, y: number, c: C3) => void) {
+const LOCKS = new Set(['short', 'messy', 'receding']);
+function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put: (x: number, y: number, c: C3) => void, hairColour?: string) {
   const F = spec.face, hf = headFrame(spec), H = F.headH;
   const kind = F.kind ?? 'human';
   const lipsKind = kind === 'human' || kind === 'cartoon';
-  const eyes = F.eyes.map((e) => { const [x, y] = headXY(hf, [e.c[0], e.c[1], e.c[2] + e.r]); return { x, y, r: e.r, out: e.side === 'Left' ? 1 : -1 }; });
+  const eyes = F.eyes.map((e) => {
+    const [x, y] = headXY(hf, [e.c[0], e.c[1], e.c[2] + e.r]);
+    const lid = spec.lids?.find((l) => l.bone.startsWith(e.side));
+    return { x, y, r: e.r, out: e.side === 'Left' ? 1 : -1, edge: Math.sin(((lid?.edgeDeg ?? 39) * Math.PI) / 180) };
+  });
   const [mx, my] = headXY(hf, F.mouth);
   // the mouth's half width on the cylinder (its corners projected)
   const mw = Math.abs(headXY(hf, [F.mouth[0] + F.mouthW, F.mouth[1], F.mouth[2] - 0.15 * F.mouthW])[0] - mx);
@@ -149,6 +168,36 @@ function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put:
   const stub: C3 | null = P.stubble ? hexRgb(P.stubble) : null;
   const mark: C3 = P.mark ? hexRgb(P.mark) : shade(skin, 1.25), mark2: C3 = P.mark2 ? hexRgb(P.mark2) : shade(skin, 0.55);
   const smileK = P.smile ?? 0, wr = P.wrinkles ?? 0;
+  // hair (lock haircuts: the hair samples this paint too): above the hairline the hair colour in fine
+  // strands, darker at the crown and toward the roots, a sheen band round the head; below it the colour
+  // thins out onto the skin over a ragged band, plus sideburns; a receding cut greys at the temples
+  const hairKind = spec.params.hair ?? 'short';
+  const hairC: C3 | null = hairColour && LOCKS.has(hairKind) ? hexRgb(hairColour) : null;
+  const paintHair = (c: C3, t: number, y01: number, X: number, Y: number): C3 => {
+    const hl = hairline(hairKind, t), at = Math.abs(t);
+    let hc = hairC!;
+    if (hairKind === 'receding') hc = mix(hc, [0.72, 0.71, 0.69], 0.6 * smooth(0.6, 1.0, at) * smooth(2.2, 1.7, at) * smooth(0.95, 0.75, y01));
+    const seam = smooth(3.0, 2.75, at);   // (plain near the seam at the back)
+    const strand = vnoise(t * 70, y01 * 6) * 0.6 + vnoise(t * 180, y01 * 14) * 0.4;
+    const ragged = (vnoise(X / H * 40, Y / H * 40) - 0.5) * 0.035;
+    // the hair itself (and the scalp under the cap)
+    const k = smooth(hl - 0.012 + ragged, hl + 0.01 + ragged, y01);
+    if (k > 0) {
+      let h = shade(hc, 0.86 + 0.28 * (strand - 0.5) * seam);
+      h = shade(h, 0.82 + 0.22 * smooth(1.02, hl, y01));                               // roots and crown darker, ends lighter
+      h = mix(h, mix(hc, [1, 1, 1], 0.35), 0.32 * Math.exp(-(((y01 - 0.9) / 0.035) ** 2)) * (0.5 + 0.5 * strand) * seam);   // sheen
+      c = mix(c, h, k);
+    }
+    // the soft hairline: a thin wash of the hair colour on the skin just below it
+    const wash = smooth(hl - 0.06, hl, y01) * (1 - k) * 0.45 * (0.6 + 0.4 * strand);
+    c = mix(c, mix(c, hc, 0.75), wash);
+    // sideburns in front of the ears
+    // (just in front of the ear, tapering to a point at its bottom)
+    const taper = smooth(0.44, 0.62, y01), mid = 1.4 - 0.03 * (1 - taper), half = 0.025 + 0.07 * taper;
+    const sb = smooth(half + 0.02, half - 0.02, Math.abs(at - mid)) * smooth(0.44, 0.5, y01) * smooth(hl + 0.03, hl - 0.01, y01);
+    c = mix(c, shade(hc, 0.9 + 0.2 * strand), 0.8 * sb * (1 - k));
+    return c;
+  };
   // the mood curves the mouth at rest (rig.ts curveMouth): the corners sit this much higher
   const cornerLift = moodCurve(spec.params.mood) * H * (kind === 'cartoon' ? 1 : 0.6);
   // stroke helper: a tapered line along a polyline (width w at the middle)
@@ -261,12 +310,32 @@ function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put:
             if (up > 0) c = mix(c, mix(skin, [1, 1, 1], 0.25), k * 0.35 * Math.exp(-(((X - cx0 - sx * 0.35 * mw) / (0.3 * mw)) ** 2 + ((Y - cy0 - 0.06 * H) / (0.035 * H)) ** 2)));
           }
         }
+        // lips (human mouths: the lip shells sample this paint too). The lip colour fills the lips' outline
+        // (rig.ts: each lip reaches about 0.024 H (upper) / 0.03 H (lower) from the mouth line in the middle,
+        // narrowing to the corners, following the resting curve) and fades into the skin over a soft band,
+        // so lip and skin read as one surface; toward the mouth line it deepens to a dark pink, which is
+        // what shows where an open lip rolls in
+        if (lips && kind === 'human') {
+          const dx = X - mx, u = Math.min(1, Math.abs(dx) / (1.03 * mw));
+          if (u < 1) {
+            const f = Math.sqrt(Math.max(0.05, 1 - u ** 3));
+            const t = Math.min(1.25, Math.abs(dx) / mw);
+            const dy = Y - my - cornerLift * t * t;
+            const reach = (dy > 0 ? 0.0225 : 0.028) * H * f + 0.002 * H;
+            const k = smooth(reach + 0.005 * H, reach - 0.003 * H, Math.abs(dy)) * smooth(1, 0.9, u);
+            if (k > 0) {
+              const inner = mix(shade(lips, 0.72), [0.62, 0.22, 0.26], 0.35);
+              const lip = mix(mix(lips, [1, 1, 1], 0.06 * smooth(0.3, 0.6, Math.abs(dy) / reach) * (dy < 0 ? 1 : 0.4)), inner, smooth(0.35, 0.05, Math.abs(dy) / reach));
+              c = mix(c, lip, k);
+            }
+          }
+        }
         // lashes and the upper-lid line: along the lid's lower edge (it sits at sin(edge)·√(r²−dx²) above
         // the eye centre), thicker towards the outer corner, with a small flick
         if (lash) for (const e of eyes) {
           const dx = X - e.x, rr = e.r * 1.1;
           if (Math.abs(dx) < rr * 1.25) {
-            const edgeY = e.y + 0.56 * Math.sqrt(Math.max(0, rr * rr - dx * dx));
+            const edgeY = e.y + 0.9 * e.edge * Math.sqrt(Math.max(0, rr * rr - dx * dx));
             const outer = clamp(0.5 + 0.5 * (dx * e.out) / rr);
             const w = (0.16 + 0.22 * outer) * e.r;
             const d = Y - edgeY;
@@ -279,6 +348,7 @@ function paintHead(spec: CharSpec, P: FacePaint, skin: C3, lips: C3 | null, put:
           c = mix(c, lash, 0.9 * stroke(X, Y, [[fx0 - e.out * 0.15 * e.r, fy0 - 0.02 * e.r], [fx0 + e.out * 0.2 * e.r, fy0 + 0.16 * e.r], [fx0 + e.out * 0.32 * e.r, fy0 + 0.32 * e.r]], 0.09 * e.r));
         }
       }
+      if (hairC) c = paintHair(c, X / hf.R, (Y - F.headBase[1]) / H, X, Y);
       put(x, row, c);
     }
   }
@@ -371,9 +441,9 @@ export function paintGroups(obj: SceneObject, res: EvalResult, groups: Array<{ m
   if (!spec || !groups.some((g) => g.mat.paint)) return null;
   const triPart = new Array<string>(res.indices.length / 3);
   for (const p of res.parts) for (const [s, c] of p.ranges) for (let t = s; t < s + c; t++) triPart[t] = p.name;
-  const colourOf = (region: string) => groups.find((g) => g.mat.paint === region)?.mat.color;
+  const colourOf = (region: string) => (groups.find((g) => g.mat.paint === region && g.mat.name !== 'lips' && g.mat.name !== 'hair') ?? groups.find((g) => g.mat.paint === region))?.mat.color;
   const head = colourOf('head') ?? obj.material?.color ?? '#d9a77a';
-  const png = characterPaintPng(spec, obj.character?.paint, { head, body: colourOf('body') ?? head, iris: colourOf('iris') ?? '#5b4632', lips: materialFor('lipUpper')?.color });
+  const png = characterPaintPng(spec, obj.character?.paint, { head, body: colourOf('body') ?? head, iris: colourOf('iris') ?? '#5b4632', lips: materialFor('lipUpper')?.color, hair: materialFor('hair')?.color });
   return {
     png,
     uvOf: (g, corners) => paintUvs(spec, g.mat.paint!, corners, (k) => triPart[g.tris[Math.floor(k / 3)]] ?? ''),

@@ -67,10 +67,37 @@ export type BodyPlan = typeof BODY_PLANS[number];
 /** Face parts (Decision 49 A): each mouth answers to the same 15 speech shapes in its own way. */
 export const MOUTHS = ['human', 'cartoon', 'beak', 'muzzle', 'grille'] as const;
 export const EYE_STYLES = ['natural', 'big', 'dot'] as const;
+/** How each eye style is built (animated-film appeal: the eyes are the most expressive feature, so they
+ *  are large, set well forward and mostly iris). r: eyeball radius (× head half-width); x: spacing from the
+ *  middle (× head half-width); depth: how far the eye centre sits behind the face surface (× r; the front
+ *  stands out of the socket by 1 − depth); iris, pupil: their caps' half-angles from the eye's axis (°);
+ *  lid: the upper lid's resting edge, low: the lower lid's edge (° above / below the eye's axis);
+ *  brow: the brow's height over the eye centre (× r). A plan's eyeSize scales r (a dog's eyes are smaller). */
+export const EYE_FORMS: Record<typeof EYE_STYLES[number], { r: number; x: number; depth: number; iris: number; pupil: number; lid: number; low: number; brow: number }> = {
+  natural: { r: 0.265, x: 0.45, depth: 0.52, iris: 43, pupil: 19, lid: 37, low: -40, brow: 1.5 },
+  big: { r: 0.31, x: 0.49, depth: 0.5, iris: 50, pupil: 24, lid: 41, low: -44, brow: 1.38 },
+  dot: { r: 0.18, x: 0.43, depth: 0.55, iris: 70, pupil: 64, lid: 40, low: -40, brow: 1.6 },
+};
 export const BROW_STYLES = ['bar', 'bushy', 'none'] as const;
 export const NOSES = ['human', 'long', 'button', 'big', 'none'] as const;
 export const EARS = ['human', 'pointy', 'upright', 'floppy', 'none'] as const;
-export const HAIRS = ['short', 'none', 'tuft', 'bun'] as const;
+export const HAIRS = ['short', 'none', 'tuft', 'bun', 'messy', 'receding'] as const;
+/** Haircuts built from locks over a scalp cap (short: neat with a side part and a swept fringe; messy:
+ *  chunkier, tousled locks; receding: a high hairline swept back, greying at the temples). */
+const LOCK_HAIR = new Set<string>(['short', 'messy', 'receding']);
+/** Where a haircut's hairline sits on the head (0..1 of the head's height), going round it: t is the
+ *  angle about the vertical from the front (0) toward the character's left (+) and back (±π). The cap
+ *  ends there and the face paint fades the hair colour onto the skin just below it. */
+export function hairline(hair: string, t: number): number {
+  const a = Math.abs(((t + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI);
+  const pts: Array<[number, number]> = hair === 'receding'
+    ? [[0, 0.86], [0.38, 0.9], [0.62, 0.84], [0.95, 0.68], [1.6, 0.64], [2.3, 0.5], [Math.PI, 0.42]]
+    : hair === 'messy'
+      ? [[0, 0.76], [0.5, 0.75], [0.95, 0.64], [1.6, 0.62], [2.3, 0.48], [Math.PI, 0.4]]
+      : [[0, 0.8], [0.5, 0.78], [0.95, 0.64], [1.6, 0.63], [2.3, 0.5], [Math.PI, 0.42]];
+  for (let i = 1; i < pts.length; i++) if (a <= pts[i][0]) { const [a0, y0] = pts[i - 1], [a1, y1] = pts[i]; const u = (a - a0) / (a1 - a0); return y0 + (y1 - y0) * (u * u * (3 - 2 * u)); }
+  return pts[pts.length - 1][1];
+}
 /** Style families: how the low-poly shapes are cut (facet count and chunkiness). */
 export const STYLE_FAMILIES = ['faceted', 'toy', 'smooth'] as const;
 export type WalkStyle = 'waddle' | 'swagger' | 'shuffle' | 'bounce';
@@ -88,6 +115,7 @@ export interface PlanDef {
   headW: number; headD: number;           // head half-width / half-depth (× human)
   torso: [number, number, number, number, number]; // hips, waist, chest widths, depth (× human), belly (front bulge at the waist, × depth)
   eyeY: number;                           // eye height on the head (0..1)
+  eyeSize?: number;                       // × the eye style's radius (default 1)
   face: { mouth: typeof MOUTHS[number]; eyes: typeof EYE_STYLES[number]; brows: typeof BROW_STYLES[number]; nose: typeof NOSES[number]; ears: typeof EARS[number]; hair: typeof HAIRS[number] };
   walk?: WalkStyle;                       // the plan's natural gait (set-motion --style overrides)
   shape: Shape;                           // its shape language
@@ -104,7 +132,7 @@ export const PLANS: Record<BodyPlan, PlanDef> = {
   beaked: { label: 'round egg body, short legs, a beak', height: 1.22, build: 0.6, head: 0.25, leg: 0.27, arm: 0.74, shoulder: 0.9, limb: 0.9, hand: 0.95, foot: 1.6, neck: 0.35, headW: 1.0, headD: 1.06, torso: [1.4, 1.62, 1.22, 1.45, 0.42], eyeY: 0.56,
     face: { mouth: 'beak', eyes: 'dot', brows: 'none', nose: 'none', ears: 'none', hair: 'tuft' }, walk: 'waddle', shape: 'round' },
   // four legs (quadruped.ts builds it): height is nose-up standing height; the human fields only steer the face kit
-  quadruped: { label: 'four legs, a level back, a tail', height: 0.95, build: 0.55, head: 0.165, leg: 0.47, arm: 1, shoulder: 1, limb: 1, hand: 1, foot: 1, neck: 1, headW: 1.0, headD: 1.1, torso: [1, 1, 1, 1, 0], eyeY: 0.56,
+  quadruped: { label: 'four legs, a level back, a tail', height: 0.95, build: 0.55, head: 0.165, leg: 0.47, arm: 1, shoulder: 1, limb: 1, hand: 1, foot: 1, neck: 1, headW: 1.0, headD: 1.1, torso: [1, 1, 1, 1, 0], eyeY: 0.56, eyeSize: 0.84,
     face: { mouth: 'muzzle', eyes: 'natural', brows: 'none', nose: 'none', ears: 'floppy', hair: 'none' }, shape: 'round' },
 };
 
@@ -122,6 +150,7 @@ export interface CharParams {
   style?: typeof STYLE_FAMILIES[number];
   mouth?: typeof MOUTHS[number];
   eyes?: typeof EYE_STYLES[number];
+  eyeSize?: number;    // × the eye style's radius (the plan's eyeSize when unset)
   brows?: typeof BROW_STYLES[number];
   nose?: typeof NOSES[number];
   ears?: typeof EARS[number];
@@ -195,7 +224,7 @@ export const apronDepth = (plan: BodyPlan) => { const t = PLANS[plan].torso; ret
 export type Piece =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides: number; part: string }
   | { kind: 'ball'; c: V3; r: number; sides: number; part: string; cap?: number; axis?: V3 }   // cap: keep the spherical cap ≥ cap·r along axis (default +Z)
-  | { kind: 'hull'; pts: V3[]; part: string; loops?: boolean };
+  | { kind: 'hull'; pts: V3[]; part: string; loops?: boolean; lock?: boolean };   // lock: a lock of hair (rounded, no extra edges)
 
 export interface FaceLandmarks {
   headBase: V3; headH: number; hw: number; hd: number;   // head bottom-centre, height, half width, half depth
@@ -328,11 +357,12 @@ export function characterSpec(p: CharParams): CharSpec {
     return hw * 0.5;
   };
   const surfAt = (y01: number, x: number) => surfZ(y01) * Math.sqrt(Math.max(0, 1 - (x / ringAt(y01)) ** 2));
-  const eyeR = (eyeStyle === 'big' ? 0.25 : eyeStyle === 'dot' ? 0.15 : 0.19) * hw;
+  const EF = EYE_FORMS[eyeStyle], eyeK = p.eyeSize ?? PD.eyeSize ?? 1;
+  const eyeR = EF.r * eyeK * hw;
   const eyeY01 = PD.eyeY;
   const eyeY = headBaseY + eyeY01 * headH;
-  const eyeX = (eyeStyle === 'big' ? 0.46 : 0.41) * hw;
-  const eyeZ = surfAt(eyeY01, eyeX) - 0.68 * eyeR;
+  const eyeX = (EF.x - 0.5 * EF.r * (1 - eyeK)) * hw;   // (smaller eyes sit a little closer together)
+  const eyeZ = surfAt(eyeY01, eyeX) - EF.depth * eyeR;
   const mouthY01 = mouthKind === 'beak' ? 0.3 : mouthKind === 'muzzle' ? 0.2 : 0.24;
   const mouthY = headBaseY + mouthY01 * headH;
   // a muzzle pushes the mouth forward on a snout (the head hull takes the snout's points)
@@ -553,6 +583,13 @@ export function characterSpec(p: CharParams): CharSpec {
     );
     muzzlePts.push([0, my0 + 0.15 * headH, snoutZ - 0.004 * headH], [0, my0 - 0.11 * headH, snoutZ - 0.03 * headH], [0, my0 + 0.02 * headH, snoutZ + 0.004 * headH]);
   }
+  // the skin wraps round the outer side of each (large, forward) eye: points on a ring round the eye a
+  // little in front of its equator, so the eyeball sits in the face instead of bulging out of the side of
+  // the head; the socket cut opens it again (only points outside the head's own surface matter)
+  for (const sx of [1, -1]) for (const deg of [-80, -45, -10, 25, 60]) {
+    const a = (deg * Math.PI) / 180, rho = 1.3 * eyeR;
+    headPts.push([sx * (eyeX + rho * Math.cos(a)), eyeY + rho * Math.sin(a), eyeZ + (0.18 - 0.1 * Math.abs(Math.sin(a))) * eyeR]);
+  }
   // designed planes (craft pass): a brow ridge over the eyes, cheekbones, and a jaw that follows the
   // shape language (square corners, a pointed chin) — none of them on the mouth's centre line, so the
   // lips, teeth and speech shapes sit where they did
@@ -664,8 +701,10 @@ export function characterSpec(p: CharParams): CharSpec {
       : { kind: 'box', c: [0, mouthY, mouthZ - 0.018 * headH], size: [2 * mouthW, slotH, 0.06 * headH], part: 'mouthInner' },
     // the mouth itself: a chamber behind the lips (the slot opens into it), roomy enough for teeth and a tongue
     { kind: 'hull', part: 'mouthInner', pts: chamberPts },
-    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * LID.socket, sides: 32, part: 'eyeSocket' },
-    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * LID.socket, sides: 32, part: 'eyeSocket' },
+    // the eye sockets (a 32-sided ball's facets dip inside its radius: it is cut a little larger, so the
+    // skin never comes nearer the eye than LID.socket, however big the eye)
+    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * LID.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
+    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * LID.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
   ];
   if (mouthKind === 'cartoon') {
     // a cartoon mouth curves into a smile at rest (curveMouth): its opening is cut in slices across
@@ -728,7 +767,7 @@ export function characterSpec(p: CharParams): CharSpec {
       [0, ny - 0.07 * headH, nz - 0.02 * headH],
     ], 0.018 * headH) });
   }
-  const browY = eyeY + eyeR * (eyeStyle === 'big' ? 1.4 : 1.6);
+  const browY = eyeY + eyeR * EF.brow;
   const browZ = Math.max(surfAt(Math.min(0.75, eyeY01 + 0.12), 0.38 * hw) + 0.006 * headH, mouthKind === 'muzzle' ? -Infinity : ridgeZ(0.38 * hw) + 0.004 * headH);
   const brows: V3[] = [];
   const bushy = browStyle === 'bushy';
@@ -852,10 +891,8 @@ export function characterSpec(p: CharParams): CharSpec {
     }
   }
   const hc: V3 = [0, hb + 0.55 * headH, 0];
-  if (p.hair === 'short') {
-    const top = headPts.filter((q) => q[1] >= hb + 0.62 * headH && !(q[2] > 0.5 * hd && q[1] < hb + 0.8 * headH));
-    pieces.push({ kind: 'hull', part: 'hair', pts: top.map((q) => add(hc, mul(subv(q, hc), 1.07))).concat([[0, hb + 0.66 * headH, -hd * 1.06], [hw * 0.9, hb + 0.5 * headH, -hd * 0.6], [-hw * 0.9, hb + 0.5 * headH, -hd * 0.6]]) });
-  } else if (p.hair === 'tuft') {
+  if (LOCK_HAIR.has(p.hair)) addLockHair(p.hair, pieces, { hb, headH, hw, hd, hc, rings: headRings, sq: sqT });
+  else if (p.hair === 'tuft') {
     // a crest of three spikes on the crown, swept back
     const crown = hb + 0.92 * headH;
     [[0, 0.32, 0.05], [0.22, 0.24, -0.1], [-0.22, 0.24, -0.1], [0, 0.26, -0.32]].forEach(([x, hgt, z]) => {
@@ -875,31 +912,28 @@ export function characterSpec(p: CharParams): CharSpec {
   for (const side of ['Left', 'Right'] as const) {
     const c = B[`${side}Eye`].head;
     // iris and pupil: thin caps just proud of the eyeball, cut by planes (clean round edges; a union
-    // of offset low-poly spheres gives star-shaped ones). Iris ≈ 36° from the axis, pupil ≈ 16°;
-    // only the cap is kept, so the finer tessellation costs a few dozen triangles.
-    // dot eyes are almost all pupil (a bead); big eyes have a large iris and a bright catch-light
-    const irisDeg = eyeStyle === 'dot' ? 70 : eyeStyle === 'big' ? 44 : 36, pupilDeg = eyeStyle === 'dot' ? 64 : eyeStyle === 'big' ? 22 : 16;
+    // of offset low-poly spheres gives star-shaped ones). The angles come from the eye style (EYE_FORMS):
+    // mostly iris, a clear pupil; only the cap is kept, so the finer tessellation costs a few dozen
+    // triangles. Dot eyes are almost all pupil (a bead).
+    const irisDeg = EF.iris, pupilDeg = EF.pupil;
     eyes.push({ kind: 'ball', c, r: eyeR, sides: 24, part: `${side}Eye` });
     eyes.push({ kind: 'ball', c, r: eyeR * 1.01, sides: 48, cap: Math.cos((irisDeg * Math.PI) / 180), part: `${side}Eye.iris` });
     eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: pupilDeg > 30 ? 48 : 72, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
-    // a catch-light: a small bright bead up and to the outer side of the pupil (eyes read as alive)
-    // (face appeal round: big enough to read at cutscene distance, plus a small second one low on the other side)
-    // (both are thin caps on the eyeball's own sphere, so they never stand out of it: a closing lid
-    // slides over them instead of bumping over a bead)
-    const gd = norm([(side === 'Left' ? 1 : -1) * 0.26, 0.3, 0.9]);
-    eyes.push({ kind: 'ball', c, r: eyeR * 1.028, sides: 96, cap: Math.cos(((eyeStyle === 'dot' ? 15 : 13.5) * Math.PI) / 180), axis: gd, part: `${side}Eye.glint` });
-    const gd2 = norm([(side === 'Left' ? -1 : 1) * 0.2, -0.24, 0.95]);
-    eyes.push({ kind: 'ball', c, r: eyeR * 1.028, sides: 96, cap: Math.cos((6 * Math.PI) / 180), axis: gd2, part: `${side}Eye.glint` });
+    // one catch-light: a bright cap up and to the outer side of the pupil, on the iris's edge (eyes read
+    // as alive). It is a thin cap on the eyeball's own sphere, so it never stands out of it: a closing
+    // lid slides over it instead of bumping over a bead
+    const gd = norm([(side === 'Left' ? 1 : -1) * 0.3, 0.34, 0.9]);
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.028, sides: 96, cap: Math.cos(((eyeStyle === 'dot' ? 15 : 11.5) * Math.PI) / 180), axis: gd, part: `${side}Eye.glint` });
   }
   // eyelids: thin shells in the gap between eyeball and socket, always outside the eyeball (and its iris,
-  // pupil and catch-lights, which stay within 1.03 r); at rest the upper edge sits just under the
-  // socket's upper rim (a calm, slightly hooded eye) and a blink turns that shell down over the eyeball.
+  // pupil and catch-light, which stay within 1.03 r); at rest the upper edge sits a little over the iris
+  // (an open, alert eye) and a blink turns that shell down over the eyeball, past the socket's lower rim.
   // The lower lid is a second shell just outside the upper one, under the iris; the upper lid closes
   // behind it, so the two never cut each other.
-  const rimTop = (Math.atan2(Math.sqrt(1.13 ** 2 - 0.68 ** 2), 0.68) * 180) / Math.PI;   // (the lid's resting edge keeps its old angle)
+  const rimTop = (Math.atan2(Math.sqrt(LID.socket ** 2 - EF.depth ** 2), EF.depth) * 180) / Math.PI;   // where the socket meets the face
   const lids = (['Left', 'Right'] as const).map((side) => ({
-    c: B[`${side}Eye`].head, rIn: eyeR * LID.upIn, rOut: eyeR * LID.upOut, edgeDeg: rimTop - 18, closeDeg: rimTop - 18 + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid`,
-    lower: { rIn: eyeR * LID.lowIn, rOut: eyeR * LID.lowOut, edgeDeg: eyeStyle === 'big' ? -46 : -40, part: `lidLow.${side[0]}` },
+    c: B[`${side}Eye`].head, rIn: eyeR * LID.upIn, rOut: eyeR * LID.upOut, edgeDeg: EF.lid, closeDeg: EF.lid + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid`,
+    lower: { rIn: eyeR * LID.lowIn, rOut: eyeR * LID.lowOut, edgeDeg: EF.low, part: `lidLow.${side[0]}` },
   }));
   const palm = Object.fromEntries((['Left', 'Right'] as const).map((side) => [side, { c: [B[`${side}Hand`].head[0] + (side === 'Left' ? 1 : -1) * palmLen * 0.5, B[`${side}Hand`].head[1], 0] as V3, len: palmLen, width: palmW, thick: palmT }])) as CharSpec['palm'];
   // add-ons: a tail from the base of the back, wings from between the shoulder blades
@@ -919,6 +953,112 @@ export function characterSpec(p: CharParams): CharSpec {
     },
     plan, ...(PD.walk ? { walk: PD.walk } : {}),
   };
+}
+
+/** A haircut of locks (face appeal): a thin scalp cap that thins out into the skin at the hairline (no
+ *  step, no helmet edge), with chunky tapered locks over it following the cut's flow: a side part, a
+ *  fringe swept across the forehead, locks combed back over the crown, down the back and over the
+ *  ears, and short ones at the nape. Each lock rises out of the cap (its root is inside it) and ends in
+ *  a tip a little off the head, so the edges read slightly loose. The face paint does the rest (a
+ *  soft hairline, sideburns, darker roots and a sheen). */
+function addLockHair(hair: string, pieces: Piece[], h: { hb: number; headH: number; hw: number; hd: number; hc: V3; rings: Array<[number, number, number, number]>; sq: number }) {
+  const { hb, headH, hw, hd, hc, rings, sq } = h;
+  // the head's outline at a height (the hull's rings, interpolated), and whether a point is inside it
+  const ringAt = (y01: number) => {
+    if (y01 <= rings[0][0]) return rings[0];
+    for (let i = 0; i < rings.length - 1; i++) if (y01 <= rings[i + 1][0]) {
+      const a = rings[i], b = rings[i + 1], u = (y01 - a[0]) / (b[0] - a[0]);
+      return a.map((v, k) => v + (b[k] - v) * u) as [number, number, number, number];
+    }
+    return rings[rings.length - 1];
+  };
+  const inside = (q: V3) => {
+    const y01 = (q[1] - hb) / headH;
+    if (y01 < 0 || y01 > 1) return false;
+    const [, rx, rf, rb] = ringAt(y01);
+    const RX = rx * hw, RZ = (q[2] > 0 ? rf : rb) * hd;
+    const t = Math.atan2(q[0] / RX, q[2] / RZ), sn = Math.sin(t), c = Math.cos(t), m = Math.max(Math.abs(sn), Math.abs(c));
+    const ex = sn * (1 - sq) + (sn / m) * sq * 0.94, ez = c * (1 - sq) + (c / m) * sq * 0.94;
+    return Math.hypot(q[0], q[2]) <= Math.hypot(RX * ex, RZ * ez);
+  };
+  // the surface along a direction from the head's centre (bisection on the ray)
+  const surf = (d: V3): V3 => {
+    let lo = 0, hi = 2 * Math.max(headH, hw, hd);
+    for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (inside(add(hc, mul(d, mid)))) lo = mid; else hi = mid; }
+    return add(hc, mul(d, lo));
+  };
+  const dirOf = (t: number, e: number): V3 => [Math.sin(t) * Math.cos(e), Math.sin(e), Math.cos(t) * Math.cos(e)];
+  const out = (q: V3, k: number): V3 => add(hc, mul(subv(q, hc), k));
+  const y01Of = (q: V3) => (q[1] - hb) / headH;
+  // the elevation (from the centre) where the surface crosses the hairline at angle t
+  const hairE = (t: number) => {
+    let lo = -0.6, hi = 1.5;
+    for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2; if (y01Of(surf(dirOf(t, mid))) < hairline(hair, t)) lo = mid; else hi = mid; }
+    return lo;
+  };
+  // the cap: rows from the hairline up to the crown; at the hairline it sits just inside the skin, and it
+  // swells to its thickness over the first tenth of the head's height
+  const T = hair === 'messy' ? 0.07 : hair === 'receding' ? 0.05 : 0.06;
+  const N = 18, cap: V3[] = [];
+  for (let i = 0; i < N; i++) {
+    const t = (i / N) * 2 * Math.PI, e0 = hairE(t);
+    for (const f of [0, 0.14, 0.4, 0.75]) {
+      const q = surf(dirOf(t, e0 + (Math.PI / 2 - e0) * f));
+      const k = 0.99 + (T + 0.01) * smooth(0, 0.1, y01Of(q) - hairline(hair, t));
+      cap.push(out(q, k));
+    }
+  }
+  cap.push(out(surf([0, 1, 0]), 1 + T * 1.2));
+  pieces.push({ kind: 'hull', part: 'hair', pts: cap });
+  // locks: [angle, elevation] of the root and the tip (radians), width (× head half-width), and how far
+  // the tip lifts off the head (× the head's radius)
+  type Lock = [number, number, number, number, number, number];
+  const P = 0.42;   // the parting, on the character's left
+  const front: Lock[] = hair === 'receding' ? [] : [
+    [P - 0.06, 1.15, 0.12, 0.62, 0.17, 0.035], [P - 0.16, 1.18, -0.22, 0.6, 0.18, 0.04], [P - 0.24, 1.2, -0.58, 0.56, 0.17, 0.04],
+    [P - 0.3, 1.22, -0.92, 0.5, 0.15, 0.035], [P + 0.12, 1.08, P + 0.55, 0.52, 0.16, 0.035],
+  ];
+  const back: Lock[] = [];
+  for (let i = 0; i < 6; i++) {
+    const t = 0.85 + (i / 5) * (2 * Math.PI - 1.7);
+    const tt = t > Math.PI ? t - 2 * Math.PI : t;
+    back.push([tt * 0.8 + (tt > 0 ? 0.15 : -0.15) * (hair === 'receding' ? 0 : 1), 1.05, tt, Math.abs(tt) > 2.2 ? -0.1 : 0.2, 0.27, 0.03]);
+  }
+  // a receding cut is combed straight back from its high hairline, and back over the temples
+  if (hair === 'receding') {
+    back.push([0, 0.82, 0, 1.38, 0.2, 0.02]);
+    for (const sx of [1, -1]) back.push([sx * 0.38, 0.8, sx * 0.55, 1.32, 0.19, 0.02], [sx * 0.9, 0.62, sx * 1.35, 0.95, 0.17, 0.02]);
+  }
+  // a few short locks at the nape and over each ear
+  const nape: Lock[] = [[Math.PI, 0.35, Math.PI, -0.22, 0.2, 0.03], [1.4, 0.65, 1.72, 0.2, 0.17, 0.03], [-1.4, 0.65, -1.72, 0.2, 0.17, 0.03]];
+  let locks = [...front, ...back, ...nape];
+  if (hair === 'messy') {
+    // tousled: each lock turned and lifted a little differently, and a few more on top
+    const jit = (i: number, k: number) => Math.sin(i * 12.9898 + k * 78.233) * 43758.5453 % 1;
+    locks = locks.map((l, i) => [l[0], l[1], l[2] + 0.25 * jit(i, 1), l[3] + 0.12 * jit(i, 2), l[4] * 1.15, l[5] * 1.8 + 0.02 * Math.abs(jit(i, 3))] as Lock);
+    locks.push([0.2, 1.3, -0.4, 1.0, 0.2, 0.06], [-0.6, 1.3, 0.9, 1.05, 0.2, 0.06], [2.2, 1.25, 2.9, 0.9, 0.2, 0.06]);
+  }
+  for (const [ta, ea, tb, eb, w, lift] of locks) {
+    // three sections along the lock (root, middle, tip), each a flattened oval across the flow; the lock
+    // is two hulls (root to middle, middle to tip) so it bends round the head
+    const sec = (u: number) => {
+      const tt = ta + (tb - ta) * u, ee = ea + (eb - ea) * u;
+      const d = dirOf(tt, ee), q = surf(d);
+      const R = Math.hypot(...subv(q, hc));
+      const k = 1 + (u === 0 ? T * 0.2 : u < 1 ? T + 0.03 : T * 0.5 + lift);
+      const c = out(q, k);
+      const nrm = norm(subv(q, hc));
+      const along = norm(subv(surf(dirOf(ta + (tb - ta) * Math.min(1, u + 0.05), ea + (eb - ea) * Math.min(1, u + 0.05))), surf(dirOf(ta + (tb - ta) * Math.max(0, u - 0.05), ea + (eb - ea) * Math.max(0, u - 0.05)))));
+      const side = norm(cross(along, nrm));
+      const ww = w * hw * (u === 0 ? 0.8 : u < 1 ? 1 : 0.18), th = R * (u === 0 ? 0.03 : u < 1 ? 0.045 : 0.012);
+      return [add(c, mul(side, ww)), add(c, mul(side, -ww)), add(c, mul(nrm, th)), add(c, mul(nrm, -th)), add(add(c, mul(side, ww * 0.6)), mul(nrm, th * 0.7)), add(add(c, mul(side, -ww * 0.6)), mul(nrm, th * 0.7))] as V3[];
+    };
+    // (a short lock barely bends: one hull)
+    const span = Math.hypot((tb - ta) * Math.cos((ea + eb) / 2), eb - ea);
+    if (span < 0.75) { pieces.push({ kind: 'hull', part: 'hair', lock: true, pts: [...sec(0), ...sec(0.55).slice(0, 2), ...sec(1)] }); continue; }
+    const a = sec(0), m = sec(0.55), b = sec(1);
+    pieces.push({ kind: 'hull', part: 'hair', lock: true, pts: [...a, ...m] }, { kind: 'hull', part: 'hair', lock: true, pts: [...m, ...b] });
+  }
 }
 
 /** Eyelid shell radii (× the eyeball radius): the eyeball and everything on it stays within 1.03; the
@@ -958,6 +1098,17 @@ export const isFacePart = (part: string) => /^(Head|mouthInner|eyeSocket|nose|br
 export const isMouthPart = (part: string) => part === 'teethUpper' || part === 'teethLower' || part === 'gumUpper' || part === 'gumLower' || part === 'tongue';
 /** Eyelids: rigid shells around the eyeball (moved only by turning about the eye centre). */
 export const isLidPart = (part: string) => part.startsWith('lid.') || part.startsWith('lidLow.');
+/** How much of the jaw's turn a face vertex takes (0 … 1): the skin below the mouth line goes with the
+ *  jaw. The lips follow the same rule where they meet the skin: the lower lip goes with the jaw and the
+ *  upper one stays, fully in the middle, but toward the corners both blend to what the skin there does
+ *  (the corners stay joined, neither lip pulls off the face, and the skin next to a lip moves with it). */
+function jawShare(F: CharSpec['face'], part: string, p: V3): number {
+  const below = smooth(F.mouth[1] + F.slotH * 0.25, F.mouth[1] - F.slotH * 0.6, p[1]);
+  if (part !== 'lipLower' && part !== 'lipUpper') return below;
+  if (F.kind === 'beak' || F.kind === 'grille') return part === 'lipLower' ? 1 : 0;   // a bill or a bar is rigid
+  const u = smooth(0.45 * F.mouthW, 1.05 * F.mouthW, Math.abs(p[0] - F.mouth[0]));
+  return part === 'lipLower' ? 1 - u * (1 - below) : u * below;
+}
 /** Parts carried by the jaw outright. */
 const onJaw = (part: string) => part === 'teethLower' || part === 'gumLower' || part === 'tongue';
 const boneOfPart = (part: string) => part.split('.')[0];
@@ -1004,11 +1155,11 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
   const jawDeg = 20;
   const jaw = prim((p, v) => {
     // the lower face rotates about the hinge: below the mouth line, fading up the cheeks
-    const below = smooth(m[1] + F.slotH * 0.25, m[1] - F.slotH * 0.6, p[1]);
-    const lower = vertPart[v] === 'lipLower' ? 1 : vertPart[v] === 'lipUpper' ? 0 : below;
+    const lower = jawShare(F, vertPart[v], p);
     const sideFade = 1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]));
-    // an open mouth is an oval: the lips' corners drop less than their middles
-    const corner = /^lip|^mouthInner/.test(vertPart[v]) ? 1 - 0.45 * smooth(0.3 * mw, 1.05 * mw, Math.abs(p[0] - m[0])) * Math.exp(-(((p[1] - m[1]) / (0.05 * H)) ** 2)) : 1;
+    // an open mouth is an oval: the corners drop less than the middle (the lips and the skin round them
+    // alike, so the lip stays on the chin instead of pulling away from it at the corners)
+    const corner = 1 - 0.45 * smooth(0.3 * mw, 1.05 * mw, Math.abs(p[0] - m[0])) * Math.exp(-(((p[1] - m[1]) / (0.05 * H)) ** 2));
     const w = onJaw(vertPart[v]) ? 1 : vertPart[v] === 'teethUpper' || vertPart[v] === 'gumUpper' ? 0 : lower * sideFade * corner * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
     if (w <= 0) return null;
     const rel = subv(p, F.jawPivot);
@@ -1033,15 +1184,26 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
     const w = mouthBand(p, mw * 1.25, 0.06 * H);
     return w ? [(p[0] - m[0]) * 0.32 * w, 0, -Math.abs(p[0] - m[0]) / mw * 0.006 * H * w] : null;
   });
+  // how much a vertex moves as lip (1) rather than as skin (0): the lips themselves, and fading out from
+  // them into the skin round the mouth and into the opening's walls, so a lip-only motion (parting, rolling
+  // in) carries the skin it is joined to instead of tearing the lip off the face
+  const lipness = (p: V3, v: number) => {
+    const part = vertPart[v];
+    if (part === 'lipUpper' || part === 'lipLower') return 1;
+    if (part === 'mouthInner') return smooth(m[2] - 0.05 * H, m[2] - 0.005 * H, p[2]);
+    if (part !== 'Head') return 0;
+    const out = Math.max(0, Math.abs(p[1] - m[1]) - 0.026 * H) / (0.014 * H);
+    return Math.exp(-out * out) * smooth(m[2] - 0.06 * H, m[2] - 0.02 * H, p[2]);
+  };
   const round = prim((p, v) => {
     // O / OO: the corners pull in and the lips push forward into a funnel (the deep mouth walls stay put, clear of the teeth)
     const w = mouthBand(p, mw * 1.3, 0.07 * H);
     if (!w) return null;
     const dx = p[0] - m[0], dy = p[1] - m[1];
-    const lip = vertPart[v] === 'lipUpper' || vertPart[v] === 'lipLower' ? 1 : 0;
+    const lip = lipness(p, v);
     // the lips' middles part while their corners pinch together: a round opening, not a slot
     const mid = 1 - clamp(Math.abs(dx) / (mw * 0.75)) ** 2;
-    const part = lip ? Math.sign(dy) * 0.012 * H * (mid - 0.35) : -dy * 0.2;
+    const part = lip * Math.sign(dy) * 0.012 * H * (mid - 0.35) + (1 - lip) * -dy * 0.2;
     return [-dx * 0.55 * w, part * w, (0.042 + 0.012 * lip) * H * w * (1 - clamp(Math.abs(dx) / (mw * 1.4)))];
   });
   const press = prim((p, v) => {
@@ -1056,8 +1218,9 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
     // F/V: the lower lip rises and tucks under the upper teeth line
     const below = p[1] < m[1] ? 1 : 0;
     const w = mouthBand(p, mw * 1.1, 0.04 * H) * below * (vertPart[v] === 'lipUpper' ? 0 : 1);
-    // the lower lip itself rolls in (back and up) so its top sits under the upper teeth
-    const lip = vertPart[v] === 'lipLower' ? 1 : 0;
+    // the lower lip itself rolls in (back and up) so its top sits under the upper teeth (and takes the
+    // skin it is joined to along)
+    const lip = vertPart[v] === 'lipUpper' ? 0 : lipness(p, v);
     return w ? [0, F.slotH * (0.25 + 0.15 * lip) * w, -(0.012 + 0.024 * lip) * H * w] : null;
   });
   const upper = prim((p, v) => {
@@ -1074,7 +1237,17 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
   const out: Record<string, Float32Array> = {};
   for (const vname of VISEMES) out[vname] = mix(visemeMix(F.kind, vname));
   // expressions
-  const sideField = (sx: number, fn: (p: V3, v: number) => V3 | null) => prim((p, v) => (Math.sign(p[0] || 1e-9) === sx || Math.abs(p[0]) < 0.004 ? fn(p, v) : null));
+  // a one-sided shape fades across the middle of the face instead of stopping at it (a hard cut at x = 0
+  // left a step in the lips and a hooked corner on a smirk); the left and right halves of a band add up
+  // to the whole, so both sides together are the symmetric shape. Parts with a side of their own (a
+  // brow, an ear) stay on their side.
+  const sideField = (sx: number, fn: (p: V3, v: number) => V3 | null) => prim((p, v) => {
+    const own = /\.(L|R)$/.exec(vertPart[v]);
+    const k = own ? (own[1] === (sx > 0 ? 'L' : 'R') ? 1 : 0) : smooth(-0.16 * F.hw, 0.16 * F.hw, sx * p[0]);
+    if (k <= 0) return null;
+    const r = fn(p, v);
+    return r ? mul(r, k) : null;
+  });
   for (const e of F.eyes) {
     // the eyelid itself is a bone (rotations stay outside the eyeball; see localRotations): this shape
     // key moves the skin just above the eye with it
@@ -1258,8 +1431,7 @@ export function buildRig(spec: CharSpec, pos: Float32Array, vertPart: string[]):
       cand = [[byName.get(part === 'lid.L' ? 'LeftUpperLid' : 'RightUpperLid')!, 1]];
     } else if (isFacePart(part) && part !== 'hair' && !part.startsWith('ear')) {
       // face: the jaw carries the lower face, the head the rest (shape keys do the fine work)
-      const below = smooth(F.mouth[1] + F.slotH * 0.25, F.mouth[1] - F.slotH * 0.6, p[1]);
-      const lower = onJaw(part) || part === 'lipLower' ? 1 : part === 'lipUpper' || part === 'teethUpper' || part === 'gumUpper' || part.startsWith('lidLow.') ? 0 : below * (1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]))) * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
+      const lower = onJaw(part) ? 1 : part === 'teethUpper' || part === 'gumUpper' || part.startsWith('lidLow.') ? 0 : jawShare(F, part, p) * (1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]))) * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
       // where the head meets the neck (under the chin, the nape) the neck takes over gradually
       const neck = smooth(F.headBase[1] + 0.14 * F.headH, F.headBase[1] - 0.02 * F.headH, p[1]) * 0.6;
       cand = [[byName.get('Head')!, (1 - lower) * (1 - neck)], [byName.get('Jaw')!, lower * (1 - neck)], [byName.get('Neck')!, neck]];
