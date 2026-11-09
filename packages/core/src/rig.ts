@@ -194,7 +194,7 @@ export const apronDepth = (plan: BodyPlan) => { const t = PLANS[plan].torso; ret
 
 export type Piece =
   | { kind: 'seg'; a: V3; b: V3; r1: number; r2: number; sides: number; part: string }
-  | { kind: 'ball'; c: V3; r: number; sides: number; part: string; cap?: number }   // cap: keep z ≥ cap·r (a spherical cap facing +Z)
+  | { kind: 'ball'; c: V3; r: number; sides: number; part: string; cap?: number; axis?: V3 }   // cap: keep the spherical cap ≥ cap·r along axis (default +Z)
   | { kind: 'hull'; pts: V3[]; part: string; loops?: boolean };
 
 export interface FaceLandmarks {
@@ -219,7 +219,7 @@ export interface CharSpec {
   cuts: Array<{ kind: 'box'; c: V3; size: V3; part: string } | { kind: 'ball'; c: V3; r: number; sides: number; part: string } | { kind: 'hull'; pts: V3[]; part: string }>;
   mouth: Piece[];                                         // teeth rows and tongue: separate shells inside the mouth (upper teeth on the head, lower teeth and tongue on the jaw)
   eyes: Piece[];                                          // eyeballs (kept separate: they turn with the eye bones)
-  lids: Array<{ c: V3; rIn: number; rOut: number; edgeDeg: number; closeDeg: number; part: string; bone: string }>; // eyelid shells (the lid bones turn them)
+  lids: Array<{ c: V3; rIn: number; rOut: number; edgeDeg: number; closeDeg: number; part: string; bone: string; lower?: { rIn: number; rOut: number; edgeDeg: number; part: string } }>; // eyelid shells outside the eyeball (the lid bones turn the upper ones; the lower one rides the head)
   face: FaceLandmarks;
   palm: Record<'Left' | 'Right', { c: V3; len: number; width: number; thick: number }>;
   plan: BodyPlan;
@@ -572,61 +572,100 @@ export function characterSpec(p: CharParams): CharSpec {
   const mouthW = (mouthKind === 'cartoon' ? 0.38 : mouthKind === 'grille' ? 0.42 : mouthKind === 'muzzle' ? 0.26 : 0.35) * hw;
   // ── mouth: chamber, teeth and tongue (all relative to the lip surface a = mouthZ, in head heights) ──
   const a = mouthZ, Hh = headH, my = mouthY;
+  // the mouth chamber: a rounded pocket behind the lips (a squared-off superellipsoid sampled densely), so
+  // an open mouth shows soft dark corners, never the edges and flat walls of a box
+  const CH = { cy: my - 0.008 * Hh, cz: a - 0.124 * Hh, rx: 0.136 * Hh, ryUp: 0.068 * Hh, ryDn: 0.07 * Hh, rz: 0.096 * Hh, e: 2.6 };
   const chamberPts: V3[] = [];
-  for (const sx of [1, -1]) {
-    chamberPts.push(
-      [sx * 0.105 * Hh, my + 0.05 * Hh, a - 0.075 * Hh], [sx * 0.11 * Hh, my, a - 0.072 * Hh], [sx * 0.085 * Hh, my - 0.072 * Hh, a - 0.09 * Hh],
-      [sx * 0.13 * Hh, my + 0.035 * Hh, a - 0.125 * Hh], [sx * 0.135 * Hh, my, a - 0.125 * Hh], [sx * 0.1 * Hh, my - 0.066 * Hh, a - 0.125 * Hh],
-      [sx * 0.1 * Hh, my + 0.045 * Hh, a - 0.22 * Hh], [sx * 0.1 * Hh, my - 0.068 * Hh, a - 0.22 * Hh],
-    );
+  {
+    const sp = (t: number) => Math.sign(t) * Math.abs(t) ** (2 / CH.e);
+    const NU = 12, NV = 7;
+    for (let j = 0; j <= NV; j++) {
+      const v = -Math.PI / 2 + (Math.PI * j) / NV, cv = sp(Math.cos(v)), svv = sp(Math.sin(v));
+      for (let i = 0; i < (j === 0 || j === NV ? 1 : NU); i++) {
+        const u = (2 * Math.PI * i) / NU;
+        chamberPts.push([CH.rx * cv * sp(Math.cos(u)), CH.cy + (svv > 0 ? CH.ryUp : CH.ryDn) * svv, CH.cz + CH.rz * cv * sp(Math.sin(u))]);
+      }
+    }
   }
-  chamberPts.push([0, my + 0.05 * Hh, a - 0.03 * Hh], [0, my, a - 0.03 * Hh], [0, my - 0.072 * Hh, a - 0.055 * Hh]);
   const arch = 3.5 / Hh / (PD.headW * PD.headW);           // the teeth follow a curve: z drops by arch·x² toward the sides (a narrow head curves sooner)
-  const upperFront = a - 0.045 * Hh, lowerFront = upperFront - 0.013 * Hh, edgeY = my - 0.014 * Hh;
+  const upperFront = a - 0.045 * Hh, lowerFront = upperFront - 0.014 * Hh, edgeY = my - 0.018 * Hh;
   const mouthPieces: Piece[] = [];
-  const toothRow = (part: string, front: number, thick: number, top: (i: number) => number, bottom: (i: number) => number, widths: number[]) => {
-    // one block per tooth, centre outwards on both sides, following the arch, with hairline gaps
-    const gap = 0.0016 * Hh;
+  // a row of teeth along the arch: the front teeth side by side with no visible gaps (a continuous white
+  // row, not pegs), each with rounded corners at its biting edge and a little convexity at the front;
+  // the gum runs along the roots with a scalloped line (a small point down between each pair of teeth)
+  const toothRow = (part: string, gum: string, front: number, thick: number, root: number, edge: (x: number, i: number) => number, gumLine: number, widths: number[]) => {
+    const dir = Math.sign(root - edge(0, 0));               // +1: the roots are above (upper teeth)
+    const gap = 0.0005 * Hh, zf = (xx: number) => front - arch * xx * xx;
     for (const sx of [1, -1]) {
       let x = gap / 2;
       widths.forEach((w, i) => {
-        const x0 = x, x1 = x + w * Hh * Math.min(1, PD.headW);
+        const x0 = x, x1 = x + w * Hh * Math.min(1, PD.headW), xm = (x0 + x1) / 2;
         x = x1 + gap;
-        const z = (xx: number) => front - arch * xx * xx;
-        const yT = top(i), yB = bottom(i), inset = 0.0025 * Hh;  // the biting edge is a little thinner
+        const yE = edge(xm, i), rr = 0.3 * (x1 - x0), th = thick * (1 - 0.12 * i);
         const pts: V3[] = [];
         for (const xx of [x0, x1]) {
-          pts.push([sx * xx, yT, z(xx)], [sx * xx, yT, z(xx) - thick], [sx * xx, yB, z(xx) - inset * 0.3], [sx * xx, yB, z(xx) - thick + inset]);
+          pts.push([sx * xx, root, zf(xx)], [sx * xx, root, zf(xx) - th]);
+          pts.push([sx * xx, yE + dir * rr, zf(xx) - 0.0006 * Hh], [sx * xx, yE + dir * rr, zf(xx) - th * 0.7]);
         }
+        for (const xx of [x0 + rr * 0.7, x1 - rr * 0.7]) pts.push([sx * xx, yE, zf(xx) - 0.001 * Hh], [sx * xx, yE, zf(xx) - th * 0.45]);
+        // the front of the tooth bulges a little (it catches the light like enamel)
+        pts.push([sx * xm, (root + yE) / 2, zf(xm) + 0.0012 * Hh]);
         mouthPieces.push({ kind: 'hull', part, pts });
+        // the gum over this tooth's root, its line rising to the middle of the tooth …
+        if (!gum) return;
+        const gz = (xx: number) => zf(xx) + 0.0012 * Hh, gb = (xx: number) => zf(xx) - th - 0.003 * Hh;
+        const gtop = root + dir * 0.004 * Hh;
+        const g: V3[] = [];
+        for (const xx of [x0 - gap / 2, x1 + gap / 2]) g.push([sx * xx, gtop, gz(xx)], [sx * xx, gtop, gb(xx)], [sx * xx, gumLine, gz(xx)], [sx * xx, gumLine, gb(xx)]);
+        mouthPieces.push({ kind: 'hull', part: gum, pts: g });
+        // … and a papilla pointing down between this tooth and the next (the front teeth: where it shows)
+        if (i > 2) return;
+        const pw = 0.0035 * Hh, py = gumLine - dir * 0.0045 * Hh;
+        mouthPieces.push({ kind: 'hull', part: gum, pts: [
+          [sx * (x1 + gap / 2 - pw), gumLine, gz(x1)], [sx * (x1 + gap / 2 + pw), gumLine, gz(x1)], [sx * (x1 + gap / 2), py, gz(x1) - 0.0004 * Hh],
+          [sx * (x1 + gap / 2 - pw), gumLine, gb(x1)], [sx * (x1 + gap / 2 + pw), gumLine, gb(x1)], [sx * (x1 + gap / 2), py, gb(x1)],
+        ] });
       });
     }
   };
   // the tongue: a low, rounded wedge on the floor of the mouth, tip just behind the lower teeth
   const tipZ = lowerFront - 0.022 * Hh, backZ = a - 0.19 * Hh;
   if (mouthKind === 'human') {
-    // upper: central incisors longest, then laterals, canines, a premolar
-    const upLen = [0, 0.004, 0.001, 0.004, 0.006];
-    toothRow('teethUpper', upperFront, 0.011 * Hh, () => my + 0.03 * Hh, (i) => edgeY + upLen[i] * Hh, [0.023, 0.019, 0.02, 0.022, 0.02]);
-    const loLen = [0, 0.001, 0.003, 0.005, 0.007];
-    toothRow('teethLower', lowerFront, 0.01 * Hh, (i) => my + 0.004 * Hh - loLen[i] * Hh, () => my - 0.034 * Hh, [0.016, 0.016, 0.018, 0.02, 0.02]);
+    // upper: incisors, canines and premolars side by side; the biting edge follows a gentle smile curve
+    // (the centrals a touch longer), so an open mouth shows one clean row
+    const upW = [0.024, 0.0195, 0.0195, 0.0185, 0.018];
+    toothRow('teethUpper', 'gumUpper', upperFront, 0.011 * Hh, my + 0.03 * Hh, (xx, i) => edgeY + (i === 0 ? 0 : 0.0012 * Hh) + 0.5 * (xx * xx) / Hh, my + 0.009 * Hh, upW);
+    const loW = [0.0165, 0.0165, 0.0175, 0.0185, 0.0185];
+    toothRow('teethLower', '', lowerFront, 0.0095 * Hh, my - 0.045 * Hh, (xx) => my + 0.006 * Hh - 0.35 * (xx * xx) / Hh, my - 0.019 * Hh, loW);
+    // the tongue: a soft, rounded body (a hull of rings), tip rounded behind the lower teeth
     const tongue: V3[] = [];
-    for (const sx of [1, -1]) {
-      tongue.push(
-        [sx * 0.012 * Hh, my - 0.031 * Hh, tipZ], [sx * 0.03 * Hh, my - 0.036 * Hh, tipZ - 0.012 * Hh], [sx * 0.02 * Hh, my - 0.046 * Hh, tipZ - 0.004 * Hh],
-        [sx * 0.05 * Hh, my - 0.028 * Hh, tipZ - 0.05 * Hh], [sx * 0.055 * Hh, my - 0.05 * Hh, tipZ - 0.05 * Hh],
-        [sx * 0.05 * Hh, my - 0.03 * Hh, backZ], [sx * 0.055 * Hh, my - 0.052 * Hh, backZ],
-      );
-    }
-    tongue.push([0, my - 0.024 * Hh, tipZ - 0.06 * Hh], [0, my - 0.03 * Hh, tipZ + 0.002 * Hh]);
+    const tRing = (z: number, w: number, yTop: number, yBot: number, n = 9) => {
+      for (let i = 0; i <= n; i++) {
+        const t = (Math.PI * i) / n, c = Math.cos(t), sn = Math.sin(t);
+        tongue.push([w * c, yBot + (yTop - yBot) * (0.25 + 0.75 * Math.sqrt(sn)), z]);
+      }
+    };
+    tRing(tipZ + 0.002 * Hh, 0.016 * Hh, my - 0.031 * Hh, my - 0.04 * Hh, 7);
+    tRing(tipZ - 0.01 * Hh, 0.036 * Hh, my - 0.029 * Hh, my - 0.046 * Hh);
+    tRing(tipZ - 0.035 * Hh, 0.052 * Hh, my - 0.027 * Hh, my - 0.05 * Hh);
+    tRing(backZ, 0.052 * Hh, my - 0.03 * Hh, my - 0.052 * Hh);
     mouthPieces.push({ kind: 'hull', part: 'tongue', pts: tongue });
   }
+  // the opening between the lips: a lens (tapering to the corners), cut through into the chamber
+  const lens: V3[] = [];
+  for (let i = 0; i <= 16; i++) {
+    const x = -mouthW + (2 * mouthW * i) / 16, u = Math.abs(x) / mouthW;
+    const h = (slotH / 2) * Math.max(0.18, Math.sqrt(Math.max(0, 1 - u ** 2.5)));
+    for (const y of [mouthY - h, mouthY + h]) lens.push([x, y, mouthZ + 0.012 * headH], [x, y, mouthZ - 0.085 * headH]);
+  }
   const cuts: CharSpec['cuts'] = [
-    { kind: 'box', c: [0, mouthY, mouthZ - 0.018 * headH], size: [2 * mouthW, slotH, 0.06 * headH], part: 'mouthInner' },
+    mouthKind === 'human' || mouthKind === 'muzzle'
+      ? { kind: 'hull', part: 'mouthInner', pts: lens }
+      : { kind: 'box', c: [0, mouthY, mouthZ - 0.018 * headH], size: [2 * mouthW, slotH, 0.06 * headH], part: 'mouthInner' },
     // the mouth itself: a chamber behind the lips (the slot opens into it), roomy enough for teeth and a tongue
     { kind: 'hull', part: 'mouthInner', pts: chamberPts },
-    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
-    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * 1.13, sides: 24, part: 'eyeSocket' },
+    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * LID.socket, sides: 32, part: 'eyeSocket' },
+    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * LID.socket, sides: 32, part: 'eyeSocket' },
   ];
   if (mouthKind === 'cartoon') {
     // a cartoon mouth curves into a smile at rest (curveMouth): its opening is cut in slices across
@@ -647,37 +686,74 @@ export function characterSpec(p: CharParams): CharSpec {
   // nose, brows, lips, ears, hair
   const nb = surfZ(0.42);
   const noseTop = hb + 0.5 * headH;
+  // soft forms (face appeal): a hull of balls is a rounded, smooth shape (the bridge, tip and wings of a
+  // nose); `soft` rounds any hull by putting a small ball at each of its points, pulled in by the radius.
+  // The toy style keeps its crisp planes.
+  const toy = style === 'toy';
+  const BALL = Array.from({ length: 48 }, (_, i) => {
+    const k = i + 0.5, yy = 1 - (2 * k) / 48, rr = Math.sqrt(1 - yy * yy), t = Math.PI * (3 - Math.sqrt(5)) * k;
+    return [rr * Math.cos(t), yy, rr * Math.sin(t)] as V3;
+  });
+  const blobs = (bs: Array<[V3, number]>): V3[] => bs.flatMap(([c, r]) => BALL.map((d) => add(c, mul(d, r))));
+  const soft = (pts: V3[], rr: number): V3[] => {
+    if (toy) return pts;
+    const c = mul(pts.reduce((acc, q) => add(acc, q), [0, 0, 0] as V3), 1 / pts.length);
+    return pts.flatMap((q) => { const d = subv(q, c), l = Math.hypot(...d), k = Math.max(0, l - rr) / (l || 1); return BALL.map((u) => add(add(c, mul(d, k)), mul(u, Math.min(rr, l)))); });
+  };
   if (noseKind === 'human') {
-    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop, nb - 0.01 * headH], [0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [-0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [0, hb + 0.35 * headH, nb + 0.1 * headH], [0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [-0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [-0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [0, hb + 0.31 * headH, nb + 0.05 * headH]] });
+    const hard: V3[] = [[0, noseTop, nb - 0.01 * headH], [0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [-0.06 * hw, hb + 0.49 * headH, nb - 0.02 * headH], [0, hb + 0.35 * headH, nb + 0.1 * headH], [0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [-0.07 * hw, hb + 0.34 * headH, nb + 0.075 * headH], [0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [-0.17 * hw, hb + 0.32 * headH, nb - 0.005 * headH], [0, hb + 0.31 * headH, nb + 0.05 * headH]];
+    // a rounded nose: a narrow bridge running down into a soft ball of a tip, with two rounded wings
+    pieces.push({ kind: 'hull', part: 'nose', pts: toy ? hard : blobs([
+      [[0, noseTop - 0.01 * headH, nb - 0.03 * headH], 0.05 * hw], [[0, hb + 0.43 * headH, nb + 0.025 * headH], 0.055 * hw],
+      [[0, hb + 0.355 * headH, nb + 0.07 * headH], 0.085 * hw], [[0.105 * hw, hb + 0.33 * headH, nb + 0.018 * headH], 0.065 * hw], [[-0.105 * hw, hb + 0.33 * headH, nb + 0.018 * headH], 0.065 * hw],
+    ]) });
   } else if (noseKind === 'long') {
     // a long, pointed nose that juts out and down
-    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop + 0.02 * headH, nb - 0.02 * headH], [0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [0.12 * hw, hb + 0.34 * headH, nb], [-0.12 * hw, hb + 0.34 * headH, nb], [0, hb + 0.3 * headH, nb + 0.24 * headH], [0, hb + 0.34 * headH, nb + 0.22 * headH]] });
+    pieces.push({ kind: 'hull', part: 'nose', pts: soft([[0, noseTop + 0.02 * headH, nb - 0.02 * headH], [0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.07 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [0.12 * hw, hb + 0.34 * headH, nb], [-0.12 * hw, hb + 0.34 * headH, nb], [0, hb + 0.3 * headH, nb + 0.24 * headH], [0, hb + 0.34 * headH, nb + 0.22 * headH]], 0.035 * hw) });
   } else if (noseKind === 'button') {
-    pieces.push({ kind: 'ball', c: [0, hb + 0.38 * headH, surfZ(0.38) + 0.01 * headH], r: 0.07 * hw, sides: Math.max(6, SIDES), part: 'nose' });
+    pieces.push({ kind: 'ball', c: [0, hb + 0.38 * headH, surfZ(0.38) + 0.01 * headH], r: 0.07 * hw, sides: toy ? Math.max(6, SIDES) : 16, part: 'nose' });
   } else if (noseKind === 'big') {
     // a bulbous nose: wide, round, low on the face
-    pieces.push({ kind: 'hull', part: 'nose', pts: [[0, noseTop, nb - 0.015 * headH], [0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH]] });
-    pieces.push({ kind: 'ball', c: [0, hb + 0.35 * headH, nb + 0.09 * headH], r: 0.22 * hw, sides: Math.max(8, SIDES), part: 'nose' });
+    pieces.push({ kind: 'hull', part: 'nose', pts: soft([[0, noseTop, nb - 0.015 * headH], [0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH], [-0.08 * hw, hb + 0.47 * headH, nb - 0.02 * headH]], 0.03 * hw) });
+    pieces.push({ kind: 'ball', c: [0, hb + 0.35 * headH, nb + 0.09 * headH], r: 0.22 * hw, sides: toy ? Math.max(8, SIDES) : 20, part: 'nose' });
   } else if (mouthKind === 'muzzle') {
     // no separate nose, but the snout gets a nose pad at its tip
   }
   if (mouthKind === 'muzzle') {
     // the nose pad: a broad, dark, slightly upturned wedge on the tip of the snout
     const ny = mouthY + 0.13 * headH, nz = snoutZ + 0.005 * headH;
-    pieces.push({ kind: 'hull', part: 'nose.pad', pts: [
+    pieces.push({ kind: 'hull', part: 'nose.pad', pts: soft([
       [-0.22 * hw, ny + 0.05 * headH, nz - 0.06 * headH], [0.22 * hw, ny + 0.05 * headH, nz - 0.06 * headH], [-0.26 * hw, ny - 0.02 * headH, nz - 0.03 * headH], [0.26 * hw, ny - 0.02 * headH, nz - 0.03 * headH],
       [-0.18 * hw, ny + 0.04 * headH, nz + 0.03 * headH], [0.18 * hw, ny + 0.04 * headH, nz + 0.03 * headH], [-0.14 * hw, ny - 0.05 * headH, nz + 0.01 * headH], [0.14 * hw, ny - 0.05 * headH, nz + 0.01 * headH],
       [0, ny - 0.07 * headH, nz - 0.02 * headH],
-    ] });
+    ], 0.018 * headH) });
   }
   const browY = eyeY + eyeR * (eyeStyle === 'big' ? 1.4 : 1.6);
   const browZ = Math.max(surfAt(Math.min(0.75, eyeY01 + 0.12), 0.38 * hw) + 0.006 * headH, mouthKind === 'muzzle' ? -Infinity : ridgeZ(0.38 * hw) + 0.004 * headH);
   const brows: V3[] = [];
   const bushy = browStyle === 'bushy';
+  const browSurf = (x: number) => (mouthKind === 'muzzle' ? surfAt(Math.min(0.75, eyeY01 + 0.12), x) : Math.max(surfAt(Math.min(0.75, eyeY01 + 0.12), x), ridgeZ(x)));
   for (const sx of [1, -1]) {
     const x0 = sx * 0.15 * hw, x1 = sx * (bushy ? 0.66 : 0.6) * hw;
     brows.push([(x0 + x1) / 2, browY, browZ]);
-    if (browStyle !== 'none') {
+    if (browStyle !== 'none' && !toy) {
+      // a shaped brow: a full head at the inner end, a gentle arch, a tail that thins and drops a little;
+      // slices along it, each a rounded section lying on the brow ridge
+      const t = bushy ? 2.3 : 1.35, f = bushy ? 1.9 : 1.2, K = 7;
+      const section = (q: number): V3[] => {
+        const x = x0 + (x1 - x0) * q;
+        const th = 0.034 * headH * t * (0.42 + 0.58 * (1 - q ** 1.6)) * (q < 0.08 ? 0.82 + 2.2 * q : 1);
+        const yc = browY + 0.012 * headH * t * (0.5 + 0.9 * Math.sin(Math.PI * Math.min(1, q * 1.15) ** 0.85)) - 0.012 * headH * q * q;
+        const zs = browZ + browSurf(Math.abs(x)) - browSurf(0.38 * hw);   // follows the brow ridge round the head
+        const zf = zs + 0.008 * headH * f * (1 - 0.6 * q), zb = zs - 0.016 * headH;
+        const bulge = 0.006 * headH * f * (1 - 0.5 * q);
+        return [
+          [x, yc - th * 0.5, zb], [x, yc - th * 0.5, zf - bulge * 0.3], [x, yc - th * 0.18, zf + bulge * 0.4], [x, yc + th * 0.15, zf + bulge * 0.5],
+          [x, yc + th * 0.45, zf], [x, yc + th * 0.5, zb],
+        ];
+      };
+      for (let i = 0; i < K; i++) pieces.push({ kind: 'hull', part: sx > 0 ? 'brow.L' : 'brow.R', pts: [...section(i / K), ...section((i + 1) / K)] });
+    } else if (browStyle !== 'none') {
       const t = bushy ? 2.3 : 1.35, f = bushy ? 1.9 : 1.2;
       pieces.push({ kind: 'hull', part: sx > 0 ? 'brow.L' : 'brow.R', pts: [
         [x0, browY - 0.008 * headH * t, browZ - 0.015 * headH], [x0, browY + 0.032 * headH * t, browZ - 0.015 * headH], [x0, browY - 0.008 * headH * t, browZ + 0.012 * headH * f], [x0, browY + 0.032 * headH * t, browZ + 0.008 * headH * f],
@@ -748,16 +824,31 @@ export function characterSpec(p: CharParams): CharSpec {
       }
     }
     else for (const [name, dy] of [['lipUpper', 1], ['lipLower', -1]] as const) {
-      const y = mouthY + dy * (slotH / 2 + 0.008 * headH * thin);
-      const z = mouthZ - 0.006 * headH;
-      const r = 0.012 * headH * thin;
-      pieces.push({ kind: 'hull', part: name, pts: [
-        [-mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r], [mouthW * 1.02, mouthY + dy * slotH * 0.12, z - r],
-        [-mouthW * 0.85, y, z + r * 0.7], [mouthW * 0.85, y, z + r * 0.7], [-mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3], [mouthW * 0.6, y + dy * r * 0.8, z + r * 0.3],
-        [0, y + dy * r * 0.5, z + r * 0.9], [-mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6], [mouthW * 0.95, y + dy * r * 0.9, z - r * 0.6],
-        // the inner edge has vertices along it, so the opening can curve (O, OO) instead of staying a straight slot
-        [-mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [mouthW * 0.55, mouthY + dy * slotH * 0.12, z - r * 0.35], [0, mouthY + dy * slotH * 0.12, z - r * 0.2],
-      ] });
+      // lips with volume: slices along the mouth, each a rounded section (the lip rolls out from the
+      // opening, swells and turns back into the skin); they thin toward the corners and tuck back into
+      // the face there, and the upper lip has a soft bow. Vertices all along the inner edge let the
+      // opening curve (O, OO) instead of staying a straight slot.
+      const lt = mouthKind === 'muzzle' ? 0.7 : 1, full = dy < 0 ? 1.12 : 0.92;
+      const yOut = mouthY + dy * (slotH / 2 + 0.009 * headH * lt * full), z = mouthZ - 0.006 * headH, r = 0.013 * headH * lt * full;
+      // the section: (how far out from the opening 0..1, how far forward −1..1 × r)
+      const prof: Array<[number, number]> = [[0, -1], [0.04, 0], [0.2, 0.6], [0.45, 0.95], [0.7, 0.85], [0.9, 0.45], [1, -0.2], [0.85, -1]];
+      const K = 12;
+      const section = (x: number): V3[] => {
+        const u = Math.min(1, Math.abs(x) / (mouthW * 1.03));
+        const f = Math.sqrt(Math.max(0.05, 1 - u ** 3)), tuck = 0.012 * headH * u ** 2.2;
+        const bow = dy > 0 && mouthKind === 'human' ? 0.0035 * headH * Math.exp(-(((u - 0.3) / 0.16) ** 2)) - 0.002 * headH * Math.exp(-((u / 0.09) ** 2)) : 0;
+        const y0 = mouthY + dy * slotH * 0.12, zc = z - r * 0.2, D = Math.abs(yOut - y0) + 0.9 * r;
+        return prof.map(([t, pz]) => {
+          // the outer half carries the bow
+          const yy = y0 + dy * (t * D + bow * smooth(0.5, 0.95, t));
+          const zz = z + pz * r;
+          return [x, y0 + (yy - y0) * f, zc + (zz - zc) * f - tuck] as V3;
+        });
+      };
+      for (let i = 0; i < K; i++) {
+        const xa = -mouthW * 1.03 + (2.06 * mouthW * i) / K, xb = -mouthW * 1.03 + (2.06 * mouthW * (i + 1)) / K;
+        pieces.push({ kind: 'hull', part: name, pts: [...section(xa), ...section(xb)] });
+      }
     }
   }
   const hc: V3 = [0, hb + 0.55 * headH, 0];
@@ -793,15 +884,23 @@ export function characterSpec(p: CharParams): CharSpec {
     eyes.push({ kind: 'ball', c, r: eyeR * 1.02, sides: pupilDeg > 30 ? 48 : 72, cap: Math.cos((pupilDeg * Math.PI) / 180), part: `${side}Eye.pupil` });
     // a catch-light: a small bright bead up and to the outer side of the pupil (eyes read as alive)
     // (face appeal round: big enough to read at cutscene distance, plus a small second one low on the other side)
+    // (both are thin caps on the eyeball's own sphere, so they never stand out of it: a closing lid
+    // slides over them instead of bumping over a bead)
     const gd = norm([(side === 'Left' ? 1 : -1) * 0.26, 0.3, 0.9]);
-    eyes.push({ kind: 'ball', c: add(c, mul(gd, eyeR * 0.97)), r: eyeR * (eyeStyle === 'dot' ? 0.27 : 0.24), sides: 16, part: `${side}Eye.glint` });
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.028, sides: 96, cap: Math.cos(((eyeStyle === 'dot' ? 15 : 13.5) * Math.PI) / 180), axis: gd, part: `${side}Eye.glint` });
     const gd2 = norm([(side === 'Left' ? -1 : 1) * 0.2, -0.24, 0.95]);
-    eyes.push({ kind: 'ball', c: add(c, mul(gd2, eyeR * 0.99)), r: eyeR * 0.1, sides: 10, part: `${side}Eye.glint` });
+    eyes.push({ kind: 'ball', c, r: eyeR * 1.028, sides: 96, cap: Math.cos((6 * Math.PI) / 180), axis: gd2, part: `${side}Eye.glint` });
   }
-  // eyelids: thin shells in the gap between eyeball and socket; at rest the edge sits just under the
-  // socket's upper rim (a calm, slightly hooded eye); a blink turns the shell down over the eyeball
-  const rimTop = (Math.atan2(Math.sqrt(1.13 ** 2 - 0.68 ** 2), 0.68) * 180) / Math.PI;
-  const lids = (['Left', 'Right'] as const).map((side) => ({ c: B[`${side}Eye`].head, rIn: eyeR * 1.05, rOut: eyeR * 1.105, edgeDeg: rimTop - 18, closeDeg: rimTop - 18 + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid` }));
+  // eyelids: thin shells in the gap between eyeball and socket, always outside the eyeball (and its iris,
+  // pupil and catch-lights, which stay within 1.03 r); at rest the upper edge sits just under the
+  // socket's upper rim (a calm, slightly hooded eye) and a blink turns that shell down over the eyeball.
+  // The lower lid is a second shell just outside the upper one, under the iris; the upper lid closes
+  // behind it, so the two never cut each other.
+  const rimTop = (Math.atan2(Math.sqrt(1.13 ** 2 - 0.68 ** 2), 0.68) * 180) / Math.PI;   // (the lid's resting edge keeps its old angle)
+  const lids = (['Left', 'Right'] as const).map((side) => ({
+    c: B[`${side}Eye`].head, rIn: eyeR * LID.upIn, rOut: eyeR * LID.upOut, edgeDeg: rimTop - 18, closeDeg: rimTop - 18 + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid`,
+    lower: { rIn: eyeR * LID.lowIn, rOut: eyeR * LID.lowOut, edgeDeg: eyeStyle === 'big' ? -46 : -40, part: `lidLow.${side[0]}` },
+  }));
   const palm = Object.fromEntries((['Left', 'Right'] as const).map((side) => [side, { c: [B[`${side}Hand`].head[0] + (side === 'Left' ? 1 : -1) * palmLen * 0.5, B[`${side}Hand`].head[1], 0] as V3, len: palmLen, width: palmW, thick: palmT }])) as CharSpec['palm'];
   // add-ons: a tail from the base of the back, wings from between the shoulder blades
   const addOnZ = -0.11 * s * T[3] * (0.9 + 0.3 * b);
@@ -821,6 +920,10 @@ export function characterSpec(p: CharParams): CharSpec {
     plan, ...(PD.walk ? { walk: PD.walk } : {}),
   };
 }
+
+/** Eyelid shell radii (× the eyeball radius): the eyeball and everything on it stays within 1.03; the
+ *  upper lid turns in [upIn, upOut], the lower lid sits in [lowIn, lowOut], the socket is cut at 1.13. */
+export const LID = { upIn: 1.052, upOut: 1.074, lowIn: 1.106, lowOut: 1.121, socket: 1.136, eyeMax: 1.03 } as const;
 
 // ── face shape keys (Decision 20 A) ─────────────────────────────────────
 export const VISEMES = ['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'ih', 'oh', 'ou'] as const;
@@ -850,11 +953,13 @@ export function visemeMix(kind: string | undefined, v: string): Partial<Record<s
 }
 
 /** Parts that belong to the face (deformed by shape keys, weighted to Head/Jaw). */
-export const isFacePart = (part: string) => /^(Head|mouthInner|eyeSocket|nose|brow\.|lip|lid\.|ear\.|hair|teeth|tongue)/.test(part);
-/** Teeth and tongue: rigid shells inside the mouth (only the jaw and the tongue's own shapes move them). */
-export const isMouthPart = (part: string) => part === 'teethUpper' || part === 'teethLower' || part === 'tongue';
+export const isFacePart = (part: string) => /^(Head|mouthInner|eyeSocket|nose|brow\.|lip|lid\.|lidLow\.|ear\.|hair|teeth|gum|tongue)/.test(part);
+/** Teeth, gums and tongue: rigid shells inside the mouth (only the jaw and the tongue's own shapes move them). */
+export const isMouthPart = (part: string) => part === 'teethUpper' || part === 'teethLower' || part === 'gumUpper' || part === 'gumLower' || part === 'tongue';
+/** Eyelids: rigid shells around the eyeball (moved only by turning about the eye centre). */
+export const isLidPart = (part: string) => part.startsWith('lid.') || part.startsWith('lidLow.');
 /** Parts carried by the jaw outright. */
-const onJaw = (part: string) => part === 'teethLower' || part === 'tongue';
+const onJaw = (part: string) => part === 'teethLower' || part === 'gumLower' || part === 'tongue';
 const boneOfPart = (part: string) => part.split('.')[0];
 
 export interface SparseDelta { idx: Uint32Array; d: Float32Array }
@@ -868,11 +973,28 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
   const lipPart = (v: number) => vertPart[v] === 'lipUpper' || vertPart[v] === 'lipLower' || vertPart[v] === 'mouthInner';
   // primitive fields: displacement for weight 1
   // the skin fields leave the teeth and tongue alone (rigid shells); only `inside` fields move them
+  // eyelids are rigid shells too: no skin field moves them (it would push them into the eyeball); only
+  // `lidTurn` below turns them, about the eye centre
   const prim = (fn: (p: V3, v: number) => V3 | null, inside = false) => {
     const d = new Float32Array(n * 3);
-    for (const v of face) { if (!inside && isMouthPart(vertPart[v])) continue; const r = fn(P(v), v); if (r) d.set(r, v * 3); }
+    for (const v of face) { if ((!inside && isMouthPart(vertPart[v])) || isLidPart(vertPart[v])) continue; const r = fn(P(v), v); if (r) d.set(r, v * 3); }
     return d;
   };
+  // a lid turned about its eye's centre (left-right axis), as a shape key: + closes the upper lid / lifts
+  // the lower one. A shape key blends linearly, so part-way the shell comes in by r·(1 − cos(θ/2)): the
+  // angles stay small enough that it still clears the eyeball (see LID)
+  const lidTurn = (side: 'Left' | 'Right', which: 'lid' | 'lidLow', deg: number) => {
+    const d = new Float32Array(n * 3);
+    const e = F.eyes.find((x) => x.side === side)!, part = `${which}.${side[0]}`;
+    const q = qAxisAngle([1, 0, 0], which === 'lid' ? deg : -deg);
+    for (const v of face) {
+      if (vertPart[v] !== part) continue;
+      const rel = subv(P(v), e.c);
+      d.set(subv(qRot(q, rel), rel), v * 3);
+    }
+    return d;
+  };
+  const addInto = (dst: Float32Array, src: Float32Array, k = 1) => { for (let i = 0; i < dst.length; i++) dst[i] += src[i] * k; return dst; };
   const m = F.mouth, mw = F.mouthW, H = F.headH;
   const frontness = (p: V3) => smooth(-0.15 * F.hd, 0.35 * F.hd, p[2]);
   const mouthBand = (p: V3, rx: number, ry: number) => {
@@ -885,7 +1007,9 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
     const below = smooth(m[1] + F.slotH * 0.25, m[1] - F.slotH * 0.6, p[1]);
     const lower = vertPart[v] === 'lipLower' ? 1 : vertPart[v] === 'lipUpper' ? 0 : below;
     const sideFade = 1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]));
-    const w = onJaw(vertPart[v]) ? 1 : vertPart[v] === 'teethUpper' ? 0 : lower * sideFade * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
+    // an open mouth is an oval: the lips' corners drop less than their middles
+    const corner = /^lip|^mouthInner/.test(vertPart[v]) ? 1 - 0.45 * smooth(0.3 * mw, 1.05 * mw, Math.abs(p[0] - m[0])) * Math.exp(-(((p[1] - m[1]) / (0.05 * H)) ** 2)) : 1;
+    const w = onJaw(vertPart[v]) ? 1 : vertPart[v] === 'teethUpper' || vertPart[v] === 'gumUpper' ? 0 : lower * sideFade * corner * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
     if (w <= 0) return null;
     const rel = subv(p, F.jawPivot);
     const r = qRot(qAxisAngle([1, 0, 0], jawDeg), rel);
@@ -1007,6 +1131,32 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
   out.mouthPucker = F.kind === 'beak' || F.kind === 'grille' ? mix({ jaw: 0.12, press: 0.4 }) : mix({ round: 1.15 });
   out.mouthClose = mix({ press: 1 });
   out.jawOpen = mix({ jaw: 1 });
+  // the lids follow the brows and cheeks (a squint narrows the eye from both lids; a lifted brow opens it)
+  for (const [side, sfx] of [['Left', 'Left'], ['Right', 'Right']] as const) {
+    if (!F.eyes.some((e) => e.side === side)) continue;
+    addInto(out[`browDown${sfx}`], lidTurn(side, 'lid', 6));
+    addInto(out[`cheekSquint${sfx}`], lidTurn(side, 'lid', 2));
+    addInto(out[`cheekSquint${sfx}`], lidTurn(side, 'lidLow', 11));
+    addInto(out[`browOuterUp${sfx}`], lidTurn(side, 'lid', -3));
+    addInto(out.browInnerUp, lidTurn(side, 'lid', -1.5));
+  }
+  // skin near an eye never moves toward the eye's centre: it slides over it (a brow pressing down rolls
+  // over the lid) instead of cutting into the lids or the eyeball. Each shape keeps only the part of its
+  // motion that is not inward, so any mix of shapes keeps the skin at least as far out as at rest
+  for (const e of F.eyes) {
+    for (const k of Object.keys(out)) {
+      const d = out[k];
+      for (const v of face) {
+        const part = vertPart[v];
+        if (isLidPart(part) || isMouthPart(part)) continue;
+        if (!d[v * 3] && !d[v * 3 + 1] && !d[v * 3 + 2]) continue;
+        const rel = subv(P(v), e.c), r0 = Math.hypot(...rel);
+        if (r0 > 2 * e.r) continue;
+        const dv: V3 = [d[v * 3], d[v * 3 + 1], d[v * 3 + 2]], u = mul(rel, 1 / (r0 || 1)), inward = dot(dv, u);
+        if (inward < 0) d.set(subv(dv, mul(u, inward)), v * 3);
+      }
+    }
+  }
   // sparse storage (only vertices that move)
   const sparse: Record<string, SparseDelta> = {};
   for (const k of SHAPE_KEYS) {
@@ -1109,7 +1259,7 @@ export function buildRig(spec: CharSpec, pos: Float32Array, vertPart: string[]):
     } else if (isFacePart(part) && part !== 'hair' && !part.startsWith('ear')) {
       // face: the jaw carries the lower face, the head the rest (shape keys do the fine work)
       const below = smooth(F.mouth[1] + F.slotH * 0.25, F.mouth[1] - F.slotH * 0.6, p[1]);
-      const lower = onJaw(part) || part === 'lipLower' ? 1 : part === 'lipUpper' || part === 'teethUpper' ? 0 : below * (1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]))) * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
+      const lower = onJaw(part) || part === 'lipLower' ? 1 : part === 'lipUpper' || part === 'teethUpper' || part === 'gumUpper' || part.startsWith('lidLow.') ? 0 : below * (1 - smooth(0.75 * F.hw, 1.05 * F.hw, Math.abs(p[0]))) * smooth(-0.6 * F.hd, -0.1 * F.hd, p[2]);
       // where the head meets the neck (under the chin, the nape) the neck takes over gradually
       const neck = smooth(F.headBase[1] + 0.14 * F.headH, F.headBase[1] - 0.02 * F.headH, p[1]) * 0.6;
       cand = [[byName.get('Head')!, (1 - lower) * (1 - neck)], [byName.get('Jaw')!, lower * (1 - neck)], [byName.get('Neck')!, neck]];

@@ -364,7 +364,10 @@ export async function exportGame(items: GameExportItem[], opts: GameExportOpts):
     // characters keep soft normals
     const paintedGroups = res.rig ? groups.filter((g) => g.material.paint).map((g) => ({ mat: g.material, tris: trisOf(res, g.parts) })) : [];
     const painted = paintedGroups.length ? paintGroups(obj, res, paintedGroups, (part) => materialForPart(obj, part)) : null;
-    const crease = res.rig?.rig.spec.params.style === 'smooth' ? 58 : undefined;
+    // (the default faceted style creases at 35°, as the studio's view shows it: its smoothed head and soft
+    // face forms shade smooth while the body keeps its planes; the toy style stays flat)
+    const style = res.rig?.rig.spec.params.style ?? 'faceted';
+    const crease = !res.rig ? undefined : style === 'smooth' ? 58 : style === 'toy' ? undefined : 35;
     let paintTex = -1;
     const materialFor = (g: MaterialGroup) => {
       let i = matIndex.get(g.key);

@@ -413,7 +413,7 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           const build = (pc: Piece): any => {
             if (pc.kind === 'ball') {
               const sph = keep(Manifold.sphere(pc.r, pc.sides));
-              return keep((pc.cap !== undefined ? keep(sph.trimByPlane([0, 0, 1], pc.cap * pc.r)) : sph).translate(pc.c));
+              return keep((pc.cap !== undefined ? keep(sph.trimByPlane(pc.axis ?? [0, 0, 1], pc.cap * pc.r)) : sph).translate(pc.c));
             }
             if (pc.kind === 'hull') return keep(Manifold.hull(pc.pts));
             const d: RV3 = [pc.b[0] - pc.a[0], pc.b[1] - pc.a[1], pc.b[2] - pc.a[2]];
@@ -427,7 +427,12 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
           };
           // the head hull, plus any extra hulls joined to it (a muzzle: the join makes the dog's stop)
           const headShape = spec.head.extra?.length ? keep(Manifold.union([keep(Manifold.hull(spec.head.pts)), ...spec.head.extra.map((pts) => keep(Manifold.hull(pts)))])) : keep(Manifold.hull(spec.head.pts));
-          const head = mk(keep(headShape.refineToLength(spec.head.refine)), spec.head.part);
+          // the head is smoothed (face appeal): the hull's corners stay where they are and the surface
+          // between them curves (Manifold's smoothOut + refine), so no flat cheek planes; the toy style
+          // keeps its facets
+          const smoothHead = spec.params.style !== 'toy';
+          // (a smooth surface carries the face shapes on slightly longer edges: the same budget as before)
+          const head = mk(keep((smoothHead ? keep(headShape.smoothOut(70, 0.15)) : headShape).refineToLength(spec.head.refine * (smoothHead ? 1.22 : 1))), spec.head.part);
           const cutters = spec.cuts.map((c) => mk(c.kind === 'box' ? keep(Manifold.cube(c.size, true)).translate(c.c) : c.kind === 'hull' ? keep(Manifold.hull(c.pts)) : keep(Manifold.sphere(c.r, c.sides)).translate(c.c), c.part));
           const face = keep(Manifold.difference([head, ...cutters]));
           // limbs and torso get edge loops along their length (still flat facets) so joints can bend
@@ -437,16 +442,31 @@ export function evaluateObject(obj: SceneObject, root: string | null = obj.outpu
             // need to cut along the length (a coarser target keeps the triangle count down)
             return long ? keep(m.refineToLength((pc.kind === 'hull' && pc.part !== 'torso' ? 0.07 : pc.part === 'torso' ? 0.052 : 0.045) * spec.s)) : m;
           };
-          const body = spec.pieces.map((pc) => mk(loops(pc, build(pc)), pc.part));
+          // hair hulls are rounded like the head (their front edge stays crisp)
+          const soften = (pc: Piece, m: any) => (smoothHead && pc.part === 'hair' && pc.kind === 'hull' ? keep(keep(m.smoothOut(60, 0.2)).refineToLength(spec.head.refine * 2.2)) : m);
+          const body = spec.pieces.map((pc) => mk(loops(pc, soften(pc, build(pc))), pc.part));
           const eyes = spec.eyes.map((pc) => mk(build(pc), pc.part));
           // eyeballs: white first, then iris and pupil on top (later wins where they overlap)
           // eyelids: a shell between eyeball and socket, kept above a plane through the eye centre
-          const lids = spec.lids.map((l) => {
-            const shell = keep(Manifold.difference(keep(Manifold.sphere(l.rOut, 24)), keep(Manifold.sphere(l.rIn, 24))));
+          // the lower lid: a shell just outside the upper one, kept below a plane through the eye centre
+          const lids = spec.lids.flatMap((l) => {
+            const shell = keep(Manifold.difference(keep(Manifold.sphere(l.rOut, 28)), keep(Manifold.sphere(l.rIn, 28))));
             const e = (l.edgeDeg * Math.PI) / 180;
             const n: RV3 = [0, Math.cos(e), -Math.sin(e)];
-            const cap = keep(shell.trimByPlane(n, 0));
-            return mk(keep(cap.translate(l.c)), l.part);
+            // from its edge up over the eye and a little past the top (enough to still cover the eye when
+            // turned shut); the rest would sit unseen in the head
+            const back = (185 * Math.PI) / 180;
+            const cap = keep(keep(shell.trimByPlane(n, 0)).trimByPlane([0, -Math.cos(back), Math.sin(back)], 0));
+            const out = [mk(keep(cap.translate(l.c)), l.part)];
+            if (l.lower) {
+              const lo = l.lower, el = (lo.edgeDeg * Math.PI) / 180;
+              const sh = keep(Manifold.difference(keep(Manifold.sphere(lo.rOut, 28)), keep(Manifold.sphere(lo.rIn, 28))));
+              // a band from its edge down past the socket's lower rim
+              const low = (-110 * Math.PI) / 180;
+              const below = keep(keep(sh.trimByPlane([0, -Math.cos(el), Math.sin(el)], 0)).trimByPlane([0, Math.cos(low), -Math.sin(low)], 0));
+              out.push(mk(keep(below.translate(l.c)), lo.part));
+            }
+            return out;
           });
           const eyeL = keep(Manifold.union(eyes.filter((_, i) => spec.eyes[i].part.startsWith('Left'))));
           const eyeR = keep(Manifold.union(eyes.filter((_, i) => spec.eyes[i].part.startsWith('Right'))));

@@ -82,12 +82,13 @@ export function toGLB(items: Item[], opts: ExportOpts = {}): Uint8Array {
     // painted characters: one small texture (eyes, lashes, smile lines, blush, markings) on the parts that ask for it
     const painted = rigged ? paintGroups(obj, res, [...groups.values()], (part) => materialForPart(obj, part)) : null;
     let texture = -1;
-    // smooth-style characters export with smooth normals (faceted ones keep their flat facets)
-    const smoothNormals = rigged && posedRes.rig!.rig.spec.params.style === 'smooth';
+    // characters export with the normals the view shows: smooth style creased at 58°, the default faceted
+    // style at 35° (a smoothed head and soft face forms, a body that keeps its planes), toy flat
+    const charStyle = rigged ? posedRes.rig!.rig.spec.params.style ?? 'faceted' : 'toy';
     for (const [key, g] of groups) {
       if (!g.tris.length) continue;
       const { pos, nor: flatNor } = flatten(res, g.tris);
-      const nor = smoothNormals ? creasedNormals(res, g.tris, 58) : flatNor;
+      const nor = charStyle === 'smooth' ? creasedNormals(res, g.tris, 58) : charStyle === 'faceted' ? creasedNormals(res, g.tris, 35) : flatNor;
       const matKey = g.mat.paint && painted ? `${obj.id}|${key}` : key;   // a painted material carries this character's own texture
       if (!matIndex.has(matKey)) {
         const m = gltfMaterial(g.mat, B.used);
