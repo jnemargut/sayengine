@@ -586,9 +586,9 @@ export function characterSpec(p: CharParams): CharSpec {
   // the skin wraps round the outer side of each (large, forward) eye: points on a ring round the eye a
   // little in front of its equator, so the eyeball sits in the face instead of bulging out of the side of
   // the head; the socket cut opens it again (only points outside the head's own surface matter)
-  for (const sx of [1, -1]) for (const deg of [-80, -45, -10, 25, 60]) {
-    const a = (deg * Math.PI) / 180, rho = 1.3 * eyeR;
-    headPts.push([sx * (eyeX + rho * Math.cos(a)), eyeY + rho * Math.sin(a), eyeZ + (0.18 - 0.1 * Math.abs(Math.sin(a))) * eyeR]);
+  for (const sx of [1, -1]) for (const deg of [-35, 5, 45]) {
+    const a = (deg * Math.PI) / 180, rho = 1.27 * eyeR;
+    headPts.push([sx * (eyeX + rho * Math.cos(a)), eyeY + rho * Math.sin(a), eyeZ + (0.14 - 0.08 * Math.abs(Math.sin(a))) * eyeR]);
   }
   // designed planes (craft pass): a brow ridge over the eyes, cheekbones, and a jaw that follows the
   // shape language (square corners, a pointed chin) — none of them on the mouth's centre line, so the
