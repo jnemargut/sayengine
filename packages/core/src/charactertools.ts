@@ -164,7 +164,7 @@ const describeHand = (h: HandPose) => h.name ?? `curl ${['index', 'middle', 'rin
 export const CHARACTER_TOOLS: ToolDef[] = [
   {
     name: 'import-character', mode: 'create', mutates: true,
-    description: 'Bring in an outside character (Decision 50 A: the side door; studio-made characters are the main road). A rigged .glb / .gltf / .vrm (VRoid, Mixamo, Blender, asset stores): its bones are matched to the standard humanoid names, the studio motions (idle, walk, run, start, stop, turn, wave) are retargeted onto it (rest-pose fix + hip-height scale), its face is driven by what it brings (its own 15 visemes → ARKit shapes → VRM vowels with made-up consonants → jaw → eyes only), and its VRM licence is read. Returns a report of what carried over and what did not. The retargeted model is saved as an asset (shown in the scene as a reference you can place). A model with no skeleton stays a prop.',
+    description: 'Bring in an outside character (Decision 50 A: the side door; studio-made characters are the main road). A rigged quadruped with Rigify-style bone names and its own clips (the Blender creature builder: studio new-creature --builder blender) keeps its clips, gets the clip motion checks and ships with game exports. A rigged humanoid .glb / .gltf / .vrm (VRoid, Mixamo, Blender, asset stores): its bones are matched to the standard humanoid names, the studio motions (idle, walk, run, start, stop, turn, wave) are retargeted onto it (rest-pose fix + hip-height scale), its face is driven by what it brings (its own 15 visemes → ARKit shapes → VRM vowels with made-up consonants → jaw → eyes only), and its VRM licence is read. Returns a report of what carried over and what did not. The retargeted model is saved as an asset (shown in the scene as a reference you can place). A model with no skeleton stays a prop.',
     input: z.object({ file: z.string(), name: z.string().optional(), motions: z.array(z.string()).optional(), at: z.tuple([z.number(), z.number(), z.number()]).optional() }),
     example: `studio import-character --file models/knight.vrm`,
     run(ctx, a) {
@@ -177,11 +177,12 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       const obj: SceneObject = {
         id, name: a.name ?? report.name, semanticType: 'reference', params: {}, ops: { mesh: { id: 'mesh', op: 'mesh', args: { asset, format: 'glb', units: 'm', up: 'y' }, part: 'reference' } }, opOrder: ['mesh'], output: 'mesh',
         material: { name: 'reference', color: '#9a8fb0' }, position: a.at ?? freeSpot(ctx as any), rules: [], role: 'reference',
-        reference: { kind: 'mesh', asset, file: fileName, format: 'glb' }, imported: { asset, report } as any,
+        reference: { kind: 'mesh', asset, file: fileName, format: 'glb' }, imported: { asset, report, ...(report.kind === 'quadruped' ? { ship: true } : {}) } as any,
       } as any;
       ctx.set(['objects', id], obj);
       ctx.set(['objectOrder'], [...ctx.doc.objectOrder, id]);
-      ctx.summary(report.rigged ? `Imported ${fileName} as an outside character: ${report.bones.matched}/${report.bones.of} bones matched, ${report.motions.length} motions retargeted, face: ${report.face.mode}${report.warnings.length ? ` — ${report.warnings.length} warning(s)` : ''}` : `Imported ${fileName}: no skeleton, so it stays a prop`);
+      if (report.kind === 'quadruped') ctx.summary(`Imported ${fileName} as a rigged creature: ${report.bones.matched} bones, its own clips (${report.motions.join(', ')}), ${report.triangles} triangles${report.warnings.length ? ` — ${report.warnings.length} warning(s)` : ''}; it ships with game exports`);
+      else ctx.summary(report.rigged ? `Imported ${fileName} as an outside character: ${report.bones.matched}/${report.bones.of} bones matched, ${report.motions.length} motions retargeted, face: ${report.face.mode}${report.warnings.length ? ` — ${report.warnings.length} warning(s)` : ''}` : `Imported ${fileName}: no skeleton, so it stays a prop`);
       return { id, asset, report };
     },
   },

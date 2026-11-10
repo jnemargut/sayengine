@@ -144,6 +144,18 @@ export class Studio {
     const o = doc.objects[id];
     if (!o) throw new Error(`no object "${id}"`);
     const r = this.evaluate(o);
+    const imp = (o as any).imported;
+    if (o.role === 'reference' && imp?.ship && imp.report) {
+      // a rigged creature from outside (the Blender builder): its clips' motion checks and its budget
+      const rep = imp.report;
+      const rows: CheckResult[] = [{ id: 'rigged-creature', label: 'Rigged creature (ships with game exports)', pass: true, detail: `${rep.bones?.matched ?? 0} bones, clips: ${(rep.motions ?? []).join(', ')}` }];
+      if (rep.triangles !== undefined) rows.push({ id: 'triangles', label: 'Triangles (web: about 25k)', pass: rep.triangles <= 30000, detail: `${rep.triangles} triangles` });
+      for (const [clip, ks] of Object.entries<any[]>(rep.motionChecks ?? {})) {
+        const bad = ks.filter((k) => !k.pass);
+        rows.push({ id: `motion-${clip}`, label: `Motion ${clip}`, pass: !bad.length, detail: bad.length ? bad.map((k) => `${k.name}: ${k.detail}`).join('; ') : `${ks.length} checks pass` });
+      }
+      return rows;
+    }
     if (o.role === 'reference') {
       return [{ id: 'reference', label: 'Reference (not exported)', pass: true, detail: o.reference?.kind === 'image' ? `${o.reference.plane} image, ${o.reference.width} m wide` : r.manifold === false ? 'mesh is not watertight: shown and measurable, not usable in booleans' : 'watertight mesh: usable in booleans via a mesh op' }];
     }

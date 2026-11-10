@@ -262,9 +262,21 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
         try { items = selectForExport(studio, doc, { object: args.object, exclude: args.exclude, atOrigin: !!args.atOrigin }); }
         catch (e: any) { return { ok: false, tool: name, error: e.message }; }
         const ids = items.map((i) => i.obj.id);
+        // rigged creatures from outside (the Blender builder) ship as their own GLBs, clips and all
+        const shipped = items.filter((i) => (i.obj as any).imported?.ship && (i.obj as any).imported?.asset);
+        if (args.object && shipped.length === 1 && items.length === 1) {
+          const o: any = shipped[0].obj;
+          const bytesC = studio.assets.get(o.imported.asset);
+          const v = await validateGlb(bytesC);
+          if (!v.ok) return { ok: false, tool: name, error: `glTF validator: ${v.errors} error(s) — not written`, result: { validation: v } };
+          const outC = args.out ? path.resolve(dir, args.out) : path.join(stateDir, 'exports', `${o.id}${args.target ? `.${args.target}` : ''}.glb`);
+          fs.mkdirSync(path.dirname(outC), { recursive: true });
+          fs.writeFileSync(outC, bytesC);
+          return { ok: true, tool: name, result: { file: outC, bytes: bytesC.length, objects: 1, creature: { id: o.id, clips: o.imported.report?.motions ?? [] }, validation: { errors: v.errors, warnings: v.warnings } } };
+        }
         const bad = items.filter((i) => !i.res.ok).map((i) => i.obj.name);
         const opts = { includeReferences: !!args.includeReferences };
-        const refs = items.filter((i) => i.obj.role === 'reference' && !opts.includeReferences).map((i) => i.obj.name);
+        const refs = items.filter((i) => i.obj.role === 'reference' && !opts.includeReferences && !(i.obj as any).imported?.ship).map((i) => i.obj.name);
         const target: 'godot' | 'web' | undefined = args.target;
         if (target && !['godot', 'web'].includes(target)) return { ok: false, tool: name, error: '--target must be godot or web' };
         const fmt = target ? 'glb' : (args.format ?? 'glb').toLowerCase();
@@ -275,7 +287,22 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
         let extra: Record<string, unknown> = {};
         if (target) {
           const models = items.filter((i) => i.obj.role !== 'reference' && i.res.ok);
-          if (!models.length && !towns) return { ok: false, tool: name, error: 'nothing to export: no finished, non-reference objects' };
+          if (!models.length && !towns && !shipped.length) return { ok: false, tool: name, error: 'nothing to export: no finished, non-reference objects' };
+          if (!models.length && !towns) {
+            // only rigged creatures: each ships as its own validated GLB
+            const files = [];
+            for (const it of shipped) {
+              const o: any = it.obj;
+              const cb = studio.assets.get(o.imported.asset);
+              const cv = await validateGlb(cb);
+              if (!cv.ok) return { ok: false, tool: name, error: `glTF validator: ${o.name}: ${cv.errors} error(s)` };
+              const cf = out.replace(/\.glb$/i, '') + `.${o.id}.glb`;
+              fs.mkdirSync(path.dirname(cf), { recursive: true });
+              fs.writeFileSync(cf, cb);
+              files.push({ id: o.id, file: cf, clips: o.imported.report?.motions ?? [], validation: { errors: cv.errors, warnings: cv.warnings } });
+            }
+            return { ok: true, tool: name, result: { target, creatures: files } };
+          }
           // game checks must be green (pending = still building) unless --force
           const blocking = models.flatMap((i) => studio.checks(i.obj.id, doc).filter((c) => !c.pass && /^(budget-|collision|lod)/.test(c.id)).map((c) => `${i.obj.name}: ${c.label} — ${c.detail}`));
           if (blocking.length && !args.force) return { ok: false, tool: name, error: `game checks not green:\n${blocking.join('\n')}`, hint: 'fix them (studio check), or --force true to export anyway' };
@@ -299,6 +326,18 @@ export async function startDaemon({ dir, port, studio: given }: DaemonOptions) {
           if (!validation.ok) return { ok: false, tool: name, error: `glTF validator: ${validation.errors} error(s) — not written`, result: { validation } };
         }
         fs.writeFileSync(out, bytes);
+        // shipped creatures go beside the scene file: <scene>.<id>.glb
+        const creatures: Array<{ id: string; file: string; clips: string[] }> = [];
+        if (target) for (const it of shipped) {
+          const o: any = it.obj;
+          const cb = studio.assets.get(o.imported.asset);
+          const cv = await validateGlb(cb);
+          if (!cv.ok) return { ok: false, tool: name, error: `glTF validator: ${o.name}: ${cv.errors} error(s)` };
+          const cf = out.replace(/\.glb$/i, '') + `.${o.id}.glb`;
+          fs.writeFileSync(cf, cb);
+          creatures.push({ id: o.id, file: cf, clips: o.imported.report?.motions ?? [] });
+        }
+        if (creatures.length) extra = { ...extra, creatures };
         // after-export hooks (the engine round-trip plugs in here); a failing hook fails the export
         const hooks = [];
         for (const h of afterExport) {

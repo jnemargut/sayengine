@@ -149,7 +149,7 @@ function bakeAndCheck(def: CreatureDef, id: string, m: CreatureMotion) {
 export const PART_TOOLS: ToolDef[] = [
   {
     name: 'new-creature', mode: 'create', mutates: true,
-    description: `Make anything that moves from rig parts (Decision 52 A): legs ×N, chains (tails, tentacles, snakes), wheels with suspension, hinges and sliders with limits, springs, swaying grass. Each part brings its own procedural motion and checks. --preset ${Object.keys(CREATURE_PRESETS).join('|')} starts from a ready combo, or --parts '[…]' builds your own. --motions '{"walk":{"kind":"walk","speed":0.4}}' (kinds: walk, idle, drive, slither, still, fly, glide, hover, swim; dir [x,y,z] to walk sideways). Then studio creature-preview --video true to watch it, and motion-checks for the timeline.\n${PART_HELP}`,
+    description: `Make anything that moves from rig parts (Decision 52 A): legs ×N, chains (tails, tentacles, snakes), wheels with suspension, hinges and sliders with limits, springs, swaying grass. Each part brings its own procedural motion and checks. --preset ${Object.keys(CREATURE_PRESETS).join('|')} starts from a ready combo, or --parts '[…]' builds your own. --motions '{"walk":{"kind":"walk","speed":0.4}}' (kinds: walk, idle, drive, slither, still, fly, glide, hover, swim; dir [x,y,z] to walk sideways). Then studio creature-preview --video true to watch it, and motion-checks for the timeline. For an organic animal with real topology, a Rigify rig, a baked coat and keyed clips, use the Blender builder instead: studio new-creature --builder blender --plan cat --preset british-shorthair --build fat (studio new-creature --builder blender --help).\n${PART_HELP}`,
     input: z.object({
       name: z.string().optional(), id: z.string().optional(), preset: z.enum(Object.keys(CREATURE_PRESETS) as [string, ...string[]]).optional(),
       parts: z.array(z.record(z.string(), z.any())).optional().describe('part specs (see the description)'),
@@ -349,6 +349,9 @@ export const PART_TOOLS: ToolDef[] = [
         const r = ctx.studio.evaluate(o);
         if (!r.rig) throw new Error(`${o.name} does not build`);
         for (const [mid, spec] of Object.entries(o.character.motions)) if (!a.motion || a.motion === mid) result[mid] = characterMotionChecks(r.rig.rig, bakeMotion(mid, spec, r.rig.rig, o.character));
+      } else if ((o as any).imported?.report?.motionChecks) {
+        // a rigged creature from outside: the checks were run on its own clips when it came in
+        for (const [mid, ks] of Object.entries<any[]>((o as any).imported.report.motionChecks)) if (!a.motion || a.motion === mid) result[mid] = ks as MotionCheck[];
       } else throw new Error(`${o.name} has no motions`);
       const failing = Object.entries(result).flatMap(([mid, ks]) => ks.filter((k) => !k.pass).map((k) => `${mid}: ${k.name} (frames ${k.frames.map(([s, e]) => (s === e ? `${s}` : `${s}–${e}`)).join(', ')})`));
       ctx.summary(failing.length ? `${failing.length} failing: ${failing.slice(0, 4).join('; ')}` : `${Object.keys(result).length} motion(s), every check passes`);

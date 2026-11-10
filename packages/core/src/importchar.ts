@@ -6,6 +6,7 @@
 import { VISEMES, VISEME_MIX, characterSpec, charParams, buildRig, forward, qMul, qRot, type Q, type V3, type Rig } from './rig.ts';
 import { bakeMotion, qInv, qArc, type MotionClip } from './motion.ts';
 import type { MotionSpec } from './types.ts';
+import { glbMotionChecks } from './blender/glbmotion.ts';
 
 // ── GLB in and out ───────────────────────────────────────────────────────
 export interface Gltf { json: any; bin: Uint8Array }
@@ -323,11 +324,45 @@ export function retarget(g: Gltf, bones: BoneMap, src: Rig, clips: MotionClip[])
 }
 function depth(R: RestNode[], i: number) { let d = 0; for (let p = R[i].parent; p >= 0; p = R[p].parent) d++; return d; }
 
+// ── quadrupeds (the side door for animals with their own clips) ──────────
+/** Rigify-style animal bone names: spine chain, four leg chains, tail. */
+export function quadrupedMap(json: any, joints: number[]): { legs: number; paws: number; spine: number; tail: number; names: string[] } {
+  const names = joints.map((j) => String(json.nodes?.[j]?.name ?? '').replace(/^DEF[-_]/, ''));
+  const has = (re: RegExp) => names.filter((n) => re.test(n)).length;
+  const legs = ['upper_arm.L', 'upper_arm.R', 'thigh.L', 'thigh.R'].filter((n) => names.includes(n)).length;
+  // front and hind paws (Rigify's animal metarigs: f_toe, r_toe) or a tail tell an animal from a Rigify human
+  return { legs, paws: has(/^[fr]_toe\.[LR]$/), spine: has(/^spine(\.\d+)?$/), tail: has(/^tail(\.\d+)?$/), names };
+}
+
+function importQuadruped(g: Gltf, name: string, height: number, quad: ReturnType<typeof quadrupedMap>, licence: Licence | null, warnings: string[]): { glb: Uint8Array; report: ImportReport } {
+  const json = g.json;
+  const clips: string[] = (json.animations ?? []).map((a: any) => a.name).filter(Boolean);
+  const motionChecks = glbMotionChecks(g);
+  const failing = Object.entries(motionChecks).flatMap(([c, ks]) => ks.filter((k) => !k.pass).map((k) => `${c}: ${k.name}`));
+  let tris = 0;
+  for (const m of json.meshes ?? []) for (const p of m.primitives ?? []) {
+    const idx = p.indices !== undefined ? json.accessors[p.indices].count : json.accessors[p.attributes.POSITION].count;
+    tris += Math.floor(idx / 3);
+  }
+  const carried = [`its own clips: ${clips.join(', ') || 'none'}`, `skeleton: ${quad.names.length} bones (quadruped: spine ×${quad.spine}, 4 legs, tail ×${quad.tail})`, `${tris} triangles`];
+  const notCarried = ['studio humanoid motions (it is not a humanoid; it keeps its own clips)', 'lip sync (no speech shapes)'];
+  if (failing.length) warnings.push(`motion checks failing: ${failing.join('; ')}`);
+  json.extras = { ...(json.extras ?? {}), studioImport: { kind: 'quadruped', clips } };
+  const report: ImportReport = {
+    rigged: true, kind: 'quadruped', name, height, bones: { source: 'names', matched: quad.names.length, of: quad.names.length, missing: [], unmatched: [] },
+    motions: clips, face: { mode: 'eyes', note: 'eyes and lids on bones; no speech shapes', speech: 0 }, licence, carried, notCarried, warnings,
+    triangles: tris,
+    motionChecks: Object.fromEntries(Object.entries(motionChecks).map(([c, ks]) => [c, ks.map((k) => ({ name: k.name, pass: k.pass, detail: k.detail, frames: k.frames }))])),
+  };
+  return { glb: writeGlb(g), report };
+}
+
 // ── the whole import ─────────────────────────────────────────────────────
 export interface ImportReport {
-  rigged: boolean; name: string; height: number; bones: { source: string; matched: number; of: number; missing: string[]; unmatched: string[] };
+  rigged: boolean; kind?: 'humanoid' | 'quadruped'; name: string; height: number; bones: { source: string; matched: number; of: number; missing: string[]; unmatched: string[] };
   motions: string[]; hipScale?: number; restFixes?: Array<{ bone: string; degrees: number }>; face: { mode: string; note: string; speech: number }; licence: Licence | null;
   carried: string[]; notCarried: string[]; warnings: string[];
+  triangles?: number; motionChecks?: Record<string, Array<{ name: string; pass: boolean; detail: string; frames: Array<[number, number]> }>>;
 }
 const ESSENTIAL = ['Hips', 'Spine', 'Head', 'LeftUpperArm', 'LeftLowerArm', 'LeftHand', 'RightUpperArm', 'RightLowerArm', 'RightHand', 'LeftUpperLeg', 'LeftLowerLeg', 'LeftFoot', 'RightUpperLeg', 'RightLowerLeg', 'RightFoot'];
 export const IMPORT_MOTIONS: Record<string, MotionSpec> = { idle: { kind: 'idle' }, walk: { kind: 'walk' }, run: { kind: 'run' }, start: { kind: 'start' }, stop: { kind: 'stop' }, 'turn-left': { kind: 'turn', turn: 90 }, wave: { kind: 'action', action: 'wave' } };
@@ -349,6 +384,10 @@ export function importCharacter(bytes: Uint8Array, opts: { name?: string; motion
     return { glb: bytes, report: { rigged: false, name, height, bones: { source: 'none', matched: 0, of: 0, missing: ESSENTIAL, unmatched: [] }, motions: [], face: { mode: 'none', note: 'no skeleton', speech: 0 }, licence, carried: ['the shape (as a prop)'], notCarried: ['motion', 'face', 'hands'], warnings: [...warnings, 'no skeleton: it comes in as a prop — rig it (Blender Rigify, Mixamo) and import again to make it move'] } };
   }
   const joints: number[] = skins[0].joints ?? [];
+  // a quadruped with its own clips (the Blender creature builder, or any Rigify-named animal rig):
+  // keep its clips, check them, and mark it to ship with game exports
+  const quad = quadrupedMap(json, joints);
+  if (quad.legs >= 4 && (quad.paws >= 2 || quad.tail >= 1)) return importQuadruped(g, name, height, quad, licence, warnings);
   const bones = humanoidMap(json, joints);
   const missing = ESSENTIAL.filter((b) => !bones.map.has(b));
   const carried: string[] = [], notCarried: string[] = [];
