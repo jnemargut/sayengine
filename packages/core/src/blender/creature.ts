@@ -12,6 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import type { KitFaceOptions } from './kitface.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const PY_DIR = path.join(HERE, 'py');
@@ -62,6 +63,13 @@ export const CREATURE_PLANS = {
   },
 } as const;
 export type CreaturePlan = keyof typeof CREATURE_PLANS;
+
+/** A person's face: the studio's kit face (kitface.ts), built with these options and joined to the
+ *  Blender body. Dad: about 40, receding greying hair, warm brown eyes, a few laugh lines. */
+export const PERSON_FACES: Record<string, KitFaceOptions> = {
+  dad: { height: 1.78, hair: 'receding', mood: 'warm', skin: '#e2b394', hairColor: '#6b5a4c', browColor: '#5a4a3e', iris: '#5b3a22', lips: '#b5705f',
+    paint: { lashes: '#2a1d16', smile: 0.45, blush: '#d98a7a', blushAmt: 0.22, wrinkles: 0.15 } },
+};
 
 export const COAT_COLORS: Record<string, string> = {
   blue: '#787d86', grey: '#7e7f82', gray: '#7e7f82', black: '#2a2a2e', white: '#e9e6df', cream: '#d9c4a3', red: '#c9792f', ginger: '#c9792f',
@@ -116,7 +124,9 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
   if (cc) coat.color = cc;
   if (o.pattern) coat.pattern = o.pattern;
   if (o.plan === 'person') {
-    return { plan: 'person', preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), belly: build, texture: o.texture, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out: path.resolve(o.out) };
+    const out = path.resolve(o.out);
+    return { plan: 'person', preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), belly: build, texture: o.texture, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out,
+      kitFace: path.join(out, 'kitface.json'), kitFacePng: path.join(out, 'kitface.png') };
   }
   return {
     plan: o.plan, preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), build, legLength: o.legLength, bodyLength: o.bodyLength,
@@ -145,6 +155,12 @@ export async function buildCreature(input: CreatureOptionsIn, opts: { blender?: 
   if (!bin) throw new BlenderMissing();
   const out = String(spec.out);
   fs.mkdirSync(out, { recursive: true });
+  if (spec.plan === 'person') {
+    const { kitFace } = await import('./kitface.ts');
+    const { face, png } = await kitFace(PERSON_FACES[String(spec.preset)] ?? {});
+    fs.writeFileSync(String(spec.kitFace), JSON.stringify(face));
+    fs.writeFileSync(String(spec.kitFacePng), png);
+  }
   const specFile = path.join(out, 'spec.json');
   fs.writeFileSync(specFile, JSON.stringify(spec, null, 2));
   const t0 = Date.now();

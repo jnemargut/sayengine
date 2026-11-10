@@ -11,6 +11,14 @@ EXPRESSIONS = {
     'busted': ('look_around', 2.0, {'jawOpen': 0.9, 'viseme_aa': 0.3, 'browInnerUp': 0.9, 'browOuterUpLeft': 1.0, 'browOuterUpRight': 1.0}),
     'puzzled': ('idle', 1.4, {'browOuterUpLeft': 0.9, 'browDownRight': 0.6, 'mouthFrownLeft': 0.45, 'mouthSmileRight': 0.2, 'noseSneerRight': 0.2}),
 }
+# the face at rest from the front and three-quarter, the open mouth from three-quarter, speech shapes, a blink
+# (name: clip, time, shape values, camera yaw in degrees round the head; front shots are 9 deg off-axis)
+FACE_SHOTS = {
+    'neutral': (None, 0, {}, 9), 'neutral-3q': (None, 0, {}, 40), 'busted-3q': ('look_around', 2.0, EXPRESSIONS['busted'][2], 38),
+    'viseme-AA': (None, 0, {'viseme_aa': 1.0}, 9), 'viseme-O': (None, 0, {'viseme_oh': 1.0}, 9), 'viseme-E': (None, 0, {'viseme_E': 1.0}, 9),
+    'viseme-M': (None, 0, {'viseme_PP': 1.0}, 9), 'blink-half': (None, 0, {'eyeBlinkLeft': 0.5, 'eyeBlinkRight': 0.5}, 9),
+    'blink': (None, 0, {'eyeBlinkLeft': 1.0, 'eyeBlinkRight': 1.0}, 9),
+}
 BODY = {
     'front': (None, 0, (0, -3.6, 1.0), (0, 0, 0.92), 50),
     'three-quarter': (None, 0, (2.3, -2.8, 1.25), (0, 0, 0.92), 50),
@@ -52,19 +60,23 @@ def shoot(spec, P, arm, face, acts, out):
         render.aim(cam, pos, tgt, lens)
         sc.render.filepath = os.path.join(d, f'{n}.png'); bpy.ops.render.render(write_still=True); done.append(sc.render.filepath)
     sc.render.resolution_x = 640; sc.render.resolution_y = 640
-    for n, (clip, t, vals) in EXPRESSIONS.items():
+    import math
+    import mathutils
+    shots = {n: (*v, 9) for n, v in EXPRESSIONS.items()}
+    shots.update(FACE_SHOTS)
+    for n, (clip, t, vals, yaw) in shots.items():
         if want is not True and n not in want and 'faces' not in want:
             continue
         pose(clip, t)
         for k in keys[1:]:
             k.value = vals.get(k.name, 0.0)
         bpy.context.view_layer.update()
-        # aim at the posed head (the head bone's local Z points forward)
-        import mathutils
+        # aim at the posed head, between the eyes and the mouth (the head bone's local Z points forward)
         hm = arm.matrix_world @ arm.pose.bones['Head'].matrix
-        c = hm.translation + hm.to_3x3().col[1].normalized() * 0.075
+        c = hm.translation + hm.to_3x3().col[1].normalized() * 0.11
         fwd = hm.to_3x3().col[2].normalized()
-        render.aim(cam, c + fwd * 0.95 + mathutils.Vector((0.16, 0, 0.05)), c + fwd * 0.04, 85)
+        view = mathutils.Matrix.Rotation(math.radians(yaw), 3, hm.to_3x3().col[1].normalized()) @ fwd
+        render.aim(cam, c + view * 0.95 + mathutils.Vector((0, 0, 0.05)), c + fwd * 0.02, 85)
         sc.render.filepath = os.path.join(d, f'face-{n}.png'); bpy.ops.render.render(write_still=True); done.append(sc.render.filepath)
     for k in keys[1:]:
         k.value = 0.0

@@ -162,6 +162,7 @@ export interface CharParams {
   legs?: 'bird';       // bird legs: feathered drumsticks, thin scaled shanks, splayed toes
   sleeves?: 'short' | 'long'; // where the sleeve hem sits (from the look)
   mood?: Mood;         // the face at rest (built into the bind pose): warm, cheerful, gentle, proud, nervous, grumpy
+  blink?: 'shape';     // blinks by shape keys alone (both lids, sized so a linear blend never cuts the eyeball), for engines without lid bones
 }
 /** Rest expressions: a character's resting face carries its personality (face appeal round). */
 export const MOODS = ['neutral', 'warm', 'cheerful', 'gentle', 'proud', 'nervous', 'grumpy'] as const;
@@ -248,7 +249,7 @@ export interface CharSpec {
   cuts: Array<{ kind: 'box'; c: V3; size: V3; part: string } | { kind: 'ball'; c: V3; r: number; sides: number; part: string } | { kind: 'hull'; pts: V3[]; part: string }>;
   mouth: Piece[];                                         // teeth rows and tongue: separate shells inside the mouth (upper teeth on the head, lower teeth and tongue on the jaw)
   eyes: Piece[];                                          // eyeballs (kept separate: they turn with the eye bones)
-  lids: Array<{ c: V3; rIn: number; rOut: number; edgeDeg: number; closeDeg: number; part: string; bone: string; lower?: { rIn: number; rOut: number; edgeDeg: number; part: string } }>; // eyelid shells outside the eyeball (the lid bones turn the upper ones; the lower one rides the head)
+  lids: Array<{ c: V3; rIn: number; rOut: number; edgeDeg: number; closeDeg: number; part: string; bone: string; lower?: { rIn: number; rOut: number; edgeDeg: number; part: string }; shapeDeg?: [number, number] }>; // eyelid shells outside the eyeball (the lid bones turn the upper ones; the lower one rides the head)
   face: FaceLandmarks;
   palm: Record<'Left' | 'Right', { c: V3; len: number; width: number; thick: number }>;
   plan: BodyPlan;
@@ -287,6 +288,7 @@ export function charParams(a: Partial<Record<keyof CharParams, unknown>>): CharP
     ...(a.legs === 'bird' ? { legs: 'bird' as const } : {}),
     ...(a.sleeves === 'short' || a.sleeves === 'long' ? { sleeves: a.sleeves as 'short' | 'long' } : {}),
     ...(pick(MOODS, a.mood, 'mood') && a.mood !== 'neutral' ? { mood: a.mood as Mood } : {}),
+    ...(a.blink === 'shape' ? { blink: 'shape' as const } : {}),
     ...opt,
   };
 }
@@ -357,7 +359,7 @@ export function characterSpec(p: CharParams): CharSpec {
     return hw * 0.5;
   };
   const surfAt = (y01: number, x: number) => surfZ(y01) * Math.sqrt(Math.max(0, 1 - (x / ringAt(y01)) ** 2));
-  const EF = EYE_FORMS[eyeStyle], eyeK = p.eyeSize ?? PD.eyeSize ?? 1;
+  const EF = EYE_FORMS[eyeStyle], eyeK = p.eyeSize ?? PD.eyeSize ?? 1, LF = lidForm(eyeStyle, p.blink);
   const eyeR = EF.r * eyeK * hw;
   const eyeY01 = PD.eyeY;
   const eyeY = headBaseY + eyeY01 * headH;
@@ -703,8 +705,8 @@ export function characterSpec(p: CharParams): CharSpec {
     { kind: 'hull', part: 'mouthInner', pts: chamberPts },
     // the eye sockets (a 32-sided ball's facets dip inside its radius: it is cut a little larger, so the
     // skin never comes nearer the eye than LID.socket, however big the eye)
-    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * LID.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
-    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * LID.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
+    { kind: 'ball', c: [eyeX, eyeY, eyeZ], r: eyeR * LF.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
+    { kind: 'ball', c: [-eyeX, eyeY, eyeZ], r: eyeR * LF.socket / Math.cos(Math.PI / 32) ** 2, sides: 32, part: 'eyeSocket' },
   ];
   if (mouthKind === 'cartoon') {
     // a cartoon mouth curves into a smile at rest (curveMouth): its opening is cut in slices across
@@ -930,10 +932,12 @@ export function characterSpec(p: CharParams): CharSpec {
   // (an open, alert eye) and a blink turns that shell down over the eyeball, past the socket's lower rim.
   // The lower lid is a second shell just outside the upper one, under the iris; the upper lid closes
   // behind it, so the two never cut each other.
-  const rimTop = (Math.atan2(Math.sqrt(LID.socket ** 2 - EF.depth ** 2), EF.depth) * 180) / Math.PI;   // where the socket meets the face
+  // (a character that blinks by shape keys has both lids close, further out: see lidForm; its lid bones stay still)
+  const rimTop = (Math.atan2(Math.sqrt(LF.socket ** 2 - EF.depth ** 2), EF.depth) * 180) / Math.PI;   // where the socket meets the face
   const lids = (['Left', 'Right'] as const).map((side) => ({
-    c: B[`${side}Eye`].head, rIn: eyeR * LID.upIn, rOut: eyeR * LID.upOut, edgeDeg: EF.lid, closeDeg: EF.lid + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid`,
-    lower: { rIn: eyeR * LID.lowIn, rOut: eyeR * LID.lowOut, edgeDeg: EF.low, part: `lidLow.${side[0]}` },
+    c: B[`${side}Eye`].head, rIn: eyeR * LF.upIn, rOut: eyeR * LF.upOut, edgeDeg: EF.lid, closeDeg: p.blink === 'shape' ? 0 : EF.lid + rimTop + 4, part: `lid.${side[0]}`, bone: `${side}UpperLid`,
+    lower: { rIn: eyeR * LF.lowIn, rOut: eyeR * LF.lowOut, edgeDeg: EF.low, part: `lidLow.${side[0]}` },
+    ...(p.blink === 'shape' ? { shapeDeg: [LF.upDeg, LF.lowDeg] as [number, number] } : {}),
   }));
   const palm = Object.fromEntries((['Left', 'Right'] as const).map((side) => [side, { c: [B[`${side}Hand`].head[0] + (side === 'Left' ? 1 : -1) * palmLen * 0.5, B[`${side}Hand`].head[1], 0] as V3, len: palmLen, width: palmW, thick: palmT }])) as CharSpec['palm'];
   // add-ons: a tail from the base of the back, wings from between the shoulder blades
@@ -1064,6 +1068,21 @@ function addLockHair(hair: string, pieces: Piece[], h: { hb: number; headH: numb
 /** Eyelid shell radii (× the eyeball radius): the eyeball and everything on it stays within 1.03; the
  *  upper lid turns in [upIn, upOut], the lower lid sits in [lowIn, lowOut], the socket is cut at 1.13. */
 export const LID = { upIn: 1.052, upOut: 1.074, lowIn: 1.106, lowOut: 1.121, socket: 1.136, eyeMax: 1.03 } as const;
+/** The lids of a character that blinks by shape keys alone (params.blink 'shape': engines that only blend
+ *  morph targets, such as a Blender person or any glTF player without lid bones). A shape key moves each
+ *  vertex in a straight line, so a lid turned θ comes in by cos(θ/2) half-way: both lids close (the upper
+ *  one down, the lower one up, meeting a little below the eye's middle), each turning less than half of
+ *  a bone blink, and the shells sit just far enough out that the straight path still clears the eyeball.
+ *  upDeg / lowDeg: how far each turns in a full blink. */
+export function lidForm(eyes: typeof EYE_STYLES[number], blink?: 'shape') {
+  if (blink !== 'shape') return { ...LID, upDeg: 0, lowDeg: 0 };
+  const EF = EYE_FORMS[eyes], meet = -6;
+  const upDeg = EF.lid - meet + 3, lowDeg = meet + 1 - EF.low;
+  // (0.985: the shells are 28-sided spheres, whose facets come in a little inside their radius)
+  const upIn = LID.eyeMax / (0.985 * Math.cos((upDeg * Math.PI) / 360)) + 0.004, upOut = upIn + 0.02;
+  const lowIn = Math.max(upOut + 0.03, LID.eyeMax / (0.985 * Math.cos((lowDeg * Math.PI) / 360)) + 0.004), lowOut = lowIn + 0.015;
+  return { upIn, upOut, lowIn, lowOut, socket: lowOut + 0.015, eyeMax: LID.eyeMax, upDeg, lowDeg };
+}
 
 // ── face shape keys (Decision 20 A) ─────────────────────────────────────
 export const VISEMES = ['sil', 'PP', 'FF', 'TH', 'DD', 'kk', 'CH', 'SS', 'nn', 'RR', 'aa', 'E', 'ih', 'oh', 'ou'] as const;
@@ -1259,6 +1278,8 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
       return w > 0.01 ? [0, -0.25 * e.r * w, 0.04 * e.r * w] : null;
     });
   }
+  // a character that blinks by shape keys: the blink turns both lids (see lidForm); added below, after
+  // the skin fields, as the lids are rigid shells
   const browField = (sx: number, dyIn: number, dyOut: number, dxIn: number) => sideField(sx, (p, v) => {
     const b = F.brows[sx > 0 ? 0 : 1];
     const rx = 0.55 * F.hw, ry = 0.09 * H;
@@ -1307,11 +1328,19 @@ export function faceShapes(spec: CharSpec, pos: Float32Array, vertPart: string[]
   // the lids follow the brows and cheeks (a squint narrows the eye from both lids; a lifted brow opens it)
   for (const [side, sfx] of [['Left', 'Left'], ['Right', 'Right']] as const) {
     if (!F.eyes.some((e) => e.side === side)) continue;
-    addInto(out[`browDown${sfx}`], lidTurn(side, 'lid', 6));
-    addInto(out[`cheekSquint${sfx}`], lidTurn(side, 'lid', 2));
+    // (an upper lid that blinks by shape key leaves narrowing and widening to the blink: summed with it,
+    // a second turn would push the shut lid out through the lower one, or in toward the eyeball)
+    const sd = spec.lids.find((l) => l.bone === `${side}UpperLid`)?.shapeDeg;
     addInto(out[`cheekSquint${sfx}`], lidTurn(side, 'lidLow', 11));
-    addInto(out[`browOuterUp${sfx}`], lidTurn(side, 'lid', -3));
-    addInto(out.browInnerUp, lidTurn(side, 'lid', -1.5));
+    if (!sd) {
+      addInto(out[`browDown${sfx}`], lidTurn(side, 'lid', 6));
+      addInto(out[`cheekSquint${sfx}`], lidTurn(side, 'lid', 2));
+      addInto(out[`browOuterUp${sfx}`], lidTurn(side, 'lid', -3));
+      addInto(out.browInnerUp, lidTurn(side, 'lid', -1.5));
+    } else {
+      addInto(out[`eyeBlink${sfx}`], lidTurn(side, 'lid', sd[0]));
+      addInto(out[`eyeBlink${sfx}`], lidTurn(side, 'lidLow', sd[1]));
+    }
   }
   // skin near an eye never moves toward the eye's centre: it slides over it (a brow pressing down rolls
   // over the lid) instead of cutting into the lids or the eyeball. Each shape keeps only the part of its

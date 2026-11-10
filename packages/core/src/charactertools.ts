@@ -199,6 +199,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       tail: z.boolean().optional(), tailLength: z.number().min(0.3).max(2).optional(), wings: z.boolean().optional(),
       shape: z.enum(SHAPES).optional().describe('shape language: round (soft, friendly), square (solid), triangle (sharp, wiry); defaults to the plan\'s'),
       mood: z.enum(MOODS).optional().describe('the resting face (built into the bind pose; speech and expressions add on top): warm, cheerful, gentle, proud, nervous, grumpy or neutral'),
+      blink: z.enum(['bone', 'shape']).optional().describe('how the lids close: bone (lid bones turn them; the default) or shape (shape keys alone, both lids, for engines that only blend morph targets)'),
       skin: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), hairColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(), shirt: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       trousers: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       reference: z.string().optional(),
@@ -220,6 +221,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
         plan = P.plan;
       }
       for (const k of ['height', 'build', 'headSize', 'armLength', 'legLength', 'handSize', 'hair', 'style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings', 'shape', 'mood'] as const) if (a[k] !== undefined) P[k] = a[k];
+      if (a.blink === 'shape') P.blink = 'shape';
       const PD = PLANS[plan];
       if (a.hair === undefined && pre.hair === undefined) P.hair = PD.face.hair;
       charParams(P); // validate the combination
@@ -238,7 +240,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       };
       const ops: SceneObject['ops'] = {
         body: { id: 'body', op: 'character', args: { height: '$height', build: '$build', headSize: '$headSize', armLength: '$armLength', legLength: '$legLength', handSize: '$handSize', hair: P.hair ?? 'short',
-          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings', 'shape', 'legs', 'mood'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])), ...(plan !== 'quadruped' ? { sleeves: look.sleeves === 'shirt' ? 'long' : 'short' } : {}) }, part: 'body' },
+          ...(plan !== 'human' ? { plan } : {}), ...Object.fromEntries((['style', 'mouth', 'eyes', 'brows', 'nose', 'ears', 'tail', 'tailLength', 'wings', 'shape', 'legs', 'mood', 'blink'] as const).filter((k) => P[k] !== undefined).map((k) => [k, P[k]])), ...(plan !== 'quadruped' ? { sleeves: look.sleeves === 'shirt' ? 'long' : 'short' } : {}) }, part: 'body' },
       };
       const opOrder = ['body'];
       let output = 'body';

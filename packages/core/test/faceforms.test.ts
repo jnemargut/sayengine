@@ -2,7 +2,7 @@
 // the eyeball at every lid angle, eyeballs that no face shape deforms, and soft (smoothed) heads.
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { initKernel, Studio, characterSpec, charParams, SHAPE_KEYS, EXPRESSIONS, LID, EYE_FORMS, forward, localRotations, poseVertices } from '../src/index.ts';
+import { initKernel, Studio, characterSpec, charParams, SHAPE_KEYS, EXPRESSIONS, LID, EYE_FORMS, forward, localRotations, poseVertices, lidForm } from '../src/index.ts';
 
 before(async () => { await initKernel(); });
 
@@ -30,16 +30,19 @@ test('teeth: the upper row is continuous along the arch (no gaps), at least six 
   for (const mouth of ['cartoon', 'beak', 'grille'] as const) assert.equal(characterSpec(charParams({ mouth })).mouth.filter((pc) => /teeth|gum/.test(pc.part)).length, 0, mouth);
 });
 
-function kit(preset: string) {
+function kit(preset: string, extra: Record<string, unknown> = {}) {
   const s = new Studio();
-  const r = s.call('new-character', { name: 'F', preset });
+  const r = s.call('new-character', { name: 'F', preset, ...extra });
   assert.ok(r.ok, r.error);
   return s.evaluate(s.doc().objects.f).rig!;
 }
 
 test('eyes: lids stay outside the eyeball at every lid angle (blinks, squints, wide), and no face shape deforms an eyeball', () => {
-  for (const preset of ['default', 'blacksmith', 'dog', 'goblin']) {
-    const { rig, rest, vertPart } = kit(preset);
+  // (the last two blink by shape keys alone: a straight-line blend of both lids, no lid bones)
+  for (const [preset, extra] of [['default', {}], ['blacksmith', {}], ['dog', {}], ['goblin', {}], ['default', { blink: 'shape', hair: 'receding' }], ['goblin', { blink: 'shape' }]] as const) {
+    const { rig, rest, vertPart } = kit(preset, extra);
+    const LF = lidForm(rig.spec.params.eyes ?? 'natural', rig.spec.params.blink);
+    if (rig.spec.params.blink === 'shape') assert.ok(rig.spec.lids.every((l) => l.closeDeg === 0), 'shape blinks leave the lid bones still');
     const eyes = rig.spec.face.eyes;
     const bone = (n: string) => rig.bones.findIndex((b) => b.name === n);
     const of = (re: RegExp) => vertPart.map((p, v) => (re.test(p) ? v : -1)).filter((v) => v >= 0);
@@ -66,12 +69,14 @@ test('eyes: lids stay outside the eyeball at every lid angle (blinks, squints, w
         const up = of(new RegExp(`^lid\\.${e.side[0]}$`)), lo = of(new RegExp(`^lidLow\\.${e.side[0]}$`));
         assert.ok(up.length && lo.length, `${preset}: upper and lower lids`);
         // (where the two lids overlap, below the lower lid's highest point, the upper one stays inside it)
+        // (elevation about the eye's left-right axis; only for points off that axis, where it means something)
         const elev = (v: number) => Math.atan2(P[v * 3 + 1] - c[1], P[v * 3 + 2] - c[2]);
-        const loTop = Math.max(...lo.map(elev)) + 0.05;
+        const offAxis = (v: number) => Math.hypot(P[v * 3 + 1] - c[1], P[v * 3 + 2] - c[2]) > 0.5 * e.r;
+        const loTop = Math.max(...lo.filter(offAxis).map(elev)) + 0.05;
         const upMin = Math.min(...up.map(dist)), loMin = Math.min(...lo.map(dist));
-        const upLow = up.filter((v) => elev(v) < loTop && elev(v) > -Math.PI * 0.75).map(dist);
+        const upLow = up.filter((v) => offAxis(v) && elev(v) < loTop && elev(v) > -Math.PI * 0.75).map(dist);
         const upMax = upLow.length ? Math.max(...upLow) : 0;
-        assert.ok(upMin > LID.eyeMax, `${preset} ${JSON.stringify(ex)}: the upper lid comes to ${upMin.toFixed(3)} r (eyeball ≤ ${LID.eyeMax})`);
+        assert.ok(upMin > LF.eyeMax, `${preset} ${JSON.stringify(ex)}: the upper lid comes to ${upMin.toFixed(3)} r (eyeball ≤ ${LID.eyeMax})`);
         assert.ok(loMin > upMax, `${preset} ${JSON.stringify(ex)}: the lids cross (${loMin.toFixed(3)} vs ${upMax.toFixed(3)})`);
         // a full blink shuts the eye: the upper lid's edge comes down past the lower lid's (no sliver)
         if (ex.eyeBlinkLeft === 1) {
@@ -81,7 +86,7 @@ test('eyes: lids stay outside the eyeball at every lid angle (blinks, squints, w
         // and the skin around the eye never comes inside the socket
         for (const v of of(/^(Head|eyeSocket)$/)) {
           const d0 = Math.hypot(rest[v * 3] - e.c[0], rest[v * 3 + 1] - e.c[1], rest[v * 3 + 2] - e.c[2]) / e.r;
-          if (d0 < 1.6) assert.ok(dist(v) > LID.lowOut, `${preset}: skin at ${dist(v).toFixed(3)} r cuts into the lids`);
+          if (d0 < 1.6) assert.ok(dist(v) > LF.lowOut, `${preset}: skin at ${dist(v).toFixed(3)} r cuts into the lids`);
         }
       }
     }

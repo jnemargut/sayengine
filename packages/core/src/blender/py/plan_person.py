@@ -1,6 +1,6 @@
-"""The person body plan (bipeds): a humanoid skeleton, a body field the garments are shaped over, a
-sculpted head with a real mouth (lips, a slot into a mouth cavity), hands with fingers, garments as
-separate shells (tee, cardigan, trousers, slippers), chunky hair locks, brows and glasses.
+"""The person body plan (bipeds): a humanoid skeleton, a body field the garments are shaped over, hands
+with fingers and garments as separate shells (tee, cardigan, trousers, slippers). The head is the
+studio's kit face (kithead.py), and the head, eye and jaw bones are fitted to it (use_kit_face).
 
 Coordinates (x, f, z) in metres: x to the person's left, f forward, z up, feet on z = 0.
 Bone names are the standard humanoid ones the studio uses (Hips, Spine, Chest, LeftUpperArm...).
@@ -13,9 +13,9 @@ to_blender = lambda p: (np.array([p[0], -p[1], p[2]]) if np.ndim(p) == 1 else np
 from_blender = to_blender
 
 PRESETS = {
-    # an appealing, stylised-realistic dad about 40: soft features, a bit of a belly, big expressive eyes
-    'dad': dict(height=1.78, belly=0.7, shoulders=1.07, head=1.36, eye=1.08, skin='#e2b394', hair='#6b5a4c', grey=0.45, recede=0.6,
-                eye_color='#5b3a22', cardigan='#8d9c7e', tee='#e8e2d6', trousers='#4a4846', slippers='#6e4a36', glasses='#3a2c24', brows='#5a4a3e'),
+    # an appealing, stylised-realistic dad about 40: a bit of a belly, a knit cardigan, reading glasses
+    # (his face, skin and hair are the kit face's: creature.ts PERSON_FACES)
+    'dad': dict(height=1.78, belly=0.7, shoulders=1.07, cardigan='#8d9c7e', tee='#e8e2d6', trousers='#4a4846', slippers='#6e4a36', glasses='#3a2c24'),
 }
 
 
@@ -57,40 +57,8 @@ class Person:
             j[f'{side}Toes'] = P(0.108 * sx, 0.135, 0.022)
             j[f'{side}ToesEnd'] = P(0.112 * sx, 0.205, 0.02)
         self.arm_dir = {sx: norm(j['LeftHand' if sx > 0 else 'RightHand'] - j['LeftLowerArm' if sx > 0 else 'RightLowerArm']) for sx in (1, -1)}
-        # ── the head (head space: c is the head centre) ───────────────────────────
-        hs = pr['head'] * s
-        self.hs = hs
-        # the chin sits at the usual height; a bigger (stylised) head grows upward from it
-        c = self.c = np.array([0, 0.008 * s, 1.535 * s + 0.1 * hs])
-        j['Head'] = c + np.array([0, -0.014, -0.075]) * hs
-        j['HeadTop'] = c + np.array([0, -0.004, 0.115]) * hs
-        H = lambda x, f, z: c + np.array([x, f, z]) * hs
-        self.H = H
-        self.head_parts = dict(
-            cranium=(H(0, -0.012, 0.02), np.array([0.083, 0.1, 0.097]) * hs),
-            face=(H(0, 0.03, -0.038), np.array([0.057, 0.072, 0.054]) * hs),
-            cheek=(H(0.042, 0.052, -0.028), np.array([0.03, 0.03, 0.026]) * hs),
-            jaw=(H(0.039, 0.024, -0.06), np.array([0.024, 0.034, 0.022]) * hs),
-            chin=(H(0, 0.08, -0.078), np.array([0.027, 0.024, 0.02]) * hs),
-            brow=(H(0, 0.084, 0.036), np.array([0.06, 0.017, 0.012]) * hs),
-            nose_bridge=(H(0, 0.092, 0.004), np.array([0.0105, 0.012, 0.022]) * hs),
-            nose_tip=(H(0, 0.107, -0.018), 0.0142 * hs),
-            nostril=(H(0.0115, 0.096, -0.024), 0.0094 * hs),
-            lip_up=(H(0, 0.094, -0.047), np.array([0.026, 0.015, 0.0088]) * hs),
-            lip_lo=(H(0, 0.091, -0.06), np.array([0.024, 0.015, 0.0094]) * hs),
-            ear=(H(0.077, 0.004, -0.006), np.array([0.01, 0.02, 0.029]) * hs),
-            neck=((self.j['Neck'] + np.array([0, 0.0, -0.03]) * s), (H(0, -0.035, -0.04)), 0.043 * s, 0.039 * s),
-        )
-        self.mouth_line = H(0, 0.104, -0.0535)                # between the lips, at the front
-        self.mouth_corner = H(0.026, 0.082, -0.052)
-        self.cavity = (H(0, 0.05, -0.055), np.array([0.023, 0.034, 0.017]) * hs)
-        self.slot_half = 0.0021 * hs                                # the parted lips at rest (closed by 'press')
-        er = 0.0152 * pr['eye'] * hs
-        self.eye_r = er
-        self.eye_l = H(0.0345, 0.066, 0.012)
-        self.eye_dir = {1: norm([0.05, 1.0, 0.0]), -1: norm([-0.05, 1.0, 0.0])}
-        self.tmj = H(0, -0.005, -0.03)
-        self._seat_eyes()                         # jaw hinge axis (x) through here
+        # the head is the studio's kit face (kithead.py), fitted after it is built: use_kit_face()
+        self.eye_dir = {1: np.array([0.0, 1.0, 0.0]), -1: np.array([0.0, 1.0, 0.0])}
         # ── the body (for the garments) ──────────────────────────────────────────
         b = bel
         Z = lambda z: z * s
@@ -106,19 +74,6 @@ class Person:
         ]
         self.torso_st = [(z, f * s, bk * s, w * s) for z, f, bk, w in self.torso_st]
         self.belly_front = max(st[1] for st in self.torso_st)
-
-    def _seat_eyes(self, depth=0.5):
-        """Put each eyeball so the face meets it well off the gaze: big eyes set in the face."""
-        d = self.eye_dir[1]; e0 = self.eye_l.copy()
-        f = lambda t: float(self.head(np.array([e0 + d * t]), mouth=False, sockets=False)[0])
-        lo, hi = -0.05, 0.08
-        for _ in range(40):
-            mid = 0.5 * (lo + hi)
-            if f(mid) < 0:
-                lo = mid
-            else:
-                hi = mid
-        self.eye_l = e0 + d * lo - d * depth * self.eye_r
 
     # ── fields ─────────────────────────────────────────────────────────────────
     def limb(self, q, sx, arm_r=(0.058, 0.048, 0.044, 0.033), leg_r=(0.09, 0.064, 0.056, 0.04)):
@@ -142,40 +97,6 @@ class Person:
             d = sdf.smin(d, arm, 0.035 * self.s)
             d = sdf.smin(d, leg, 0.04 * self.s)
         return d
-
-    def head(self, q, mouth=True, sockets=True):
-        hp = self.head_parts
-        qa = q.copy(); qa[:, 0] = np.abs(q[:, 0])
-        d = sdf.ellipsoid(q, *hp['cranium'])
-        d = sdf.smin(d, sdf.ellipsoid(q, *hp['face']), 0.04 * self.hs)
-        d = sdf.smin(d, sdf.ellipsoid(qa, *hp['cheek']), 0.03 * self.hs)
-        d = sdf.smin(d, sdf.ellipsoid(qa, *hp['jaw']), 0.03 * self.hs)
-        d = sdf.smin(d, sdf.ellipsoid(q, *hp['chin']), 0.02 * self.hs)
-        d = sdf.smin(d, sdf.ellipsoid(q, *hp['brow']), 0.02 * self.hs)
-        nose = sdf.smin(sdf.ellipsoid(q, *hp['nose_bridge']), sdf.sphere(q, *hp['nose_tip']), 0.012 * self.hs)
-        nose = sdf.smin(nose, sdf.sphere(qa, *hp['nostril']), 0.006 * self.hs)
-        d = sdf.smin(d, nose, 0.012 * self.hs)
-        ear = sdf.ellipsoid(qa, *hp['ear'])
-        ear = sdf.smax(ear, -sdf.ellipsoid(qa, hp['ear'][0] + np.array([0.008, 0.004, 0.0]) * self.hs, hp['ear'][1] * np.array([0.6, 0.62, 0.66])), 0.003 * self.hs)
-        d = sdf.smin(d, ear, 0.008 * self.hs)
-        lips = sdf.smin(sdf.ellipsoid(q, *hp['lip_up']), sdf.ellipsoid(q, *hp['lip_lo']), 0.004 * self.hs)
-        d = sdf.smin(d, lips, 0.01 * self.hs)
-        n0, n1, r0, r1 = hp['neck']
-        d = sdf.smin(d, sdf.round_cone(q, n0, n1, r0, r1), 0.03 * self.hs)
-        # eye sockets: the skin wraps the eyeballs; lids are separate shells outside them
-        for sx in ((1, -1) if sockets else ()):
-            e = self.eye_l * np.array([sx, 1, 1])
-            d = sdf.smax(d, -sdf.sphere(q, e, self.eye_r * 1.06), 0.004 * self.hs)
-        if mouth:
-            # the mouth: a slot between the lips into a cavity (teeth, gums and tongue live in it)
-            ml = self.mouth_line
-            slot = sdf.ellipsoid(q, ml + np.array([0, -0.03, 0]) * self.hs, np.array([0.0255 * self.hs, 0.05 * self.hs, self.slot_half]))
-            cav = sdf.ellipsoid(q, *self.cavity)
-            d = sdf.smax(d, -sdf.smin(slot, cav, 0.004 * self.hs), 0.0015)
-        return d
-
-    def head_field(self, p):
-        return self.head(from_blender(p))
 
     def hand(self, q, sx, curl=0.35):
         """A relaxed hand: palm, four fingers in a gentle curl, a thumb. Built along the forearm line."""
@@ -212,24 +133,6 @@ class Person:
         self.hand_frame = getattr(self, 'hand_frame', {})
         self.hand_frame[sx] = (palm_c, R)
         return dd
-
-    def hair(self, q):
-        """Short, greying hair receding at the temples: a scalp shell above a hairline, with chunky locks."""
-        hs = self.hs
-        c = self.c
-        crown = sdf.ellipsoid(q, *(self.head_parts['cranium'][0] + np.array([0, -0.004, 0.006]) * hs, self.head_parts['cranium'][1] + np.array([0.008, 0.009, 0.01]) * hs))
-        rel = (q - c) / hs
-        # hairline: above the brow and ears; the temples recede (an M), the back comes down to the nape
-        f = rel[:, 1]; z = rel[:, 2]; x = np.abs(rel[:, 0])
-        recede = self.pr['recede']
-        front_line = 0.052 + 0.018 * recede * np.clip(1 - np.abs(x - 0.04) / 0.025, 0, 1)    # higher at the temples
-        line = np.where(f > 0.0, front_line + 0.25 * np.clip(f - 0.06, 0, 1) * 0, np.interp(-f, [0, 0.06, 0.1], [0.03, -0.02, -0.07]))
-        side = np.where(f > 0.0, np.interp(f, [0.0, 0.04, 0.08], [0.0, 0.03, front_line.mean()]), 0.0)
-        above = z - np.maximum(line, side) * 1.0
-        cut = -above * hs                                             # >0 below the hairline
-        locks = 0.0035 * hs * np.sin(rel[:, 0] * 160 + np.sin(rel[:, 1] * 90) * 1.5) * np.sin(rel[:, 1] * 120 + rel[:, 2] * 40)
-        shell = crown + locks
-        return sdf.smax(shell, cut, 0.006 * hs)
 
     def garment_fields(self):
         s = self.s
@@ -301,33 +204,22 @@ class Person:
             return d
         return dict(tee=tee, cardigan=cardigan, trousers=trousers, slippers=slippers)
 
-    def brows(self, q):
-        hs = self.hs
-        d = None
-        for sx in (1, -1):
-            pts = [self.H(0.013 * sx, 0.1, 0.037), self.H(0.032 * sx, 0.097, 0.043), self.H(0.052 * sx, 0.082, 0.038)]
-            b = sdf.chain(q, pts, np.array([0.0055, 0.006, 0.004]) * hs, 0.0)
-            d = b if d is None else np.minimum(d, b)
-        return d
-
-    def teeth(self, q, upper=True):
-        """A continuous row of teeth on an arch, with a gum band: no floating pegs."""
-        hs = self.hs
-        ml = self.mouth_line
-        zc = ml[2] + (0.0062 if upper else -0.0062) * hs
-        centre = np.array([0, ml[1] - 0.034 * hs, zc])
-        rel = q - centre
-        r = np.sqrt(rel[:, 0] ** 2 + (rel[:, 1] * 0.92) ** 2)
-        ang = np.arctan2(rel[:, 0], rel[:, 1])
-        R = 0.03 * hs
-        ring = np.sqrt((r - R) ** 2) - 0.0032 * hs
-        height = np.abs(rel[:, 2]) - 0.0048 * hs
-        arc = np.abs(ang) - math.radians(62)
-        d = sdf.smax(sdf.smax(ring, height, 0.0015 * hs), arc * R, 0.002 * hs)
-        return d
-
-    def tongue(self, q):
-        return sdf.ellipsoid(q, self.cavity[0] + np.array([0, -0.004, -0.008]) * self.hs, np.array([0.018, 0.026, 0.006]) * self.hs)
+    def use_kit_face(self, L):
+        """Fit the skeleton's head, eye and jaw bones and the clips' face targets to the kit head (plan
+        coords; L from kithead.landmarks)."""
+        B = L['bones']
+        self.j['Head'] = B['Head'][0]
+        self.j['HeadTop'] = B['Head'][1]
+        self.eye_l, self.eye_r = L['eyes']['Left']
+        self.tmj, self.jaw_tail = B['Jaw']
+        # (wrist targets for the hand-to-face clips: a few centimetres in front of the face, as the clips expect)
+        e = self.eye_l; m = L['mouth']; nose = L['nose'][1]
+        top, centre = L['ears']['Right']
+        self.face_pts = dict(
+            bridge=(0.0, nose + 0.031, e[2]), mouth=(0.0, nose + 0.031, m[2]), chin=(0.0, nose + 0.005, L['headBase'][2] + 0.017),
+            nape=tuple(self.j['Neck'] + np.array([0, -0.06, 0.06])), eyeL=(0.8 * e[0], nose + 0.045, e[2]), eyeR=(-0.8 * e[0], nose + 0.045, e[2]),
+            ear=tuple(centre + np.array([-0.007, 0.022, 0.004])),
+        )
 
     def bone_table(self):
         """name -> (head, tail, parent, deform, roll_up) in Blender coords."""
@@ -343,7 +235,7 @@ class Person:
         add('UpperChest', j['UpperChest'], j['Neck'], 'Chest')
         add('Neck', j['Neck'], j['Head'], 'UpperChest')
         add('Head', j['Head'], j['HeadTop'], 'Neck')
-        add('Jaw', self.tmj, self.H(0, 0.075, -0.1), 'Head', False)
+        add('Jaw', self.tmj, self.jaw_tail, 'Head', False)
         for sx, side in ((1, 'Left'), (-1, 'Right')):
             m = np.array([sx, 1, 1])
             e = self.eye_l * m

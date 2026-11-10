@@ -6,9 +6,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { initKernel, Studio, validateGlb } from '../src/index.ts';
+import { initKernel, Studio, validateGlb, SHAPE_KEYS } from '../src/index.ts';
 import { readGlb, writeGlb, importCharacter, type Gltf } from '../src/importchar.ts';
-import { BlenderMissing, CREATURE_PLANS, buildCreature, creatureSpec, findBlender } from '../src/blender/creature.ts';
+import { BlenderMissing, CREATURE_PLANS, PERSON_FACES, buildCreature, creatureSpec, findBlender } from '../src/blender/creature.ts';
+import { kitFace } from '../src/blender/kitface.ts';
 import { glbMotionChecks } from '../src/blender/glbmotion.ts';
 
 await initKernel();
@@ -141,4 +142,27 @@ test('a Blender-built person: garments, hands with fingers, 33 face shapes under
   const rep = (imp.result as any).report;
   assert.equal(rep.face.mode, 'oculus');
   assert.ok(rep.ownClips.includes('carry_cat'));
+  // the face is the kit face, and the kit's face checks pass on the finished Blender head
+  assert.equal(r.face, 'kit');
+  assert.deepEqual(r.faceChecks.filter((c: any) => !c.pass).map((c: any) => `${c.name}: ${c.detail}`), []);
+  assert.ok(r.faceChecks.length >= 6);
+  assert.ok(r.triangles < 43000, `${r.triangles} triangles`);
+});
+
+test('the kit face for a person: the head cut from a kit character, shape blinks, 33 face shapes, paint, landmarks', async () => {
+  const { face, png } = await kitFace(PERSON_FACES.dad);
+  assert.equal(face.params.blink, 'shape');
+  assert.deepEqual(Object.keys(face.shapes), [...SHAPE_KEYS]);
+  for (const p of ['Head', 'Neck', 'hair', 'lid.L', 'lidLow.R', 'teethUpper', 'teethLower', 'gumUpper', 'tongue', 'lipUpper', 'LeftEye.iris', 'brow.L', 'ear.R']) assert.ok(face.parts.includes(p), p);
+  assert.ok(!face.parts.some((p) => /torso|Arm|Leg|Hand|collar/.test(p)), 'only the head and neck');
+  assert.ok(face.triangleCount > 6000 && face.triangleCount < 16000, `${face.triangleCount} triangles`);
+  // no face shape moves an eyeball; the blink turns both lids
+  const eye = new Set(face.parts.flatMap((p, v) => (/^(Left|Right)Eye/.test(p) ? [v] : [])));
+  for (const [k, sd] of Object.entries(face.shapes)) assert.ok(!sd.idx.some((v) => eye.has(v)), `${k} moves an eyeball`);
+  const blinkParts = new Set(face.shapes.eyeBlinkLeft.idx.map((v) => face.parts[v]));
+  assert.ok(blinkParts.has('lid.L') && blinkParts.has('lidLow.L') && !blinkParts.has('lid.R'));
+  assert.equal(face.triMaterial.length, face.triangles.length / 3);
+  for (const [mi, uv] of Object.entries(face.uvs)) assert.equal(uv.length, face.triMaterial.filter((m) => m === Number(mi)).length * 6);
+  assert.ok(png.length > 1000 && png[1] === 0x50, 'a PNG');
+  assert.ok(face.landmarks.ears.every((e) => Number.isFinite(e.top[1])));
 });

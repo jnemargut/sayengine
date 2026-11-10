@@ -52,13 +52,8 @@ def install(PM, CLIPS):
         return spec
 
     def pts(self):
-        """Handy places on this person's body (plan coords)."""
-        pr = self.person; hs = pr.hs; c = pr.c
-        return dict(
-            bridge=tuple(c + [0, 0.13 * hs, 0.012 * hs]), mouth=tuple(c + [0, 0.13 * hs, -0.05 * hs]), chin=tuple(c + [0, 0.11 * hs, -0.085 * hs]),
-            nape=tuple(pr.j['Neck'] + [0, -0.06, 0.06]), eyeL=tuple(c + [0.03 * hs, 0.14 * hs, 0.012 * hs]), eyeR=tuple(c + [-0.03 * hs, 0.14 * hs, 0.012 * hs]),
-            ear=tuple(c + [-0.095 * hs, 0.02 * hs, -0.01 * hs]),
-        )
+        """Handy places on this person's face and body (plan coords), from the fitted kit head."""
+        return self.person.face_pts
 
     s_ = lambda self: self.s
 
