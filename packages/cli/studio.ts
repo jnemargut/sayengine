@@ -78,6 +78,14 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
     return;
   }
   if (rest[0] === 'help' && (cmd === 'notes' || cmd === 'taste')) return printToolHelp(cmd);
+  // new-creature --builder blender: built in Blender by the CLI, then imported (the daemon stays free)
+  if (cmd === 'new-creature' && rest.some((a, i) => a === '--builder=blender' || (a === '--builder' && rest[i + 1] === 'blender'))) {
+    const { blenderCreatureCli } = await import('./creature.ts');
+    const body: any = await blenderCreatureCli(rest, parseFlags);
+    console.log(JSON.stringify(body, null, 2));
+    if (body.ok === false) process.exitCode = 1;
+    return;
+  }
   if (rest.includes('--help') && cmd !== 'game' && !cmd.startsWith('game-') && cmd !== 'install-skills' && cmd !== 'world-fetch' && cmd !== 'proof' && cmd !== 'look' && cmd !== 'sound' && cmd !== 'reel') return printToolHelp(cmd);
   if (cmd === 'serve') {
     const { startDaemon } = await import('../daemon/src/server.ts');
