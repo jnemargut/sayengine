@@ -177,7 +177,7 @@ export const CHARACTER_TOOLS: ToolDef[] = [
       const obj: SceneObject = {
         id, name: a.name ?? report.name, semanticType: 'reference', params: {}, ops: { mesh: { id: 'mesh', op: 'mesh', args: { asset, format: 'glb', units: 'm', up: 'y' }, part: 'reference' } }, opOrder: ['mesh'], output: 'mesh',
         material: { name: 'reference', color: '#9a8fb0' }, position: a.at ?? freeSpot(ctx as any), rules: [], role: 'reference',
-        reference: { kind: 'mesh', asset, file: fileName, format: 'glb' }, imported: { asset, report, ...(report.kind === 'quadruped' ? { ship: true } : {}) } as any,
+        reference: { kind: 'mesh', asset, file: fileName, format: 'glb' }, imported: { asset, report, ...(report.kind === 'quadruped' || report.ownClips?.length ? { ship: true } : {}) } as any,
       } as any;
       ctx.set(['objects', id], obj);
       ctx.set(['objectOrder'], [...ctx.doc.objectOrder, id]);

@@ -30,13 +30,26 @@ def eye(name, centre, direction, r):
     return ob
 
 
-def lids(name, centre, direction, r, opening_deg=64.0, thickness=0.0009):
+def pupil(name, centre, direction, r, size=0.36):
+    """A round pupil: a thin dark lens on the front of the eyeball (scaled by shape keys)."""
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=10, radius=1.0)
+    ob = bpy.context.object
+    ob.name = name
+    ob.scale = (size * r, size * r, 0.07 * r)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    ob.matrix_world = mathutils.Matrix.Translation(mathutils.Vector(centre) + mathutils.Vector(direction).normalized() * r * 0.975) @ look_rot(direction)
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=False)
+    bpy.ops.object.shade_smooth()
+    return ob
+
+
+def lids(name, centre, direction, r, opening_deg=64.0, thickness=0.0009, rf=1.025):
     """Upper and lower lid shells around an eyeball, split on the eye's horizontal plane. They close
     by turning about the eye's horizontal axis, so nothing ever slices the eyeball."""
     out = []
     ca = np.cos(np.radians(opening_deg))
     for which in ('upper', 'lower'):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=18, radius=r * 1.025)
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=18, radius=r * rf)
         ob = bpy.context.object
         ob.name = f'{name}.{which}'
         me = ob.data

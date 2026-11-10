@@ -100,6 +100,29 @@ def eye_texture(name, color_hex, res=256, pupil_deg=19.0, iris_deg=56.0):
     return coatlib.to_image(name, coatlib.lin_to_srgb(col), res, 'sRGB')
 
 
+def add_pupil_keys(ob, plan):
+    """pupilNarrow (1 = vertical slits for bright light) and pupilWide (dilated, for play and the dark)."""
+    if 'pupil' not in ob.data.attributes:
+        return
+    tag = np.empty(len(ob.data.vertices), np.int32); ob.data.attributes['pupil'].data.foreach_get('value', tag)
+    co = np.empty(len(ob.data.vertices) * 3); ob.data.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    ob.shape_key_add(name='Basis', from_mix=False)
+    for name, sx_scale, sz_scale in (('pupilNarrow', 0.2, 1.08), ('pupilWide', 1.35, 1.35)):
+        new = co.copy()
+        for side, sx in ((1, 1), (2, -1)):
+            m = tag == side
+            if not m.any():
+                continue
+            c = plan_cat.to_blender(plan.eyes * np.array([sx, 1, 1]))
+            d = plan_cat.to_blender(plan.eye_dir * np.array([sx, 1, 1]))
+            up = np.array([0, 0, 1.0]); right = np.cross(d, up); right /= np.linalg.norm(right); up2 = np.cross(right, d)
+            rel = co[m] - c
+            a_r = rel @ right; a_u = rel @ up2; a_d = rel @ d
+            new[m] = c + np.outer(a_r * sx_scale, right) + np.outer(a_u * sz_scale, up2) + np.outer(a_d, d)
+        k = ob.shape_key_add(name=name, from_mix=False)
+        k.data.foreach_set('co', new.reshape(-1))
+
+
 def setup_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
@@ -161,11 +184,18 @@ def main():
     partobs = {}
     el = parts.eye('eye.L', to_b(plan.eyes), to_b(plan.eye_dir), plan.eye_r)
     er = parts.eye('eye.R', to_b(plan.eyes * np.array([-1, 1, 1])), to_b(plan.eye_dir * np.array([-1, 1, 1])), plan.eye_r)
-    eimg = eye_texture('iris', eye_col)
+    eimg = eye_texture('iris', eye_col, pupil_deg=0.0)
     eyem = principled('eye', image=eimg, rough=0.12, spec=0.7, coat=1.0)
     for e in (el, er):
         e.data.materials.append(eyem)
     partobs['eye.L'] = [el]; partobs['eye.R'] = [er]
+    # pupils: dark discs on the cornea, so a shape key can narrow them to slits in sunlight
+    pupm = principled('pupil', color=(0.005, 0.005, 0.006), rough=0.1, spec=0.6, coat=1.0)
+    for side, sx, e in (('L', 1, el), ('R', -1, er)):
+        pu = parts.pupil(f'pupil.{side}', to_b(plan.eyes * np.array([sx, 1, 1])), to_b(plan.eye_dir * np.array([sx, 1, 1])), plan.eye_r)
+        pu.data.materials.append(pupm)
+        a = pu.data.attributes.new('pupil', 'INT', 'POINT'); a.data.foreach_set('value', [1 if sx > 0 else 2] * len(pu.data.vertices))
+        partobs[f'eye.{side}'].append(pu)
     lid_col = tuple(base_lin * 0.35)          # the dark lid margin round the eye
     lidm = principled('lid', color=lid_col, rough=0.85, sheen=0.3, sheen_tint=sheen_tint, sheen_rough=0.32, spec=0.2)
     for s, sx in (('L', 1), ('R', -1)):
@@ -208,6 +238,7 @@ def main():
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.join()
     ob.name = name
+    add_pupil_keys(ob, plan)
     ob.data.name = name
 
     # ── clips ─────────────────────────────────────────────────────────────────
@@ -239,7 +270,7 @@ def main():
         'blender': bpy.app.version_string, 'units': 'metres, Y up (glTF)', 'log': LOG,
     }
     for k in report['clips']:
-        report['clips'][k] = {kk: (vv if isinstance(vv, (int, float, str, bool)) else str(vv)) for kk, vv in report['clips'][k].items()}
+        report['clips'][k] = {kk: (vv if isinstance(vv, (int, float, str, bool)) else [float(x) for x in vv] if hasattr(vv, '__len__') else str(vv)) for kk, vv in report['clips'][k].items()}
     if spec.get('renders'):
         import render
         shots = render.shoot(spec, plan, arm, ob, acts, out, name)

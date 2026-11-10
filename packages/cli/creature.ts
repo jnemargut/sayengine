@@ -1,4 +1,4 @@
-// `studio new-creature --builder blender …` — organic creatures built in Blender (real topology,
+// `studio new-creature --builder blender …`: organic creatures built in Blender (real topology,
 // a Rigify rig, baked coat, scripted clips). Runs in the CLI process (Blender takes a minute; the
 // daemon stays free), then brings the GLB in through the rigged-import side door (import-character).
 import path from 'node:path';
@@ -6,8 +6,8 @@ import { DIR, ensureDaemon, callTool } from './client.ts';
 
 export const CREATURE_FLAGS: Record<string, string> = {
   '--builder': 'blender (the Blender builder; without it new-creature makes a rig-part creature)',
-  '--plan': 'cat (bipeds and other plans follow)',
-  '--preset': 'british-shorthair | domestic-shorthair',
+  '--plan': 'cat | person',
+  '--preset': 'cat: british-shorthair | domestic-shorthair; person: dad',
   '--name': 'creature name (default: the preset)',
   '--build': '0..1 or lean | normal | chubby | fat',
   '--legLength': 'scale on the legs, 0.7..1.4 (default 1)',
@@ -43,7 +43,7 @@ export async function blenderCreatureCli(rest: string[], parseFlags: (a: string[
   let build;
   try {
     build = await buildCreature({
-      plan: (f.plan as any) ?? 'cat', preset: String(f.preset ?? 'british-shorthair'), name: slug,
+      plan: (f.plan as any) ?? 'cat', ...(f.preset !== undefined ? { preset: String(f.preset) } : {}), name: slug,
       ...(f.build !== undefined ? { build: f.build as any } : {}),
       ...(f.legLength !== undefined ? { legLength: Number(f.legLength) } : {}),
       ...(f.bodyLength !== undefined ? { bodyLength: Number(f.bodyLength) } : {}),

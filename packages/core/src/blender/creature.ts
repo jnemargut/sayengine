@@ -47,7 +47,18 @@ export const CREATURE_PLANS = {
     presets: ['british-shorthair', 'domestic-shorthair'],
     builds: { lean: 0.15, normal: 0.45, chubby: 0.7, fat: 0.92 } as Record<string, number>,
     patterns: ['solid', 'tabby', 'tuxedo', 'calico'],
-    clips: ['idle', 'walk', 'trot', 'sit', 'loaf', 'jump', 'land', 'swat', 'carried', 'squash'],
+    clips: ['idle', 'walk', 'trot', 'sit', 'loaf', 'jump', 'land', 'swat', 'carried', 'squash',
+      'bat_test_tap', 'bat_tap_loop', 'bat_push_final', 'bat_backhand_swipe', 'bat_double_smack', 'bat_hook', 'bat_flick', 'bat_flurry',
+      'bat_belly_push', 'bat_nose_push', 'react_innocent_sit', 'react_paw_lick', 'react_stare_down',
+      'scratch_vertical', 'scratch_horizontal', 'scratch_on_scratcher', 'butt_wiggle', 'tail_flick'],
+  },
+  person: {
+    presets: ['dad'],
+    builds: { lean: 0.0, normal: 0.7, round: 1.0 } as Record<string, number>,
+    patterns: [],
+    clips: ['idle', 'walk', 'pick_up', 'look_around', 'carry_cat', 'reading', 'phone_call', 'sit_desk', 'idle_breathe', 'idle_weight_shift', 'glance_around',
+      'adjust_glasses', 'rub_neck', 'read_page_turn', 'read_chuckle', 'sip_tea', 'sit', 'cross_legs', 'eat_fork', 'chew', 'type_burst', 'think_pause', 'rub_eyes',
+      'stretch_arms_up', 'phone_pace_gesture', 'phone_laugh', 'hands_on_hips_sigh', 'head_shake', 'pet_cat_down'],
   },
 } as const;
 export type CreaturePlan = keyof typeof CREATURE_PLANS;
@@ -61,7 +72,7 @@ export const EYE_COLORS: Record<string, string> = { copper: '#c9771f', amber: '#
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const CreatureOptions = z.object({
   plan: z.enum(Object.keys(CREATURE_PLANS) as [CreaturePlan]).default('cat'),
-  preset: z.string().default('british-shorthair'),
+  preset: z.string().optional(),
   name: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 _-]*$/).default('creature'),
   build: z.union([z.number().min(0).max(1), z.string()]).default('normal').describe('0 lean .. 1 very fat, or lean|normal|chubby|fat'),
   legLength: z.number().min(0.7).max(1.4).default(1),
@@ -82,8 +93,9 @@ export type CreatureOptionsIn = z.input<typeof CreatureOptions>;
 
 /** The JSON spec the Blender script reads, from validated options. Throws with the allowed values. */
 export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> {
-  const o = CreatureOptions.parse(input);
+  const o = CreatureOptions.parse(input) as z.output<typeof CreatureOptions> & { preset: string };
   const plan = CREATURE_PLANS[o.plan];
+  o.preset ??= plan.presets[0];
   if (!(plan.presets as readonly string[]).includes(o.preset)) throw new Error(`unknown ${o.plan} preset "${o.preset}"; presets: ${plan.presets.join(', ')}`);
   let build: number;
   if (typeof o.build === 'number') build = o.build;
@@ -103,6 +115,9 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
   const cc = colour(o.coat, COAT_COLORS, 'coat colour');
   if (cc) coat.color = cc;
   if (o.pattern) coat.pattern = o.pattern;
+  if (o.plan === 'person') {
+    return { plan: 'person', preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), belly: build, texture: o.texture, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out: path.resolve(o.out) };
+  }
   return {
     plan: o.plan, preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), build, legLength: o.legLength, bodyLength: o.bodyLength,
     headSize: o.headSize, coat, ...(o.eyeColor ? { eyeColor: colour(o.eyeColor, EYE_COLORS, 'eye colour') } : {}), furLength: o.furLength,
@@ -136,7 +151,8 @@ export async function buildCreature(input: CreatureOptionsIn, opts: { blender?: 
   const lines: string[] = [];
   let error: string | null = null;
   const code: number = await new Promise((resolve, reject) => {
-    const p = spawn(bin, ['-b', '--factory-startup', '--python-exit-code', '1', '--python', path.join(PY_DIR, 'build_creature.py'), '--', specFile], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const script = spec.plan === 'person' ? 'build_person.py' : 'build_creature.py';
+    const p = spawn(bin, ['-b', '--factory-startup', '--python-exit-code', '1', '--python', path.join(PY_DIR, script), '--', specFile], { stdio: ['ignore', 'pipe', 'pipe'] });
     const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error(`Blender build timed out after ${Math.round((opts.timeoutMs ?? 900000) / 1000)} s`)); }, opts.timeoutMs ?? 900000);
     let buf = '';
     const onData = (d: Buffer) => {

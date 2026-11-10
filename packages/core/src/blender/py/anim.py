@@ -43,17 +43,19 @@ LEGS = {
 
 
 class Poser:
-    def __init__(self, arm):
+    def __init__(self, arm, chains=None):
         self.arm = arm
+        self.chains = chains or LEGS
         self.bones = arm.data.bones
         self.R = {b.name: b.matrix_local.copy() for b in self.bones}
         self.parent = {b.name: (b.parent.name if b.parent else None) for b in self.bones}
         self.order = [b.name for b in sorted(self.bones, key=lambda b: len(b.parent_recursive))]
         self.len = {b.name: b.length for b in self.bones}
         self.leg_of = {}
-        for k, v in LEGS.items():
+        for k, v in self.chains.items():
             for n in v[:4]:
-                self.leg_of[n] = k
+                if n:
+                    self.leg_of[n] = k
         self.rest_head = {b.name: b.head_local.copy() for b in self.bones}
         self.rest_tail = {b.name: b.tail_local.copy() for b in self.bones}
 
@@ -78,9 +80,9 @@ class Poser:
             if n in done:
                 continue
             leg = self.leg_of.get(n)
-            if leg and leg in legs and n == LEGS[leg][0]:
+            if leg and leg in legs and n == self.chains[leg][0]:
                 self._leg(leg, legs[leg], W, B, spec)
-                done.update(LEGS[leg][:4])
+                done.update(x for x in self.chains[leg][:4] if x)
                 continue
             b = M.Identity(4)
             if n in rot:
@@ -94,7 +96,7 @@ class Poser:
             B[n] = b
             W[n] = self.base(n, W) @ b
             done.add(n)
-            if n == 'spine' and 'body_q' not in spec:
+            if n in ('spine', 'Hips') and 'body_q' not in spec:
                 spec['body_q'] = (W[n].to_3x3().normalized() @ self.R[n].to_3x3().inverted()).to_quaternion()
         return B, W
 
@@ -113,7 +115,7 @@ class Poser:
         W[n] = Wn
 
     def _leg(self, leg, tgt, W, B, spec):
-        b1, b2, b3, b4, pole_sign = LEGS[leg]
+        b1, b2, b3, b4, pole_sign = self.chains[leg]
         base1 = self.base(b1, W)
         S = base1.translation.copy()
         sc = base1.to_scale()
@@ -126,13 +128,13 @@ class Poser:
         dist = d.length
         # soft IK: ease into full reach instead of snapping straight (no elbow pops near extension)
         L = l1 + l2
-        da = L * 0.92
+        da = L * 0.985
         if dist > da:
             dist = da + (L - da) * (1 - math.exp(-(dist - da) / (L - da)))
         dist_c = min(max(dist, abs(l1 - l2) + 1e-4), L * 0.999)
         u = d.normalized()
         body_q = spec.get('body_q', Q())
-        pole = body_q @ V((0, pole_sign, 0))
+        pole = body_q @ (V(pole_sign) if isinstance(pole_sign, tuple) else V((0, pole_sign, 0)))
         if 'pole' in tgt:
             pole = V(tgt['pole'])
         v = (pole - u * pole.dot(u))
@@ -146,8 +148,9 @@ class Poser:
         self._aim(b1, S, Eb - S, W, B)
         self._aim(b2, W[b1] @ V((0, self.len[b1], 0)), Wr - Eb, W, B)
         self._aim(b3, W[b2] @ V((0, self.len[b2], 0)), met, W, B, max_deg=110)
-        toe = V(tgt.get('toe', body_q @ V((0, -1, -0.15))))
-        self._aim(b4, W[b3] @ V((0, self.len[b3], 0)), toe, W, B, max_deg=120)
+        if b4:
+            toe = V(tgt.get('toe', body_q @ V((0, -1, -0.15))))
+            self._aim(b4, W[b3] @ V((0, self.len[b3], 0)), toe, W, B, max_deg=120)
         for n in (b1, b2, b3, b4):
             pass
 
@@ -156,7 +159,7 @@ class Poser:
 
 
 # ── keying ─────────────────────────────────────────────────────────────────────
-def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None):
+def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None, bones=None):
     act = bpy.data.actions.new(name)
     arm.animation_data_create()
     arm.animation_data.action = act
@@ -165,6 +168,8 @@ def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None):
         spec = spec_fn(t)
         B, _ = poser.solve(spec)
         for n, b in B.items():
+            if bones is not None and n not in bones:
+                continue                       # a partial clip keys only its own bones (layer it in the engine)
             pb = arm.pose.bones[n]
             l, r, s = b.decompose()
             pb.location = l; pb.rotation_quaternion = r; pb.scale = s
@@ -283,7 +288,7 @@ class CatMotion:
 
     def walk(self, t):
         # lateral sequence: LH, LF, RH, RF a quarter apart; one step per leg per second; direct register
-        return self.gait(t, 1.0, {'LH': 0.0, 'LF': 0.25, 'RH': 0.5, 'RF': 0.75}, 0.64, 0.22, 0.026, 0.004, 0.006, 22, 5)
+        return self.gait(t, 1.0, {'LH': 0.0, 'LF': 0.25, 'RH': 0.5, 'RF': 0.75}, 0.64, 0.2, 0.026, 0.004, 0.006, 22, 5)
 
     def trot(self, t):
         # diagonal pairs, tail up
@@ -372,13 +377,13 @@ class CatMotion:
 
     def _loaf_body(self, drop):
         spec = {'rot': {}, 'loc': {}, 'scale': {}}
-        self.body(spec, dz=-drop)
+        self.body(spec, dz=-drop - 0.01, pitch=-4)
         spec['rot']['belly.C'] = (0, 0, 0)
-        spec['scale']['belly.C'] = (1.08, 1.0, 0.92)
+        spec['scale']['belly.C'] = (1.12, 1.0, 0.85)       # the belly spreads on the floor
         spec['rot']['spine.004'] = (-8, 0, 0); spec['rot']['spine.006'] = (6, 0, 0)
         for s in ('L', 'R'):
-            spec['scale'][f'shoulder.{s}'] = (0.82, 0.82, 0.82)
-            spec['scale'][f'thigh.{s}'] = (0.8, 0.8, 0.8)
+            spec['scale'][f'shoulder.{s}'] = (0.74, 0.74, 0.74)
+            spec['scale'][f'thigh.{s}'] = (0.74, 0.74, 0.74)
         return spec
 
     def _copy(self, spec):
@@ -536,7 +541,7 @@ class CatMotion:
 CLIPS = {
     # name: (method, seconds, loop, extras)
     'idle': ('idle', 4.0, True, {'speed': 0.0}),
-    'walk': ('walk', 1.0, True, {'speed': 0.22}),
+    'walk': ('walk', 1.0, True, {'speed': 0.2}),
     'trot': ('trot', 1.0, True, {'speed': 0.55}),
     'sit': ('sit', 3.2, True, {'speed': 0.0}),
     'loaf': ('loaf', 4.4, True, {'speed': 0.0}),
@@ -558,5 +563,19 @@ def make_clips(arm, plan, only=None, mesh=None):
         if only and name not in only:
             continue
         frames = int(round(secs * FPS))
-        acts[name] = key_clip(arm, poser, name, frames, getattr(cm, meth), loop, dict(extras, loop=loop, duration=secs))
+        ex = dict(extras, loop=loop, duration=secs)
+        bones = None
+        if ex.get('partial'):
+            bones = [b.name for b in arm.data.bones if b.name.startswith(tuple(ex['partial'].split(',')))]
+            ex['partial'] = ex['partial']
+        if 'contact' in ex:
+            ex['contact'] = [float(x) for x in ex['contact']]
+        acts[name] = key_clip(arm, poser, name, frames, getattr(cm, meth), loop, ex, bones)
     return acts, poser, cm
+
+
+# the bats, reactions and scratches live in their own module
+import anim_bats  # noqa: E402
+anim_bats.install(CatMotion, CLIPS)
+import anim_idles  # noqa: E402
+anim_idles.install(CatMotion, CLIPS)

@@ -8,7 +8,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { initKernel, Studio, validateGlb } from '../src/index.ts';
 import { readGlb, writeGlb, importCharacter, type Gltf } from '../src/importchar.ts';
-import { BlenderMissing, buildCreature, creatureSpec, findBlender } from '../src/blender/creature.ts';
+import { BlenderMissing, CREATURE_PLANS, buildCreature, creatureSpec, findBlender } from '../src/blender/creature.ts';
 import { glbMotionChecks } from '../src/blender/glbmotion.ts';
 
 await initKernel();
@@ -103,8 +103,10 @@ test('a Blender-built cat: all-quad body under budget, Rigify-named deform skele
   assert.ok(fs.existsSync(r.glb) && fs.existsSync(r.blend));
   assert.ok(r.triangles > 6000 && r.triangles < 25000, `${r.triangles} triangles`);
   for (const b of ['root', 'spine', 'spine.006', 'upper_arm.L', 'forearm.R', 'thigh.L', 'shin.R', 'foot.L', 'tail.004', 'eye.L', 'lid.T.R', 'ear.L', 'belly.C', 'jaw']) assert.ok(r.bones.includes(b), b);
-  assert.deepEqual(Object.keys(r.clips).sort(), ['carried', 'idle', 'jump', 'land', 'loaf', 'sit', 'squash', 'swat', 'trot', 'walk']);
-  assert.equal(r.clips.walk.speed, 0.22);
+  for (const c of CREATURE_PLANS.cat.clips) assert.ok(c in r.clips, `clip ${c}`);
+  assert.ok((r.clips.bat_push_final.contact as any).length >= 1, 'bats carry their contact times');
+  assert.equal(r.clips.tail_flick.partial, 'tail');
+  assert.equal(r.clips.walk.speed, 0.2);
   assert.ok(r.validation?.ok, JSON.stringify(r.validation?.messages));
   const g = readGlb(new Uint8Array(fs.readFileSync(r.glb)));
   assert.equal(g.json.skins.length, 1);
@@ -123,4 +125,20 @@ test('a Blender-built cat: all-quad body under budget, Rigify-named deform skele
   assert.ok(checks.some((c) => c.id === 'rigged-creature' && c.pass));
   assert.ok(checks.some((c) => c.id === 'motion-walk'));
   assert.ok((await validateGlb(new Uint8Array(fs.readFileSync(r.glb)))).ok);
+});
+
+test('a Blender-built person: garments, hands with fingers, 33 face shapes under the studio names, clips, valid, and lip sync carries through the side door', { skip: !BLENDER && 'Blender is not installed', timeout: 1200000 }, async () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'person-'));
+  const r: any = await buildCreature({ plan: 'person', preset: 'dad', texture: 256, clips: ['idle', 'walk', 'carry_cat', 'idle_breathe'], name: 'test-dad', out });
+  assert.ok(r.validation?.ok, JSON.stringify(r.validation?.messages));
+  for (const s of ['viseme_sil', 'viseme_aa', 'viseme_ou', 'eyeBlinkLeft', 'jawOpen', 'mouthSmileRight', 'browInnerUp']) assert.ok(r.shapes.includes(s), s);
+  assert.equal(r.shapes.length, 33);
+  for (const b of ['Hips', 'Head', 'LeftUpperArm', 'RightHand', 'LeftIndexDistal', 'RightThumbMetacarpal', 'LeftEye', 'RightToes']) assert.ok(r.bones.includes(b), b);
+  assert.deepEqual(Object.keys(r.clips).sort(), ['carry_cat', 'idle', 'idle_breathe', 'walk']);
+  const s = new Studio();
+  const imp = s.call('import-character', { file: r.glb, name: 'Test dad' });
+  assert.ok(imp.ok, imp.error);
+  const rep = (imp.result as any).report;
+  assert.equal(rep.face.mode, 'oculus');
+  assert.ok(rep.ownClips.includes('carry_cat'));
 });

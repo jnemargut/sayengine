@@ -188,6 +188,40 @@ def fix_normals(ob):
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
+def build_surface(name, field, lo, hi, voxel, faces, relax_iters=5, quads=True):
+    """Any shape field -> one all-quad mesh (surface nets, voxel remesh, Quadriflow, then sculpted back
+    onto the field). Falls back to the voxel quads when Quadriflow refuses."""
+    V, F = surface_nets(field, np.asarray(lo, float), np.asarray(hi, float), voxel)
+    ok = False
+    ob = None
+    if quads:
+        for vs in (voxel * 1.2, voxel * 1.6, voxel * 2.2):
+            if ob is not None:
+                bpy.data.objects.remove(ob)
+            ob = mesh_from_arrays(name, V, F)
+            ob.data.remesh_voxel_size = vs
+            bpy.ops.object.voxel_remesh()
+            sm = ob.modifiers.new('calm', 'SMOOTH'); sm.iterations = 4
+            bpy.ops.object.modifier_apply(modifier='calm')
+            if quadriflow(ob, faces):
+                ok = True
+                break
+    if not ok:
+        if ob is not None:
+            bpy.data.objects.remove(ob)
+        ob = mesh_from_arrays(name, V, F)
+        fix_normals(ob)
+        if len(ob.data.polygons) > faces * 1.3:
+            d = ob.modifiers.new('dec', 'DECIMATE'); d.ratio = faces / len(ob.data.polygons)
+            bpy.ops.object.modifier_apply(modifier='dec')
+    set_co(ob, sdf.project(field, get_co(ob), iters=10, max_step=voxel * 2))
+    if relax_iters:
+        relax(ob, field, iters=relax_iters, lam=0.4)
+    bpy.context.view_layer.objects.active = ob
+    bpy.ops.object.shade_smooth()
+    return ob, ok
+
+
 def build_body(plan, target_faces=9000, name='body', voxel=0.006):
     """The skin skeleton gives the rough form and the bounds; the shape field is meshed as quads, then
     remeshed by Quadriflow into even all-quad flow and sculpted back onto the field."""

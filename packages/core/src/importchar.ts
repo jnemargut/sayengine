@@ -362,7 +362,7 @@ export interface ImportReport {
   rigged: boolean; kind?: 'humanoid' | 'quadruped'; name: string; height: number; bones: { source: string; matched: number; of: number; missing: string[]; unmatched: string[] };
   motions: string[]; hipScale?: number; restFixes?: Array<{ bone: string; degrees: number }>; face: { mode: string; note: string; speech: number }; licence: Licence | null;
   carried: string[]; notCarried: string[]; warnings: string[];
-  triangles?: number; motionChecks?: Record<string, Array<{ name: string; pass: boolean; detail: string; frames: Array<[number, number]> }>>;
+  ownClips?: string[]; triangles?: number; motionChecks?: Record<string, Array<{ name: string; pass: boolean; detail: string; frames: Array<[number, number]> }>>;
 }
 const ESSENTIAL = ['Hips', 'Spine', 'Head', 'LeftUpperArm', 'LeftLowerArm', 'LeftHand', 'RightUpperArm', 'RightLowerArm', 'RightHand', 'LeftUpperLeg', 'LeftLowerLeg', 'LeftFoot', 'RightUpperLeg', 'RightLowerLeg', 'RightFoot'];
 export const IMPORT_MOTIONS: Record<string, MotionSpec> = { idle: { kind: 'idle' }, walk: { kind: 'walk' }, run: { kind: 'run' }, start: { kind: 'start' }, stop: { kind: 'stop' }, 'turn-left': { kind: 'turn', turn: 90 }, wave: { kind: 'action', action: 'wave' } };
@@ -389,6 +389,7 @@ export function importCharacter(bytes: Uint8Array, opts: { name?: string; motion
   const quad = quadrupedMap(json, joints);
   if (quad.legs >= 4 && (quad.paws >= 2 || quad.tail >= 1)) return importQuadruped(g, name, height, quad, licence, warnings);
   const bones = humanoidMap(json, joints);
+  const ownClips: string[] = (json.animations ?? []).map((a: any) => a.name).filter(Boolean);
   const missing = ESSENTIAL.filter((b) => !bones.map.has(b));
   const carried: string[] = [], notCarried: string[] = [];
   let motions: string[] = [], hipScale: number | undefined, restFixes: RetargetResult['restFixes'] | undefined;
@@ -408,6 +409,7 @@ export function importCharacter(bytes: Uint8Array, opts: { name?: string; motion
     if (rt.restFixes.length) carried.push(`rest pose fixed for ${rt.restFixes.map((r) => `${r.bone} ${r.degrees}°`).join(', ')}`);
     if (missing.length) notCarried.push(`these bones were not found, so they stay at rest: ${missing.join(', ')}`);
   }
+  if (ownClips.length) carried.push(`its own clips: ${ownClips.join(', ')}`);
   const fingers = [...bones.map.keys()].filter((k) => /(Thumb|Index|Middle|Ring|Little)/.test(k)).length;
   if (fingers >= 10) carried.push(`hands: ${fingers} finger bones, so hand poses and grips work`); else notCarried.push('hand poses and grips (no finger bones found)');
   const face = faceMap(json, bones);
@@ -417,7 +419,7 @@ export function importCharacter(bytes: Uint8Array, opts: { name?: string; motion
   json.extras = { ...(json.extras ?? {}), studioImport: { humanoid: Object.fromEntries(bones.map), face, ...(licence ? { licence } : {}) } };
   const report: ImportReport = {
     rigged: true, name, height, bones: { source: bones.source, matched: bones.map.size, of: joints.length, missing, unmatched: bones.unmatched.slice(0, 40) },
-    motions, ...(hipScale !== undefined ? { hipScale } : {}), ...(restFixes ? { restFixes } : {}), face: { mode: face.mode, note: face.note, speech }, licence, carried, notCarried, warnings,
+    motions, ...(ownClips.length ? { kind: 'humanoid' as const, ownClips } : {}), ...(hipScale !== undefined ? { hipScale } : {}), ...(restFixes ? { restFixes } : {}), face: { mode: face.mode, note: face.note, speech }, licence, carried, notCarried, warnings,
   };
   return { glb: writeGlb(g), report };
 }

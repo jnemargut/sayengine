@@ -26,6 +26,15 @@ CAT_SHOTS = {
     'carried': ('carried', 0.5, (1.0, -0.8, 0.5), (0, 0, 0.45), 60),
     'squash': ('squash', 1.0, (0.85, -0.85, 0.25), (0, 0, 0.1), 60),
 }
+_Q = (0.95, -0.75, 0.32)
+for _n, _t, _tz in (('bat_test_tap', 0.75, 0.15), ('bat_tap_loop', 0.2, 0.15), ('bat_push_final', 0.58, 0.15), ('bat_backhand_swipe', 0.47, 0.15),
+                    ('bat_double_smack', 0.5, 0.2), ('bat_hook', 0.8, 0.15), ('bat_flick', 0.36, 0.15), ('bat_flurry', 0.3, 0.2),
+                    ('bat_belly_push', 1.25, 0.1), ('bat_nose_push', 0.8, 0.13), ('react_innocent_sit', 1.0, 0.2), ('react_paw_lick', 1.0, 0.2),
+                    ('react_stare_down', 1.6, 0.15), ('scratch_vertical', 0.3, 0.25), ('scratch_horizontal', 0.3, 0.1), ('scratch_on_scratcher', 0.3, 0.2),
+                    ('butt_wiggle', 0.15, 0.12), ('groom_paw_face', 0.5, 0.2), ('yawn', 1.0, 0.2), ('stretch_front', 1.2, 0.15), ('flop_side', 2.0, 0.1),
+                    ('knead', 0.5, 0.1), ('chatter', 0.5, 0.18), ('crouch_alert', 0.5, 0.12), ('ear_scratch', 0.3, 0.2), ('lick_chest', 0.5, 0.2),
+                    ('startle_hop', 0.3, 0.25), ('stretch_back', 1.2, 0.15), ('lie_to_loaf', 1.9, 0.1)):
+    CAT_SHOTS[_n] = (_n, _t, _Q, (0, -0.04, _tz), 60)
 
 
 def studio(sc, floor=True):
