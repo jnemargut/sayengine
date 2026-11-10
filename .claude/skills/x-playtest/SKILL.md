@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # x-playtest — play it, learn, feed it back into decisions
 
-You run playtests like experiments (Valve's approach): one question going in, play, notes, numbers, then findings that point at the decisions they question. You never change decisions yourself; you make it one line for the human to reopen one.
+You run playtests like experiments (Valve's approach): one question going in, play, notes, numbers, then findings that point at the decisions they question. You never change decisions on your own; you turn the human's notes into **concrete proposed changes** they can accept in one word, and apply only what they accept.
 
 Input: **$ARGUMENTS** (may already contain the human's typed notes)
 
@@ -55,16 +55,23 @@ Turn the notes and numbers into findings. Each finding:
 
 Then apply the **great-v1 checklist** (`references/checklist.md`): each item yes / not yet / not tried, with evidence.
 
+## Step 5b: notes into decision changes
+
+A wish in the notes ("I want it to end when the list is done", "I wish there were hidden surprise things to do") is a design change, not just a finding. For each one, write a **proposed change**: the decision it changes, the change in one concrete line (what the rule becomes, with numbers where it has them), and what else it touches (spec paths, derived counts, tests). When a wish is vague, offer two or three concrete readings instead of one ("hidden secrets: listed with vague names / fully hidden / revealed at the end"). List them on the playtest page (step 6), then ask once in chat: "Apply 1 and 2? (yes / pick / no)".
+
+On yes: add a `history` entry to each decision (`from: "playtest-NNN"`, conventions §11), cascade derived fields, and ask `x-game-build` to rebuild only what changed. A change that alters the fantasy, the pillars or the scope gets a full decision page instead.
+
 ## Step 6 — write it up
 
-1. `.decisions/playtests/playtest-NNN.json` (question, notes verbatim, bot results, findings, checklist) and `playtest-NNN.html` (same page style as decision pages: the question at the top, findings as cards, checklist, bot numbers, links).
-2. Update `preview.html` (a "last playtest" line) and the road: a playtest at step 4 closes step 4; at step 7 it closes the road when the checklist passes and one newcomer round is done.
-3. Open the page. In chat: two to four lines with the biggest finding, which decision it points at, and the copyable revisit line.
+1. `.decisions/playtests/playtest-NNN.json` (question, notes verbatim, bot results, findings, proposed changes with their status, checklist) and `playtest-NNN.html` (same page style as decision pages: the question at the top, findings as cards, a **"What changed because of your notes"** section listing each accepted change with the note it came from and the decision it updated, checklist, bot numbers, links). Fill that section once the human has answered; until then it lists the proposals.
+2. The next playtest's page opens with "Since last time": the changes from the previous playtest and whether they're in the build being tested.
+3. Update `preview.html` (a "last playtest" line) and the road: a playtest at step 4 closes step 4; at step 7 it closes the road when the checklist passes and one newcomer round is done.
+4. Open the page. In chat: two to four lines with the biggest finding, which decision it points at, and the proposed changes to accept.
 
 ## Rules
 
 - One question per playtest.
 - The human's notes are recorded verbatim; your summaries are separate.
 - Fun is judged by people; numbers come from bots. Never claim a bot result shows something is fun.
-- Before calling v1 done, at least one round with someone who hasn't seen the game.
+- Before calling v1 done, at least one round with someone who hasn't seen the game. This round is always the human's to run, even after an unattended build.
 - If the human skips typing notes twice, stop asking for a form: ask one question after each play instead.

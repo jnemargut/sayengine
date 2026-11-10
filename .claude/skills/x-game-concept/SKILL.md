@@ -21,6 +21,7 @@ Strip leading `/autodecide`, `/overdecide`, `/underdecide`. Auto: make every pag
 1. Find the studio once: `bash ../x-decide-gaming/scripts/find-studio.sh` (run from this skill's folder, or use the router's folder). Note the path or "none".
 2. If `.decisions/decisions.json` doesn't exist, create it with `projectName` (a short working title), `projectDescription` (the user's idea in their words), `createdAt`, `decisions: []` and the `game` block (`variant: null`, the seven road steps all `todo`, `next: 1`, `engine: null`, `studio: <path or null>`).
 3. If it exists, read it. Never re-ask anything already decided.
+4. Read the user's first message (and any brief or images) for **stated preferences**: look, realism, camera, tone, a name. Record each in `game.stated` (conventions §10). Save shared images to `references/` (private, never shipped). If the folder is inside a public repo, follow conventions §9 before writing anything.
 
 ## Step 2 — step 1 of the road (the first time)
 
@@ -30,6 +31,8 @@ Present these decisions **in order, one at a time**, each as a full page (four o
 2. **Three pillars**: four candidate sets of three short statements that every later feature must pass through.
 3. **Toy, loop or story, and the core verb**: the shape of the fun and the one action the toy is built around. This also sets `game.variant` and picks the road variant.
 4. *(optional with /overdecide)* **Engine**: web (three.js, share by link) or Godot (desktop download). Otherwise ask it in one line after decision 3, defaulting to web.
+5. **Working title and tone**, in one line after decision 3 (not a page): "Working title: *X*, tone: *Y*. Keep, change, or leave for later?" A name the user picks later that changes the tone reopens tone as a page (catalogue).
+6. **Fidelity target**, a light page, *only when* `game.stated` holds a look or realism preference or the user shared visual references (otherwise one line: "stylised and simple until step 6, fine?"). It settles how realistic the characters and world aim to be and, roughly, where models will come from (catalogue). Its answer steers the toy's character check and the camera page, and step 6 refines it rather than starting from zero.
 
 Visuals for these are **diagrams and one-page mock-ups** (section 5 of the conventions): a poster-style card with the one-liner and a tiny scene sketch for the fantasy; three pillar cards with an example feature that passes and one that fails each pillar for the pillars; a one-screen sketch of the verb plus a loop or arc diagram for the toy decision.
 
@@ -53,6 +56,8 @@ When routed here at step 5 (the loop has been playtested):
 1. Read the latest playtest (`.decisions/playtests/`) and the current spec.
 2. Present **one** decision, "What's in the first version": four scopes from smallest to largest, each drawn as a one-page design (Librande-style: the map or flow, what's in, what's cut, minutes of play), with the playtest's findings quoted where they argue for or against.
 3. On choice, set `scope` in the spec via `x-game-build` (or note it for the build), mark step 5 done, `next: 6`.
+
+**Scope changes later** ("add an upstairs", "make it a week"): add a history entry to the scope decision, then recompute every derived count at once (jobs or goals, secrets, session length, cameras, routines; conventions §11) and say what you recomputed in one line. The user should never have to ask for the consequences of their own change.
 
 ## Rules
 

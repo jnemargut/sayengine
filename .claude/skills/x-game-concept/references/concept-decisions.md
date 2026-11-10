@@ -37,6 +37,21 @@ Visual: a one-screen sketch of the verb (top-down or side view, SVG) plus a smal
 
 Research, when available: two or three games with a similar verb, and what made the verb fun. Cite.
 
+## Working title and tone (step 1, one line)
+
+Offer a working title drawn from the fantasy and a tone in three or four words ("warm, dry, a bit silly"). Store as `game.title` and `tone` with `from` the toy decision. If the user later picks a name that implies a different tone (a joke name, a pun), make a **tone** page: four levels of zaniness, including one that escalates during play, each shown as a sample job list, a sample line from a character, and a title-card mock-up. Tone and the title screen are then design decisions at step 6 (design catalogue).
+
+## Fidelity target (step 1, light)
+
+Only when the user has named a look or shared references. Four points on the realism scale, each shown as a small board: a mock-up or a quick render of the hero next to a doorway, the props it implies, and the honest build cost.
+
+- simple shapes, stylised (cheapest, the studio kit as is),
+- stylised with good materials (kit characters, free textures),
+- stylised-realistic (proportions and faces close to life, free CC0 props, Blender or studio work on the hero),
+- as realistic as free tools allow (CC0 scanned props and HDRI lighting, a hand-built hero).
+
+Each card names where the models would come from, using only free sources (conventions §8): the studio, CC0 libraries, Blender, a local generator. Never a paid one. Compare: matches what the user said · hero character risk · build time · phone cost · undo cost. The recommendation follows `game.stated` unless it says plainly why not.
+
 ## Engine (optional)
 
 Web (three.js: share by link, plays on phones) or Godot (desktop download, richer engine). Default web. Usually asked in one line, not a page.
@@ -46,3 +61,5 @@ Web (three.js: share by link, plays on phones) or Godot (desktop download, riche
 Four scopes from smallest to largest. Each is a one-page design: map or flow, what's in, what's cut, minutes of play, number of characters, number of places. Quote playtest findings that argue for or against each. The recommendation is usually the smallest scope that still shows all three pillars.
 
 Compare: minutes of play · pillars shown · build time · risk of not finishing · undo cost.
+
+Each scope card also lists what scales with it (goals or jobs, secrets, session length, cameras, characters' routines), so the chosen card already holds the derived numbers.

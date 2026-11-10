@@ -41,7 +41,9 @@ Look in the current folder:
 
 1. `.decisions/decisions.json` exists and has a `"game"` block (see conventions) → read `game.road` (which steps are done) and `game.next`.
 2. `.decisions/` exists but is not a game record (no `"game"` block) → this folder holds another project. Ask once whether to start the game in a subfolder (`games/<slug>/`) or here, then continue.
-3. No `.decisions/` → a new game. Route to concept.
+3. No `.decisions/` → a new game. Route to concept, but first check **where** (conventions §9): if the current folder is inside the studio repo or any repo with a public remote (`git remote -v`), suggest a private folder outside it (`~/<GameName>/`) and ask once. Reference images the user shares go in that folder's `references/`, never shipped or published.
+
+If the user's first message carries a brief, reference images, or opinions about the look, camera or realism, pass them along: the concept skill records them as stated preferences (conventions §10) instead of leaving them for later.
 
 ## Step 3 — route
 
@@ -54,7 +56,8 @@ Match the user's words first, the road state second:
 | "build it", "make the toy", "let me play it", "rebuild" | `x-game-build` |
 | "playtest", "I played it", typed notes about a session, "is it fun?" | `x-playtest` |
 | "change the camera / controls / look / world / cast" | `x-game-design`, reopening that decision |
-| "what's in v1", "cut", "too big" | `x-game-concept` (step 5, scope) |
+| "what's in v1", "cut", "too big", "make it bigger", "add a floor" | `x-game-concept` (step 5, scope; a change cascades, conventions §11) |
+| "run it overnight", "use your judgment", "don't wait for me" | `x-game-build` in judgment mode |
 | "revisit decision N" | the skill that owns decision N (its `skill` field) |
 
 When the road and the words disagree (the user asks for the look at step 2), say so in one line ("the road decides looks after the fun is proven — want to jump ahead anyway?") and follow the user's answer. The road is advice, not a rule.
@@ -73,6 +76,7 @@ Read the child's SKILL.md and follow it. Pass:
 - Never present a decision page yourself, never write `game-spec.json`, never run build steps.
 - Never skip the decision record: everything goes through `.decisions/`.
 - Never route single-asset requests here ("make me a chair" is `/studio`) or non-game products (`/x-decide`).
+- Never put a new game, its references or its private notes inside the public studio repo.
 - Never assume the studio is installed. The children check for it (`scripts/find-studio.sh`) and fall back to plain Godot or three.js steps.
 
 ## Finding the studio
