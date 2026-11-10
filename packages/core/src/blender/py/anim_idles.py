@@ -69,15 +69,15 @@ def install(CatMotion, CLIPS):
     def sleepy_eyes(self, t):
         # half-lidded in a sunbeam: the lids drift heavy and lift, now and then a long droop
         spec = self.idle(t)
-        d = 0.36 + 0.05 * math.sin(2 * math.pi * t / 4.0) + 0.32 * env(t, [(0, 0), (2.2, 0), (2.8, 1), (3.3, 1), (3.8, 0), (4.0, 0)])
+        d = 0.56 + 0.04 * math.sin(2 * math.pi * t / 4.0) + 0.25 * env(t, [(0, 0), (2.2, 0), (2.8, 1), (3.3, 1), (3.8, 0), (4.0, 0)])
         self.blink(spec, d)
         self.squint(spec, 0.2)
         return spec
 
     def squint_content(self, t):
         spec = self.idle(t)
-        self.squint(spec, 0.7 + 0.06 * math.sin(2 * math.pi * t / 3.0))
-        self.blink(spec, 0.05 + 0.03 * math.sin(2 * math.pi * t / 1.5))
+        self.squint(spec, 0.95 + 0.05 * math.sin(2 * math.pi * t / 3.0))
+        self.blink(spec, 0.32 + 0.04 * math.sin(2 * math.pi * t / 1.5))
         return spec
 
     def nictitate_flick(self, t):

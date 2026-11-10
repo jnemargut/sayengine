@@ -566,7 +566,7 @@ class CatMotion:
         self.tail(spec, base_pitch=-30, sway=[30, 35, 35, 25], droop=-6)
         self.breathe(spec, t, 0.33)
         bl = max(0.0, 1 - abs(t - 2.2) / 0.3) ** 0.5
-        self.blink(spec, 0.36 + 0.64 * bl)      # content, heavy-lidded
+        self.blink(spec, 0.42 + 0.58 * bl)      # content, heavy-lidded
         return spec
 
     # ── carried ─────────────────────────────────────────────────────────────────
