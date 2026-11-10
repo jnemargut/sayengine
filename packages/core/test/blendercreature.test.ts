@@ -27,6 +27,16 @@ test('creature options: build words, colour names and patterns become a spec; ba
   assert.throws(() => creatureSpec({ pattern: 'spots', out: '/tmp/x' }), /solid\|tabby\|tuxedo\|calico/);
   assert.throws(() => creatureSpec({ coat: 'tartan', out: '/tmp/x' }), /#rrggbb or blue/);
   assert.throws(() => creatureSpec({ clips: ['moonwalk'], out: '/tmp/x' }), /clips: idle, walk/);
+  // a global tempo and per-clip tempos reach the builder; unknown clips and silly tempos are refused
+  const t = creatureSpec({ tempo: 1.25, clipTempo: { walk: 1.1, jump_takeoff: 0.9 }, out: '/tmp/x' });
+  assert.equal(t.tempo, 1.25);
+  assert.deepEqual(t.clipTempo, { walk: 1.1, jump_takeoff: 0.9 });
+  assert.equal(creatureSpec({ out: '/tmp/x' }).tempo, undefined, 'tempo 1 is the default and left out');
+  assert.throws(() => creatureSpec({ clipTempo: { moonwalk: 2 }, out: '/tmp/x' }), /unknown clip "moonwalk"/);
+  assert.throws(() => creatureSpec({ tempo: 5, out: '/tmp/x' }));
+  for (const c of ['jump_takeoff', 'jump_air', 'jump_land', 'carried_dangle', 'carried_cradle', 'scratch_bed', 'bat_hook_windup', 'blink_quick', 'slow_blink', 'sleepy_eyes', 'squint_content', 'nictitate_flick']) {
+    assert.ok((CREATURE_PLANS.cat.clips as readonly string[]).includes(c), c);
+  }
 });
 
 test('without Blender the builder fails clearly and says how to install it', async () => {
@@ -106,17 +116,41 @@ test('a Blender-built cat: all-quad body under budget, Rigify-named deform skele
   for (const b of ['root', 'spine', 'spine.006', 'upper_arm.L', 'forearm.R', 'thigh.L', 'shin.R', 'foot.L', 'tail.004', 'eye.L', 'lid.T.R', 'ear.L', 'belly.C', 'jaw']) assert.ok(r.bones.includes(b), b);
   for (const c of CREATURE_PLANS.cat.clips) assert.ok(c in r.clips, `clip ${c}`);
   assert.ok((r.clips.bat_push_final.contact as any).length >= 1, 'bats carry their contact times');
+  // a key press feels instant: every one-shot bat makes contact within 0.12 s; the anticipation is its own windup loop
+  for (const [name, c] of Object.entries(r.clips)) {
+    if (!name.startsWith('bat_') || name.endsWith('_windup') || c.loop) continue;
+    assert.ok((c.contact as number[])[0] <= 0.121, `${name} contact at ${(c.contact as number[])[0]} s`);
+    if (`${name}_windup` in r.clips) assert.equal(r.clips[`${name}_windup`].windupFor, name);
+  }
+  // the jump in three parts with its timing marks; scratches mark every rake; carried clips name their hand anchors
+  assert.ok(Number(r.clips.jump_takeoff.launch) > Number(r.clips.jump_takeoff.gather));
+  assert.equal(r.clips.jump_air.loop, true);
+  assert.ok(Number(r.clips.jump_land.hindContact) > 0);
+  for (const s of ['scratch_vertical', 'scratch_horizontal', 'scratch_bed']) {
+    assert.equal((r.clips[s].contact as number[]).length, String(r.clips[s].rakePaws).split(',').length, s);
+    assert.ok((r.clips[s].contact as number[]).length >= 4, `${s}: four rakes a second`);
+  }
+  assert.equal(r.clips.carried_dangle.holdNodes, 'hold.L,hold.R');
+  assert.equal(r.clips.carried_cradle.holdNodes, 'cradle.F,cradle.B');
+  for (const b of ['hold.L', 'hold.R', 'cradle.F', 'cradle.B', 'claw.L', 'claw.R']) assert.ok(r.bones.includes(b), b);
   assert.equal(r.clips.tail_flick.partial, 'tail');
-  assert.equal(r.clips.walk.speed, 0.2);
+  assert.equal(r.clips.walk.speed, 0.3);
+  // blinks by shape key: the lids shut and never cut the eyeball along the whole blend
+  for (const k of ['blinkL', 'blinkR', 'eyeSquintL', 'eyeSquintR', 'nictitateL', 'nictitateR', 'pupilNarrow']) assert.ok(r.shapes!.includes(k), k);
+  assert.deepEqual(r.eyeChecks!.filter((c) => !c.pass).map((c) => `${c.name}: ${c.detail}`), []);
   assert.ok(r.validation?.ok, JSON.stringify(r.validation?.messages));
   const g = readGlb(new Uint8Array(fs.readFileSync(r.glb)));
   assert.equal(g.json.skins.length, 1);
   assert.ok(g.json.extensionsUsed.includes('KHR_materials_sheen'), 'the fur has sheen');
-  for (const clip of ['idle', 'walk', 'trot', 'sit', 'loaf', 'carried']) {
-    const bad = r.motion![clip].filter((c) => !c.pass && c.name !== 'planted paws keep pace with the ground');
-    assert.deepEqual(bad.map((c) => `${clip}: ${c.name} ${c.detail}`), []);
-  }
-  assert.ok(r.motion!.walk.find((c) => c.name === 'loop closes')!.pass);
+  // every clip passes every check: loops close, paws above the floor, planted paws keep pace (walk, trot),
+  // no pops (the jump included), and no self-intersection
+  const bad = Object.entries(r.motion!).flatMap(([clip, cs]) => cs.filter((c) => !c.pass).map((c) => `${clip}: ${c.name} ${c.detail}`));
+  assert.deepEqual(bad, []);
+  assert.ok(r.motion!.walk.some((c) => c.name === 'planted paws keep pace with the ground'));
+  assert.ok(r.motion!.jump.some((c) => c.name === 'no self-intersection'));
+  // the blink clip carries its morph track in the same animation as its bones
+  const blink = g.json.animations.find((a: any) => a.name === 'blink_quick');
+  assert.ok(blink.channels.some((c: any) => c.target.path === 'weights'), 'blink_quick animates the lid morphs');
   // the studio side: import-character keeps the clips and the checks show on the object
   const s = new Studio();
   const imp = s.call('import-character', { file: r.glb, name: 'Test cat' });

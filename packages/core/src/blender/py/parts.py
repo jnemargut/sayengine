@@ -215,3 +215,51 @@ def whiskers(name, pad_l, n=8, length=0.07, width=0.0007, seed=4, toward=(0, -1,
     ob = bpy.data.objects.new(name, me)
     bpy.context.collection.objects.link(ob)
     return ob
+
+
+def claws(name, roots, direction, length=0.0065, radius=0.0009, curl=0.9, sides=6, segs=6):
+    """Front claws: small hooked cones, one per toe, from `roots` along `direction` (curving down).
+    They are built retracted (inside the toe) and slide out on the claw bone."""
+    verts, faces = [], []
+    d0 = np.array(direction, float); d0 /= np.linalg.norm(d0)
+    down = np.array([0, 0, -1.0])
+    down = down - d0 * (down @ d0); down /= max(np.linalg.norm(down), 1e-9)
+    side = np.cross(d0, down); side /= np.linalg.norm(side)
+    for root in roots:
+        tans = []
+        for s in range(segs + 1):
+            a = curl * (s / segs) ** 2              # the hook bends down toward the tip
+            tans.append(d0 * np.cos(a) + down * np.sin(a))
+        pts = []
+        p = np.array(root, float)
+        for s in range(segs + 1):
+            pts.append(p.copy())
+            if s < segs:
+                p = p + tans[s] * length / segs
+        base = len(verts)
+        for s, (p, t) in enumerate(zip(pts, tans)):
+            r = radius * (1 - 0.9 * s / segs)
+            n1 = np.cross(t, side); n1 /= max(np.linalg.norm(n1), 1e-9)
+            n2 = np.cross(t, n1)
+            for k in range(sides):
+                th = 2 * np.pi * k / sides
+                # flattened sideways, like a real claw
+                verts.append(p + (n1 * np.cos(th) * 1.0 + n2 * np.sin(th) * 0.55) * r)
+        for s in range(segs):
+            for k in range(sides):
+                a = base + s * sides + k; b = base + s * sides + (k + 1) % sides
+                faces.append((a, b, b + sides, a + sides))
+        tip = len(verts); verts.append(pts[-1] + tans[-1] * radius * 0.4)
+        for k in range(sides):
+            a = base + segs * sides + k; b = base + segs * sides + (k + 1) % sides
+            faces.append((a, b, tip))
+        cap = list(range(base, base + sides))[::-1]
+        faces.append(tuple(cap))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], faces)
+    me.validate()
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(ob)
+    for poly in me.polygons:
+        poly.use_smooth = True
+    return ob

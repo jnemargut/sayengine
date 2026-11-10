@@ -45,6 +45,19 @@ def bone_table(plan, to_b):
         add(f'shin.{s}', j['knee'] * m, j['hock'] * m, f'thigh.{s}', up=fwd)
         add(f'foot.{s}', j['hock'] * m, j['rpaw'] * m, f'shin.{s}', up=fwd)
         add(f'r_toe.{s}', j['rpaw'] * m, j['rtoe'] * m, f'foot.{s}', up=(0, 0, 1))
+        # the front claws slide out of the toe along this bone (built retracted, so the rest pose hides them)
+        toe_d = (j['ftoe'] - j['fpaw']) / max(np.linalg.norm(j['ftoe'] - j['fpaw']), 1e-9)
+        add(f'claw.{s}', j['fpaw'] * m, (j['fpaw'] + toe_d * 0.012) * m, f'f_toe.{s}', up=(0, 0, 1))
+        # where a carrier's hands go: under the armpits (the dangle). Not deforming; a game attaches
+        # the carrier's hands to these nodes.
+        pf = j['elbow'][1] - 0.022
+        pit = np.array([sx * j['shoulder'][0] * 0.85, pf, plan.underside(pf) + 0.012])
+        add(f'hold.{s}', pit, pit + np.array([-sx * 0.03, 0, 0]), 'spine.003', deform=False, up=fwd)
+    # the cradle across the forearms: one under the chest, one under the rump
+    cf = j['spine_end'][1] - 0.01
+    add('cradle.F', np.array([0, cf, plan.underside(cf)]), np.array([0, cf, plan.underside(cf) - 0.03]), 'spine.003', deform=False, up=fwd)
+    cb = j['pelvis'][1] + 0.03
+    add('cradle.B', np.array([0, cb, plan.underside(cb)]), np.array([0, cb, plan.underside(cb) - 0.03]), 'spine', deform=False, up=fwd)
     add('belly.C', sp[2] + np.array([0, 0, -0.03]), np.array([0, sp[2][1], plan.belly + 0.02]), 'spine.002', up=fwd)
     tl = plan.tail
     for i in range(4):
@@ -237,7 +250,7 @@ def seg_dist(p, a, b):
 def fix_weights(mesh, arm, table, plan):
     """Smooth the automatic weights and keep the barrel off the legs: a leg bone may only hold
     vertices near its own column and away from the belly midline (stops the belly following a leg)."""
-    names = [b.name for b in arm.data.bones if b.use_deform]
+    names = [b.name for b in arm.data.bones if b.use_deform and not b.name.startswith('claw.')]
     W = weight_matrix(mesh, names)
     co = np.empty(len(mesh.data.vertices) * 3); mesh.data.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
     mw = np.array(mesh.matrix_world)

@@ -48,10 +48,15 @@ export const CREATURE_PLANS = {
     presets: ['british-shorthair', 'domestic-shorthair'],
     builds: { lean: 0.15, normal: 0.45, chubby: 0.7, fat: 0.92 } as Record<string, number>,
     patterns: ['solid', 'tabby', 'tuxedo', 'calico'],
-    clips: ['idle', 'walk', 'trot', 'sit', 'loaf', 'jump', 'land', 'swat', 'carried', 'squash',
+    clips: ['idle', 'walk', 'trot', 'sit', 'loaf', 'jump', 'jump_takeoff', 'jump_wiggle', 'jump_air', 'jump_land', 'land', 'swat',
+      'carried', 'carried_dangle', 'carried_cradle', 'squash',
       'bat_test_tap', 'bat_tap_loop', 'bat_push_final', 'bat_backhand_swipe', 'bat_double_smack', 'bat_hook', 'bat_flick', 'bat_flurry',
-      'bat_belly_push', 'bat_nose_push', 'react_innocent_sit', 'react_paw_lick', 'react_stare_down',
-      'scratch_vertical', 'scratch_horizontal', 'scratch_on_scratcher', 'butt_wiggle', 'tail_flick'],
+      'bat_belly_push', 'bat_nose_push', 'bat_test_tap_windup', 'bat_push_final_windup', 'bat_backhand_swipe_windup', 'bat_double_smack_windup',
+      'bat_hook_windup', 'bat_flick_windup', 'bat_belly_push_windup', 'bat_nose_push_windup', 'react_innocent_sit', 'react_paw_lick', 'react_stare_down',
+      'scratch_vertical', 'scratch_horizontal', 'scratch_bed', 'scratch_on_scratcher', 'butt_wiggle', 'tail_flick',
+      'idle_breathe', 'idle_weight_shift', 'idle_tail_sway', 'ear_swivel_L', 'ear_swivel_R', 'blink_quick', 'blink_half', 'slow_blink', 'sleepy_eyes',
+      'squint_content', 'nictitate_flick', 'head_tilt', 'sniff', 'groom_paw_face', 'lick_chest', 'yawn', 'stretch_front', 'stretch_back', 'lie_to_loaf',
+      'flop_side', 'ear_scratch', 'knead', 'chatter', 'startle_hop', 'crouch_alert'],
   },
   person: {
     presets: ['dad'],
@@ -95,6 +100,8 @@ export const CreatureOptions = z.object({
   rigify: z.boolean().default(true),
   renders: z.union([z.boolean(), z.array(z.string())]).default(false),
   clips: z.array(z.string()).optional(),
+  tempo: z.number().min(0.5).max(2).default(1).describe('speeds every clip up (> 1) or down; contact times and speeds follow'),
+  clipTempo: z.record(z.string(), z.number().min(0.25).max(4)).optional().describe('per-clip tempo on top of --tempo, e.g. {"walk": 1.2}'),
   out: z.string(),
 });
 export type CreatureOptionsIn = z.input<typeof CreatureOptions>;
@@ -119,6 +126,7 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
   };
   if (o.pattern && !(plan.patterns as readonly string[]).includes(o.pattern)) throw new Error(`--pattern must be ${plan.patterns.join('|')}`);
   if (o.clips) for (const c of o.clips) if (!(plan.clips as readonly string[]).includes(c)) throw new Error(`unknown clip "${c}"; clips: ${plan.clips.join(', ')}`);
+  if (o.clipTempo) for (const c of Object.keys(o.clipTempo)) if (!(plan.clips as readonly string[]).includes(c)) throw new Error(`--clipTempo: unknown clip "${c}"`);
   const coat: Record<string, string> = {};
   const cc = colour(o.coat, COAT_COLORS, 'coat colour');
   if (cc) coat.color = cc;
@@ -132,6 +140,7 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
     plan: o.plan, preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), build, legLength: o.legLength, bodyLength: o.bodyLength,
     headSize: o.headSize, coat, ...(o.eyeColor ? { eyeColor: colour(o.eyeColor, EYE_COLORS, 'eye colour') } : {}), furLength: o.furLength,
     faces: o.faces, texture: o.texture, rigify: o.rigify, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out: path.resolve(o.out),
+    ...(o.tempo !== 1 ? { tempo: o.tempo } : {}), ...(o.clipTempo ? { clipTempo: o.clipTempo } : {}),
   };
 }
 
@@ -140,6 +149,12 @@ export interface CreatureBuild {
   clips: Record<string, Record<string, unknown>>; rigify: boolean; quadriflow: boolean; blender: string; renders?: string[]; log: string[];
   validation?: { ok: boolean; errors: number; warnings: number; messages: unknown[] };
   motion?: Record<string, Array<{ name: string; pass: boolean; detail: string; frames: Array<[number, number]> }>>;
+  /** shape keys (pupils, blinks, squints, the third eyelid) */
+  shapes?: string[];
+  /** the eyelid shape keys never cut the eyeball, and a blink shuts */
+  eyeChecks?: Array<{ name: string; pass: boolean; detail: string }>;
+  /** per clip: lower legs, paws and tail kept out of the barrel and the head (measured on the skinned mesh in Blender) */
+  selfIntersection?: Record<string, { pass: boolean; worst: number; limit: number; detail: string; frames: Array<[number, number]> }>;
   seconds: number;
 }
 
@@ -200,6 +215,10 @@ export async function buildCreature(input: CreatureOptionsIn, opts: { blender?: 
   const { glbMotionChecks } = await import('./glbmotion.ts');
   const mc = glbMotionChecks(readGlb(bytes));
   report.motion = Object.fromEntries(Object.entries(mc).map(([k, ks]) => [k, ks.map((c) => ({ name: c.name, pass: c.pass, detail: c.detail, frames: c.frames }))]));
+  // the Blender-side self-intersection check joins each clip's checks
+  for (const [k, si] of Object.entries(report.selfIntersection ?? {})) {
+    (report.motion[k] ??= []).push({ name: 'no self-intersection', pass: si.pass, detail: si.detail, frames: si.frames });
+  }
   report.seconds = Math.round((Date.now() - t0) / 100) / 10;
   fs.writeFileSync(reportFile, JSON.stringify(report, null, 2));
   return report;

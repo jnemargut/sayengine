@@ -20,7 +20,9 @@ export const CREATURE_FLAGS: Record<string, string> = {
   '--faces': 'body quads (default 9000; triangles are about twice this plus ~2.5k for eyes, ears, whiskers)',
   '--texture': 'coat texture size (default 1024)',
   '--renders': 'true for the look renders (Eevee), or a JSON list of shot names',
-  '--clips': 'JSON list: a subset of idle, walk, trot, sit, loaf, jump, land, swat, carried, squash',
+  '--clips': 'JSON list: a subset of the clips (idle, walk, trot, jump_takeoff, jump_air, jump_land, the bats and their windups, scratches, carried_dangle, carried_cradle, blinks...)',
+  '--tempo': 'speed every clip up (> 1) or down, 0.5..2 (default 1); contact times and speeds follow',
+  '--clipTempo': 'JSON object of per-clip tempos on top of --tempo, e.g. {"walk":1.2,"slow_blink":0.8}',
   '--out': 'output folder (default .studio/creatures/<name>)',
   '--import': 'false to skip bringing it into the studio scene (default true)',
   '--rigify': 'false to skip generating the Rigify control rig',
@@ -29,7 +31,7 @@ export const CREATURE_FLAGS: Record<string, string> = {
 export async function blenderCreatureCli(rest: string[], parseFlags: (a: string[]) => Record<string, unknown>) {
   const f = parseFlags(rest);
   if (f.help) {
-    return { command: 'new-creature --builder blender', description: 'Build an organic creature in Blender, headless: a body from a skeleton and a shape field (one clean all-quad surface, no metaballs), a Rigify control rig plus a game deform skeleton bound with automatic weights (smoothed, the belly kept off the legs), a baked coat (colour with fur variation, a pile normal map, sheen), separate eyes that only turn, lids, ears, nose and whiskers, and clips keyed by script (idle, walk, trot, sit, loaf, jump, land, swat, carried, squash). The GLB is checked by the Khronos validator and the clip motion checks, then imported with import-character.', flags: CREATURE_FLAGS, example: 'studio new-creature --builder blender --plan cat --preset british-shorthair --build fat --coat blue --eyeColor copper' };
+    return { command: 'new-creature --builder blender', description: 'Build an organic creature in Blender, headless: a body from a skeleton and a shape field (one clean all-quad surface, no metaballs), a Rigify control rig plus a game deform skeleton bound with automatic weights (smoothed, the belly kept off the legs), a baked coat (colour with fur variation, a pile normal map, sheen), separate eyes that only turn, lids, ears, nose and whiskers, and clips keyed by script (gaits, a split jump, quick bats with windups, vigorous scratches, carried poses with hand anchors, shape-key blinks, idles), checked for pops, sliding paws and self-intersection. The GLB is checked by the Khronos validator and the clip motion checks, then imported with import-character.', flags: CREATURE_FLAGS, example: 'studio new-creature --builder blender --plan cat --preset british-shorthair --build fat --coat blue --eyeColor copper' };
   }
   const { buildCreature, BlenderMissing, findBlender, blenderVersion } = await import('../core/src/blender/creature.ts');
   const name = String(f.name ?? f.preset ?? 'creature');
@@ -56,6 +58,8 @@ export async function blenderCreatureCli(rest: string[], parseFlags: (a: string[
       ...(f.texture !== undefined ? { texture: Number(f.texture) } : {}),
       ...(f.renders !== undefined ? { renders: f.renders as any } : {}),
       ...(f.clips !== undefined ? { clips: f.clips as any } : {}),
+      ...(f.tempo !== undefined ? { tempo: Number(f.tempo) } : {}),
+      ...(f.clipTempo !== undefined ? { clipTempo: (typeof f.clipTempo === 'string' ? JSON.parse(f.clipTempo) : f.clipTempo) as any } : {}),
       ...(f.rigify !== undefined ? { rigify: f.rigify !== false && f.rigify !== 'false' } : {}),
       out,
     }, { blender: bin, onLog: (l) => process.stderr.write(`blender: ${l}\n`) });

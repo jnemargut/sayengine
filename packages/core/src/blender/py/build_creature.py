@@ -25,6 +25,7 @@ import parts  # noqa: E402
 import coat as coatlib  # noqa: E402
 import rig  # noqa: E402
 import anim  # noqa: E402
+import eyelids  # noqa: E402
 
 V = mathutils.Vector
 T0 = time.time()
@@ -123,6 +124,31 @@ def add_pupil_keys(ob, plan):
         k.data.foreach_set('co', new.reshape(-1))
 
 
+CLAW_OUT = 0.0075     # how far the claws slide out of the toe (m); the clips key it on claw.L / claw.R
+
+
+def claws_for(ob, plan, sx, name):
+    """Four claws in the front toe, retracted: their tips sit just inside the fur, found by casting
+    from inside the toe along its direction to the body surface."""
+    from mathutils.bvhtree import BVHTree
+    j = plan.j
+    m = np.array([sx, 1, 1])
+    a = plan_cat.to_blender(j['fpaw'] * m); b = plan_cat.to_blender(j['ftoe'] * m)
+    d = (b - a) / np.linalg.norm(b - a)
+    bvh = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
+    co = np.array([v.co for v in ob.data.vertices])
+    near = co[np.linalg.norm(co - b, axis=1) < 0.03]
+    half = float(np.clip((near[:, 0].max() - near[:, 0].min()) * 0.5 if len(near) else 0.012, 0.006, 0.02))
+    roots = []
+    L = 0.0065
+    for k in (-1.5, -0.5, 0.5, 1.5):
+        start = a + np.array([k * half * 0.42, 0, 0.004])
+        hit = bvh.ray_cast(V(start), V(d), 0.08)
+        surf = np.array(hit[0]) if hit[0] is not None else b + np.array([k * half * 0.42, 0, 0])
+        roots.append(surf - d * (L + 0.0022))
+    return parts.claws(name, roots, d, length=L, radius=0.0009 * plan.hs)
+
+
 def setup_scene():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     sc = bpy.context.scene
@@ -196,12 +222,23 @@ def main():
         pu.data.materials.append(pupm)
         a = pu.data.attributes.new('pupil', 'INT', 'POINT'); a.data.foreach_set('value', [1 if sx > 0 else 2] * len(pu.data.vertices))
         partobs[f'eye.{side}'].append(pu)
-    lid_col = tuple(base_lin * 0.35)          # the dark lid margin round the eye
-    lidm = principled('lid', color=lid_col, rough=0.85, sheen=0.3, sheen_tint=sheen_tint, sheen_rough=0.32, spec=0.2)
-    for s, sx in (('L', 1), ('R', -1)):
-        up, lo = parts.lids(f'lid.{s}', to_b(plan.eyes * np.array([sx, 1, 1])), to_b(plan.eye_dir * np.array([sx, 1, 1])), plan.eye_r)
-        up.data.materials.append(lidm); lo.data.materials.append(lidm)
+    lid_col = tuple(base_lin * 0.3)           # the dark lid margin
+    lidm = principled('lid', color=lid_col, rough=0.75, sheen=0.3, sheen_tint=sheen_tint, sheen_rough=0.32, spec=0.25)
+    lidfur = principled('lid_fur', color=tuple(base_lin * 0.92), rough=0.85, sheen=0.6, sheen_tint=sheen_tint, sheen_rough=0.35, spec=0.2)
+    nictm = principled('third_eyelid', color=(0.62, 0.55, 0.56), rough=0.25, spec=0.6, coat=0.6)
+    eyes = {}
+    for s, sx, e in (('L', 1, el), ('R', -1, er)):
+        c, d = to_b(plan.eyes * np.array([sx, 1, 1])), to_b(plan.eye_dir * np.array([sx, 1, 1]))
+        eyes[s] = (c, d, plan.eye_r)
+        eyelids.tag(e, eyelids.TAG['eye'][0 if s == 'L' else 1])
+        for pu in partobs[f'eye.{s}'][1:]:
+            eyelids.tag(pu, eyelids.TAG['pupil'][0 if s == 'L' else 1])
+        up, lo, ni = eyelids.lids(s, c, d, plan.eye_r)
+        for o in (up, lo):
+            o.data.materials.append(lidfur); o.data.materials.append(lidm)    # fur outside, the dark rim at the edge
+        ni.data.materials.append(nictm)
         partobs[f'lid.T.{s}'] = [up]; partobs[f'lid.B.{s}'] = [lo]
+        partobs.setdefault('spine.006', []).append(ni)
     earm = principled('ear', color=tuple(base_lin * 0.95), rough=0.85, sheen=0.6, sheen_tint=sheen_tint, sheen_rough=0.32, spec=0.2)
     innerm = principled('inner_ear', color=tuple(coatlib.hex_rgb(pr['inner_ear']) * 0.75), rough=0.7, sheen=0.5, sheen_tint=(0.6, 0.55, 0.58), spec=0.2)
     for s, sx in (('L', 1), ('R', -1)):
@@ -212,8 +249,17 @@ def main():
     no.data.materials.append(principled('nose', color=tuple(coatlib.hex_rgb(pr['nose'])), rough=0.45, spec=0.5))
     wh = parts.whiskers('whiskers', to_b(plan.head_parts['pad'][0] + np.array([0.004, 0.009, 0.0])), n=8, length=0.056 * plan.hs, width=0.00045)
     wh.data.materials.append(principled('whisker', color=(0.86, 0.85, 0.82), rough=0.5, spec=0.3, double=True))
-    partobs['spine.006'] = [no, wh]
-    log('parts: eyes, lids, ears, nose, whiskers')
+    partobs.setdefault('spine.006', []).extend([no, wh])
+    clawm = principled('claw', color=(0.78, 0.74, 0.66), rough=0.35, spec=0.5)
+    for s, sx in (('L', 1), ('R', -1)):
+        c = claws_for(ob, plan, sx, f'claw.{s}')
+        c.data.materials.append(clawm)
+        partobs[f'claw.{s}'] = [c]
+    for bone, obs in partobs.items():
+        for o in obs:
+            if 'eyepart' not in o.data.attributes:
+                eyelids.tag(o, 20)          # not the body: kept out of the self-intersection volumes
+    log('parts: eyes, lids, ears, nose, whiskers, claws')
 
     # ── rig ───────────────────────────────────────────────────────────────────
     table = rig.bone_table(plan, to_b)
@@ -223,7 +269,7 @@ def main():
         metarig, ctrl = rig.build_rigify(table)
         linked = rig.link_to_rigify(arm, ctrl)
         log(f'rigify: {"generated" if ctrl else "unavailable"}{f", {linked} game bones linked (muted)" if ctrl else ""}')
-    rig.auto_weights(ob, arm, exclude=[n for n in table if n.startswith(('eye.', 'lid.', 'ear.'))])
+    rig.auto_weights(ob, arm, exclude=[n for n in table if n.startswith(('eye.', 'lid.', 'ear.', 'claw.'))])
     names = rig.fix_weights(ob, arm, table, plan)
     log(f'weights: {len(names)} deform bones, smoothed, belly kept off the legs')
     for bone, obs in partobs.items():
@@ -239,11 +285,17 @@ def main():
     bpy.ops.object.join()
     ob.name = name
     add_pupil_keys(ob, plan)
+    eye_checks = eyelids.add_keys(ob, eyes)
+    log(f'eye shape keys: {", ".join(k.name for k in ob.data.shape_keys.key_blocks[1:])}')
     ob.data.name = name
 
     # ── clips ─────────────────────────────────────────────────────────────────
-    acts, poser, cm = anim.make_clips(arm, plan, spec.get('clips'), mesh=ob)
+    acts, poser, cm = anim.make_clips(arm, plan, spec.get('clips'), mesh=ob, tempo=float(spec.get('tempo', 1.0)), clip_tempo=spec.get('clipTempo') or {})
     log(f'clips: {", ".join(acts)}')
+    import selfcheck
+    self_hits = selfcheck.check_clips(arm, ob, acts)
+    bad = [k for k, v in self_hits.items() if not v['pass']]
+    log(f'self-intersection: {len(self_hits) - len(bad)}/{len(self_hits)} clips clear' + (f' (not: {", ".join(bad)})' if bad else ''))
     for a in acts.values():
         tr = arm.animation_data.nla_tracks.new()
         tr.name = a.name
@@ -260,14 +312,16 @@ def main():
     bpy.ops.export_scene.gltf(filepath=glb, export_format='GLB', use_selection=True, export_skins=True,
                               export_animations=True, export_animation_mode='ACTIONS', export_yup=True,
                               export_force_sampling=True, export_def_bones=False, export_extras=True,
-                              export_image_format='AUTO', export_apply=False, export_all_influences=False)
+                              export_image_format='AUTO', export_apply=False, export_all_influences=False,
+                              export_merge_animation='NLA_TRACK')   # a clip's morph track (blinks) joins its bone track
     log(f'exported {glb} ({os.path.getsize(glb) // 1024} KB, {tris} triangles)')
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f'{name}.blend'), compress=True)
     report = {
         'ok': True, 'glb': glb, 'blend': os.path.join(out, f'{name}.blend'), 'name': name, 'plan': 'cat', 'preset': preset,
         'triangles': tris, 'bones': [b.name for b in arm.data.bones], 'deformBones': names,
         'clips': {k: dict(a.items()) for k, a in acts.items()}, 'rigify': bool(ctrl), 'quadriflow': qf,
-        'blender': bpy.app.version_string, 'units': 'metres, Y up (glTF)', 'log': LOG,
+        'blender': bpy.app.version_string, 'units': 'metres, Y up (glTF)', 'log': LOG, 'eyeChecks': eye_checks,
+        'shapes': [k.name for k in ob.data.shape_keys.key_blocks[1:]], 'selfIntersection': self_hits,
     }
     for k in report['clips']:
         report['clips'][k] = {kk: (vv if isinstance(vv, (int, float, str, bool)) else [float(x) for x in vv] if hasattr(vv, '__len__') else str(vv)) for kk, vv in report['clips'][k].items()}

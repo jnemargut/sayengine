@@ -13,6 +13,51 @@ M = mathutils.Matrix
 Q = mathutils.Quaternion
 E = mathutils.Euler
 FPS = 30
+CLAW_OUT = 0.0075            # how far the front claws slide out of the toes (m)
+WALK = (0.7, 0.3)            # stride period (s), speed (m/s)
+TROT = (14 / FPS, 0.72)
+# extras that are times in seconds: re-timed with the clip by the tempo
+TIME_KEYS = ('contact', 'drag', 'rakeEnd', 'gather', 'launch', 'frontContact', 'hindContact', 'windupHold')
+
+
+def toe_dir(deg):
+    """A toe direction in the side plane: 0 = flat forward, 90 = straight down, 180 = flat back.
+    Interpolate the angle (not the vector) so a toe swinging from forward to back never flips."""
+    a = math.radians(deg)
+    return V((0, -math.cos(a), -math.sin(a)))
+
+
+def jig(t, t0, amp, freq=6.0, decay=8.0):
+    """A damped wobble starting at t0 (the fat jiggling after an impact)."""
+    if t < t0:
+        return 0.0
+    u = t - t0
+    return amp * math.exp(-decay * u) * math.sin(2 * math.pi * freq * u)
+
+
+def mix_specs(a, b, k):
+    """Blend two pose specs (rotations, offsets, scales, leg targets, shape weights) by k."""
+    out = {}
+    for key in ('rot', 'loc', 'wloc', 'scale'):
+        A, B = a.get(key, {}), b.get(key, {})
+        dflt = (1, 1, 1) if key == 'scale' else (0, 0, 0)
+        names = set(A) | set(B)
+        out[key] = {n: tuple(x + (y - x) * k for x, y in zip(A.get(n, dflt), B.get(n, dflt))) for n in names}
+    legs = {}
+    for leg in set(a.get('legs', {})) | set(b.get('legs', {})):
+        la, lb = a.get('legs', {}).get(leg), b.get('legs', {}).get(leg)
+        if la and lb:
+            legs[leg] = {'paw': la['paw'].lerp(lb['paw'], k), 'met': la['met'].lerp(lb['met'], k).normalized()}
+            for opt in ('pole', 'toe'):
+                if opt in la or opt in lb:
+                    legs[leg][opt] = V(la.get(opt, lb.get(opt))).lerp(V(lb.get(opt, la.get(opt))), k)
+        else:
+            legs[leg] = la or lb
+    out['legs'] = legs
+    sa, sb = a.get('shapes', {}), b.get('shapes', {})
+    if sa or sb:
+        out['shapes'] = {n: sa.get(n, 0.0) + (sb.get(n, 0.0) - sa.get(n, 0.0)) * k for n in set(sa) | set(sb)}
+    return out
 
 
 def smooth(x):
@@ -43,7 +88,9 @@ LEGS = {
 
 
 class Poser:
-    def __init__(self, arm, chains=None):
+    def __init__(self, arm, chains=None, soft=0.985):
+        self.soft = soft            # the soft-IK zone starts here (fraction of the reach): a wider zone eases the last of the reach
+        self.pole_down = 0.0
         self.arm = arm
         self.chains = chains or LEGS
         self.bones = arm.data.bones
@@ -128,13 +175,16 @@ class Poser:
         dist = d.length
         # soft IK: ease into full reach instead of snapping straight (no elbow pops near extension)
         L = l1 + l2
-        da = L * 0.985
+        da = L * self.soft
         if dist > da:
             dist = da + (L - da) * (1 - math.exp(-(dist - da) / (L - da)))
         dist_c = min(max(dist, abs(l1 - l2) + 1e-4), L * 0.999)
         u = d.normalized()
         body_q = spec.get('body_q', Q())
-        pole = body_q @ (V(pole_sign) if isinstance(pole_sign, tuple) else V((0, pole_sign, 0)))
+        # a quadruped's elbow points back and a little down, its knee forward and a little down: tipped
+        # like this the pole never lines up with a leg reaching forward or trailing back (a leg lined up
+        # with its pole is what flips an elbow over in one frame)
+        pole = body_q @ (V(pole_sign) if isinstance(pole_sign, tuple) else V((0, pole_sign, -self.pole_down * (1.0 if pole_sign > 0 else 0.6))))
         if 'pole' in tgt:
             pole = V(tgt['pole'])
         v = (pole - u * pole.dot(u))
@@ -159,13 +209,25 @@ class Poser:
 
 
 # ── keying ─────────────────────────────────────────────────────────────────────
-def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None, bones=None):
+def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None, bones=None, secs=None, mesh=None, rate=None):
+    """Key one clip. With `secs`, frame f samples the motion at f / frames * secs (so a clip re-timed by
+    the tempo still covers its whole motion and a loop still closes). Shape-key weights a pose sets in
+    spec['shapes'] (blinks, squints) go on a shape-key action in an NLA track of the same name, which
+    the glTF export merges into the same animation."""
     act = bpy.data.actions.new(name)
     arm.animation_data_create()
     arm.animation_data.action = act
-    for f in range(frames + (1 if loop else 1)):
-        t = f / FPS
+    shapes = {}
+    for f in range(frames + 1):
+        if rate is not None:
+            t = f / FPS * rate              # a one-shot: true time x tempo, so contact frames stay where they were keyed
+        elif secs:
+            t = f / frames * secs           # a loop: exactly one cycle over the frames, so it closes
+        else:
+            t = f / FPS
         spec = spec_fn(t)
+        for k, v in spec.get('shapes', {}).items():
+            shapes.setdefault(k, {})[f] = v
         B, _ = poser.solve(spec)
         for n, b in B.items():
             if bones is not None and n not in bones:
@@ -181,6 +243,28 @@ def key_clip(arm, poser, name, frames, spec_fn, loop=True, extras=None, bones=No
         for k, v in extras.items():
             act[k] = v
     arm.animation_data.action = None
+    # a morph track sets every morph weight, so only clips that really move the lids get one (a layer clip
+    # like tail_flick must not zero the blinks a game is driving)
+    moving = any(abs(v) > 1e-4 for tr in shapes.values() for v in tr.values())
+    layer_ok = bones is None or any(b.startswith('lid') for b in bones)
+    if shapes and moving and layer_ok and mesh is not None and mesh.data.shape_keys is not None:
+        key = mesh.data.shape_keys
+        key.animation_data_create()
+        sa = bpy.data.actions.new(f'{name}__shapes')
+        key.animation_data.action = sa
+        for kn, track in shapes.items():
+            kb = key.key_blocks.get(kn)
+            if kb is None:
+                continue
+            for f in range(frames + 1):
+                kb.value = float(track.get(f, 0.0))
+                kb.keyframe_insert('value', frame=f)
+            kb.value = 0.0
+        key.animation_data.action = None
+        sa.use_fake_user = True
+        tr = key.animation_data.nla_tracks.new(); tr.name = name
+        tr.strips.new(name, 0, sa); tr.mute = True
+        act['shapes'] = ','.join(sorted(shapes))
     return act
 
 
@@ -223,10 +307,50 @@ class CatMotion:
         spec['scale']['spine.002'] = (1 + 0.012 * amt * b, 1, 1 + 0.012 * amt * b)
         return spec
 
-    def blink(self, spec, closed):
-        for s in ('L', 'R'):
-            spec['rot'][f'lid.T.{s}'] = (-50 * closed, 0, 0)
-            spec['rot'][f'lid.B.{s}'] = (16 * closed, 0, 0)
+    def blink(self, spec, closed, right=None):
+        """Lids by shape key (blinkL / blinkR, see eyelids.py): 0 open, 1 shut."""
+        sh = spec.setdefault('shapes', {})
+        sh['blinkL'] = max(sh.get('blinkL', 0.0), float(closed))
+        sh['blinkR'] = max(sh.get('blinkR', 0.0), float(closed if right is None else right))
+        return spec
+
+    def squint(self, spec, amt):
+        sh = spec.setdefault('shapes', {})
+        sh['eyeSquintL'] = sh['eyeSquintR'] = float(amt)
+        return spec
+
+    def claws(self, spec, left, right=None):
+        """Front claws out (1) or sheathed (0): the claw bones slide the claws out of the toes."""
+        right = left if right is None else right
+        for s, k in (('L', left), ('R', right)):
+            spec.setdefault('loc', {})[f'claw.{s}'] = (0, CLAW_OUT * k, 0)
+        return spec
+
+    def body_frame(self, spec, bone='spine'):
+        """World matrices of the pose so far (legs at rest) and the body's rotation at `bone`."""
+        _, W = self.p.solve(self._copy(spec))
+        Rb = W[bone].to_3x3().normalized() @ self.p.R[bone].to_3x3().inverted()
+        return W, Rb
+
+    def limb(self, W, Rb, leg, x, f, z, met=(0, 0, -1), pole=None, toe=None):
+        """A leg target in the body's own frame: the paw at (x out, f toward the head, z toward the back)
+        from the limb's root (the top of the upper arm or the thigh)."""
+        sx = 1 if leg[0] == 'L' else -1
+        root = W[LEGS[leg][0]].translation
+        d = {'paw': root + Rb @ V((x * sx, -f, z)), 'met': (Rb @ V((met[0] * sx, -met[1], met[2]))).normalized()}
+        if pole is not None:
+            d['pole'] = Rb @ V((pole[0] * sx, -pole[1], pole[2]))
+        if toe is not None:
+            d['toe'] = Rb @ V((toe[0] * sx, -toe[1], toe[2]))
+        return d
+
+    def anchor(self, spec, nodes, target):
+        """Move the whole body (at the pelvis) so the midpoint of the `nodes` heads sits on `target`."""
+        _, W = self.p.solve(self._copy(spec))
+        mid = sum((W[n].translation for n in nodes), V()) / len(nodes)
+        w = spec['wloc']['spine']
+        d = V(target) - mid
+        spec['wloc']['spine'] = (w[0] + d.x, w[1] + d.y, w[2] + d.z)
         return spec
 
     # loops ------------------------------------------------------------------
@@ -261,11 +385,13 @@ class CatMotion:
                 m = speed * period * (1 - duty)
                 h00, h10, h01, h11 = 2 * s ** 3 - 3 * s ** 2 + 1, s ** 3 - 2 * s ** 2 + s, -2 * s ** 3 + 3 * s ** 2, s ** 3 - s ** 2
                 y = h00 * (n.y + stride / 2) + h10 * m + h01 * (n.y - stride / 2) + h11 * m
-                z = n.z + lift * math.sin(math.pi * s) ** 1.2
+                # the paw peels straight up off the floor (a fast first lift), so it never drags back
+                # along the ground while the swing turns it round; it sets down a little more softly
+                z = n.z + lift * (0.85 if front else 1.0) * math.sin(math.pi * s) ** ((0.55 if s < 0.5 else 0.8) if not front else 1.0)
                 # the paw flips up behind as it lifts (wrist flexes), then reaches forward; continuous
                 # with the stance roll at both ends
                 k0 = (1 if front else 0.6)
-                flex = math.sin(math.pi * s) * (0.9 if front else 0.6)
+                flex = math.sin(math.pi * s) * (0.9 if front else 0.6) * min(1.0, period / 0.8)   # a quick stride flips the paw less
                 off = 0.25 * k0 * (1 - 2 * smooth(s)) + flex
                 met = (met + V((0, off, 0.25 * flex))).normalized()
             legs[k] = {'paw': V((n.x, y, z)), 'met': met}
@@ -287,12 +413,13 @@ class CatMotion:
         return spec
 
     def walk(self, t):
-        # lateral sequence: LH, LF, RH, RF a quarter apart; one step per leg per second; direct register
-        return self.gait(t, 1.0, {'LH': 0.0, 'LF': 0.25, 'RH': 0.5, 'RF': 0.75}, 0.64, 0.2, 0.026, 0.004, 0.006, 22, 5)
+        # lateral sequence: LH, LF, RH, RF a quarter apart; direct register. A cat walks with purpose: about
+        # 1.4 strides a second at 0.3 m/s for a short-legged fat cat (stance sweep 0.13 m, all the leg has)
+        return self.gait(t, WALK[0], {'LH': 0.0, 'LF': 0.25, 'RH': 0.5, 'RF': 0.75}, 0.6, WALK[1], 0.028, 0.005, 0.007, 22, 6)
 
     def trot(self, t):
-        # diagonal pairs, tail up
-        return self.gait(t, 0.5, {'LH': 0.0, 'RF': 0.0, 'RH': 0.5, 'LF': 0.5}, 0.46, 0.55, 0.04, 0.007, 0.004, 70, 4, head_pitch=-2)
+        # diagonal pairs, tail up: 2.1 strides a second at 0.72 m/s, the barrel bobbing with each beat
+        return self.gait(t, TROT[0], {'LH': 0.0, 'RF': 0.0, 'RH': 0.5, 'LF': 0.5}, 0.4, TROT[1], 0.031, 0.009, 0.004, 70, 5, head_pitch=-2)
 
     def idle(self, t):
         spec = {'rot': {}, 'loc': {}}
@@ -439,29 +566,112 @@ class CatMotion:
         self.tail(spec, base_pitch=-30, sway=[30, 35, 35, 25], droop=-6)
         self.breathe(spec, t, 0.33)
         bl = max(0.0, 1 - abs(t - 2.2) / 0.3) ** 0.5
-        self.blink(spec, 0.55 + 0.45 * bl)      # content, heavy-lidded
+        self.blink(spec, 0.36 + 0.64 * bl)      # content, heavy-lidded
+        return spec
+
+    # ── carried ─────────────────────────────────────────────────────────────────
+    # Both carried clips hold the anchor nodes still (hold.L/hold.R, or cradle.F/cradle.B), so a game
+    # parents the cat to the carrier's hands by those nodes and the cat hangs from them.
+    HOLD_AT = V((0.0, 0.0, 0.56))       # the armpit grip, root space (Blender), for the dangle
+    CRADLE_AT = V((0.0, 0.0, 0.42))     # the chest support, for the cradle
+
+    def _annoyed(self, spec, t, period, look=1.0):
+        """Limp but annoyed: the tail lashes, the head turns to look back, ears go sideways."""
+        u = 2 * math.pi * t / period
+        lash = math.sin(2 * u)                                  # two lashes a loop
+        sw = [6 * lash, 14 * math.sin(2 * u - 0.6), 24 * math.sin(2 * u - 1.2), 34 * math.sin(2 * u - 1.8)]
+        # the head turns back over one shoulder, holds, comes round, and looks back over the other
+        turn = look * (env(t % period, [(0, 0), (0.25 * period, 1), (0.45 * period, 1), (0.6 * period, -0.7), (0.85 * period, -0.7), (period, 0)]))
+        r = spec['rot']
+        n0 = r.get('spine.004', (0, 0, 0)); h0 = r.get('spine.006', (0, 0, 0))
+        r['spine.004'] = (n0[0], n0[1], n0[2] + 22 * turn)
+        r['spine.005'] = (0, 0, 14 * turn)
+        r['spine.006'] = (h0[0], h0[1] + 34 * turn, h0[2] - 6 * turn)      # the head bone points up: its Y turns it
+        r['ear.L'] = (0, -20, -30); r['ear.R'] = (0, 20, 30)      # airplane ears
+        return sw
+
+    def carried_dangle(self, t):
+        """Scooped up under the front legs: the body hangs nearly vertical from the armpits, a fat cat's
+        barrel stretching long, hind legs dangling, front legs stuck out over the hands."""
+        P = 3.0
+        spec = {'rot': {}, 'loc': {}, 'scale': {}}
+        sway = math.sin(2 * math.pi * t / P)
+        self.body(spec, pitch=74 + 2 * sway, roll=1.5 * math.sin(2 * math.pi * t / P - 0.8))
+        # the barrel stretches under its own weight; the belly sags toward the floor (back along the body)
+        for n in ('spine.001', 'spine.002', 'spine.003'):
+            spec['loc'][n] = (0, 0.012, 0)
+        spec['rot']['spine.001'] = (-4, 0, 0); spec['rot']['spine.002'] = (-3, 0, 0)
+        spec['rot']['belly.C'] = (-22 + 3 * sway, 0, 2 * sway)
+        spec['scale']['belly.C'] = (1.04, 1.12, 1.04)
+        # the head comes level (the body is upright) and looks about
+        spec['rot']['spine.004'] = (-44, 0, 0); spec['rot']['spine.005'] = (-14, 0, 0); spec['rot']['spine.006'] = (-20, 0, 0)
+        self.anchor(spec, ('hold.L', 'hold.R'), self.HOLD_AT)
+        W, Rb = self.body_frame(spec, 'spine.003')
+        Wh, Rh = self.body_frame(spec, 'spine')
+        legs = {}
+        for k in ('LF', 'RF'):
+            # pushed up by the hands: the arms stick out forward over them, paws drooping
+            legs[k] = self.limb(W, Rb, k, 0.03, 0.01, -0.1, met=(0.1, 0.6, -1), pole=(0, -1, 0.3))
+        kick = env(t, [(0, 0), (1.55, 0), (1.68, 1), (1.85, 0.2), (2.0, 0)])     # one annoyed kick a loop
+        for k in ('LH', 'RH'):
+            sx = 1 if k[0] == 'L' else -1
+            hip = Wh[LEGS[k][0]].translation
+            ph = 0 if k == 'LH' else 0.6
+            sw = math.sin(2 * math.pi * t / P + ph)
+            kk = kick if k == 'LH' else 0.0
+            # hanging straight down under gravity, a slight bend, swinging a little
+            paw = hip + V((0.012 * sx, -0.012 + 0.012 * sw - 0.05 * kk, -0.215 + 0.06 * kk))
+            legs[k] = {'paw': paw, 'met': V((0, 0.15 - 0.6 * kk, -1)).normalized(), 'pole': V((0.2 * sx, -1, 0)), 'toe': V((0, -0.2, -1))}
+        spec['legs'] = legs
+        sw = self._annoyed(spec, t, P)
+        # the tail hangs down behind the legs, lashing
+        self.tail(spec, base_pitch=48, sway=sw, droop=6)
+        self.breathe(spec, t, 2 / P, 1.2)
+        self.squint(spec, 0.35)                                 # not amused
+        bl = max(0.0, 1 - abs(t - 2.4) / 0.08)
+        self.blink(spec, bl)
+        return spec
+
+    def carried_cradle(self, t):
+        """Draped belly-down across the carrier's forearms (one under the chest, one under the rump): the
+        middle sags, all four legs hang over the arms, the head up and turning to glare back."""
+        P = 3.0
+        spec = {'rot': {}, 'loc': {}, 'scale': {}}
+        sway = math.sin(2 * math.pi * t / P)
+        self.body(spec, pitch=10 + 1.5 * sway, roll=2 * math.sin(2 * math.pi * t / P - 0.5))
+        # held at both ends, the middle sags and the belly hangs
+        spec['rot']['spine.001'] = (-5, 0, 0); spec['rot']['spine.002'] = (-3, 0, 0); spec['rot']['spine.003'] = (8, 0, 0)
+        spec['rot']['belly.C'] = (0, 0, 3 * sway)
+        spec['scale']['belly.C'] = (1.06, 1.1, 1.06)
+        spec['rot']['spine.004'] = (6, 0, 0); spec['rot']['spine.006'] = (-6, 0, 0)
+        self.anchor(spec, ('cradle.F',), self.CRADLE_AT)
+        _, Wd = self.p.solve(self._copy(spec))
+        legs = {}
+        for k in ('LF', 'RF', 'LH', 'RH'):
+            sx = 1 if k[0] == 'L' else -1
+            front = k.endswith('F')
+            root = Wd[LEGS[k][0]].translation
+            ph = (0.0 if k[0] == 'L' else 0.5) + (0.0 if front else 0.25)
+            sw = math.sin(2 * math.pi * (t / P + ph))
+            # front legs hang over the forearm just ahead of it; hind legs hang off the back arm
+            # limp: splayed a little, the joints soft, the paws drooping off the wrists and hocks
+            if front:
+                paw = root + V((0.025 * sx, 0.03 + 0.006 * sw, -0.135))
+                legs[k] = {'paw': paw, 'met': V((0, 0.9, -0.55)).normalized(), 'pole': V((0, 1, -0.2)), 'toe': V((0, 0.4, -1))}
+            else:
+                paw = root + V((0.03 * sx, -0.015 + 0.008 * sw, -0.19))
+                legs[k] = {'paw': paw, 'met': V((0, 0.55, -1)).normalized(), 'pole': V((0.2 * sx, -1, 0)), 'toe': V((0, 0.3, -1))}
+        spec['legs'] = legs
+        sw = self._annoyed(spec, t, P, look=1.2)
+        self.tail(spec, base_pitch=-50, sway=sw, droop=-2)
+        self.breathe(spec, t, 2 / P, 1.2)
+        self.squint(spec, 0.25)
+        bl = max(0.0, 1 - abs(t - 1.1) / 0.08)
+        self.blink(spec, bl)
         return spec
 
     def carried(self, t):
-        spec = {'rot': {}, 'loc': {}}
-        lift = 0.3
-        self.body(spec, dz=lift, pitch=-6)
-        spec['rot']['spine.001'] = (5, 0, 0); spec['rot']['spine.002'] = (6, 0, 0)
-        sway = math.sin(2 * math.pi * t / 2.0)
-        for s, sx in (('L', 1), ('R', -1)):
-            # limp: the legs hang from the shoulders and hips, paws down and a touch inward
-            spec['rot'][f'shoulder.{s}'] = (-4, 0, 0)
-            spec['rot'][f'upper_arm.{s}'] = (8 + 3 * sway, 0, -4 * sx)
-            spec['rot'][f'forearm.{s}'] = (-6, 0, 0)
-            spec['rot'][f'hand.{s}'] = (-20, 0, 0)
-            spec['rot'][f'thigh.{s}'] = (-32 + 3 * sway, 0, 6 * sx)
-            spec['rot'][f'shin.{s}'] = (38, 0, 0)
-            spec['rot'][f'foot.{s}'] = (-12, 0, 0)
-        spec['rot']['spine.004'] = (10, 0, 0)
-        spec['rot']['spine.006'] = (8, 0, 14 * math.sin(2 * math.pi * t / 4.0))
-        self.tail(spec, base_pitch=-62, sway=[0, 3 * sway, 4 * sway, 5 * sway], droop=-4)
-        self.breathe(spec, t, 0.5)
-        return spec
+        return self.carried_dangle(t)
 
     def squash(self, t):
         spec = {'rot': {}, 'loc': {}, 'scale': {}}
@@ -481,96 +691,240 @@ class CatMotion:
         self.breathe(spec, t, 0.6, 0.6)
         return spec
 
-    # one-shots --------------------------------------------------------------
-    def jump(self, t):
+    # ── the jump: takeoff, air, landing ─────────────────────────────────────────
+    # Timing from real cats: a short gather (the haunches load, hind feet under the hips), an explosive
+    # hind-leg extension of about 0.15 s with the front legs already lifting and reaching, the body
+    # streaming long through the air with the tail out behind, then the front paws land first, the
+    # elbows take the hit, and the hind feet come in under the body about 0.08 s later.
+    GATHER, LAUNCH = 4 / FPS, 8 / FPS
+    LAND_HIND = 3 / FPS
+
+    def _fat(self):
+        return 0.4 + 0.6 * getattr(self.plan, 'build', 0.9)
+
+    def _takeoff(self, t, wiggle=0.0):
+        G, L = self.GATHER, self.LAUNCH
         spec = {'rot': {}, 'loc': {}, 'scale': {}}
-        # crouch (0-.35) → push (.35-.47) → air (.47-.92) → land squash (.92-1.08) → recover (1.08-1.4)
-        dz = env(t, [(0, 0), (0.33, -0.032), (0.45, 0.01), (0.55, 0.09), (0.72, 0.32), (0.92, 0.04), (1.0, -0.04), (1.12, -0.025), (1.4, 0)])
-        pitch = env(t, [(0, 0), (0.33, -6), (0.45, 18), (0.65, 4), (0.88, -14), (1.0, -4), (1.4, 0)])
-        self.body(spec, dz=dz, pitch=pitch)
-        sq = env(t, [(0, 0), (0.33, 0.06), (0.43, -0.06), (0.6, 0), (0.95, 0), (1.0, 0.11), (1.14, 0.03), (1.4, 0)])
-        spec['scale']['root'] = (1 + sq * 0.6, 1 - sq * 0.2, 1 - sq)
+        dz = env(t, [(0, 0), (0.05, -0.016), (G, -0.036), (0.19, -0.012), (L, 0.05)])
+        dy = env(t, [(0, 0), (G, -0.016), (L, 0.03)])
+        pitch = env(t, [(0, 0), (G, -5), (0.19, 6), (L, 26)])
+        self.body(spec, dz=dz, dy=dy, pitch=pitch, roll=3 * wiggle, dx=0.008 * wiggle, yaw=-2 * wiggle)
+        spec['rot']['spine.001'] = (env(t, [(0, 0), (G, 5), (L, -4)]), 0, 0)
+        spec['rot']['spine.002'] = (env(t, [(0, 0), (G, 4), (L, -3)]), 0, 2 * wiggle)
+        # the barrel loads into the crouch and is flung up and back by the push
+        sq = env(t, [(0, 0), (G, 0.05), (0.2, 0.0), (L, -0.05)])
+        spec['scale']['belly.C'] = (1 + 0.6 * sq * self._fat(), 1 + sq * self._fat(), 1 + 0.6 * sq * self._fat())
         legs = self.stand_legs()
-        # in the air the front legs reach for the landing and the hind legs trail; blended smoothly
-        air = env(t, [(0.38, 0.0), (0.52, 1.0), (0.84, 1.0), (0.97, 0.0)])
-        for k in legs:
-            s = 1 if k.endswith('F') else -1
-            q = self.paw_rest[k].copy()
-            up = V((q.x, q.y - 0.05 * s, q.z + max(dz, 0) + 0.04))
-            ground = legs[k]['paw']
-            legs[k]['paw'] = ground.lerp(up, air) if dz > 0 or air > 0 else ground
-            legs[k]['met'] = (self.met_rest[k] + V((0, (0.5 if s > 0 else -0.6) * air, 0))).normalized()
-            lifted = max(0.0, min(1.0, (legs[k]['paw'].z - q.z) / 0.03))
-            if lifted > 0:
-                # never below the floor while the body is low
-                legs[k]['paw'].z = max(legs[k]['paw'].z, q.z)
+        lift = env(t, [(0.09, 0), (L, 1)])
+        for k in ('LF', 'RF'):
+            p = self.paw_rest[k]
+            # front paws peel off first and reach up and forward
+            legs[k] = {'paw': V((p.x, p.y - 0.055 * lift, p.z + 0.075 * lift)),
+                       'met': (self.met_rest[k] + V((0, 0.9 * math.sin(math.pi * min(lift, 1) * 0.9), 0.2 * lift))).normalized()}
+        for k in ('LH', 'RH'):
+            p = self.paw_rest[k]
+            ext = env(t, [(G, 0), (L, 1)])
+            # planted; the heel lifts as the leg straightens, toes push down and back at the end
+            legs[k] = {'paw': V((p.x, p.y, p.z + 0.004 * ext)), 'met': self.met_rest[k].lerp(V((0, 0.45, -1)).normalized(), ext).normalized(),
+                       'toe': toe_dir(8.5 + (109 - 8.5) * ext)}
         spec['legs'] = legs
-        spec['rot']['spine.004'] = (env(t, [(0, 0), (0.33, -10), (0.5, 8), (0.9, -6), (1.4, 0)]), 0, 0)
-        self.tail(spec, base_pitch=env(t, [(0, -10), (0.45, 40), (0.9, 20), (1.4, -10)]), sway=[0, 0, 0, 0], droop=env(t, [(0, -8), (0.5, 6), (1.4, -8)]))
+        # eyes on the target: the head comes up and level as the body tips up
+        spec['rot']['spine.004'] = (env(t, [(0, 0), (G, -8), (L, -14)]), 0, 0)
+        spec['rot']['spine.006'] = (env(t, [(0, 0), (G, 4), (L, -10)]), 0, 0)
+        e = env(t, [(0, 0), (G, -10), (L, -14)])
+        spec['rot']['ear.L'] = (0, 0, -e * 0.3); spec['rot']['ear.R'] = (0, 0, e * 0.3)
+        self.tail(spec, base_pitch=env(t, [(0, -10), (G, -16), (L, 12)]), sway=[0, 0, 4 * wiggle, 10 * wiggle], droop=env(t, [(0, -8), (G, -4), (L, 2)]))
+        self.squint(spec, env(t, [(0, 0), (G, 0.3), (L, 0.1)]))
         return spec
 
-    def land(self, t):
+    def jump_takeoff(self, t):
+        return self._takeoff(t)
+
+    def jump_wiggle(self, t):
+        """The pre-jump butt wiggle, held at the gather (loop it between the two halves of jump_takeoff)."""
+        w = math.sin(2 * math.pi * t / 0.3)
+        spec = self._takeoff(self.GATHER, wiggle=w)
+        spec['rot']['spine'] = tuple(a + b for a, b in zip(spec['rot']['spine'], (0, 0, -3 * w)))
+        for k in ('LH', 'RH'):
+            sx = 1 if k[0] == 'L' else -1
+            # the hind feet tread: each lifts a hair in turn
+            spec['legs'][k]['paw'] = spec['legs'][k]['paw'] + V((0, 0, 0.006 * max(0.0, w * sx)))
+        return spec
+
+    def _air(self, t, dz=0.03, pitch=0.0, reach=1.0):
         spec = {'rot': {}, 'loc': {}, 'scale': {}}
-        dz = env(t, [(0, 0.0), (0.08, -0.045), (0.22, -0.03), (0.5, 0)])
-        sq = env(t, [(0, 0.0), (0.08, 0.11), (0.22, 0.03), (0.5, 0)])
-        self.body(spec, dz=dz, pitch=env(t, [(0, -10), (0.1, -4), (0.5, 0)]))
-        spec['scale']['root'] = (1 + sq * 0.6, 1 - sq * 0.2, 1 - sq)
+        u = 2 * math.pi * t / 0.6
+        self.body(spec, dz=dz, pitch=pitch)
+        # stretched long: the back flattens, the belly trails a beat behind
+        spec['rot']['spine.001'] = (-3, 0, 0); spec['rot']['spine.002'] = (-3, 0, 0); spec['rot']['spine.003'] = (-2, 0, 0)
+        spec['rot']['belly.C'] = (4 * math.sin(u - 0.8), 0, 0)
+        spec['scale']['belly.C'] = (1, 1 + 0.03 * math.sin(u) * self._fat(), 1)
+        W, Rb = self.body_frame(spec, 'spine.003')
+        Wh, Rh = self.body_frame(spec, 'spine')
+        b = 0.006 * math.sin(u)
+        legs = {}
+        for k in ('LF', 'RF'):
+            # front legs reach up and forward, paws turned down, ready to land
+            legs[k] = self.limb(W, Rb, k, 0.006, 0.11 * reach + b, -0.105 + 0.03 * (1 - reach), met=(0, 0.75, -0.65))
+        for k in ('LH', 'RH'):
+            # hind legs trail back, long, toes pointed
+            legs[k] = self.limb(Wh, Rh, k, 0.01, -0.13 - b, -0.165, met=(0, -0.85, -0.5), toe=(0, -0.8, -0.6))
+        spec['legs'] = legs
+        spec['rot']['spine.004'] = (-10, 0, 0); spec['rot']['spine.006'] = (-4 - 0.4 * pitch, 0, 0)
+        spec['rot']['ear.L'] = (0, 0, -6); spec['rot']['ear.R'] = (0, 0, 6)
+        # the tail streams out behind for balance
+        self.tail(spec, base_pitch=20, sway=[0, 2 * math.sin(u), 4 * math.sin(u - 0.5), 6 * math.sin(u - 1.0)], droop=-2)
+        return spec
+
+    def jump_air(self, t):
+        return self._air(t)
+
+    def _land(self, t):
+        H = self.LAND_HIND
+        spec = {'rot': {}, 'loc': {}, 'scale': {}}
+        fat = self._fat()
+        # front paws touch at 0: the body comes in nose down and behind them, the elbows give, the hind
+        # feet swing in and land at H, then the whole barrel squashes and jiggles
+        dz = env(t, [(0, 0.03), (0.05, 0.004), (0.11, -0.04), (0.18, -0.03), (0.28, -0.008), (0.45, 0)]) + jig(t, 0.11, -0.01 * fat, 5.0, 9.0)
+        pitch = env(t, [(0, -18), (H, -6), (0.16, -1), (0.45, 0)])
+        dy = env(t, [(0, -0.035), (0.12, 0.004), (0.45, 0)])
+        self.body(spec, dz=dz, dy=dy, pitch=pitch)
+        sq = env(t, [(0, 0), (0.05, 0.03), (0.12, 0.11), (0.22, 0.02), (0.45, 0)]) * fat
+        spec['scale']['root'] = (1 + sq * 0.5, 1 - sq * 0.15, 1 - sq)
+        j = jig(t, 0.1, 0.09 * fat, 6.0, 8.0)
+        spec['scale']['belly.C'] = (1 + 0.6 * j, 1 + j, 1 + 0.6 * j)
+        spec['rot']['belly.C'] = (14 * j, 0, 0)
+        spec['rot']['spine.002'] = (3 * jig(t, 0.1, 1.0, 6.0, 8.0), 0, 0)
+        legs = self.stand_legs()
+        k_h = env(t, [(0, 0), (H, 1)])
+        for k in ('LH', 'RH'):
+            p = self.paw_rest[k]
+            # from trailing behind and up to planted under the hips
+            legs[k] = {'paw': V((p.x, p.y + 0.06 * (1 - k_h), p.z + 0.07 * (1 - k_h) * (1 - k_h))),
+                       'met': self.met_rest[k].lerp(V((0, 0.5, -1)).normalized(), 1 - k_h).normalized(),
+                       'toe': toe_dir(env(t, [(0, 143), (H, 95), (0.24, 8.5)]))}      # lands on the toes, then the foot flattens
+        for k in ('LF', 'RF'):
+            legs[k]['met'] = (self.met_rest[k] + V((0, 0.35 * (1 - env(t, [(0, 0), (0.12, 1)])), 0))).normalized()
+        spec['legs'] = legs
+        spec['rot']['spine.004'] = (env(t, [(0, -6), (0.12, -18), (0.3, -4), (0.45, 0)]), 0, 0)
+        spec['rot']['spine.006'] = (env(t, [(0, 4), (0.12, 10), (0.45, 0)]), 0, 0)
+        self.tail(spec, base_pitch=env(t, [(0, 18), (0.14, -24), (0.3, -6), (0.45, -10)]), sway=[0, 0, 0, 6 * jig(t, 0.12, 1, 3, 5)], droop=-6)
+        self.squint(spec, env(t, [(0, 0), (0.1, 0.5), (0.3, 0)]))
+        return spec
+
+    def jump_land(self, t):
+        return self._land(t)
+
+    def jump(self, t):
+        """The whole jump in place, for games without jump physics: takeoff, a 0.32 m arc, landing."""
+        L = self.LAUNCH
+        A = 13 / FPS                              # time in the air
+        if t <= L:
+            return self._takeoff(t)
+        if t >= L + A:
+            return self._land(t - L - A)
+        u = (t - L) / A
+        dz = 0.05 + (0.03 - 0.05) * u + 4 * 0.29 * u * (1 - u)       # a parabola, apex about 0.33 m
+        pitch = 26 + (-18 - 26) * smooth(u)
+        air = self._air(t - L, dz=dz, pitch=pitch, reach=0.6 + 0.4 * u)
+        k0 = smooth((t - L) / 0.1)
+        if k0 < 1:
+            air = mix_specs(self._takeoff(L), air, k0)
+        k1 = smooth((t - (L + A - 0.08)) / 0.08)
+        if k1 > 0:
+            air = mix_specs(air, self._land(0), k1)
+        return air
+
+    def land(self, t):
+        """Dropping down onto all four (off a sofa): touch, squash, jiggle, settle."""
+        fat = self._fat()
+        spec = {'rot': {}, 'loc': {}, 'scale': {}}
+        dz = env(t, [(0, 0.0), (0.07, -0.042), (0.16, -0.026), (0.4, 0)]) + jig(t, 0.07, -0.008 * fat, 5.0, 9.0)
+        sq = env(t, [(0, 0.0), (0.07, 0.11), (0.18, 0.03), (0.4, 0)]) * fat
+        self.body(spec, dz=dz, pitch=env(t, [(0, -8), (0.08, -3), (0.4, 0)]))
+        spec['scale']['root'] = (1 + sq * 0.5, 1 - sq * 0.15, 1 - sq)
+        j = jig(t, 0.06, 0.09 * fat, 6.0, 8.0)
+        spec['scale']['belly.C'] = (1 + 0.6 * j, 1 + j, 1 + 0.6 * j)
         spec['legs'] = self.stand_legs()
-        self.tail(spec, base_pitch=env(t, [(0, 20), (0.5, -10)]), sway=[0, 0, 0, 0], droop=-6)
+        self.tail(spec, base_pitch=env(t, [(0, 16), (0.12, -22), (0.4, -10)]), sway=[0, 0, 0, 0], droop=-6)
+        self.squint(spec, env(t, [(0, 0), (0.07, 0.5), (0.25, 0)]))
         return spec
 
     def swat(self, t):
+        """A quick swat: the paw is up and out on the second frame and hits at 0.1 s; a short recovery."""
         spec = {'rot': {}, 'loc': {}}
-        sh = env(t, [(0, 0), (0.25, 1), (0.75, 1), (1.0, 0)])
-        self.body(spec, dz=-0.01 * sh, dy=-0.0, pitch=-4 * sh, roll=-5 * sh, dx=0.01 * sh)
+        sh = env(t, [(0, 0), (0.06, 1), (0.22, 1), (0.42, 0)])
+        self.body(spec, dz=-0.008 * sh, pitch=-3 * sh, roll=-5 * sh, dx=0.01 * sh)
         legs = self.stand_legs()
         p = self.paw_rest['RF'].copy()
-        y = env(t, [(0, 0), (0.28, -0.05), (0.42, -0.13), (0.5, -0.135), (0.8, -0.02), (1.0, 0)])
-        z = env(t, [(0, 0), (0.28, 0.07), (0.42, 0.035), (0.5, 0.03), (0.65, 0.055), (0.85, 0.0), (1.0, 0)])
-        x = env(t, [(0, 0), (0.3, 0.02), (0.45, 0.01), (1.0, 0)])
-        flex = env(t, [(0, 0), (0.28, 1.0), (0.42, -0.2), (0.6, 0.3), (1.0, 0)])
+        y = env(t, [(0, 0), (0.067, -0.075), (0.1, -0.105), (0.15, -0.1), (0.3, -0.03), (0.43, 0)])
+        z = env(t, [(0, 0), (0.067, 0.05), (0.1, 0.03), (0.16, 0.042), (0.32, 0.008), (0.43, 0)])
+        x = env(t, [(0, 0), (0.067, 0.012), (0.1, 0.008), (0.43, 0)])
+        flex = env(t, [(0, 0), (0.067, 0.45), (0.1, -0.1), (0.2, 0.25), (0.43, 0)])
         legs['RF'] = {'paw': V((p.x + x, p.y + y, p.z + z)), 'met': (self.met_rest['RF'] + V((0, 0.6 * flex, -0.2 * sh))).normalized()}
         spec['legs'] = legs
+        self.claws(spec, 0, env(t, [(0, 0), (0.05, 1), (0.2, 1), (0.35, 0)]))
         spec['rot']['spine.004'] = (-10 * sh, 0, -6 * sh)
         spec['rot']['spine.006'] = (4 * sh, 0, -4 * sh)
         spec['rot']['ear.L'] = (0, 0, -20 * sh); spec['rot']['ear.R'] = (0, 0, 20 * sh)
-        self.tail(spec, base_pitch=-5, sway=[0, 8 * sh, 12 * sh, 18 * math.sin(6 * t) * sh], droop=-6)
+        self.tail(spec, base_pitch=-5, sway=[0, 8 * sh, 12 * sh, 16 * sh], droop=-6)
         return spec
 
 
 CLIPS = {
     # name: (method, seconds, loop, extras)
     'idle': ('idle', 4.0, True, {'speed': 0.0}),
-    'walk': ('walk', 1.0, True, {'speed': 0.2}),
-    'trot': ('trot', 1.0, True, {'speed': 0.55}),
+    'walk': ('walk', WALK[0], True, {'speed': WALK[1]}),
+    'trot': ('trot', TROT[0], True, {'speed': TROT[1]}),
     'sit': ('sit', 3.2, True, {'speed': 0.0}),
     'loaf': ('loaf', 4.4, True, {'speed': 0.0}),
-    'jump': ('jump', 1.4, False, {'speed': 0.0, 'apex': 0.32}),
-    'land': ('land', 0.5, False, {'speed': 0.0}),
-    'swat': ('swat', 1.0, False, {'speed': 0.0}),
-    'carried': ('carried', 4.0, True, {'speed': 0.0, 'holdBone': 'spine.002', 'lift': 0.3}),
+    'jump': ('jump', 35 / FPS, False, {'speed': 0.0, 'apex': 0.33, 'launch': 8 / FPS, 'frontContact': 21 / FPS, 'hindContact': 24 / FPS}),
+    'jump_takeoff': ('jump_takeoff', 8 / FPS, False, {'speed': 0.0, 'gather': 4 / FPS, 'launch': 8 / FPS}),
+    'jump_wiggle': ('jump_wiggle', 0.6, True, {'speed': 0.0}),
+    'jump_air': ('jump_air', 0.6, True, {'speed': 0.0, 'airborne': True}),
+    'jump_land': ('jump_land', 14 / FPS, False, {'speed': 0.0, 'frontContact': 0.0, 'hindContact': 3 / FPS}),
+    'land': ('land', 0.4, False, {'speed': 0.0, 'contact': [0.0]}),
+    'swat': ('swat', 13 / FPS, False, {'speed': 0.0, 'contact': [0.1]}),
+    'carried': ('carried', 3.0, True, {'speed': 0.0, 'holdNodes': 'hold.L,hold.R', 'holdAt': [0.0, 0.56, 0.0], 'holdBone': 'hold.L', 'lift': 0.56}),
+    'carried_dangle': ('carried_dangle', 3.0, True, {'speed': 0.0, 'holdNodes': 'hold.L,hold.R', 'holdAt': [0.0, 0.56, 0.0]}),
+    'carried_cradle': ('carried_cradle', 3.0, True, {'speed': 0.0, 'holdNodes': 'cradle.F,cradle.B', 'holdAt': [0.0, 0.42, 0.0]}),
     'squash': ('squash', 2.0, True, {'speed': 0.0, 'flatten': 0.3}),
 }
 
 
-def make_clips(arm, plan, only=None, mesh=None):
-    poser = Poser(arm)
+def make_clips(arm, plan, only=None, mesh=None, tempo=1.0, clip_tempo=None):
+    """Key every clip. `tempo` speeds up (> 1) or slows down every clip; `clip_tempo` {name: factor}
+    on top of it per clip. Time extras (contact, launch...) and speeds follow the tempo."""
+    poser = Poser(arm, soft=0.93)          # cat legs: ease well before the full reach (no elbow snaps)
+    poser.pole_down = 0.5
     cm = CatMotion(poser, plan)
     if mesh is not None:
         cm.calibrate(arm, mesh)
     acts = {}
+    clip_tempo = clip_tempo or {}
     for name, (meth, secs, loop, extras) in CLIPS.items():
         if only and name not in only:
             continue
-        frames = int(round(secs * FPS))
-        ex = dict(extras, loop=loop, duration=secs)
+        k = float(tempo) * float(clip_tempo.get(name, 1.0))
+        if loop:
+            frames = max(2, int(round(secs / k * FPS)))
+            k_eff = secs / (frames / FPS)             # a loop keeps whole cycles: the tempo the frame count gives
+        else:
+            frames = max(2, int(math.ceil(secs / k * FPS - 1e-6)))
+            k_eff = k                                 # a one-shot keeps its timing exactly (it may end a hair later)
+        ex = dict(extras, loop=loop, duration=round(frames / FPS, 4))
+        if abs(k_eff - 1.0) > 1e-3:
+            ex['tempo'] = round(k_eff, 4)
+        if ex.get('speed'):
+            ex['speed'] = round(ex['speed'] * k_eff, 4)
+        for tk in TIME_KEYS:
+            if tk in ex:
+                v = ex[tk]
+                ex[tk] = [round(float(x) / k_eff, 4) for x in v] if isinstance(v, (list, tuple)) else round(float(v) / k_eff, 4)
         bones = None
         if ex.get('partial'):
             bones = [b.name for b in arm.data.bones if b.name.startswith(tuple(ex['partial'].split(',')))]
-            ex['partial'] = ex['partial']
-        if 'contact' in ex:
-            ex['contact'] = [float(x) for x in ex['contact']]
-        acts[name] = key_clip(arm, poser, name, frames, getattr(cm, meth), loop, ex, bones)
+        acts[name] = key_clip(arm, poser, name, frames, getattr(cm, meth), loop, ex, bones, secs=secs, mesh=mesh, rate=None if loop else k_eff)
     return acts, poser, cm
 
 

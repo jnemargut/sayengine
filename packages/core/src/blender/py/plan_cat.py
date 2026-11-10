@@ -143,6 +143,11 @@ class Cat:
         self.paw_r = (0.026 + 0.003 * b, 0.031, 0.016)
         self.place_eyes()
 
+    def underside(self, f):
+        """Height of the barrel's underside at forward position f (from the station table)."""
+        st = sorted(self.stations, key=lambda s: s[0])
+        return float(np.interp(f, [s[0] for s in st], [s[2] for s in st]))
+
     def place_eyes(self, depth=0.55):
         """Seat each eyeball so the face meets it about 65 degrees off the gaze: a big, round, open
         eye that sits in the face rather than bulging out of it."""
