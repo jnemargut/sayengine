@@ -44,6 +44,10 @@ While the human plays (or right after), run bots through the studio's game runti
 
 No studio, or a verb bots can't play (cozy, no goal): skip bots and say so on the page.
 
+**Bots must play the way a player does.** A bot that teleports, calls internals or skips waits measures a game nobody plays. Drive the same inputs a person uses: click the event again when the first click only walked there, and wait for an event (a zoom, a routine, a cutscene) to end before the next input. Give the game an "event busy" flag the bot can poll. Give up only on a real timeout, and report it as one. Use the runtime's own pathing and snag recovery, never a placement. A bot that cannot finish the way a player would is a finding, not a bot bug.
+
+**Classify interactions before counting them.** Sort each verb or event into what it means to the player before a bot tallies it. For example, toys are play, not mischief: batting a ball or a toy mouse should not raise a "trouble" meter or count toward the goals for breaking things. The checklist then measures each kind on its own terms: play is free and repeatable, and mischief has a cost and a reaction.
+
 ## Step 5 — findings
 
 Turn the notes and numbers into findings. Each finding:

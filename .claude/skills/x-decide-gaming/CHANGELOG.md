@@ -1,5 +1,20 @@
 # Changelog: the game skills
 
+## 2026-11: lessons from a later build (v1 to a live site)
+
+**Building (x-game-build)**
+- Deploy each build that passes its checks to a free static host and confirm it is live. `studio game release` makes the favicon set, the manifest, the share card and the OG/Twitter tags, and its check blocks private words and local paths. Why: the icons and share card took the most manual steps of the release, and a private word nearly shipped.
+- Slow audits get a SKIP switch, used only on the user's say-so and reported as skipped. Why: long audits slowed small iterations, and a silent skip would hide regressions.
+- The framing audit checks that the subject's surface stays drawn, with the support found by a ray down and physics beats run several times. Why: a cutaway faded the bed and rug the subject stood on, then a height rule made every chair unfadeable.
+- Character state changes ease, with the heading on the shortest arc and turn-rate limits (`studio/ease.ts`). Why: a lerp with a large k spun a character more than 1000°/s and popped it metres.
+
+**Playtesting (x-playtest)**
+- Classify interactions before counting them. For example, toys are play, not mischief. Why: batting a toy counted as trouble and got the player punished.
+- Bots play the way a player does: they click an event again and wait for it to end. Why: a bot that clicked while a gag was playing cancelled it, then reported goals as unreachable that a person reaches easily.
+
+**Studio**
+- The game runner no longer leaks headless Chromes when it is killed. There is a soft-cartoon look preset, a sticker UI style, cutaway protection and a pose easer in the web kit.
+
 ## 2026-11: lessons from the first full run
 
 One game went down the whole road (concept to an unattended v1 build). These changes fix what hurt. The road is still seven steps and the router's routing is unchanged.

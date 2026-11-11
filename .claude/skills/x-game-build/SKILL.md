@@ -51,6 +51,7 @@ For each step: do it, read the result, fix and retry once on failure, then mark 
 ## Step 5 — hand back
 
 1. Copy the playable web build into `.decisions/builds/build-NNN/` (an `index.html` that runs from a static server; see `references/modes.md`). For Godot, record the run command and stills instead.
+   - **Deploy after the checks pass.** When the game has a live site, every build that passes its checks goes to the static host (free tiers such as Cloudflare Pages or GitHub Pages), followed by one request for a shipped file to confirm it is live. Run `"$STUDIO" game release --check true --site <url>` first. It fails on missing or relative share tags, private words in shipped text, files too big for the host, and local paths. A deploy script also refuses private or oversized files on its own, so a hand-run deploy is safe too. Never deploy a build that failed a check.
 2. Update `preview.html`'s play window to the new build, and the road (`game.road`, `game.next`).
 3. Report in four to six lines: what was built, which decisions it came from, the `small` defaults you used, what to look at, and the next step on the road ("Next: camera, controls and character, step 3. Say 'next'.").
 4. If a thinking skill asked for presets, return to it (read its SKILL.md and continue there).
@@ -58,6 +59,12 @@ For each step: do it, read the result, fix and retry once on failure, then mark 
 ## Rebuilds
 
 When a decision changes: update the spec paths it sets, find the steps whose `uses` overlap, rerun only those (and steps after them that depend on them), and say which steps reran.
+
+## Checks that earn their time
+
+- **Slow audits can be skipped only when the user says so.** Give every long audit (framing over every event, repeated physics runs, full bot sweeps) a SKIP switch, an environment variable or a flag. Leave it off by default. Turn it on only when the user asks for a faster turn, and print `SKIPPED <audit> (user said so)` in the build report so the gap stays visible.
+- **The framing audit keeps the subject's surface drawn.** Any camera cut that fades occluders (`studio/cutaway.ts`) needs an audit that checks, at each beat, that the subject, the event's target and the surface under the subject are still visible. Use a visibility check plus a pixel comparison against an unfaded frame. Find the support with a ray down from the subject, not "everything below its feet". A physics beat varies between runs, so audit it N times in a row.
+- **Ease every state change.** Characters moved by rules or routines are drawn with `studio/ease.ts`: they turn along the shortest arc and never pop, and they snap only on a declared cut.
 
 ## Rules
 
