@@ -69,6 +69,12 @@ export const GAME_TOOLS: GameTool[] = [
     example: 'studio game test --project forge --assertions \'[{"kind":"on","node":"Vase","target":"Walnut stool"},{"kind":"reachable","target":"Walnut stool"}]\'',
   },
   {
+    name: 'game-release',
+    description: 'Make a web game ready to share, then check it. --icon <png> (a square icon, or a still that is centre-cropped) writes favicon.ico (16/32/48), apple-touch-icon.png, icon-192.png, icon-512.png and site.webmanifest, and notes when the icon turns to mush at 16 px. --card <png|jpg> (1200×630) ships as og-image.*. --site https://… with --title and --description writes the icon links and the Open Graph and Twitter tags into index.html with absolute URLs (between managed markers: run it again to update). Then the release check fails on: missing or relative share tags, a card that is not 1200×630 or does not ship, a linked file that does not ship, a shipped text file containing a private word (--words, default "mood board" and "references/"), a file over 25 MiB, or local paths and dev-server addresses in the code. --check true only checks. Deploy to a static host only after it passes.',
+    flags: { type: 'object', properties: { project, dir: { type: 'string', description: 'the folder you ship (default: the project folder)' }, icon: { type: 'string', description: 'PNG: a square icon or a still' }, card: { type: 'string', description: 'PNG or JPEG, 1200×630' }, site: { type: 'string', description: 'the live site URL, e.g. https://my-game.pages.dev/' }, title: { type: 'string' }, description: { type: 'string' }, cardAlt: { type: 'string', description: 'alt text for the share card' }, siteName: { type: 'string' }, words: { type: 'array', items: { type: 'string' }, description: 'private words nothing shipped may contain (replaces the default list)' }, check: { type: 'boolean', default: false, description: 'only run the release check' } } },
+    example: 'studio game release --project forge --icon art/icon.png --card art/card.jpg --site https://forge.example.dev/ --title "Forge" --description "Keep the fire alive."',
+  },
+  {
     name: 'game-status',
     description: 'Game projects in this studio (engine, last import, asset sizes) and whether each engine is available here (Godot path/version, Chrome for the web back end).',
     flags: { type: 'object', properties: { project } },

@@ -69,6 +69,15 @@ proof that they play in the engine.
 - The kit is also live in the studio view, over the scene, on a phone (844×390) or desktop (1280×720) screen. Clicking an element selects it (`ui/<id>` address); its own tokens are sliders and palette chips: `./studio ui-style --element pump --set '{"size":30,"fill":"good","ink":"accentInk","pad":12,"w":160}'` (null = back to the part's default; one step each). Contrast, overflow (pseudolocalised), tap size, text size and safe area re-run for both screens as you drag. Web games honour every element token; Godot honours text size and ink (fill and padding still come from the theme).
 - `./studio game screenshot --project <name> --page true` captures the whole screen — 3D plus the HUD and any HTML/Control UI (the web canvas alone misses HTML). `--bubbles '[{"character":"Blacksmith","text":"…"}]'`, `--values '{"fire":0.6}'`.
 
+## Web kit helpers and release
+
+- `studio ui-kit --preset sticker`: die-cut pastel stickers (white edges, a steady tilt fixed per element, a one-shot slap-on). The font is a token (`--tokens '{"font":{…}}'`).
+- A look record with `style: {preset: "soft-cartoon"}` swaps the grade/outline pass for a soft-cartoon pass on the web (see /look).
+- `studio/cutaway.ts`: `cutaway({camera, subject, feet, boxes, protect, thrown})` says what to fade between the camera and the subject. It never fades the subject, its support (a ray down from the feet), the event's target, or where a thrown object started, flight included.
+- `studio/ease.ts`: `new PoseEaser({speed, turn})` eases the drawn character toward its logical pose. Position, height and heading move together, the heading along the shortest arc, under rate limits; it snaps only on `cut()`.
+- `./studio game release --project <web game> --icon art/icon.png --card art/card.jpg --site https://… --title … --description …` writes the favicon set, the manifest, the card and the OG/Twitter tags, then runs the release check (share tags, private words such as "mood board" or "references/", file sizes, local paths). Deploy to a static host only after it passes. `--check true` only checks.
+- The game runner kills its headless Chromes and removes their profiles when it is stopped (Ctrl-C, SIGTERM, SIGHUP, a crash). A runner killed with SIGKILL is cleaned up by the next launch. `STUDIO_PAGE_TIMEOUT_MS` sets a hard limit per page.
+
 Not yet (later passes): pathfinding around obstacles (`walk-to` goes straight) and interactables.
 
 ## Rules

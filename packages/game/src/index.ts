@@ -251,6 +251,13 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
         const summary = r.ok ? (subs.length ? subs.map((x) => `${x.name} ${x.pass ? 'ok' : 'FAILS'} (float p95 ${x.floatP95Cm} cm, sink p95 ${x.sinkP95Cm} cm, limit ${x.limitCm.join('/')})`).join('; ') : r.result?.detail) : undefined;
         return out({ ...base, ...r, ok: r.ok && (r.result?.failed ?? 1) === 0, ...(summary ? { summary } : {}) });
       }
+      case 'game-release': {
+        if (config.engine !== 'web') return out({ ok: false, ...base, error: 'game release is for web games', hint: 'Godot exports have their own icon and store settings' });
+        const { release } = await import('./release.ts');
+        const at = (p?: string) => (p ? path.resolve(ctx.studioDir, p) : undefined);
+        const r = release(at(args.dir) ?? dir, { icon: at(args.icon), card: at(args.card), site: args.site, title: args.title, description: args.description, cardAlt: args.cardAlt, siteName: args.siteName, privateWords: args.words, checkOnly: !!args.check });
+        return out({ ok: r.check.pass, ...base, result: r, ...(r.check.pass ? { next: 'deploy the folder to your static host' } : { error: `release check failed: ${r.check.fails.length} problem(s)`, failures: r.check.fails }) });
+      }
       case 'game-test': {
         const assertions = typeof args.assertions === 'string' ? JSON.parse(args.assertions) : args.assertions ?? [];
         if (!Array.isArray(assertions)) return out({ ok: false, ...base, error: '--assertions must be a JSON array of {kind, …}' });
