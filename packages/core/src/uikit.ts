@@ -10,9 +10,12 @@ import { textAdvance } from './glyphs.ts';
 export interface UiTokens {
   palette: { bg: string; panel: string; edge: string; ink: string; muted: string; accent: string; accentInk: string; good: string; bad: string; bubble: string; bubbleInk: string };
   font: { family: string; file: string; licence: string; size: number; title: number };
-  border: { width: number; radius: number; style: 'plain' | 'double' | 'notched' };
+  border: { width: number; radius: number; style: 'plain' | 'double' | 'notched' | 'sticker' };
   shadow: { x: number; y: number; blur: number; colour: string };
   icon: { stroke: number; ink: string };
+  /** border.style 'sticker': die-cut stickers. Each element gets a steady tilt (±tilt°, fixed by its id, never
+   *  animated) and one pastel fill (by its id), and slaps on once when it appears. */
+  sticker?: { tilt: number; pastels: string[]; slap: boolean };
 }
 export type UiPart = 'panel' | 'button' | 'bar' | 'slot' | 'tooltip' | 'card' | 'bubble' | 'label';
 export type PaletteKey = keyof UiTokens['palette'];
@@ -44,6 +47,32 @@ export const FORGE_TOKENS: UiTokens = {
   shadow: { x: 0, y: 3, blur: 0, colour: '#00000080' },
   icon: { stroke: 3, ink: '#1d1410' },
 };
+
+/** Die-cut pastel stickers: white borders, a slight steady tilt, a slap-on entrance. The font is a token like
+ *  any other (studio ui-kit --preset sticker --tokens '{"font":{…}}'). */
+export const STICKER_TOKENS: UiTokens = {
+  palette: { bg: '#fdf6ec', panel: '#ffe3ec', edge: '#ffffff', ink: '#2d2433', muted: '#5e5266', accent: '#ffd36e', accentInk: '#2d2433', good: '#9fe0b4', bad: '#ff9a9a', bubble: '#ffffff', bubbleInk: '#2d2433' },
+  font: { family: 'Roboto', file: '@fontsource/roboto/files/roboto-latin-700-normal.woff', licence: 'OFL-1.1', size: 24, title: 56 },
+  border: { width: 5, radius: 18, style: 'sticker' },
+  shadow: { x: 0, y: 4, blur: 10, colour: '#2d243340' },
+  icon: { stroke: 3, ink: '#2d2433' },
+  sticker: { tilt: 3, pastels: ['#ffe3ec', '#dff3ff', '#e6f7d9', '#fff1c9', '#ece4ff'], slap: true },
+};
+
+/** A steady tilt for a sticker: a function of its id only (so it never changes between frames or layouts),
+ *  within ±max degrees and at least max/3 away from level, so every sticker reads as hand-placed. */
+export function stickerTilt(id: string, max: number): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const u = ((h >>> 0) % 10007) / 10006, mag = max / 3 + (max - max / 3) * u;
+  return Math.round((h & 1 ? mag : -mag) * 10) / 10;
+}
+/** Which of the kit's pastels a sticker wears (by id). */
+export function stickerPastel(id: string, n: number): number {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(h, 33) + id.charCodeAt(i)) >>> 0;
+  return n > 0 ? h % n : 0;
+}
 
 export const FORGE_LAYOUT: UiElement[] = [
   { id: 'heat', part: 'bar', x: 96, y: 28, w: 300, h: 40, text: 'Fire', value: 0.7 },
@@ -150,6 +179,7 @@ export function uiChecks(ui: UiKit): CheckResult[] {
   const pairs: Array<[string, string, string]> = [['text on panels', p.ink, p.panel], ['muted text on panels', p.muted, p.panel], ['button text', p.accentInk, p.accent], ['speech bubble text', p.bubbleInk, p.bubble], ['tooltip text', p.ink, p.bg]];
   // elements that picked their own colours are checked as themselves
   for (const e of ui.layout) if (e.style?.fill || e.style?.ink) { const c = elementColours(e); if (p[c.ink] && p[c.fill]) pairs.push([`${e.id} text`, p[c.ink], p[c.fill]]); }
+  if (t.border.style === 'sticker') for (const c of t.sticker?.pastels ?? []) pairs.push([`text on the ${c} sticker`, p.ink, c]);
   const low = pairs.map(([k, a, b]) => [k, contrast(a, b)] as const).filter(([, r]) => r < 4.5);
   out.push({ id: 'ui-contrast', label: 'Text contrast (WCAG AA 4.5:1)', pass: !low.length, detail: low.length ? low.map(([k, r]) => `${k} ${r.toFixed(1)}:1`).join('; ') : pairs.map(([k, a, b]) => `${k} ${contrast(a, b).toFixed(1)}:1`).join(', ') });
   const over: string[] = [];
@@ -247,6 +277,25 @@ export function uiCss(t: UiTokens, fontUrl = 'font.woff'): string {
 .ui-card > h1 { margin: 0 0 8px; font-size: var(--ui-title); color: var(--ui-accent); } .ui-card > p { margin: 0; color: var(--ui-muted); }
 .ui-bubble { background: var(--ui-bubble); color: var(--ui-bubble-ink); border: 2px solid var(--ui-bubble-ink); border-radius: 14px; padding: 8px 16px; max-width: 320px; transform: translate(-50%, -100%); white-space: normal; }
 .ui-bubble::after { content: ''; position: absolute; left: 50%; bottom: -12px; margin-left: -8px; border: 8px solid transparent; border-top: 12px solid var(--ui-bubble-ink); border-bottom: 0; }
+${b.style === 'sticker' ? stickerCss(t) : ''}`;
+}
+
+/** Die-cut stickers: a white edge, a pastel fill per element (ui.ts sets --ui-sticker and --ui-tilt from the
+ *  element's id), a soft drop shadow, and one slap-on when an element appears. The tilt uses the CSS rotate
+ *  property, never an animation or a per-frame transform, so stickers stay steady (no jitter) and compose with
+ *  the bubble's own translate. */
+function stickerCss(t: UiTokens): string {
+  const st = t.sticker ?? { tilt: 3, pastels: [], slap: true };
+  const all = '.ui-panel, .ui-label, .ui-button, .ui-bar, .ui-slot, .ui-tooltip, .ui-card, .ui-bubble';
+  return `/* sticker style */
+:root { ${st.pastels.map((c, i) => `--ui-pastel-${i}: ${c};`).join(' ')} }
+:is(${all}) { border: var(--ui-border) solid var(--ui-edge); border-radius: var(--ui-radius); box-shadow: 0 2px 0 #0000001a, var(--ui-shadow); rotate: var(--ui-tilt, 0deg); backface-visibility: hidden;${st.slap ? ' animation: ui-slap .34s cubic-bezier(.2, 1.5, .45, 1) both;' : ''} }
+:is(.ui-panel, .ui-label, .ui-slot, .ui-tooltip, .ui-card) { background: var(--ui-sticker, var(--ui-panel)); color: var(--ui-ink); text-shadow: none; }
+.ui-bar > .text { text-shadow: none; } .ui-card > h1 { color: var(--ui-ink); }
+.ui-button:active { transform: none; scale: .96; }
+.ui-bubble::after { border-top-color: var(--ui-edge); }
+@keyframes ui-slap { 0% { scale: 1.35; opacity: 0; } 55% { scale: .94; opacity: 1; } 100% { scale: 1; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { :is(${all}) { animation: none; } }
 `;
 }
 
@@ -261,13 +310,13 @@ const El = z.object({ id: z.string(), part: z.enum(['panel', 'button', 'bar', 's
 export const UI_TOOLS: ToolDef[] = [
   {
     name: 'ui-kit', mode: 'create', mutates: true,
-    description: 'Make or change the game\'s UI kit (Decision 58): tokens (palette, an OFL font, border/corner style, shadow) and a HUD layout at 1280×720. Parts: panel, button, bar, slot (item slot with an icon), tooltip, card (title/end card), bubble (a speech bubble that follows a 3D character; placed at runtime by say()), label. --preset forge starts from the forge style. --tokens merges {palette:{…}, border:{…}, …}; --layout replaces the HUD; --profile mobile|desktop sets which screen the tap-size and safe-area checks use. `game import` compiles it to a Godot Theme and a web CSS overlay.',
-    input: z.object({ preset: z.enum(['forge']).optional(), tokens: z.record(z.string(), z.any()).optional(), layout: z.array(El).optional(), profile: z.enum(['desktop', 'mobile']).optional() }),
+    description: 'Make or change the game\'s UI kit (Decision 58): tokens (palette, an OFL font, border/corner style, shadow) and a HUD layout at 1280×720. Parts: panel, button, bar, slot (item slot with an icon), tooltip, card (title/end card), bubble (a speech bubble that follows a 3D character; placed at runtime by say()), label. --preset forge starts from the forge style; --preset sticker from die-cut pastel stickers (white borders, a steady tilt, a slap-on entrance; the font stays a token). --tokens merges {palette:{…}, border:{…}, …}; --layout replaces the HUD; --profile mobile|desktop sets which screen the tap-size and safe-area checks use. `game import` compiles it to a Godot Theme and a web CSS overlay.',
+    input: z.object({ preset: z.enum(['forge', 'sticker']).optional(), tokens: z.record(z.string(), z.any()).optional(), layout: z.array(El).optional(), profile: z.enum(['desktop', 'mobile']).optional() }),
     example: `studio ui-kit --preset forge --tokens '{"palette":{"accent":"#e0782a"}}'`,
     run(ctx, a) {
       const prev: UiKit | undefined = (ctx.doc as any).ui;
       if (!prev && !a.preset && !a.tokens) throw new Error('pass --preset forge (or --tokens) to start the kit');
-      const base: UiKit = a.preset || !prev ? { tokens: structuredClone(FORGE_TOKENS), layout: structuredClone(FORGE_LAYOUT), icons: {} } : structuredClone(prev);
+      const base: UiKit = a.preset || !prev ? { tokens: structuredClone(a.preset === 'sticker' ? STICKER_TOKENS : FORGE_TOKENS), layout: structuredClone(FORGE_LAYOUT), icons: {} } : structuredClone(prev);
       if (a.tokens) for (const [k, v] of Object.entries(a.tokens)) (base.tokens as any)[k] = typeof v === 'object' && v ? { ...(base.tokens as any)[k], ...v } : v;
       if (a.layout) base.layout = a.layout as UiElement[];
       if (a.profile) base.profile = a.profile;

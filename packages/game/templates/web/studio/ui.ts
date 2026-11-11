@@ -13,6 +13,20 @@ interface Kit { tokens: any; layout: El[]; icons: string[]; profile: string }
 const BASE = 'assets/studio/ui/';
 const REF = { w: 1280, h: 720 };
 
+/** A steady tilt for a sticker, from its id only (the same as core/uikit.ts stickerTilt). */
+export function stickerTilt(id: string, max: number): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const u = ((h >>> 0) % 10007) / 10006, mag = max / 3 + (max - max / 3) * u;
+  return Math.round((h & 1 ? mag : -mag) * 10) / 10;
+}
+/** Which pastel a sticker wears (the same as core/uikit.ts stickerPastel). */
+export function stickerPastel(id: string, n: number): number {
+  let h = 5381;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(h, 33) + id.charCodeAt(i)) >>> 0;
+  return n > 0 ? h % n : 0;
+}
+
 interface Bubble { el: HTMLDivElement; target: THREE.Object3D; height: number; until: number }
 
 export class StudioUI {
@@ -43,10 +57,18 @@ export class StudioUI {
     else if (e.part === 'card') { const h = document.createElement('h1'); h.textContent = e.text ?? ''; d.appendChild(h); }
     else d.textContent = e.text ?? '';
     (d as any).__el = e;
+    this.sticker(d, e.id);
     this.root.appendChild(d);
     this.els[e.id] = d;
     if (e.part === 'bar') this.setBar(e.id, e.value ?? 1);
     return d;
+  }
+  /** Sticker kits: a steady tilt and a pastel per element, fixed by its id (set once, never per frame). */
+  sticker(d: HTMLElement, id: string) {
+    const st = this.kit?.tokens?.border?.style === 'sticker' ? this.kit.tokens.sticker : null;
+    if (!st) return;
+    d.style.setProperty('--ui-tilt', `${stickerTilt(id, st.tilt ?? 3)}deg`);
+    if (st.pastels?.length) d.style.setProperty('--ui-sticker', `var(--ui-pastel-${stickerPastel(id, st.pastels.length)})`);
   }
   layout() {
     const k = this.k;
@@ -83,6 +105,7 @@ export class StudioUI {
     const el = document.createElement('div');
     el.className = 'ui-bubble';
     el.textContent = text;
+    this.sticker(el, text);
     this.root.appendChild(el);
     const box = new THREE.Box3().setFromObject(target);
     const wp = target.getWorldPosition(new THREE.Vector3());
@@ -100,8 +123,9 @@ export class StudioUI {
       const vis = p.z < 1 && p.z > -1;
       b.el.style.display = vis ? '' : 'none';
       // keep the bubble on screen (inside a 16 px margin) even when the head is near an edge
-      const x = Math.min(w - 16 - b.el.offsetWidth / 2, Math.max(16 + b.el.offsetWidth / 2, (p.x * 0.5 + 0.5) * w));
-      const y = Math.max(16 + b.el.offsetHeight, (-p.y * 0.5 + 0.5) * h);
+      // whole pixels: sub-pixel positions make text (and tilted stickers) shimmer as the camera moves
+      const x = Math.round(Math.min(w - 16 - b.el.offsetWidth / 2, Math.max(16 + b.el.offsetWidth / 2, (p.x * 0.5 + 0.5) * w)));
+      const y = Math.round(Math.max(16 + b.el.offsetHeight, (-p.y * 0.5 + 0.5) * h));
       b.el.style.left = `${x}px`; b.el.style.top = `${y}px`;
       return true;
     });

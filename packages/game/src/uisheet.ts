@@ -3,7 +3,7 @@
 // each icon into a 24×24 canvas and hands back its alpha, which the studio scores (legible, distinct).
 import fs from 'node:fs';
 import path from 'node:path';
-import { uiCss, pseudo, type UiKit } from '../../core/src/uikit.ts';
+import { uiCss, pseudo, stickerTilt, stickerPastel, type UiKit } from '../../core/src/uikit.ts';
 import { STUDIO_ROOT } from './project.ts';
 import { withPage } from './chrome.ts';
 import { serve } from './web.ts';
@@ -11,8 +11,9 @@ import { serve } from './web.ts';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 function hudHtml(ui: UiKit, k: number, text: (s: string) => string) {
+  const sticker = ui.tokens.border.style === 'sticker' ? ui.tokens.sticker ?? { tilt: 3, pastels: [], slap: true } : null;
   return ui.layout.map((e) => {
-    const st = `left:${e.x * k}px;top:${e.y * k}px;width:${e.w * k}px;height:${e.h * k}px;font-size:${(e.part === 'bar' || e.part === 'tooltip' ? 0.85 : 1) * ui.tokens.font.size * k}px;${e.part === 'bar' || e.part === 'label' || e.part === 'tooltip' ? `line-height:${e.h * k - 6}px;` : ''}`;
+    const st = `left:${e.x * k}px;top:${e.y * k}px;width:${e.w * k}px;height:${e.h * k}px;font-size:${(e.part === 'bar' || e.part === 'tooltip' ? 0.85 : 1) * ui.tokens.font.size * k}px;${e.part === 'bar' || e.part === 'label' || e.part === 'tooltip' ? `line-height:${e.h * k - 6}px;` : ''}${sticker ? `--ui-tilt:${stickerTilt(e.id, sticker.tilt)}deg;${sticker.pastels.length ? `--ui-sticker:var(--ui-pastel-${stickerPastel(e.id, sticker.pastels.length)});` : ''}` : ''}`;
     if (e.part === 'bar') return `<div class="ui-bar" style="${st}"><div class="fill" style="width:${(e.value ?? 1) * 100}%"></div><div class="text">${esc(text(e.text ?? ''))}</div></div>`;
     if (e.part === 'slot') return `<div class="ui-slot" style="${st}">${e.icon ? `<img src="icons/${e.icon}.svg" alt="">` : ''}</div>`;
     if (e.part === 'button') return `<button class="ui-button" style="${st}">${esc(text(e.text ?? ''))}</button>`;
