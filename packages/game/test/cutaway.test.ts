@@ -14,8 +14,8 @@ const chairBetween = box('chair-between', [-0.3, 0, 1.5], [0.3, 0.85, 2.0]);   /
 const chairAside = box('chair-aside', [2.5, 0, 0], [3.0, 0.85, 0.5]);
 const shelf = box('shelf', [-2.2, 1.2, -0.3], [-1.6, 1.25, 0.3]);
 const wall = box('wall', [-5, 0, -1.2], [5, 2.5, -1.0]);
-const cat = box('subject', [-0.15, 0.9, -0.2], [0.15, 1.2, 0.2]);
-const boxes = [floor, counter, chairBetween, chairAside, shelf, wall, cat];
+const hero = box('subject', [-0.15, 0.9, -0.2], [0.15, 1.2, 0.2]);
+const boxes = [floor, counter, chairBetween, chairAside, shelf, wall, hero];
 const camera: V3 = [0, 1.1, 4];
 const subject = { id: 'subject', points: [[0, 1.15, 0], [0, 1.0, 0], [0, 0.92, 0.15]] as V3[] };
 const feet: V3 = [0, 0.9, 0];
@@ -46,7 +46,7 @@ test('the event\'s target and the subject are never faded, even when they block'
   assert.ok(!r.fade.includes('chair-between'));
   assert.ok(r.kept.some((k) => k.id === 'chair-between' && k.why === 'protected'));
   // a camera inside the subject's own box sees through nothing of it
-  const r2 = cutaway({ camera: [0, 1.0, 3], subject, feet, boxes: [cat, counter] });
+  const r2 = cutaway({ camera: [0, 1.0, 3], subject, feet, boxes: [hero, counter] });
   assert.ok(!r2.fade.includes('subject'));
 });
 

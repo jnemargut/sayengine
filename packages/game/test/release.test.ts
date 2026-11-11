@@ -82,7 +82,7 @@ test('game release: icons, manifest, card and tags from generated images; the re
 
   // private words, a local path, a wrong-size card and a relative og:image are caught
   fs.writeFileSync(path.join(dir, 'credits.txt'), 'Thanks to the Mood Board crew.\n');
-  fs.writeFileSync(path.join(dir, 'dist', 'game.js'), 'fetch("references/cat.jpg"); const dev = "http://localhost:5173/";\n');
+  fs.writeFileSync(path.join(dir, 'dist', 'game.js'), 'fetch("references/look-01.jpg"); const dev = "http://localhost:5173/";\n');
   const bad = await runGame('game-release', { project: 'rel', check: true, site: 'https://rel.example.dev/' }, ctx);
   assert.equal(bad.ok, false);
   const f = bad.failures.join('\n');
