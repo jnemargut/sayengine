@@ -24,6 +24,24 @@ export const BoardZ = z.object({
   notes: z.string().optional(),
 });
 
+// soft-cartoon (web): albedo, lit and normal + id passes; two soft light bands plus a highlight, saturation,
+// and coloured ink (the edge pixel darkened, not black). Excluded meshes are drawn as they are.
+export const StyleZ = z.object({
+  preset: z.enum(['grade', 'soft-cartoon']).default('grade').describe('grade: the usual grade/outline pass; soft-cartoon: the stylised pass instead'),
+  saturation: z.number().min(0).max(3).default(1.35),
+  shadow: z.number().min(0).max(1).default(0.5).describe('brightness of the shadow band (the lit band is 1)'),
+  band: z.tuple([z.number().min(0), z.number().min(0)]).default([0.45, 0.6]).describe('light ratio where shadow softly turns to lit'),
+  highlight: z.tuple([z.number().min(0), z.number().min(0), z.number().min(0).max(2)]).default([1.6, 1.8, 0.35]).describe('light ratio range and strength of the highlight band'),
+  calm: z.number().min(0).max(1).default(0.8).describe('how much of the base colour is blurred (busy textures calmed)'),
+  ink: z.number().min(0).max(1).default(0.32).describe('an outline pixel is the pixel × ink (coloured outlines; 0 is black)'),
+  inkWidth: z.number().min(0.5).max(4).default(1.4).describe('outline width in pixels at 720p'),
+  exclude: z.object({
+    additive: z.boolean().default(true), noDepthWrite: z.boolean().default(true), shaderMaterials: z.boolean().default(true),
+    names: z.array(z.string()).default(['whisker']).describe('mesh or parent names (case-insensitive regex) drawn as they are'),
+  }).default({ additive: true, noDepthWrite: true, shaderMaterials: true, names: ['whisker'] }).describe('meshes the preset leaves alone: light pools and glows, fur shells and particles, whiskers'),
+  precompile: z.boolean().default(true).describe('compile every pass up front (renderer.compile) so the first frame does not stutter'),
+});
+
 export const LookZ = z.object({
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, 'lowercase letters, digits and dashes'),
   label: z.string().optional(),
@@ -53,6 +71,7 @@ export const LookZ = z.object({
     intensity: z.number().min(0).max(8).default(0.8),
     levels: z.array(z.number().min(0).max(4)).length(7).default([0, 0, 1, 0, 1, 0, 0]).describe('weights of the 7 glow levels (half, quarter, … resolution)'),
   }).optional().describe('glow around bright lights: Godot Environment glow (additive) and a matched mip-chain pass on the web'),
+  style: StyleZ.optional().describe('a stylised render preset on the web (Godot ignores it): soft-cartoon replaces the grade/outline pass'),
   fallback: z.enum(['auto', 'grade', 'bake']).default('auto').describe('auto: grade where the renderer can, bake into colours where it cannot'),
   board: BoardZ.optional(),
 });
