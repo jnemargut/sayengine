@@ -112,6 +112,13 @@ class PersonMotion:
                 met = (met + V((0, 0, -0.9 * (1 - smooth(sv * 2)) + 0.25 * math.sin(math.pi * sv)))).normalized()
             legs[k] = {'paw': V((n.x, y, z)), 'met': met, 'toe': V((0, -1, -0.05))}
         # arms swing opposite the legs, a beat late
+        if ty:
+            # the belly follows through: it drops a beat after each footfall and swings to the side; the chest takes the
+            # scale back off, so only the middle of him bounces
+            b = ty * math.sin(4 * math.pi * (ph - 0.14)); sd = ty * math.sin(2 * math.pi * (ph - 0.16))
+            sc = (1 + 0.035 * b + 0.02 * abs(sd), 1 - 0.03 * b, 1 + 0.06 * b)
+            spec.setdefault('scale', {})['Spine'] = sc
+            spec['scale']['Chest'] = (1 / sc[0], 1 / sc[1], 1 / sc[2])
         sw = (0.17 + 0.07 * ty) * s * math.sin(2 * math.pi * (ph - 0.03 - 0.04 * ty))
         l, r = self.side_hands()
         self.hands(spec, l + V((0, sw, 0.02 * abs(sw) / 0.17)), r + V((0, -sw, 0.02 * abs(sw) / 0.17)))

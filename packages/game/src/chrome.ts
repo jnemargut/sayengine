@@ -118,13 +118,15 @@ export interface Page {
   logs: Array<{ level: string; text: string }>;
   /** The whole page as the player sees it — the canvas and any HTML UI over it (Fire's Dying pain #4). */
   screenshot(opts?: { format?: 'png' | 'jpeg'; quality?: number }): Promise<Buffer>;
+  /** real touch input (with size.touch): 'touchStart' | 'touchMove' with the fingers now down, 'touchEnd' with those still down (usually none) */
+  touch(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Array<{ x: number; y: number; id?: number }>): Promise<void>;
 }
 
 /**
  * Launch Chrome, open `url`, run `fn(page)`, always clean up (also when the process is killed).
  * `timeoutMs` (or STUDIO_PAGE_TIMEOUT_MS) is a hard limit on the whole page; 0 means none.
  */
-export async function withPage<T>(url: string, size: { width: number; height: number }, fn: (page: Page) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
+export async function withPage<T>(url: string, size: { width: number; height: number; deviceScaleFactor?: number; mobile?: boolean; touch?: boolean }, fn: (page: Page) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
   const bin = findChrome();
   if (!bin) throw Object.assign(new Error('Chrome not found'), { hint: 'install Google Chrome or set CHROME_BIN' });
   // a random start inside the range: test files run in parallel, and two Chromes racing for one free port
@@ -173,7 +175,9 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
     await send('Runtime.enable');
     await send('Log.enable');
     await send('Page.enable');
-    await send('Emulation.setDeviceMetricsOverride', { width: size.width, height: size.height, deviceScaleFactor: 1, mobile: false });
+    // a phone: its pixel ratio, the mobile viewport rules and real touch events (page.touch); the default is a desktop page
+    await send('Emulation.setDeviceMetricsOverride', { width: size.width, height: size.height, deviceScaleFactor: size.deviceScaleFactor ?? 1, mobile: !!size.mobile });
+    if (size.touch) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 });
     await send('Page.navigate', { url });
     const page: Page = {
       logs,
@@ -182,6 +186,7 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
         if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
         return r.result.value;
       },
+      async touch(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Array<{ x: number; y: number; id?: number }>) { await send('Input.dispatchTouchEvent', { type, touchPoints: points.map((q, k) => ({ x: q.x, y: q.y, id: q.id ?? k })) }); },
       async screenshot(o: { format?: 'png' | 'jpeg'; quality?: number } = {}) {
         const r = await send('Page.captureScreenshot', { format: o.format ?? 'png', ...(o.format === 'jpeg' ? { quality: o.quality ?? 85 } : {}), captureBeyondViewport: false });
         return Buffer.from(r.data, 'base64');

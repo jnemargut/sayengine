@@ -60,3 +60,20 @@ test('a SIGKILLed runner\'s orphan is swept by the next launch', { timeout: 3000
   assert.ok(!fs.existsSync(profile), 'its profile is removed');
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('a phone page: its pixel ratio and viewport, and real touch events (a tap and a two-finger pinch)', { timeout: 60000 }, async () => {
+  const { withPage } = await import('../src/chrome.ts');
+  const html = 'data:text/html,' + encodeURIComponent('<meta name="viewport" content="width=device-width, initial-scale=1"><body style="margin:0"><script>window.got = []; for (const t of ["touchstart", "touchmove", "touchend", "pointerdown"]) addEventListener(t, (e) => window.got.push([t, e.touches ? e.touches.length : e.pointerType]));</script>');
+  const r = await withPage(html, { width: 390, height: 844, deviceScaleFactor: 3, mobile: true, touch: true }, async (page) => {
+    await page.touch('touchStart', [{ x: 100, y: 200 }]); await page.touch('touchEnd', []);
+    await page.touch('touchStart', [{ x: 150, y: 400, id: 0 }, { x: 240, y: 400, id: 1 }]);
+    await page.touch('touchMove', [{ x: 100, y: 400, id: 0 }, { x: 290, y: 400, id: 1 }]);
+    await page.touch('touchEnd', []);
+    return page.eval('JSON.stringify({ dpr: devicePixelRatio, w: innerWidth, h: innerHeight, coarse: matchMedia("(pointer: coarse)").matches, got: window.got })') as Promise<string>;
+  });
+  const d = JSON.parse(r);
+  assert.equal(d.dpr, 3); assert.equal(d.w, 390); assert.equal(d.h, 844);
+  assert.ok(d.got.some((g: [string, unknown]) => g[0] === 'touchstart' && g[1] === 1), 'a one-finger touch arrived');
+  assert.ok(d.got.some((g: [string, unknown]) => g[0] === 'touchmove' && g[1] === 2), 'a two-finger move arrived');
+  assert.ok(d.got.some((g: [string, unknown]) => g[0] === 'pointerdown' && g[1] === 'touch'), 'pointer events carry pointerType touch');
+});

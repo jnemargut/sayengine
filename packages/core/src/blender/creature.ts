@@ -56,7 +56,7 @@ export const CREATURE_PLANS = {
       'scratch_vertical', 'scratch_horizontal', 'scratch_bed', 'scratch_on_scratcher', 'butt_wiggle', 'tail_flick',
       'idle_breathe', 'idle_weight_shift', 'idle_tail_sway', 'ear_swivel_L', 'ear_swivel_R', 'blink_quick', 'blink_half', 'slow_blink', 'sleepy_eyes',
       'squint_content', 'nictitate_flick', 'head_tilt', 'sniff', 'groom_paw_face', 'lick_chest', 'yawn', 'stretch_front', 'stretch_back', 'lie_to_loaf',
-      'flop_side', 'ear_scratch', 'knead', 'chatter', 'startle_hop', 'crouch_alert'],
+      'flop_side', 'ear_scratch', 'knead', 'chatter', 'startle_hop', 'crouch_alert', 'zoomies', 'pounce', 'caught_freeze'],
   },
   person: {
     presets: ['dad'],
@@ -64,7 +64,7 @@ export const CREATURE_PLANS = {
     patterns: [],
     clips: ['idle', 'walk', 'pick_up', 'look_around', 'carry_cat', 'reading', 'phone_call', 'sit_desk', 'idle_breathe', 'idle_weight_shift', 'glance_around',
       'adjust_glasses', 'rub_neck', 'read_page_turn', 'read_chuckle', 'sip_tea', 'sit', 'cross_legs', 'eat_fork', 'chew', 'type_burst', 'think_pause', 'rub_eyes',
-      'stretch_arms_up', 'phone_pace_gesture', 'phone_laugh', 'hands_on_hips_sigh', 'head_shake', 'pet_cat_down'],
+      'stretch_arms_up', 'phone_pace_gesture', 'phone_laugh', 'hands_on_hips_sigh', 'head_shake', 'pet_cat_down', 'knee_groan'],
   },
 } as const;
 export type CreaturePlan = keyof typeof CREATURE_PLANS;

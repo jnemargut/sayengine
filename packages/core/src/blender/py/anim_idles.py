@@ -175,6 +175,35 @@ def install(CatMotion, CLIPS):
         spec['rot']['spine.002'] = (env(t, [(0, 0), (0.18, -14), (0.38, -6), (0.75, 0)]), 0, 0)   # an arched back
         return spec
 
+    def zoomies(self, t):
+        # the zoomies: a bounding gallop (the hind pair, then the front pair), the barrel rocking, ears back, tail streaming
+        per = 0.34
+        spec = self.gait(t, per, {'LH': 0.0, 'RH': 0.06, 'LF': 0.5, 'RF': 0.56}, 0.32, 1.9, 0.05, 0.02, 0.004, 35, 10, head_pitch=4)
+        ph = (t / per) % 1.0
+        r = spec['rot']['spine']
+        spec['rot']['spine'] = (r[0] + 9 * math.sin(2 * math.pi * (ph - 0.2)), r[1], r[2])
+        spec['rot']['spine.002'] = (-10 * math.sin(2 * math.pi * (ph - 0.2)), 0, 0)      # the back folds and opens with each bound
+        return spec
+
+    def pounce(self, t):
+        # the pounce (after a butt wiggle): a deep crouch with the rump up, the spring, a stretched arc, the front paws
+        # land first and the body squashes onto them
+        spec = S(self, t, [(0.0, {}), (0.22, {'dz': -0.04, 'pitch': 9, 'tail': 30, 'ears': 12}),
+                           (0.36, {'dz': 0.10, 'pitch': 14, 'tail': 62, 'ears': 30, 'LF': (0, 0.09, 0.09, -0.3), 'RF': (0, 0.09, 0.09, -0.3), 'LH': (0, -0.05, 0.05, 0.2), 'RH': (0, -0.05, 0.05, 0.2)}),
+                           (0.52, {'dz': 0.02, 'pitch': -11, 'tail': 50, 'ears': 20, 'LF': (0, 0.07, 0, 0), 'RF': (0, 0.07, 0, 0), 'LH': (0, -0.02, 0.04, 0.3), 'RH': (0, -0.02, 0.04, 0.3)}),
+                           (0.64, {'dz': -0.035, 'pitch': 0, 'tail': 20, 'ears': 0, 'LF': (0, 0.03, 0, 0), 'RF': (0, 0.03, 0, 0), 'LH': (0, 0, 0, 0), 'RH': (0, 0, 0, 0)}),
+                           (1.0, {'dz': 0, 'tail': -8, 'LF': (0, 0, 0, 0), 'RF': (0, 0, 0, 0)})])
+        return spec
+
+    def caught_freeze(self, t):
+        # caught: frozen low, ears flat back, the tail up and puffed, a fine tremble; the eyes stay wide (no blink)
+        spec = S(self, t, [(0.0, {'dz': -0.03, 'pitch': 3, 'ears': 38, 'tail': 58, 'neck': -6, 'head': 6}), (2.0, {'dz': -0.03, 'pitch': 3, 'ears': 38, 'tail': 58, 'neck': -6, 'head': 6})])
+        r = spec['rot'].get('spine', (0, 0, 0))
+        spec['rot']['spine'] = (r[0], r[1], r[2] + 0.7 * math.sin(2 * math.pi * 9 * t))
+        for i in range(4):
+            spec.setdefault('scale', {})[f'tail.00{i + 1}'] = (1.4, 1.0, 1.4)
+        return spec
+
     def crouch_alert(self, t):
         return S(self, t, [(0.0, {'dz': -0.03, 'pitch': -6, 'neck': 10, 'head': 4, 'ears': -12, 'tail': -16, 'tailSway': 6,
                                   'LF': (0, 0.02, 0, 0.3), 'RF': (0, 0.02, 0, 0.3)})])
@@ -190,7 +219,7 @@ def install(CatMotion, CLIPS):
                blink_quick=blink_quick, blink_half=blink_half, slow_blink=slow_blink, sleepy_eyes=sleepy_eyes, squint_content=squint_content,
                nictitate_flick=nictitate_flick, head_tilt=head_tilt, sniff=sniff, groom_paw_face=groom_paw_face, lick_chest=lick_chest, yawn=yawn,
                stretch_front=stretch_front, stretch_back=stretch_back, lie_to_loaf=lie_to_loaf, flop_side=flop_side, ear_scratch=ear_scratch,
-               knead=knead, chatter=chatter, startle_hop=startle_hop, crouch_alert=crouch_alert)
+               knead=knead, chatter=chatter, startle_hop=startle_hop, crouch_alert=crouch_alert, zoomies=zoomies, pounce=pounce, caught_freeze=caught_freeze)
     for n, f in fns.items():
         setattr(CatMotion, n, f)
     EYES = 'lid'         # blink clips key the (still) lid bones only; the lids move by their morph track
@@ -219,5 +248,8 @@ def install(CatMotion, CLIPS):
         'knead': ('knead', 1.4, True, {'speed': 0.0, 'contact': [0.175, 0.525, 0.875, 1.225]}),
         'chatter': ('chatter', 2.0, True, {'speed': 0.0}),
         'startle_hop': ('startle_hop', 0.75, False, {'speed': 0.0}),
+        'zoomies': ('zoomies', 0.34, True, {'speed': 1.9}),
+        'pounce': ('pounce', 1.0, False, {'speed': 0.0, 'launch': 0.24, 'contact': [0.52]}),
+        'caught_freeze': ('caught_freeze', 2.0, True, {'speed': 0.0}),
         'crouch_alert': ('crouch_alert', 2.0, True, {'speed': 0.0}),
     })

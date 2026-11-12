@@ -126,7 +126,27 @@ def install(PM, CLIPS):
 
     def type_burst(self, t):
         spec = self.sit_desk(t * 2.6)
+        if getattr(self, 'toy', 0.0):
+            # typing with character: hunched at the keys, the head pecking along, then a look up at the screen
+            k = self.toy
+            look = env(t, [(0.0, 0), (1.25, 0), (1.4, 1), (1.8, 1), (2.0, 0)])
+            r = spec['rot'].get('Head', (0, 0, 0)); n = spec['rot'].get('Neck', (0, 0, 0))
+            spec['rot']['Head'] = (r[0] + k * (7 * (1 - look) + 2.5 * math.sin(2 * math.pi * t * 5.2) * (1 - look) - 9 * look), r[1] + 5 * k * math.sin(2 * math.pi * t / 2.0) * (1 - look), r[2])
+            spec['rot']['Neck'] = (n[0] + 5 * k * (1 - look), n[1], n[2])
+            spec['rot']['LeftShoulder'] = (0, 0, -6 * k * (1 - look)); spec['rot']['RightShoulder'] = (0, 0, 6 * k * (1 - look))
         return spec
+
+    def knee_groan(self, t):
+        # getting up, at 40: hands on the knees, a lean, a push that stalls half way, then a hand to the small of the back
+        s = self.s
+        kl, kr = (0.13 * s, 0.40 * s, 0.57 * s), (-0.13 * s, 0.40 * s, 0.57 * s)
+        back = (-0.10 * s, -0.13 * s, 0.70 * s)
+        return keyed(self, t, [(0.0, {}),
+                               (0.5, {'pitch': 24, 'bend': 16, 'nod': 14, 'LH': kl, 'RH': kr, 'Ldir': (0, 0.2, -1), 'Rdir': (0, 0.2, -1), 'shrug': 0.6}),
+                               (1.15, {'pitch': 30, 'dz': 0.09 * s, 'dy': 0.07 * s, 'bend': 8, 'nod': -4, 'LH': kl, 'RH': kr, 'shrug': 1}),
+                               (1.5, {'pitch': 31, 'dz': 0.07 * s, 'dy': 0.07 * s, 'bend': 10, 'nod': 6, 'LH': kl, 'RH': kr, 'shrug': 1}),
+                               (2.1, {'pitch': 6, 'dz': 0.15 * s, 'dy': 0.13 * s, 'bend': -9, 'nod': -12, 'LH': kl, 'RH': back, 'Rdir': (0.3, 1, 0.2), 'shrug': 0.2}),
+                               (2.6, {'pitch': 4, 'dz': 0.15 * s, 'dy': 0.13 * s, 'bend': -6, 'nod': -6, 'LH': kl, 'RH': back, 'Rdir': (0.3, 1, 0.2)})], base='sit')
 
     def think_pause(self, t):
         q = pts(self)
@@ -188,7 +208,7 @@ def install(PM, CLIPS):
     fns = dict(idle_breathe=idle_breathe, idle_weight_shift=idle_weight_shift, glance_around=glance_around, adjust_glasses=adjust_glasses, rub_neck=rub_neck,
                read_page_turn=read_page_turn, read_chuckle=read_chuckle, sip_tea=sip_tea, cross_legs=cross_legs, sit=sit_idle, eat_fork=eat_fork, chew=chew,
                type_burst=type_burst, think_pause=think_pause, rub_eyes=rub_eyes, stretch_arms_up=stretch_arms_up, phone_pace_gesture=phone_pace_gesture,
-               phone_laugh=phone_laugh, hands_on_hips_sigh=hands_on_hips_sigh, head_shake=head_shake, pet_cat_down=pet_cat_down)
+               phone_laugh=phone_laugh, hands_on_hips_sigh=hands_on_hips_sigh, head_shake=head_shake, pet_cat_down=pet_cat_down, knee_groan=knee_groan)
     for n, f in fns.items():
         setattr(PM, n, f)
     CLIPS.update({
@@ -208,6 +228,7 @@ def install(PM, CLIPS):
         'think_pause': ('think_pause', 3.0, True, {'speed': 0.0, 'seat': 0.46}),
         'rub_eyes': ('rub_eyes', 2.4, False, {'speed': 0.0}),
         'stretch_arms_up': ('stretch_arms_up', 3.0, False, {'speed': 0.0, 'seat': 0.46}),
+        'knee_groan': ('knee_groan', 2.6, False, {'speed': 0.0, 'seat': 0.46}),
         'phone_pace_gesture': ('phone_pace_gesture', 2.2, True, {'speed': 0.45}),
         'phone_laugh': ('phone_laugh', 2.0, False, {'speed': 0.0}),
         'hands_on_hips_sigh': ('hands_on_hips_sigh', 3.0, False, {'speed': 0.0}),
