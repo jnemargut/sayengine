@@ -39,6 +39,17 @@ test('creature options: build words, colour names and patterns become a spec; ba
   }
 });
 
+test('the toy style reaches the builder: a cartoon cat, and a person with its own head (no kit face)', () => {
+  const c = creatureSpec({ plan: 'cat', style: 'toy', build: 'fat', out: '/tmp/x' });
+  assert.equal(c.toy, 1);
+  assert.equal(creatureSpec({ plan: 'cat', out: '/tmp/x' }).toy, undefined, 'real is the default and leaves the spec as it was');
+  const p = creatureSpec({ plan: 'person', style: 'toy', out: '/tmp/x' });
+  assert.equal(p.toy, 1);
+  assert.equal(p.kitFace, undefined, 'a toy person needs no kit face');
+  assert.ok(creatureSpec({ plan: 'person', out: '/tmp/x' }).kitFace, 'a real person still gets one');
+  assert.throws(() => creatureSpec({ style: 'clay', out: '/tmp/x' }));
+});
+
 test('without Blender the builder fails clearly and says how to install it', async () => {
   await assert.rejects(buildCreature({ out: path.join(os.tmpdir(), 'no-blender') }, { blender: null }), (e: any) => e instanceof BlenderMissing && /blender\.org/.test(e.hint));
 });
@@ -199,4 +210,31 @@ test('the kit face for a person: the head cut from a kit character, shape blinks
   for (const [mi, uv] of Object.entries(face.uvs)) assert.equal(uv.length, face.triMaterial.filter((m) => m === Number(mi)).length * 6);
   assert.ok(png.length > 1000 && png[1] === 0x50, 'a PNG');
   assert.ok(face.landmarks.ears.every((e) => Number.isFinite(e.top[1])));
+});
+
+test('a Blender-built toy cat: a closed fat body, a mouth that opens, every clip, follow-through that never moves a paw', { skip: !BLENDER && 'Blender is not installed', timeout: 600000 }, async () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-toycat-'));
+  const r = await buildCreature({ plan: 'cat', style: 'toy', build: 'fat', name: 'toy cat', rigify: false, faces: 7000, out });
+  assert.ok(r.ok && r.validation?.ok, 'a valid GLB');
+  assert.ok(r.quadriflow, 'the remesh took the body: it is one closed surface (a body cut open by the bounds comes back as a two-sided shell and fails here)');
+  assert.ok(r.shapes?.includes('mouthOpen') && r.shapes.includes('blinkL') && r.shapes.includes('pupilWide'), `face shapes: ${r.shapes}`);
+  for (const c of CREATURE_PLANS.cat.clips) assert.ok(r.clips[c], `clip ${c}`);
+  // the acting pass (overshoot, belly spring, tail follow-through) must not put a planted paw through the floor or pop a loop
+  for (const c of ['idle', 'walk', 'trot', 'sit', 'loaf']) for (const k of r.motion?.[c] ?? []) if (/floor|loop|pop/.test(k.name)) assert.ok(k.pass, `${c}: ${k.name}: ${k.detail}`);
+  const g = readGlb(new Uint8Array(fs.readFileSync(r.glb)));
+  const mesh = (g.json.meshes ?? [])[0] as { weights?: number[] };
+  assert.ok((mesh.weights ?? []).every((w) => w === 0), 'every shape key rests at 0 (a key left at 1 opens the mouth and blows the pupils in an engine)');
+});
+
+test('a Blender-built toy person: a cartoon head with the studio face shape names, garments, fingers, clips, valid', { skip: !BLENDER && 'Blender is not installed', timeout: 600000 }, async () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-toyperson-'));
+  const r = await buildCreature({ plan: 'person', style: 'toy', build: 'round', name: 'toy person', out });
+  assert.ok(r.ok && r.validation?.ok, 'a valid GLB');
+  for (const s of ['eyeBlinkLeft', 'eyeBlinkRight', 'browInnerUp', 'browDownLeft', 'browOuterUpRight', 'mouthSmileLeft', 'mouthFrownRight', 'jawOpen', 'mouthPucker', 'viseme_aa', 'viseme_oh']) assert.ok(r.shapes?.includes(s), `face shape ${s}`);
+  for (const b of ['Hips', 'Head', 'LeftHand', 'RightIndexDistal', 'LeftToes']) assert.ok(r.bones.includes(b), `bone ${b}`);
+  for (const c of CREATURE_PLANS.person.clips) assert.ok(r.clips[c], `clip ${c}`);
+  const g = readGlb(new Uint8Array(fs.readFileSync(r.glb)));
+  const face = (g.json.meshes ?? []).find((m: { name?: string }) => /face/.test(m.name ?? '')) as { weights?: number[]; primitives: unknown[] };
+  assert.ok(face && (face.weights ?? []).every((w) => w === 0), 'the face rests with every shape at 0');
+  assert.ok(face.primitives.length >= 7, 'the mouth keeps its teeth and cavity faces (zero-area faces are dropped on export)');
 });

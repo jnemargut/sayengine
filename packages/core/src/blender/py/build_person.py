@@ -115,43 +115,64 @@ def main():
     sc = bpy.context.scene
     sc.render.fps = anim_person.FPS; sc.frame_start = 0
     coat.TEXDIR = os.path.join(out, 'textures'); os.makedirs(coat.TEXDIR, exist_ok=True)
-    P = pp.Person({'preset': spec.get('preset', 'dad'), **{k: spec[k] for k in ('height', 'belly') if k in spec}})
+    toy = float(spec.get('toy', 0.0))
+    P = pp.Person({'preset': spec.get('preset', 'dad'), 'toy': toy, **{k: spec[k] for k in ('height', 'belly', 'cardigan', 'tee', 'trousers', 'slippers', 'glasses') if k in spec}})
     pr = P.pr
     res = int(spec.get('texture', 1024))
     tb = pp.to_blender
 
-    # ── the head: the studio's kit face (kitface.ts), placed on this person's neck ─────────
-    face = kithead.load(spec['kitFace'])
-    fit = kithead.Fit(face, P.j['Neck'])
-    L = kithead.landmarks(face, fit)
-    P.use_kit_face(L)
-    skin_props = {'Roughness': 0.55, 'Sheen Weight': 0.25, 'Sheen Tint': (1.0, 0.8, 0.75, 1.0), 'Specular IOR Level': 0.35}
-    head, parts, pidx = kithead.build(face, fit, spec['kitFacePng'], f'{name}-face', skin_props)
-    neck_down = max(0.03, float(L['bones']['Neck'][0][2] - (P.j['UpperChest'][2] + 0.035)) + 0.03)
-    kithead.thicken_neck(head, parts, L)
-    n0 = len(head.data.vertices)
-    kithead.extend_neck(head, neck_down)
-    pa = head.data.attributes['part'].data
-    for i in range(n0, len(head.data.vertices)):
-        pa[i].value = parts.index('Neck')
-    skin_m = next(m for m in head.data.materials if m.name.startswith('kit-skin-head'))
-    kithead.sculpt_ears(head, parts, L, skin_m)
-    shape_names = kithead.add_shapes(head, face, fit)
-    pidx, split = kithead.soften(head, parts, L, fit)
-    face_checks = kithead.face_checks(head, parts, L)
-    log('face checks: ' + ', '.join(f"{c['name']}: {'pass' if c['pass'] else 'FAIL ' + c['detail']}" for c in face_checks))
-    log(f'face: the kit head ({face["triangleCount"]} triangles, {split} long edges split, {len(shape_names)} face shapes)')
+    if toy:
+        # ── the head: a cartoon head whose features are simple shapes that act (toyhead.py) ─────────
+        import toyhead
+        hexc = coat.hex_rgb
+        skin_m = principled('skin', color=tuple(hexc(spec.get('skin', '#eebd98'))), rough=0.75, spec=0.2)
+        mats = dict(skin=skin_m, nose=principled('skin_warm', color=tuple(hexc(spec.get('noseColor', '#e59f84'))), rough=0.75, spec=0.2),
+                    hair=principled('hair', color=tuple(hexc(spec.get('hairColor', '#6a4b36'))), rough=0.85, spec=0.15),
+                    ink=principled('eye_ink', color=(0.012, 0.01, 0.014), rough=0.9, spec=0.0, double=True),
+                    white=principled('eye_white', color=(1, 1, 1), rough=0.8, spec=0.0, double=True),
+                    mouth=principled('mouth', color=(0.16, 0.035, 0.04), rough=0.7, spec=0.1, double=True),
+                    line=principled('mouth_line', color=tuple(hexc('#5a2c26')), rough=0.8, spec=0.1, double=True),
+                    frames=principled('frames', color=tuple(hexc(pr['glasses'])), rough=0.4, spec=0.4))
+        head, gl, L, shape_names = toyhead.build(P, f'{name}-face', mats, height=float(spec.get('headHeight', 0.42)))
+        P.use_kit_face(L)
+        parts = pidx = None
+        face_checks = []
+        log(f'face: the toy head ({len(head.data.polygons)} faces, {len(shape_names)} face shapes)')
+    else:
+        # ── the head: the studio's kit face (kitface.ts), placed on this person's neck ─────────
+        face = kithead.load(spec['kitFace'])
+        fit = kithead.Fit(face, P.j['Neck'])
+        L = kithead.landmarks(face, fit)
+        P.use_kit_face(L)
+        skin_props = {'Roughness': 0.55, 'Sheen Weight': 0.25, 'Sheen Tint': (1.0, 0.8, 0.75, 1.0), 'Specular IOR Level': 0.35}
+        head, parts, pidx = kithead.build(face, fit, spec['kitFacePng'], f'{name}-face', skin_props)
+        neck_down = max(0.03, float(L['bones']['Neck'][0][2] - (P.j['UpperChest'][2] + 0.035)) + 0.03)
+        kithead.thicken_neck(head, parts, L)
+        n0 = len(head.data.vertices)
+        kithead.extend_neck(head, neck_down)
+        pa = head.data.attributes['part'].data
+        for i in range(n0, len(head.data.vertices)):
+            pa[i].value = parts.index('Neck')
+        skin_m = next(m for m in head.data.materials if m.name.startswith('kit-skin-head'))
+        kithead.sculpt_ears(head, parts, L, skin_m)
+        shape_names = kithead.add_shapes(head, face, fit)
+        pidx, split = kithead.soften(head, parts, L, fit)
+        face_checks = kithead.face_checks(head, parts, L)
+        log('face checks: ' + ', '.join(f"{c['name']}: {'pass' if c['pass'] else 'FAIL ' + c['detail']}" for c in face_checks))
+        log(f'face: the kit head ({face["triangleCount"]} triangles, {split} long edges split, {len(shape_names)} face shapes)')
 
     # ── glasses, hands ─────────────────────────────────────────────────────────────
-    gl, _ = glasses.build(head, L, tuple(coat.hex_rgb(pr['glasses'])))
+    if not toy:
+        gl, _ = glasses.build(head, L, tuple(coat.hex_rgb(pr['glasses'])))
     hands = []
     for sx, side in ((1, 'Left'), (-1, 'Right')):
         w = P.j[f'{side}Hand']
         lo, hi = np.minimum(tb(w - 0.15 * P.s), tb(w + 0.15 * P.s)), np.maximum(tb(w - 0.15 * P.s), tb(w + 0.15 * P.s))
         hd, _ = body.build_surface(f'hand.{side}', F(lambda q, sx=sx: P.hand(q, sx)), lo, hi, 0.0019, 1000)
         hd.data.materials.append(skin_m)
-        uvl = hd.data.uv_layers.new(name='UVMap')
-        uvl.data.foreach_set('uv', np.tile(np.array(kithead.PLAIN_SKIN_UV), len(hd.data.loops)))
+        if not toy:
+            uvl = hd.data.uv_layers.new(name='UVMap')
+            uvl.data.foreach_set('uv', np.tile(np.array(kithead.PLAIN_SKIN_UV), len(hd.data.loops)))
         for poly in hd.data.polygons:
             poly.use_smooth = True
         hands.append(hd)
@@ -184,7 +205,22 @@ def main():
     # ── skeleton, weights ─────────────────────────────────────────────────────────
     table = P.finger_bones(P.bone_table())
     arm = rig.make_armature(f'{name}-rig', table)
-    weight_rigid_head(head, arm, P, parts, pidx)
+    if toy:
+        # the toy head is rigid on the Head bone; its neck stub grades into the Neck and the chest
+        for g in list(head.vertex_groups):
+            head.vertex_groups.remove(g)
+        G = {n: head.vertex_groups.new(name=n) for n in ('Head', 'Neck', 'UpperChest')}
+        hz = arm.data.bones['Head'].head_local.z; nz = arm.data.bones['Neck'].head_local.z
+        for v in head.data.vertices:
+            wh = float(np.clip((v.co.z - (hz - 0.03)) / 0.04, 0, 1))
+            wn = float(np.clip((v.co.z - (nz - 0.02)) / 0.04, 0, 1)) * (1 - wh)
+            for n, w in (('Head', wh), ('Neck', wn), ('UpperChest', max(0.0, 1 - wh - wn))):
+                if w > 1e-3:
+                    G[n].add([v.index], w, 'REPLACE')
+        head.parent = arm
+        m = head.modifiers.new('armature', 'ARMATURE'); m.object = arm
+    else:
+        weight_rigid_head(head, arm, P, parts, pidx)
     rig.rigid_bind(gl, arm, 'Head')
     body_bones = [n for n in table if not any(k in n for k in ('Eye', 'Jaw', 'Root', 'Thumb', 'Index', 'Middle', 'Ring', 'Little'))]
     for g, gob in garments.items():
@@ -219,7 +255,7 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f'{name}.blend'), compress=True)
     report = {'ok': True, 'glb': glb, 'blend': os.path.join(out, f'{name}.blend'), 'name': name, 'plan': 'person', 'preset': spec.get('preset', 'dad'),
               'triangles': tris, 'bones': [b.name for b in arm.data.bones], 'deformBones': [b.name for b in arm.data.bones if b.use_deform],
-              'shapes': [k.name for k in head.data.shape_keys.key_blocks[1:]], 'face': 'kit', 'faceChecks': face_checks,
+              'shapes': [k.name for k in head.data.shape_keys.key_blocks[1:]], 'face': 'toy' if toy else 'kit', 'faceChecks': face_checks,
               'clips': {k: {kk: (vv if isinstance(vv, (int, float, str, bool)) else list(vv) if hasattr(vv, '__len__') else str(vv)) for kk, vv in a.items()} for k, a in acts.items()},
               'rigify': False, 'blender': bpy.app.version_string, 'units': 'metres, Y up (glTF)'}
     if spec.get('renders'):

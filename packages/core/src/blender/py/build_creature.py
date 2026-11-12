@@ -2,7 +2,7 @@
 
 spec.json: {"plan": "cat", "preset": "british-shorthair", "build": 0.9, "legLength": 1, "bodyLength": 1,
             "headSize": 1, "coat": {"color": "#7d8593", "pattern": "solid"}, "eyeColor": "#c9771f",
-            "furLength": 0.006, "faces": 9000, "texture": 1024, "shells": 0, "rigify": true,
+            "furLength": 0.006, "faces": 9000, "texture": 1024, "shells": 0, "rigify": true, "toy": 0,
             "out": "/abs/dir", "name": "bsh-chonk", "renders": ["side", ...] | true | false}
 Writes <out>/<name>.glb, <name>.blend and report.json (bones, clips, triangle count, timings).
 """
@@ -122,6 +122,7 @@ def add_pupil_keys(ob, plan):
             new[m] = c + np.outer(a_r * sx_scale, right) + np.outer(a_u * sz_scale, up2) + np.outer(a_d, d)
         k = ob.shape_key_add(name=name, from_mix=False)
         k.data.foreach_set('co', new.reshape(-1))
+        k.value = 0.0
 
 
 CLAW_OUT = 0.0075     # how far the claws slide out of the toe (m); the clips key it on claw.L / claw.R
@@ -147,6 +148,28 @@ def claws_for(ob, plan, sx, name):
         surf = np.array(hit[0]) if hit[0] is not None else b + np.array([k * half * 0.42, 0, 0])
         roots.append(surf - d * (L + 0.0022))
     return parts.claws(name, roots, d, length=L, radius=0.0009 * plan.hs)
+
+
+def _abs_x(q):
+    q = q.copy(); q[:, 0] = np.abs(q[:, 0])
+    return q
+
+
+def add_mouth_key(ob):
+    """`mouthOpen`: the cavity and tongue grow from a speck inside the muzzle to their open shape."""
+    if 'mouth_open' not in ob.data.attributes:
+        return False
+    n = len(ob.data.vertices)
+    tgt = np.empty(n * 3); ob.data.attributes['mouth_open'].data.foreach_get('vector', tgt); tgt = tgt.reshape(-1, 3)
+    co = np.empty(n * 3); ob.data.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    m = np.abs(tgt).sum(1) > 1e-9
+    if ob.data.shape_keys is None:
+        ob.shape_key_add(name='Basis', from_mix=False)
+    new = co.copy(); new[m] = tgt[m]
+    k = ob.shape_key_add(name='mouthOpen', from_mix=False)
+    k.data.foreach_set('co', new.reshape(-1))
+    k.value = 0.0
+    return True
 
 
 def setup_scene():
@@ -187,7 +210,8 @@ def main():
     coat.setdefault('pile', 0.12 + 15 * fur_len)
     eye_col = spec.get('eyeColor', pr['eye_color'])
     plan = plan_cat.Cat({'preset': preset, 'build': spec.get('build', 0.85), 'leg_length': spec.get('legLength', 1.0),
-                         'body_length': spec.get('bodyLength', 1.0), 'head_size': spec.get('headSize', 1.0)})
+                         'body_length': spec.get('bodyLength', 1.0), 'head_size': spec.get('headSize', 1.0), 'toy': spec.get('toy', 0.0)})
+    toy = plan.toy
     to_b = plan_cat.to_blender
 
     # ── body ──────────────────────────────────────────────────────────────────
@@ -216,9 +240,10 @@ def main():
         e.data.materials.append(eyem)
     partobs['eye.L'] = [el]; partobs['eye.R'] = [er]
     # pupils: dark discs on the cornea, so a shape key can narrow them to slits in sunlight
-    pupm = principled('pupil', color=(0.005, 0.005, 0.006), rough=0.1, spec=0.6, coat=1.0)
+    # a toy's pupils are matte ink (a glossy pupil mirrors the room and reads as a cataract in a cartoon render)
+    pupm = principled('pupil', color=(0.005, 0.005, 0.006), rough=0.95, spec=0.0, coat=0.0) if toy else principled('pupil', color=(0.005, 0.005, 0.006), rough=0.1, spec=0.6, coat=1.0)
     for side, sx, e in (('L', 1, el), ('R', -1, er)):
-        pu = parts.pupil(f'pupil.{side}', to_b(plan.eyes * np.array([sx, 1, 1])), to_b(plan.eye_dir * np.array([sx, 1, 1])), plan.eye_r)
+        pu = parts.pupil(f'pupil.{side}', to_b(plan.eyes * np.array([sx, 1, 1])), to_b(plan.eye_dir * np.array([sx, 1, 1])), plan.eye_r, size=0.36 + 0.12 * toy)
         pu.data.materials.append(pupm)
         a = pu.data.attributes.new('pupil', 'INT', 'POINT'); a.data.foreach_set('value', [1 if sx > 0 else 2] * len(pu.data.vertices))
         partobs[f'eye.{side}'].append(pu)
@@ -245,11 +270,33 @@ def main():
         o, i = parts.ear(f'ear.{s}', to_b(plan.ear_base * np.array([sx, 1, 1])), plan.ear_size, plan.ear_tilt, sx, plan.ear_round)
         o.data.materials.append(earm); i.data.materials.append(innerm)
         partobs[f'ear.{s}'] = [o, i]
-    no = parts.nose('nose', to_b(plan.nose), 0.0135 * plan.hs, 0.0095 * plan.hs, 0.0032 * plan.hs)
+    nk = plan.hs * (1 + 0.6 * toy)
+    no = parts.nose('nose', to_b(plan.nose), 0.0135 * nk, 0.0095 * nk, 0.0032 * nk)
     no.data.materials.append(principled('nose', color=tuple(coatlib.hex_rgb(pr['nose'])), rough=0.45, spec=0.5))
-    wh = parts.whiskers('whiskers', to_b(plan.head_parts['pad'][0] + np.array([0.004, 0.009, 0.0])), n=8, length=0.056 * plan.hs, width=0.00045)
+    if toy:
+        wh = parts.toy_whiskers('whiskers', to_b(plan.head_parts['pad'][0] + np.array([0.008 * plan.hs, 0.004, 0.0])), n=3, length=0.05 * plan.hs, radius=0.0011 * plan.hs)
+    else:
+        wh = parts.whiskers('whiskers', to_b(plan.head_parts['pad'][0] + np.array([0.004, 0.009, 0.0])), n=8, length=0.056 * plan.hs, width=0.00045)
     wh.data.materials.append(principled('whisker', color=(0.86, 0.85, 0.82), rough=0.5, spec=0.3, double=True))
     partobs.setdefault('spine.006', []).extend([no, wh])
+    if toy:
+        # a cartoon face: a glint on each eye (it stays put when the eye turns), the "w" and a mouth that opens
+        glm = principled('eye_glint', color=(1, 1, 1), rough=0.9, spec=0.0)
+        glm.node_tree.nodes['Principled BSDF'].inputs['Emission Color'].default_value = (1, 1, 1, 1)
+        glm.node_tree.nodes['Principled BSDF'].inputs['Emission Strength'].default_value = 1.0
+        for s2, sx in (('L', 1), ('R', -1)):
+            d = plan.eye_dir * np.array([sx, 1, 1]) + np.array([-0.38, 0, 0.42])
+            gl = parts.pupil(f'glint.{s2}', to_b(plan.eyes * np.array([sx, 1, 1])), to_b(d / np.linalg.norm(d)), plan.eye_r * 1.03, size=0.17)
+            gl.data.materials.append(glm)
+            partobs['spine.006'].append(gl)
+        import sdf as _sdf
+        head_f = lambda p: plan.head_sdf(_abs_x(plan_cat.from_blender(p)), sockets=False)
+        surface = lambda pts: _sdf.project(head_f, np.asarray(pts, float), iters=12, max_step=0.01)
+        ln, cav, ton = parts.toy_mouth('mouth', surface, to_b(plan.mouth), to_b(plan.nose), plan.hs)
+        ln.data.materials.append(principled('mouth_line', color=(0.03, 0.025, 0.035), rough=0.6, spec=0.2))
+        cav.data.materials.append(principled('mouth', color=(0.09, 0.02, 0.03), rough=0.6, spec=0.2))
+        ton.data.materials.append(principled('tongue', color=(0.82, 0.32, 0.36), rough=0.5, spec=0.3))
+        partobs['spine.006'].extend([ln, cav, ton])
     clawm = principled('claw', color=(0.78, 0.74, 0.66), rough=0.35, spec=0.5)
     for s, sx in (('L', 1), ('R', -1)):
         c = claws_for(ob, plan, sx, f'claw.{s}')
@@ -286,6 +333,7 @@ def main():
     ob.name = name
     add_pupil_keys(ob, plan)
     eye_checks = eyelids.add_keys(ob, eyes)
+    add_mouth_key(ob)
     log(f'eye shape keys: {", ".join(k.name for k in ob.data.shape_keys.key_blocks[1:])}')
     ob.data.name = name
 

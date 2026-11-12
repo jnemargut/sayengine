@@ -8,6 +8,9 @@ Proportions (all 0..1 or scale factors around 1):
   leg_length  scale on the visible leg (0.8 short .. 1.2 long)
   body_length scale on the barrel length
   head_size   scale on the head
+  toy         0 a real cat .. 1 a chunky cartoon toy: a head about 40% of the height, eyes a third of the
+              face, a wide pear of a body that hangs to the floor, stub legs, a fat tail. Everything
+              downstream (rig, weights, clips) reads the same plan, so the clips re-fit themselves.
 """
 import numpy as np
 import sdf
@@ -43,9 +46,11 @@ class Cat:
         self.breed = pr
         b = float(params.get('build', 0.85))
         self.build = b
-        L = float(params.get('leg_length', 1.0))
-        B = float(params.get('body_length', 1.0)) * pr.get('length', 1.0)
-        H = float(params.get('head_size', 1.0)) * pr.get('head', 1.0)
+        toy = float(params.get('toy', 0.0))
+        self.toy = toy
+        L = float(params.get('leg_length', 1.0)) * (1 - 0.22 * toy)
+        B = float(params.get('body_length', 1.0)) * pr.get('length', 1.0) * (1 - 0.08 * toy)
+        H = float(params.get('head_size', 1.0)) * pr.get('head', 1.0) * (1 + 0.5 * toy)
         cob = pr['cobby']
         self.leg = L
         # ── the barrel: a station table (t rump→chest, top, bottom, half width) ──────────
@@ -61,6 +66,18 @@ class Cat:
             (0.78, 0.281, 0.094, 0.112),
             (0.90, 0.271, 0.116, 0.096),
             (1.00, 0.246, 0.146, 0.070)])
+        if toy:
+            # the toy's barrel: a pear (widest at the rump), wider than it is tall, the belly an inch off the floor
+            pear = np.array([
+                (0.00, 0.236, 0.150, 0.085),
+                (0.10, 0.272, 0.085, 0.130),
+                (0.25, 0.290, 0.048, 0.158),
+                (0.45, 0.292, 0.036, 0.162),
+                (0.62, 0.290, 0.044, 0.150),
+                (0.78, 0.284, 0.070, 0.128),
+                (0.90, 0.272, 0.100, 0.104),
+                (1.00, 0.246, 0.140, 0.072)])
+            fat = fat + (pear - fat) * toy
         lean = fat.copy()
         lean[:, 2] = np.maximum(fat[:, 2], 0.12) + 0.01
         lean[:, 3] = fat[:, 3] * 0.62
@@ -83,13 +100,13 @@ class Cat:
         hd = 1.0 * H
         self.hs = hd
         neck_base = j['spine_end']
-        head_c = np.array([0, fl + 0.02 * hd, top - 0.02 + 0.02 * (1 - b)])
+        head_c = np.array([0, fl + 0.02 * hd + 0.03 * toy, top - 0.02 + 0.02 * (1 - b) + 0.035 * toy])   # a big head rides higher and further out
         self.head_c = head_c
         j['neck1'] = neck_base + np.array([0, 0.02, 0.02])
         j['head0'] = head_c + np.array([0, -0.015, -0.012]) * hd
         j['head1'] = head_c + np.array([0, 0.03, 0.035]) * hd
         # front leg: a column under the chest (narrow track)
-        lx = 0.052 + 0.012 * b
+        lx = 0.052 + 0.012 * b + 0.02 * toy
         j['scap'] = np.array([0.03, sh_f - 0.035, top - 0.02])
         j['shoulder'] = np.array([lx, sh_f + 0.012, top - 0.12])
         j['elbow'] = np.array([lx, sh_f - 0.012, 0.035 + 0.085 * L + lift * 0.5])
@@ -97,50 +114,51 @@ class Cat:
         j['fpaw'] = np.array([lx * 0.98, sh_f + 0.022, 0.012])
         j['ftoe'] = np.array([lx * 0.98, sh_f + 0.045, 0.006])
         # hind leg: the thigh is the haunch mass; hock and metatarsal show below it
-        hx = 0.056 + 0.014 * b
+        hx = 0.056 + 0.014 * b + 0.025 * toy
         j['hip'] = np.array([hx * 0.85, hip_f, top - 0.085])
         j['knee'] = np.array([hx, hip_f + 0.045, 0.04 + 0.085 * L + lift * 0.5])
         j['hock'] = np.array([hx * 0.97, hip_f - 0.05, 0.03 + 0.028 * L])
         j['rpaw'] = np.array([hx * 0.97, hip_f - 0.034, 0.012])
         j['rtoe'] = np.array([hx * 0.97, hip_f - 0.01, 0.006])
         # tail: thick, rounded tip, hanging back and down at rest
-        tl = 0.23 * pr['tail']
+        tl = 0.23 * pr['tail'] * (1 + 0.1 * toy)
         base = np.array([0, fr + 0.02, top - 0.065])
         self.tail = [base,
                      base + np.array([0, -0.28, -0.12]) * tl,
                      base + np.array([0, -0.55, -0.30]) * tl,
                      base + np.array([0, -0.76, -0.50]) * tl,
                      base + np.array([0, -0.90, -0.68]) * tl]
-        self.tail_r = [0.034 + 0.006 * b, 0.031 + 0.004 * b, 0.029 + 0.003 * b, 0.027 + 0.002 * b, 0.025]
+        self.tail_r = [r * (1 + 0.3 * toy) for r in (0.034 + 0.006 * b, 0.031 + 0.004 * b, 0.029 + 0.003 * b, 0.027 + 0.002 * b, 0.025)]
         # ── the head (BSH: very round, wider than tall, full jowls, puffy whisker pads) ──
-        hw = pr['head_width'] * hd
+        hw = pr['head_width'] * (hd + (1.0 - hd) * toy)   # widths below are already x hd: a toy head scales once, not twice
         jw = pr['jowls'] * (0.6 + 0.4 * b)
         c = head_c
         self.head_parts = dict(
             cranium=(c + np.array([0, -0.008, 0.008]) * hd, np.array([0.058 * hw, 0.05, 0.046]) * hd),
             temple=(c + np.array([0.03 * hw, -0.012, 0.02]) * hd, np.array([0.036 * hw, 0.04, 0.032]) * hd),
-            jowl=(c + np.array([0.038 * hw, 0.004, -0.021]) * hd, np.array([0.04 * hw, 0.038, 0.034]) * hd * (0.85 + 0.2 * jw)),
+            jowl=(c + np.array([0.038 * hw * (1 + 0.1 * toy), 0.004, -0.021]) * hd, np.array([0.04 * hw, 0.038, 0.034]) * hd * (0.85 + 0.2 * jw) * (1 + 0.1 * toy)),
             pad=(c + np.array([0.0128, 0.0465, -0.022]) * hd, 0.0168 * hd * (0.95 + 0.1 * jw)),
             chin=(c + np.array([0, 0.038, -0.036]) * hd, np.array([0.013, 0.011, 0.009]) * hd),
             bridge=(c + np.array([0, 0.040, -0.002]) * hd, np.array([0.016, 0.011, 0.013]) * hd * (0.9 + 0.3 * pr['muzzle'])),
         )
-        er = 0.0135 * pr['eye'] * hd
+        er = 0.0135 * pr['eye'] * hd * (1 + 0.5 * toy)
         self.eye_r = er
-        self.eyes = c + np.array([0.0245 * hw, 0.0385, 0.008]) * hd       # left eye centre
+        self.eyes = c + np.array([0.0245 * hw * (1 + 0.4 * toy), 0.0385, 0.008 + 0.004 * toy]) * hd       # left eye centre
         self.eye_dir = np.array([0.2, 1.0, 0.02]); self.eye_dir /= np.linalg.norm(self.eye_dir)
         self.nose = c + np.array([0, 0.0545, -0.004]) * hd
         self.mouth = c + np.array([0, 0.052, -0.028]) * hd
         # ears: small, wide-set, round-tipped, on the top corners, tilted out
-        es = pr['ear'] * hd
+        es = pr['ear'] * hd * (1 + 0.3 * toy)
         self.ear_base = c + np.array([0.041 * hw, -0.005, 0.037]) * hd
         self.ear_size = (0.044 * es, 0.046 * es, 0.008 * es)         # base width, height, thickness
         self.ear_tilt = np.radians(33)                                # outward
         self.ear_round = pr['ear_round']
         # the neck ruff sinks the head into the chest
-        self.ruff = (np.array([0, fl - 0.04, top - 0.055]), np.array([0.07 + 0.015 * b, 0.05, 0.06]))
+        self.ruff = (np.array([0, fl - 0.04 + 0.02 * toy, top - 0.055 + 0.01 * toy]), np.array([0.07 + 0.015 * b, 0.05, 0.06]) * (1 + 0.3 * toy))
         # haunch masses
-        self.haunch = (np.array([hx * 0.9, hip_f - 0.005, top - 0.125]), np.array([0.05 + 0.012 * b, 0.07, 0.085]))
-        self.paw_r = (0.026 + 0.003 * b, 0.031, 0.016)
+        self.haunch = (np.array([hx * 0.9, hip_f - 0.005, top - 0.125]), np.array([0.05 + 0.012 * b, 0.07, 0.085]) * (1 + 0.2 * toy))
+        self.leg_k = 1 + 0.3 * toy                 # stub legs are thick
+        self.paw_r = tuple(np.array([0.026 + 0.003 * b, 0.031, 0.016]) * (1 + 0.3 * toy))
         self.place_eyes()
 
     def underside(self, f):
@@ -148,9 +166,11 @@ class Cat:
         st = sorted(self.stations, key=lambda s: s[0])
         return float(np.interp(f, [s[0] for s in st], [s[2] for s in st]))
 
-    def place_eyes(self, depth=0.55):
+    def place_eyes(self, depth=None):
         """Seat each eyeball so the face meets it about 65 degrees off the gaze: a big, round, open
         eye that sits in the face rather than bulging out of it."""
+        if depth is None:
+            depth = 0.55 + 0.1 * self.toy          # big toy eyes sit a little deeper: round, not bulging
         d = self.eye_dir; e0 = self.eyes.copy()
         f = lambda t: float(self.head_sdf(np.array([e0 + d * t]), sockets=False)[0])
         lo, hi = -0.04, 0.06
@@ -178,11 +198,12 @@ class Cat:
     def legs_sdf(self, q, side):
         j = self.j
         m = np.array([side, 1, 1])
-        fr = sdf.chain(q, [j['shoulder'] * m, j['elbow'] * m, j['wrist'] * m], [0.044, 0.032, 0.027], 0.0)
+        k = self.leg_k
+        fr = sdf.chain(q, [j['shoulder'] * m, j['elbow'] * m, j['wrist'] * m], [0.044 * k, 0.032 * k, 0.027 * k], 0.0)
         fpaw = sdf.ellipsoid(q, (j['fpaw'] + np.array([0, 0.004, 0.004])) * m, self.paw_r)
         front = sdf.smin(fr, fpaw, 0.012)
-        hi = sdf.chain(q, [j['hip'] * m, j['knee'] * m], [0.05, 0.036], 0.0)
-        lo = sdf.chain(q, [j['knee'] * m, j['hock'] * m, j['rpaw'] * m], [0.04, 0.029, 0.026], 0.0)
+        hi = sdf.chain(q, [j['hip'] * m, j['knee'] * m], [0.05 * k, 0.036 * k], 0.0)
+        lo = sdf.chain(q, [j['knee'] * m, j['hock'] * m, j['rpaw'] * m], [0.04 * k, 0.029 * k, 0.026 * k], 0.0)
         hind = sdf.smin(hi, lo, 0.02)
         rpaw = sdf.ellipsoid(q, (j['rpaw'] + np.array([0, 0.008, 0.003])) * m, (self.paw_r[0] * 0.95, self.paw_r[1] * 1.0, self.paw_r[2]))
         hind = sdf.smin(hind, rpaw, 0.012)
@@ -228,7 +249,12 @@ class Cat:
         tail = sdf.chain(q, self.tail, self.tail_r, 0.0)
         body = sdf.smin(body, tail, 0.03)
         head = self.head_sdf(q_abs, sockets)
-        return sdf.smin(body, head, 0.016)
+        d = sdf.smin(body, head, 0.016)
+        if self.toy:
+            # thick stub legs and a low belly reach under the floor: flat soles instead (and a closed surface:
+            # a shape cut open by the meshing bounds comes back from the voxel remesh as a two-sided shell)
+            d = sdf.smax(d, -(q[:, 2] - 0.001), 0.006)
+        return d
 
     # ── the skin-modifier skeleton (rough form; the field sculpts it) ─────────────────
     def skin_skeleton(self):

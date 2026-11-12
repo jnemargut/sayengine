@@ -1,5 +1,6 @@
 """Separate clean parts: eyes (rigid spheres that only turn), lids (shells on lid bones), ears, nose,
 whiskers. Each part is its own object; the builder skins it rigidly to one bone."""
+import math
 import bpy
 import numpy as np
 import mathutils
@@ -260,6 +261,112 @@ def claws(name, roots, direction, length=0.0065, radius=0.0009, curl=0.9, sides=
     me.validate()
     ob = bpy.data.objects.new(name, me)
     bpy.context.collection.objects.link(ob)
+    for poly in me.polygons:
+        poly.use_smooth = True
+    return ob
+
+
+def _tube(pts, radius, sides=6):
+    """A capped tube along a polyline: (verts, quads/tri fans)."""
+    pts = np.asarray(pts, float)
+    verts, faces = [], []
+    n = len(pts)
+    for i in range(n):
+        t = pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]
+        t /= max(np.linalg.norm(t), 1e-9)
+        a = np.cross(t, [0, 1.0, 0])
+        if np.linalg.norm(a) < 1e-6:
+            a = np.cross(t, [1.0, 0, 0])
+        a /= np.linalg.norm(a); b = np.cross(t, a)
+        k = 0.55 if i in (0, n - 1) else 1.0             # tapered ends
+        for j in range(sides):
+            an = 2 * math.pi * j / sides
+            verts.append(pts[i] + (a * math.cos(an) + b * math.sin(an)) * radius * k)
+    for i in range(n - 1):
+        for j in range(sides):
+            j2 = (j + 1) % sides
+            faces.append((i * sides + j, i * sides + j2, (i + 1) * sides + j2, (i + 1) * sides + j))
+    faces.append(tuple(range(sides - 1, -1, -1)))
+    faces.append(tuple(range((n - 1) * sides, n * sides)))
+    return verts, faces
+
+
+def toy_mouth(name, surface, mouth, nose, hs, line=0.0017):
+    """A cartoon cat mouth on the muzzle: the dark "w" under the nose with its short philtrum, and an
+    open mouth behind it (a dark oval with a tongue) that the `mouthOpen` shape key grows from nothing.
+    `surface(points) -> points` drops points onto the face (Blender coords); mouth and nose are points
+    on it; hs is the head scale. Returns (line object, cavity object, tongue object); the cavity and
+    the tongue carry a `mouth_open` vector attribute: where each vertex goes when the mouth is open."""
+    mouth = np.asarray(mouth, float); nose = np.asarray(nose, float)
+    wx, amp = 0.021 * hs, 0.0075 * hs
+    xs = np.linspace(-wx, wx, 25)
+    top = mouth[2] + 0.004 * hs
+    w = np.stack([xs, np.full_like(xs, mouth[1]), top - amp * np.abs(np.sin(np.pi * xs / wx)) + 0.5 * amp * (np.abs(xs) / wx) ** 2], 1)
+    w = surface(w); w[:, 1] -= line * 0.6
+    ph = np.stack([np.zeros(5), np.full(5, mouth[1]), np.linspace(nose[2] - 0.004 * hs, top, 5)], 1)
+    ph = surface(ph); ph[:, 1] -= line * 0.6
+    v1, f1 = _tube(w, line * hs)
+    v2, f2 = _tube(ph, line * hs * 0.8)
+    f2 = [tuple(i + len(v1) for i in f) for f in f2]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in v1 + v2], [], f1 + f2)
+    line_ob = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(line_ob)
+    for poly in me.polygons:
+        poly.use_smooth = True
+
+    def oval(nm, cx_z, rw, rh, lift, hide_z):
+        ring, segs = 4, 20
+        vs = [(0.0, 0.0)]
+        for r in range(1, ring + 1):
+            for k in range(segs):
+                an = 2 * math.pi * k / segs
+                vs.append((math.cos(an) * r / ring, math.sin(an) * r / ring))
+        fs = [(0, 1 + k, 1 + (k + 1) % segs) for k in range(segs)]
+        for r in range(1, ring):
+            for k in range(segs):
+                a = 1 + (r - 1) * segs + k; b = 1 + (r - 1) * segs + (k + 1) % segs
+                fs.append((a, a + segs, b + segs, b))
+        vs = np.array(vs)
+        opened = surface(np.stack([vs[:, 0] * rw, np.full(len(vs), mouth[1]), cx_z + vs[:, 1] * rh], 1))
+        opened[:, 1] -= lift
+        closed = np.stack([opened[:, 0] * 0.05, opened[:, 1] + lift + 0.008 * hs, np.full(len(vs), hide_z)], 1)   # a speck inside the muzzle
+        m2 = bpy.data.meshes.new(nm)
+        m2.from_pydata([tuple(v) for v in closed], [], fs)
+        ob = bpy.data.objects.new(nm, m2); bpy.context.collection.objects.link(ob)
+        a = m2.attributes.new('mouth_open', 'FLOAT_VECTOR', 'POINT')
+        a.data.foreach_set('vector', opened.reshape(-1))
+        return ob
+    rw, rh = 0.0165 * hs, 0.019 * hs
+    cz = top - amp * 0.6 - rh
+    # (lifted clear of the remeshed muzzle, which strays a few millimetres from the field)
+    cav = oval(name + '_cavity', cz, rw, rh, 0.0045 * hs, top - amp)
+    ton = oval(name + '_tongue', cz - rh * 0.42, rw * 0.62, rh * 0.5, 0.006 * hs, top - amp)
+    return line_ob, cav, ton
+
+
+def toy_whiskers(name, pad_l, n=3, length=0.05, radius=0.0011, toward=(0, -1, 0)):
+    """Tidy cartoon whiskers: n fat tapered tubes a side, fanned evenly, a little droop."""
+    verts, faces = [], []
+    for side in (1, -1):
+        root0 = np.array(pad_l) * np.array([side, 1, 1])
+        for i in range(n):
+            t = i / max(n - 1, 1)
+            root = root0 + np.array([side * 0.004, 0.0, 0.007 - 0.014 * t])
+            up = math.radians(16 - 32 * t)
+            d = np.array([side * math.cos(up) * 0.94, 0.34 * 0 - 0.22, math.sin(up)]); d /= np.linalg.norm(d)
+            pts = [root + d * length * s / 5 + np.array([0, 0.012 * (s / 5) ** 2, -0.006 * (s / 5) ** 2]) * (length / 0.05) for s in range(6)]
+            v, f = _tube(pts, radius, sides=5)
+            # taper to the tip
+            for s in range(6):
+                c = pts[s]
+                for k in range(5):
+                    q = v[s * 5 + k]
+                    v[s * 5 + k] = c + (q - c) * (1 - 0.7 * s / 5)
+            base = len(verts)
+            verts += v; faces += [tuple(i + base for i in ff) for ff in f]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], faces)
+    ob = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(ob)
     for poly in me.polygons:
         poly.use_smooth = True
     return ob

@@ -2,7 +2,7 @@
 and head by FK. Blender frame: +X the person's left, -Y forward, +Z up. Clips are in place."""
 import math
 import mathutils
-from anim import Poser, key_clip, env, smooth, FPS
+from anim import Poser, key_clip, env, smooth, FPS, EASE
 
 V = mathutils.Vector
 CHAINS = {
@@ -28,6 +28,7 @@ class PersonMotion:
         s = person.s
         self.s = s
         self.hip_z = h['Hips'].z
+        self.toy = float(getattr(person, 'toy', 0.0))
 
     def body(self, spec, dz=0.0, dy=0.0, dx=0.0, pitch=0.0, roll=0.0, yaw=0.0):
         # the Hips bone points up: local X pitches (lean forward +), Y yaws (turn left +), Z rolls
@@ -66,13 +67,14 @@ class PersonMotion:
     def idle(self, t):
         spec = {'rot': {}, 'loc': {}}
         w = math.sin(2 * math.pi * t / 4.0)
-        self.body(spec, dx=0.012 * w, roll=1.2 * w, dz=-0.004 + 0.002 * w * w)
-        self.spine(spec, bend=1.5, side=-1.5 * w)
-        self.head(spec, nod=2 + 2 * math.sin(2 * math.pi * t / 4.0 + 1), turn=8 * math.sin(2 * math.pi * t / 4.0 - 0.6), tilt=1.5 * w)
+        k = self.toy
+        self.body(spec, dx=0.012 * w * (1 + k), roll=1.2 * w * (1 + k), dz=-0.004 + 0.002 * w * w - 0.006 * k)
+        self.spine(spec, bend=1.5 + 5 * k, side=-1.5 * w * (1 + k))          # a toy dad stands a little slumped
+        self.head(spec, nod=2 + 2 * math.sin(2 * math.pi * t / 4.0 + 1) + 3 * k, turn=8 * math.sin(2 * math.pi * t / 4.0 - 0.6), tilt=1.5 * w * (1 + 2 * k))
         self.feet(spec)
         l, r = self.side_hands()
         self.hands(spec, l + V((0.006 * w, 0, 0)), r + V((0.006 * w, 0, 0)))
-        self.breathe(spec, t)
+        self.breathe(spec, t, amt=1 + 1.5 * k)
         return spec
 
     def walk(self, t, period=1.1, speed=1.15, duty=0.62, lift=0.075):
@@ -80,12 +82,14 @@ class PersonMotion:
         s = self.s
         ph = (t / period) % 1.0
         stride = speed * duty * period
-        dz = -0.018 * math.cos(4 * math.pi * ph) - 0.012
-        dx = 0.016 * math.sin(2 * math.pi * ph)
-        yaw = 5.0 * math.sin(2 * math.pi * ph)
-        self.body(spec, dz=dz, dx=dx, yaw=yaw, roll=2.5 * math.sin(2 * math.pi * ph), pitch=3)
-        self.spine(spec, bend=1, twist=-yaw * 1.6)
-        self.head(spec, nod=-2, turn=-yaw * 0.3)
+        ty = self.toy
+        # a toy dad walks with a soft bounce: the hips dip on each step, the belly leads, the head bobs a beat late
+        dz = -(0.018 + 0.014 * ty) * math.cos(4 * math.pi * ph) - 0.012 - 0.01 * ty
+        dx = (0.016 + 0.012 * ty) * math.sin(2 * math.pi * ph)
+        yaw = (5.0 + 3 * ty) * math.sin(2 * math.pi * ph)
+        self.body(spec, dz=dz, dx=dx, yaw=yaw, roll=(2.5 + 2 * ty) * math.sin(2 * math.pi * ph), pitch=3 - 2 * ty)
+        self.spine(spec, bend=1 + 5 * ty, twist=-yaw * 1.6, side=-2 * ty * math.sin(2 * math.pi * ph))
+        self.head(spec, nod=-2 + 4 * ty * math.cos(4 * math.pi * (ph - 0.09)) + 2 * ty, turn=-yaw * 0.3, tilt=2.5 * ty * math.sin(2 * math.pi * (ph - 0.1)))
         legs = spec.setdefault('legs', {})
         for k, phase in (('LL', 0.0), ('RL', 0.5)):
             u = (ph - phase) % 1.0
@@ -108,7 +112,7 @@ class PersonMotion:
                 met = (met + V((0, 0, -0.9 * (1 - smooth(sv * 2)) + 0.25 * math.sin(math.pi * sv)))).normalized()
             legs[k] = {'paw': V((n.x, y, z)), 'met': met, 'toe': V((0, -1, -0.05))}
         # arms swing opposite the legs, a beat late
-        sw = 0.17 * s * math.sin(2 * math.pi * (ph - 0.03))
+        sw = (0.17 + 0.07 * ty) * s * math.sin(2 * math.pi * (ph - 0.03 - 0.04 * ty))
         l, r = self.side_hands()
         self.hands(spec, l + V((0, sw, 0.02 * abs(sw) / 0.17)), r + V((0, -sw, 0.02 * abs(sw) / 0.17)))
         return spec
@@ -223,6 +227,8 @@ CLIPS = {
 def make_clips(arm, person, only=None):
     poser = Poser(arm, CHAINS)
     pm = PersonMotion(poser, person)
+    toy = float(getattr(person, 'toy', 0.0))
+    EASE['over'], EASE['antic'] = 0.1 * toy, 0.05 * toy       # a toy's moves overshoot and settle (anim.ease)
     acts = {}
     for name, (meth, secs, loop, extras) in CLIPS.items():
         if only and name not in only:
@@ -231,6 +237,7 @@ def make_clips(arm, person, only=None):
         ex = dict(extras, loop=loop, duration=secs)
         bones = [b.name for b in arm.data.bones if b.name.startswith(tuple(ex['partial'].split(',')))] if ex.get('partial') else None
         acts[name] = key_clip(arm, poser, name, frames, getattr(pm, meth), loop, ex, bones)
+    EASE['over'] = EASE['antic'] = 0.0
     return acts, poser, pm
 
 

@@ -135,6 +135,28 @@ def coat_colour(P, N, plan, coat):
     under = np.clip((plan.belly + 0.05 - q[:, 2]) / 0.06, 0, 1) * np.clip(1 - np.abs(q[:, 0]) / 0.07, 0, 1)
     top = np.clip((q[:, 2] - (plan.top - 0.03)) / 0.03, 0, 1)
     col *= (1 + 0.08 * under - 0.06 * top)[:, None]
+    toy = float(getattr(plan, 'toy', 0.0))
+    if toy:
+        # a cartoon coat: flat colour, with soft markings so it isn't one grey: a paler bib, muzzle and belly,
+        # a darker saddle along the back and a darker tail tip
+        st = lambda e0, e1, x: np.clip((x - e0) / (e1 - e0), 0, 1) ** 2 * (3 - 2 * np.clip((x - e0) / (e1 - e0), 0, 1))
+        col = np.tile(base[None, :], (len(q), 1)) * (1 + 0.02 * big)[:, None]
+        hc = plan.head_c; hs = plan.hs
+        ax = np.abs(q[:, 0])
+        se = plan.j['spine_end'][1]
+        bib = st(se - 0.03, se + 0.03, f) * (1 - st(0.05, 0.09, ax)) * (1 - st(plan.top - 0.07, plan.top - 0.02, q[:, 2])) * (1 - st(hc[1] - 0.02 * hs, hc[1] + 0.01 * hs, f) * st(hc[2] - 0.06 * hs, hc[2] - 0.03 * hs, q[:, 2]))
+        pad = plan.head_parts['pad'][0]
+        dm = np.sqrt((ax - pad[0]) ** 2 + (f - pad[1]) ** 2 * 0.6 + (q[:, 2] - (pad[2] - 0.004 * hs)) ** 2)
+        muz = (1 - st(0.018 * hs, 0.03 * hs, dm)) * st(hc[1] + 0.01 * hs, hc[1] + 0.03 * hs, f)
+        belly = (1 - st(plan.belly + 0.01, plan.belly + 0.06, q[:, 2])) * (1 - st(0.07, 0.12, ax)) * st(plan.j['pelvis'][1], plan.j['pelvis'][1] + 0.05, f)
+        light = np.clip(np.maximum(np.maximum(bib, muz), belly * 0.8), 0, 1)
+        tip = plan.tail[-1]
+        dt = np.sqrt(q[:, 0] ** 2 + (f - tip[1]) ** 2 + (q[:, 2] - tip[2]) ** 2)
+        dark = np.maximum(1 - st(0.045, 0.075, dt), 0.45 * st(plan.top - 0.035, plan.top - 0.005, q[:, 2]) * (1 - st(se - 0.02, se + 0.04, f)))
+        pale = np.clip(base * 1.75 + 0.06, 0, 1)
+        col = col * (1 - light[:, None]) + pale[None] * light[:, None]
+        col = col * (1 - 0.26 * dark[:, None])
+        return col.reshape(P.shape)
     white = hex_rgb('#e9e6df'); black = hex_rgb('#26262a'); ginger = hex_rgb('#c9792f')
     if pattern == 'tabby':
         dark = base * 0.42

@@ -87,6 +87,7 @@ export const CreatureOptions = z.object({
   plan: z.enum(Object.keys(CREATURE_PLANS) as [CreaturePlan]).default('cat'),
   preset: z.string().optional(),
   name: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9 _-]*$/).default('creature'),
+  style: z.enum(['real', 'toy']).default('real').describe('real: believable proportions; toy: a chunky cartoon (a big head, huge eyes, bold simple features that act, clips that overshoot and settle)'),
   build: z.union([z.number().min(0).max(1), z.string()]).default('normal').describe('0 lean .. 1 very fat, or lean|normal|chubby|fat'),
   legLength: z.number().min(0.7).max(1.4).default(1),
   bodyLength: z.number().min(0.75).max(1.3).default(1),
@@ -131,8 +132,11 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
   const cc = colour(o.coat, COAT_COLORS, 'coat colour');
   if (cc) coat.color = cc;
   if (o.pattern) coat.pattern = o.pattern;
+  const toy = o.style === 'toy' ? { toy: 1 } : {};
   if (o.plan === 'person') {
     const out = path.resolve(o.out);
+    // a toy person has its own cartoon head (py/toyhead.py): no kit face is cut for it
+    if (o.style === 'toy') return { plan: 'person', preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), belly: build, texture: o.texture, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out, ...toy, height: 1.6 };
     return { plan: 'person', preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), belly: build, texture: o.texture, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out,
       kitFace: path.join(out, 'kitface.json'), kitFacePng: path.join(out, 'kitface.png') };
   }
@@ -140,7 +144,7 @@ export function creatureSpec(input: CreatureOptionsIn): Record<string, unknown> 
     plan: o.plan, preset: o.preset, name: o.name.replace(/\s+/g, '-').toLowerCase(), build, legLength: o.legLength, bodyLength: o.bodyLength,
     headSize: o.headSize, coat, ...(o.eyeColor ? { eyeColor: colour(o.eyeColor, EYE_COLORS, 'eye colour') } : {}), furLength: o.furLength,
     faces: o.faces, texture: o.texture, rigify: o.rigify, renders: o.renders, ...(o.clips ? { clips: o.clips } : {}), out: path.resolve(o.out),
-    ...(o.tempo !== 1 ? { tempo: o.tempo } : {}), ...(o.clipTempo ? { clipTempo: o.clipTempo } : {}),
+    ...(o.tempo !== 1 ? { tempo: o.tempo } : {}), ...(o.clipTempo ? { clipTempo: o.clipTempo } : {}), ...toy,
   };
 }
 
@@ -149,7 +153,7 @@ export interface CreatureBuild {
   clips: Record<string, Record<string, unknown>>; rigify: boolean; quadriflow: boolean; blender: string; renders?: string[]; log: string[];
   validation?: { ok: boolean; errors: number; warnings: number; messages: unknown[] };
   motion?: Record<string, Array<{ name: string; pass: boolean; detail: string; frames: Array<[number, number]> }>>;
-  /** shape keys (pupils, blinks, squints, the third eyelid) */
+  /** shape keys (pupils, blinks, squints, the third eyelid; a toy cat's mouthOpen; a toy person's 35 face shapes) */
   shapes?: string[];
   /** the eyelid shape keys never cut the eyeball, and a blink shuts */
   eyeChecks?: Array<{ name: string; pass: boolean; detail: string }>;
@@ -170,7 +174,7 @@ export async function buildCreature(input: CreatureOptionsIn, opts: { blender?: 
   if (!bin) throw new BlenderMissing();
   const out = String(spec.out);
   fs.mkdirSync(out, { recursive: true });
-  if (spec.plan === 'person') {
+  if (spec.plan === 'person' && !spec.toy) {
     const { kitFace } = await import('./kitface.ts');
     const { face, png } = await kitFace(PERSON_FACES[String(spec.preset)] ?? {});
     fs.writeFileSync(String(spec.kitFace), JSON.stringify(face));

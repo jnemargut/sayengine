@@ -31,6 +31,8 @@ class Person:
         self.pr = pr
         s = pr['height'] / 1.78
         self.s = s
+        toy = float(params.get('toy', 0.0))      # 0 stylised-realistic .. 1 a cartoon toy: a big head (toyhead.py), a pear of a
+        self.toy = toy                           # torso, narrow slumped shoulders, noodle limbs, big hands and slippers
         bel = float(pr['belly'])
         self.belly = bel
         j = self.j = {}
@@ -40,12 +42,12 @@ class Person:
         j['Chest'] = P(0, -0.028, 1.215)
         j['UpperChest'] = P(0, -0.032, 1.335)
         j['Neck'] = P(0, -0.03, 1.465)
-        j['Head'] = P(0, -0.004, 1.575)
+        j['Head'] = P(0, -0.004, 1.575 - 0.075 * toy)
         j['HeadTop'] = P(0, 0.0, 1.765)
         sh = pr['shoulders']
         for side, sx in (('Left', 1), ('Right', -1)):
-            j[f'{side}Shoulder'] = P(0.028 * sx, 0.0, 1.43)
-            j[f'{side}UpperArm'] = P(0.172 * sh * sx, -0.022, 1.43)
+            j[f'{side}Shoulder'] = P(0.028 * sx, 0.0, 1.43 - 0.01 * toy)
+            j[f'{side}UpperArm'] = P(0.172 * sh * sx * (1 - 0.12 * toy), -0.022, 1.43 - 0.03 * toy)
             a = math.radians(47)
             d = np.array([math.cos(a) * sx, 0.0, -math.sin(a)])
             j[f'{side}LowerArm'] = j[f'{side}UpperArm'] + (d * 0.285 + np.array([0, -0.012, 0])) * s
@@ -72,12 +74,22 @@ class Person:
             (Z(1.38), 0.095, -0.098, 0.182),
             (Z(1.45), 0.05, -0.07, 0.15),
         ]
+        if toy:
+            # a pear: narrow sloping shoulders, the widest point at the belly
+            pear = [0.02, 0.03, 0.035, 0.03, 0.01, -0.012, -0.03, -0.03]
+            self.torso_st = [(z, f + 0.5 * max(dw, 0) * toy, bk, w + dw * toy) for (z, f, bk, w), dw in zip(self.torso_st, pear)]
         self.torso_st = [(z, f * s, bk * s, w * s) for z, f, bk, w in self.torso_st]
+        self.hand_k = 1.22 + 0.3 * toy
         self.belly_front = max(st[1] for st in self.torso_st)
 
     # ── fields ─────────────────────────────────────────────────────────────────
     def limb(self, q, sx, arm_r=(0.058, 0.048, 0.044, 0.033), leg_r=(0.09, 0.064, 0.056, 0.04)):
         j = self.j; s = self.s
+        if self.toy:
+            # noodle limbs: nearly one thickness from end to end
+            t = self.toy
+            arm_r = tuple(a + (b - a) * t for a, b in zip(arm_r, (0.05, 0.047, 0.045, 0.041)))
+            leg_r = tuple(a + (b - a) * t for a, b in zip(leg_r, (0.086, 0.072, 0.066, 0.056)))
         side = 'Left' if sx > 0 else 'Right'
         arm = sdf.chain(q, [j[f'{side}UpperArm'], j[f'{side}LowerArm'], j[f'{side}Hand']], [arm_r[0] * s, arm_r[2] * s, arm_r[3] * s], 0.0)
         dl = sdf.sphere(q, j[f'{side}UpperArm'] + np.array([0.01 * sx, 0, -0.005]) * s, 0.058 * s)
@@ -100,7 +112,7 @@ class Person:
 
     def hand(self, q, sx, curl=0.35):
         """A relaxed hand: palm, four fingers in a gentle curl, a thumb. Built along the forearm line."""
-        j = self.j; s = self.s * 1.22          # stylised: bigger hands
+        j = self.j; s = self.s * self.hand_k   # stylised: bigger hands
         side = 'Left' if sx > 0 else 'Right'
         w = j[f'{side}Hand']
         d = self.arm_dir[sx]
@@ -252,7 +264,7 @@ class Person:
 
     def finger_bones(self, T):
         """Finger chains in the hand frame (filled after hand() has set the frames)."""
-        s = self.s * 1.22
+        s = self.s * self.hand_k
         for sx, side in ((1, 'Left'), (-1, 'Right')):
             palm_c, R = self.hand_frame[sx]
             def W(p):
