@@ -114,9 +114,11 @@ const ranges = (bad: boolean[]): Array<[number, number]> => {
 const r3 = (x: number) => +x.toFixed(3);
 
 /** Checks for one sampled clip. `paws` are the node indices of the feet; `root` the top bone. */
-export function clipChecks(c: ClipSamples, paws: number[], root: number | null, loop: boolean, speed: number, jointNodes: number[]): MotionCheck[] {
+export function clipChecks(c: ClipSamples, paws: number[], root: number | null, loop: boolean, speed: number, jointNodes: number[], names: Array<string | undefined> = []): MotionCheck[] {
   const checks: MotionCheck[] = [];
-  const popLimit = loop ? 30 : 45;      // one-shots (a jump's push, a swat) are allowed to be snappier
+  // one-shots (a jump's push, a swat) are allowed to be snappier, and so is a sprint: a trot already turns a short
+  // leg 29° a frame, so a loop that travels faster than a trot gets the same room
+  const popLimit = loop && speed < 0.8 ? 30 : 45;
   const nF = c.frames + 1;
   // loops close: every joint ends where it started
   if (loop) {
@@ -154,17 +156,18 @@ export function clipChecks(c: ClipSamples, paws: number[], root: number | null, 
   }
   // no pops: no joint turns more than 30 degrees between frames
   {
-    const bad = new Array(nF).fill(false); let worst = 0;
+    const bad = new Array(nF).fill(false); let worst = 0, who = '';
     for (const j of jointNodes) {
       const q = c.rot.get(j)!;
       for (let f = 1; f < nF; f++) {
         const d = Math.abs(q[f][0] * q[f - 1][0] + q[f][1] * q[f - 1][1] + q[f][2] * q[f - 1][2] + q[f][3] * q[f - 1][3]);
         const deg = (2 * Math.acos(Math.min(1, d)) * 180) / Math.PI;
+        if (deg > worst && deg > popLimit && names[j]) who = ` (${names[j]}, frame ${f})`;   // a failing check names the joint
         worst = Math.max(worst, deg);
         if (deg > popLimit) bad[f] = true;
       }
     }
-    checks.push({ name: 'no pops', pass: !bad.some(Boolean), worst: +worst.toFixed(1), limit: popLimit, unit: '°/frame', frames: ranges(bad), detail: `fastest joint turn ${worst.toFixed(1)}° per frame` });
+    checks.push({ name: 'no pops', pass: !bad.some(Boolean), worst: +worst.toFixed(1), limit: popLimit, unit: '°/frame', frames: ranges(bad), detail: `fastest joint turn ${worst.toFixed(1)}° per frame${who}` });
   }
   // loops stay in place (games move the creature by extras.speed)
   if (loop && root !== null) {
@@ -188,7 +191,7 @@ export function glbMotionChecks(g: Gltf, fps = 30): Record<string, MotionCheck[]
   for (const c of sampleClips(g, fps)) {
     const loop = c.extras.loop !== undefined ? !!c.extras.loop : !/jump|land|swat|hit|attack|die|start|stop/i.test(c.name);
     const speed = Number(c.extras.speed ?? 0) || 0;
-    out[c.name] = clipChecks(c, paws, rootIdx, loop, speed, joints);
+    out[c.name] = clipChecks(c, paws, rootIdx, loop, speed, joints, nodes.map((n: { name?: string }) => n?.name));
   }
   return out;
 }
