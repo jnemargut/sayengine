@@ -21,4 +21,4 @@ The user's request: **$ARGUMENTS**
 
 ## Before sharing
 
-`./studio proof phone --project <web game>` walks the phone path in WebKit (390×844 @3x) and in Chrome with the CPU slowed 4×: p50/p95/max frame time, long frames, draw calls, JS heap, console errors, a screenshot of each. Report the numbers and the caveat.
+`./studio proof phone --project <web game>` walks the phone path in WebKit (390×844 @3x) and in Chrome with the CPU slowed 4×: p50/p95/max frame time, long frames, draw calls, JS heap, console errors, a screenshot of each. Report the numbers and the caveat. Headless Chrome draws in software and its pictures differ a little from a player's; for pictures from this machine's real GPU, `./studio game capture --gpu true` opens a headed Chrome and reports the renderer it drew with (it does not measure frame times).

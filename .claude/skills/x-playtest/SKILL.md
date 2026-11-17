@@ -40,6 +40,7 @@ While the human plays (or right after), run bots through the studio's game runti
 - `"$STUDIO" game walk-to --project <slug> --target <goal>` from several starts: reached, blocked, time.
 - `"$STUDIO" game test --assertions …` for reachability of every goal and rules that must hold.
 - `"$STUDIO" game run --seconds N` for errors and warnings.
+- `"$STUDIO" game scene-check --pictures true --gpu true` for every scripted scene: motion is measured per beat and looked at in strips, never judged from a few stills.
 - Read every still or screenshot you produce.
 
 No studio, or a verb bots can't play (cozy, no goal): skip bots and say so on the page.

@@ -18,7 +18,7 @@ Craft: gameplay/the place in the first seconds, a hook by 10–15 s (the drop), 
 
 ## Steps (`./studio reel <cmd> --project <game>`)
 1. `music` — the track + its beats (librosa, `~/.studio-tools/venv`). Read `music.png`.
-2. `capture [--takes a,b]` — Godot movie mode at a fixed fps, square frames (`size`, default 1440). **Read the storyboard** and fix framing (walls, trees in front, empty sky) by editing keys, then re-capture only those takes. `--engine web --size 480` captures the web build at a fixed step (software GL: slow; use for parity checks).
+2. `capture [--takes a,b]` — Godot movie mode at a fixed fps, square frames (`size`, default 1440). **Read the storyboard** and fix framing (walls, trees in front, empty sky) by editing keys, then re-capture only those takes. `--engine web --size 480` captures the web build at a fixed step (software GL: slow; use for parity checks). For web footage a player would recognise (a glimpse, a trailer take of a game with its own levels), use `./studio game capture --dir <the static release> --query <level> --start "<expr>" --seconds 6 --gpu true`: a real Chrome on this machine's GPU, stepped at a fixed rate, from the files you ship. Never record a dev server in real time.
 3. `cut --out <folder>` — all three shapes; `recipe-*.sh` are the ffmpeg recipes. **Read the sheets.** A re-cut (swap shots, lengths, captions, another track) is: edit the reel file, run `cut` again — no capture.
 4. `release --out <folder>` — OCR + word lists (+ the game's `proof/release-lists.json` with `allow`/`required`), sound licences, `CREDITS.md`, `REUSE.toml`. Brand hits on real landmarks are expected in a real town: allow the exact names you mean to show, don't hide the finding.
 

@@ -65,6 +65,8 @@ When a decision changes: update the spec paths it sets, find the steps whose `us
 - **Slow audits can be skipped only when the user says so.** Give every long audit (framing over every event, repeated physics runs, full bot sweeps) a SKIP switch, an environment variable or a flag. Leave it off by default. Turn it on only when the user asks for a faster turn, and print `SKIPPED <audit> (user said so)` in the build report so the gap stays visible.
 - **The framing audit keeps the subject's surface drawn.** Any camera cut that fades occluders (`studio/cutaway.ts`) needs an audit that checks, at each beat, that the subject, the event's target and the surface under the subject are still visible. Use a visibility check plus a pixel comparison against an unfaded frame. Find the support with a ray down from the subject, not "everything below its feet". A physics beat varies between runs, so audit it N times in a row.
 - **Ease every state change.** Characters moved by rules or routines are drawn with `studio/ease.ts`: they turn along the shortest arc and never pop, and they snap only on a declared cut.
+- **A scripted scene gets a motion check, not stills.** Any intro, ending or cutscene the game drives runs through `"$STUDIO" game scene-check` (per beat: teleports, snap turns, shaking, pose pops, gliding, foot slide, reach, camera), with `--pictures true --gpu true`, and you Read the strips. The script is the only owner of each body while it runs. The /game skill's "Scripted scenes" section has the rules.
+- **Every inserted level or first-time scene ships with its switches.** A skip switch for older checks, a force flag, off in headless runs. Then rerun every older check, one at a time and in the foreground.
 
 ## Rules
 
