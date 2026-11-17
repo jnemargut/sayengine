@@ -1,6 +1,7 @@
 // Minimal headless Chrome driver over the DevTools protocol (no Puppeteer): launch, open a URL,
 // evaluate expressions, collect console warnings/errors. Software GL (SwiftShader) so it works
-// without a GPU, same flags the studio's own view tests use.
+// without a GPU, same flags the studio's own view tests use. `headed: true` opens a real window on the
+// machine's GPU instead, in the same registry, so it is cleaned up the same way.
 // Every Chrome this process launches is in one registry, killed (and its temp profile removed) on exit, on
 // SIGINT/SIGTERM/SIGHUP and on an uncaught error, not only in withPage's finally: a finally never runs
 // when the runner is killed, and orphaned Chromes and profiles piled up. Profiles live in one known folder
@@ -113,20 +114,44 @@ export function spawnBrowser(bin: string, args: string[], profile: string): { ch
   };
 }
 
+/**
+ * Chrome's arguments. Headless: software GL, works anywhere. Headed (`headed: true`): a real window drawn by the
+ * machine's GPU, for true pictures and frame times (software headless draws at about a tenth of real time and
+ * looks a little different); it must keep drawing when another window covers it. `vsync: false` also lifts the
+ * frame-rate cap (the real cost of a frame).
+ */
+export function browserArgs(size: { width: number; height: number }, port: number, profile: string, opts: { headed?: boolean; vsync?: boolean } = {}): string[] {
+  return [
+    ...(opts.headed
+      ? ['--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--autoplay-policy=no-user-gesture-required', '--window-position=0,0', `--window-size=${Math.max(size.width, 500) + 40},${size.height + 140}`, ...(opts.vsync === false ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [])]
+      : ['--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', `--window-size=${size.width},${size.height}`]),
+    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
+    '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', 'about:blank',
+  ];
+}
+
 export interface Page {
   eval<T = any>(expression: string, timeoutMs?: number): Promise<T>;
   logs: Array<{ level: string; text: string }>;
   /** The whole page as the player sees it — the canvas and any HTML UI over it (Fire's Dying pain #4). */
-  screenshot(opts?: { format?: 'png' | 'jpeg'; quality?: number }): Promise<Buffer>;
+  screenshot(opts?: { format?: 'png' | 'jpeg'; quality?: number; clip?: { x: number; y: number; width: number; height: number; scale?: number } }): Promise<Buffer>;
   /** real touch input (with size.touch): 'touchStart' | 'touchMove' with the fingers now down, 'touchEnd' with those still down (usually none) */
   touch(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Array<{ x: number; y: number; id?: number }>): Promise<void>;
+  /** real mouse input, sent the way a browser does (a made-up PointerEvent dispatched on window has window as its target, and a handler that reads e.target throws on it) */
+  mouse(type: 'mousePressed' | 'mouseReleased' | 'mouseMoved', x: number, y: number): Promise<void>;
+  /** a press and a release at one point */
+  click(x: number, y: number): Promise<void>;
+  /** load another URL in the same page (same profile: storage is kept) and wait for the document */
+  navigate(url: string): Promise<void>;
+  /** the WebGL renderer the page draws with (the GPU's name in a headed run, SwiftShader in a headless one) */
+  renderer(): Promise<string>;
 }
 
 /**
  * Launch Chrome, open `url`, run `fn(page)`, always clean up (also when the process is killed).
  * `timeoutMs` (or STUDIO_PAGE_TIMEOUT_MS) is a hard limit on the whole page; 0 means none.
  */
-export async function withPage<T>(url: string, size: { width: number; height: number; deviceScaleFactor?: number; mobile?: boolean; touch?: boolean }, fn: (page: Page) => Promise<T>, opts: { timeoutMs?: number } = {}): Promise<T> {
+export async function withPage<T>(url: string, size: { width: number; height: number; deviceScaleFactor?: number; mobile?: boolean; touch?: boolean }, fn: (page: Page) => Promise<T>, opts: { timeoutMs?: number; headed?: boolean; vsync?: boolean } = {}): Promise<T> {
   const bin = findChrome();
   if (!bin) throw Object.assign(new Error('Chrome not found'), { hint: 'install Google Chrome or set CHROME_BIN' });
   // a random start inside the range: test files run in parallel, and two Chromes racing for one free port
@@ -135,11 +160,7 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
   const base = Number(process.env.STUDIO_CHROME_PORT ?? 9370), span = Number(process.env.STUDIO_CHROME_SPAN ?? 0);
   const port = span > 0 ? await freePort(base + Math.floor(Math.random() * span), base + span - 1).catch(() => freePort(base, base + span - 1)) : await freePort(base + Math.floor(Math.random() * 30), base + 50);
   const profile = newProfile();
-  const browser = spawnBrowser(bin, [
-    '--headless=new', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-    `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${size.width},${size.height}`,
-    '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', 'about:blank',
-  ], profile);
+  const browser = spawnBrowser(bin, browserArgs(size, port, profile, opts), profile);
   const limit = opts.timeoutMs ?? Number(process.env.STUDIO_PAGE_TIMEOUT_MS ?? 0);
   let timer: NodeJS.Timeout | undefined;
   let ws: WebSocket | null = null;
@@ -187,16 +208,23 @@ export async function withPage<T>(url: string, size: { width: number; height: nu
         return r.result.value;
       },
       async touch(type: 'touchStart' | 'touchMove' | 'touchEnd', points: Array<{ x: number; y: number; id?: number }>) { await send('Input.dispatchTouchEvent', { type, touchPoints: points.map((q, k) => ({ x: q.x, y: q.y, id: q.id ?? k })) }); },
-      async screenshot(o: { format?: 'png' | 'jpeg'; quality?: number } = {}) {
-        const r = await send('Page.captureScreenshot', { format: o.format ?? 'png', ...(o.format === 'jpeg' ? { quality: o.quality ?? 85 } : {}), captureBeyondViewport: false });
+      async screenshot(o: { format?: 'png' | 'jpeg'; quality?: number; clip?: { x: number; y: number; width: number; height: number; scale?: number } } = {}) {
+        const r = await send('Page.captureScreenshot', { format: o.format ?? 'png', ...(o.format === 'jpeg' ? { quality: o.quality ?? 85 } : {}), ...(o.clip ? { clip: { scale: 1, ...o.clip } } : {}), captureBeyondViewport: false });
         return Buffer.from(r.data, 'base64');
       },
+      async mouse(type, x, y) { await send('Input.dispatchMouseEvent', { type, x, y, button: type === 'mouseMoved' ? 'none' : 'left', clickCount: type === 'mouseMoved' ? 0 : 1 }); },
+      async click(x, y) { await page.mouse('mouseMoved', x, y); await page.mouse('mousePressed', x, y); await page.mouse('mouseReleased', x, y); },
+      async navigate(to) { await send('Page.navigate', { url: to }); await loaded(); },
+      renderer() { return page.eval(`(() => { const c = document.createElement('canvas').getContext('webgl2'); const e = c && c.getExtension('WEBGL_debug_renderer_info'); return e ? String(c.getParameter(e.UNMASKED_RENDERER_WEBGL)) : 'unknown'; })()`); },
     };
     // wait for the document to exist before handing over
-    for (let i = 0; i < 100; i++) {
-      try { if ((await page.eval('document.readyState', 2000)) === 'complete') break; } catch { /* navigating */ }
-      await new Promise((r) => setTimeout(r, 100));
-    }
+    const loaded = async () => {
+      for (let i = 0; i < 100; i++) {
+        try { if ((await page.eval('document.readyState', 2000)) === 'complete') break; } catch { /* navigating */ }
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    };
+    await loaded();
     if (!(limit > 0)) return await fn(page);
     return await Promise.race([fn(page), new Promise<never>((_, j) => { timer = setTimeout(() => j(new Error(`page timed out after ${limit} ms`)), limit); })]);
   } finally {

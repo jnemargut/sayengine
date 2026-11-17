@@ -39,14 +39,25 @@ export async function serve<T>(dir: string, fn: (url: string) => Promise<T>): Pr
   try { return await fn(`http://127.0.0.1:${port}/`); } finally { server.close(); }
 }
 
+/** What to do when a headless run is out of time. A known trap: the same run that passes in the foreground can time out started from a background job. */
+export const SLOW_HINT = 'Headless Chrome draws in software, at about a tenth of real time, and two Chromes at once starve each other. Run it alone and in the foreground (the same run has timed out when started from a background job), ask for fewer --seconds, or raise the limit: --timeout <seconds> or STUDIO_GAME_TIMEOUT_MS.';
+
 /** Bundle, serve, open in headless Chrome, run one harness command; screenshots are written as PNGs. */
-export async function webCommand(dir: string, cmd: Record<string, any>, opts: { size?: number } = {}) {
+export async function webCommand(dir: string, cmd: Record<string, any>, opts: { size?: number; timeoutMs?: number } = {}) {
   const b = await bundle(dir);
   if (!b.ok) return { ok: false, error: 'the game did not compile', errors: b.errors, warnings: b.warnings };
   const w = Math.round(opts.size ?? 960), h = Math.round(w * 0.625);
+  // one limit for both waits when it is given (the flag, or the environment); else 60 s to load and 300 s to run
+  const limit = opts.timeoutMs ?? (Number(process.env.STUDIO_GAME_TIMEOUT_MS ?? 0) || undefined);
+  const readyMs = limit ?? 60000, runMs = limit ?? 300000;
   return serve(dir, (url) => withPage(url + 'index.html', { width: w, height: h }, async (page) => {
-    const ready = await page.eval(`Promise.race([window.__studio?.ready ?? Promise.reject(new Error('no harness: src/main.ts must call installHarness(start())')), new Promise((_, j) => setTimeout(() => j(new Error('game did not become ready in 60 s')), 60000))]).then(() => true, (e) => String(e && e.message || e))`, 90000);
-    if (ready !== true) return { ok: false, error: String(ready), errors: page.logs.filter((l) => l.level === 'error').map((l) => l.text), warnings: page.logs.filter((l) => l.level === 'warning').map((l) => l.text) };
+    const problems = () => ({ errors: page.logs.filter((l) => l.level === 'error').map((l) => l.text), warnings: page.logs.filter((l) => l.level === 'warning').map((l) => l.text) });
+    let ready: any;
+    try {
+      ready = await page.eval(`Promise.race([window.__studio?.ready ?? Promise.reject(new Error('no harness: src/main.ts must call installHarness(start())')), new Promise((_, j) => setTimeout(() => j(new Error('timed out')), ${readyMs}))]).then(() => true, (e) => String(e && e.message || e))`, readyMs + 30000);
+    } catch (e: any) { ready = /timed out/.test(e.message) ? 'timed out' : e.message; }
+    if (ready === 'timed out') return { ok: false, error: `the game did not become ready in ${Math.round(readyMs / 1000)} s`, hint: SLOW_HINT, ...problems() };
+    if (ready !== true) return { ok: false, error: String(ready), ...problems() };
     if (cmd.cmd === 'page') {
       // the whole page as the player sees it: stage the game (camera, UI, effects), let it draw, capture
       const st = await page.eval(`window.__studio.run(${JSON.stringify({ ...cmd, cmd: 'stage' })})`, 180000);
@@ -56,7 +67,9 @@ export async function webCommand(dir: string, cmd: Record<string, any>, opts: { 
       const errors = page.logs.filter((l) => l.level === 'error').map((l) => l.text);
       return { ok: st?.ok !== false && !st?.error, error: st?.error, result: { images: [{ view: 'page', file, ok: true }] }, warnings: [...b.warnings, ...page.logs.filter((l) => l.level === 'warning').map((l) => l.text)], errors };
     }
-    const raw = await page.eval(`window.__studio.run(${JSON.stringify(cmd)})`, 300000);
+    let raw: any;
+    try { raw = await page.eval(`window.__studio.run(${JSON.stringify(cmd)})`, runMs); }
+    catch (e: any) { if (!/timed out/.test(e.message)) throw e; return { ok: false, error: `game ${cmd.cmd} was not done after ${Math.round(runMs / 1000)} s`, hint: SLOW_HINT, ...problems() }; }
     const { ok, error, ...result } = raw ?? { ok: false, error: 'no result' };
     if (Array.isArray(result.images)) result.images = writeImages(dir, cmd.prefix ?? `${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}-${cmd.cmd}`, result.images);
     if (Array.isArray(result.frames) && typeof cmd.frames === 'string') {

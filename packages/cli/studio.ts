@@ -74,6 +74,9 @@ ${DAEMON_TOOLS.map((t) => `  ${t.name.padEnd(17)} ${t.description}`).join('\n')}
   game screenshot   Render the running game; returns PNG paths to Read.
   game walk-to      Play-test: walk a capsule player to an object; reached / blocked / path.
   game test         Engine-side assertions (exists, grounded, on, count, reachable) + test scripts.
+  game scene-check  Measure a scripted scene's motion per beat (teleports, snap turns, shake, pops, glide,
+                    foot slide, reach, camera); strips and a film with --pictures; a real GPU with --gpu.
+  game capture      Frames of a web game at a fixed step (film + strip), headless or on the real GPU.
   game status       Game projects here and which engines are available.`);
     return;
   }

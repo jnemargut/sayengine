@@ -21,6 +21,7 @@ import { frameStats, parity, sideBySide } from './fxreview.ts';
 import type { GameData } from '../../core/src/gamedata.ts';
 export { writeGameData, quarksJSON, quarksGroup, parseQuarks, loadQuarks, QUARKS_VERSION } from './effects.ts';
 export { frameStats, parity } from './fxreview.ts';
+export { analyseScene, sceneText, compareScenes, SCENE_LIMITS, type SceneStep, type SceneBody, type SceneReport, type SceneCheck } from './scenecheck.ts';
 
 export interface GameContext {
   studioDir: string;
@@ -77,6 +78,22 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
       let scores: any = null;
       if (ctx.studioCall && Object.keys(r.masks ?? {}).length) { const sc = await ctx.studioCall('ui-score-icons', { masks: r.masks }); scores = sc.result?.scores ?? sc.error; }
       return out({ ok: true, result: { png: r.png, sheet: r.sheet, scores }, note: 'Read the PNG to look at the kit.' });
+    }
+    if (tool.name === 'game-scene-check' && args.trace) {
+      // a saved trace needs no engine: analyse it again (after a change to the limits, or from another engine)
+      const { analyseScene, sceneText, compareScenes } = await import('./scenecheck.ts');
+      const file = path.resolve(ctx.studioDir, String(args.trace));
+      if (!fs.existsSync(file)) return out({ ok: false, error: `no trace ${args.trace}` });
+      const rep = analyseScene(JSON.parse(fs.readFileSync(file, 'utf8')), 1 / Number(args.fps ?? 30), parseJson(args.limits) ?? {});
+      const before = args.against ? JSON.parse(fs.readFileSync(path.resolve(ctx.studioDir, String(args.against)), 'utf8')) : null;
+      return out({ ok: rep.pass, result: { pass: rep.pass, steps: rep.steps, seconds: rep.secs, fails: rep.fails, totals: rep.totals, beats: rep.beats, text: sceneText(rep, String(args.label ?? path.basename(file))), ...(before ? { compare: compareScenes(before, rep) } : {}) }, ...(rep.pass ? {} : { error: `${rep.fails.length} motion check(s) failed` }) });
+    }
+    if ((tool.name === 'game-scene-check' || tool.name === 'game-capture') && args.dir) {
+      // a built folder served as it is (a static release): no project, no bundle
+      const folder = path.resolve(ctx.studioDir, String(args.dir));
+      if (!fs.existsSync(path.join(folder, 'index.html'))) return out({ ok: false, error: `no index.html in ${args.dir}` });
+      // (its pictures go to the studio's scratch folder, never into the folder you ship)
+      return out(await web.serve(folder, (url) => scenePlay(tool.name, args, url, (sub) => path.join(ctx.studioDir, '.studio', `game-${sub}`), ctx.studioDir)));
     }
     const { dir, config } = resolveProject(ctx.studioDir, args.project);
     const project = path.relative(ctx.studioDir, dir) || '.';
@@ -144,8 +161,15 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
       }
       case 'game-run': {
         const seconds = Number(args.seconds ?? 3);
-        const r = config.engine === 'godot' ? await godot.runnerCommand(dir, { cmd: 'run', seconds }) : await web.webCommand(dir, { cmd: 'run', seconds });
+        const r = config.engine === 'godot' ? await godot.runnerCommand(dir, { cmd: 'run', seconds }) : await web.webCommand(dir, { cmd: 'run', seconds }, { timeoutMs: args.timeout ? Number(args.timeout) * 1000 : undefined });
         return out({ ...base, ...r });
+      }
+      case 'game-scene-check':
+      case 'game-capture': {
+        if (config.engine !== 'web') return out({ ok: false, ...base, error: `game ${tool.name.slice(5)} plays web games`, hint: tool.name === 'game-scene-check' ? 'for another engine, record the probe yourself and analyse it: studio game scene-check --trace trace.json' : 'Godot: studio reel capture (movie mode)' });
+        const b = await web.bundle(dir);
+        if (!b.ok) return out({ ok: false, ...base, error: 'the game did not compile', errors: b.errors });
+        return out({ ...base, ...(await web.serve(dir, (url) => scenePlay(tool.name, args, url, (sub) => workDir(dir, sub), ctx.studioDir))) });
       }
       case 'game-screenshot': {
         const size = Number(args.size ?? 960);
@@ -271,6 +295,33 @@ export async function runGame(name: string, args: Record<string, any>, ctx: Game
   } catch (e: any) {
     return out({ ok: false, error: e.message, ...(e.hint ? { hint: e.hint } : {}) });
   }
+}
+
+const parseJson = (v: any) => (typeof v === 'string' ? JSON.parse(v) : v);
+
+/** scene-check and capture against a served folder: play at a fixed step, write the reports and pictures. */
+async function scenePlay(tool: string, args: Record<string, any>, url: string, work: (sub: string) => string, studioDir: string) {
+  const { playScene, captureFrames } = await import('./sceneplay.ts');
+  const { compareScenes } = await import('./scenecheck.ts');
+  const m = String(args.size ?? '960x540').match(/^(\d+)x(\d+)$/);
+  if (!m) return { ok: false, error: '--size is WxH, e.g. 960x540' };
+  const flag = (v: any) => v === true || v === 'true';
+  const label = String(args.label ?? 'run').replace(/[^\w.-]+/g, '-');
+  const o = { url: `${url}index.html${args.query ? `?${String(args.query).replace(/^\?/, '')}` : ''}`, width: Number(m[1]), height: Number(m[2]), fps: Number(args.fps ?? 30), step: args.step, start: args.start, ready: args.ready, gpu: flag(args.gpu) };
+  if (tool === 'game-capture') {
+    const outDir = args.out ? path.resolve(studioDir, String(args.out)) : path.join(work('capture'), stamp());
+    const r = await captureFrames({ ...o, seconds: Number(args.seconds ?? 5), every: Number(args.every ?? 1), out: outDir });
+    return { ok: !r.errors.length, result: r, ...(r.errors.length ? { error: `${r.errors.length} page error(s) while capturing`, errors: r.errors } : {}), note: `${r.gpu ? 'Drawn by' : 'Software headless'}: ${r.renderer}. Read the strip.` };
+  }
+  const outDir = args.out ? path.resolve(studioDir, String(args.out)) : path.join(work('scene'), label);
+  const r = await playScene({ ...o, seconds: Number(args.seconds ?? 180), wait: Number(args.wait ?? 20), inputs: parseJson(args.inputs), limits: parseJson(args.limits), pictures: flag(args.pictures), out: outDir, label: `${label} ${m[0]}` });
+  const before = args.against ? JSON.parse(fs.readFileSync(path.resolve(studioDir, String(args.against)), 'utf8')) : null;
+  return {
+    ok: r.report.pass,
+    result: { pass: r.report.pass, steps: r.report.steps, seconds: r.report.secs, fails: r.report.fails, totals: r.report.totals, renderer: r.renderer, trace: r.trace, report: r.reportFile, text: path.join(outDir, 'report.txt'), strips: r.strips, film: r.film, ...(before ? { compare: compareScenes(before, r.report) } : {}), ...(r.notes.length ? { notes: r.notes } : {}) },
+    ...(r.report.pass ? {} : { error: `${r.report.fails.length} motion check(s) failed` }),
+    note: r.strips.length ? 'Read the strips: numbers find the step, pictures show what it looks like.' : 'Numbers only. --pictures true (with --gpu true) writes strips and a film to look at.',
+  };
 }
 
 /** A camera framing one object for a page capture, from the scene GLB's node bounds. */

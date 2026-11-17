@@ -104,7 +104,8 @@ export function sampleClips(g: Gltf, fps = 30): ClipSamples[] {
   return out;
 }
 
-const ranges = (bad: boolean[]): Array<[number, number]> => {
+/** Runs of true as inclusive [first, last] index ranges (the failing-frame ranges of a check). */
+export const ranges = (bad: boolean[]): Array<[number, number]> => {
   const out: Array<[number, number]> = [];
   let s = -1;
   bad.forEach((b, i) => { if (b && s < 0) s = i; if (!b && s >= 0) { out.push([s, i - 1]); s = -1; } });
